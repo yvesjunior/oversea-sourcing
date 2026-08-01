@@ -1,0 +1,42 @@
+# Development stack — hot-reloading web app with source mounted from the host.
+# Usage: docker compose -f docker-compose.dev.yml up
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: infra/Docker/web.Dockerfile
+      target: deps # dev runs the Vite dev server from the installed deps
+    command: npm run dev
+    working_dir: /app
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=development
+    ports:
+      # Vite dev server binds 8080 (Lovable sandbox config), not 3000.
+      - "${WEB_PORT:-8080}:8080"
+    volumes:
+      - ./:/app
+      - /app/node_modules # keep the image's node_modules, don't shadow with host
+    # depends_on:
+    #   - database
+
+  # ── database ────────────────────────────────────────────────────────────────
+  # TODO: engine not decided yet (see src/database/README.md). Example scaffold:
+  # database:
+  #   image: postgres:16-alpine
+  #   restart: unless-stopped
+  #   env_file:
+  #     - .env
+  #   environment:
+  #     - POSTGRES_USER=${POSTGRES_USER}
+  #     - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+  #     - POSTGRES_DB=${POSTGRES_DB}
+  #   ports:
+  #     - "${DB_PORT:-5432}:5432"
+  #   volumes:
+  #     - osi-db-data:/var/lib/postgresql/data
+
+# volumes:
+#   osi-db-data:

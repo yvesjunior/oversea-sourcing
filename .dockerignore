@@ -1,0 +1,16 @@
+node_modules
+.output
+.nitro
+.vinxi
+.tanstack
+.wrangler
+dist
+dist-ssr
+.git
+.env
+*.local
+*.log
+.DS_Store
+os-3.png
+osi-2.png
+osi.PNG

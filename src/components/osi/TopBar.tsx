@@ -1,0 +1,60 @@
+import { useState } from "react";
+import { Bell, Download, Globe, Menu } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import { STORAGE_KEY, resolveLanguage } from "@/i18n/config";
+import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { AppSidebar } from "./AppSidebar";
+
+export function TopBar() {
+  const { t, i18n } = useTranslation();
+  const [menuOuvert, setMenuOuvert] = useState(false);
+  const current = resolveLanguage(i18n.language);
+
+  const toggleLangue = () => {
+    const next = current === "fr" ? "en" : "fr";
+    void i18n.changeLanguage(next);
+    window.localStorage.setItem(STORAGE_KEY, next);
+    document.documentElement.lang = next;
+  };
+
+  return (
+    <div className="flex items-center gap-5 px-8 pt-6 text-muted-foreground">
+      <Sheet open={menuOuvert} onOpenChange={setMenuOuvert}>
+        <SheetTrigger
+          aria-label={t("topbar.openMenu")}
+          className="transition-colors hover:text-foreground md:hidden"
+        >
+          <Menu className="size-[18px]" />
+        </SheetTrigger>
+        <SheetContent side="left" className="w-[248px] border-0 p-0">
+          <SheetTitle className="sr-only">{t("topbar.navTitle")}</SheetTitle>
+          <AppSidebar onNavigate={() => setMenuOuvert(false)} />
+        </SheetContent>
+      </Sheet>
+
+      <div className="ml-auto flex items-center gap-5">
+        <button
+          aria-label={t("topbar.downloads")}
+          className="transition-colors hover:text-foreground"
+        >
+          <Download className="size-[18px]" />
+        </button>
+        <button
+          onClick={toggleLangue}
+          aria-label={t("topbar.switchLanguage")}
+          className="flex items-center gap-2 text-xs font-semibold uppercase transition-colors hover:text-foreground"
+        >
+          <Globe className="size-[18px]" />
+          {current}
+        </button>
+        <button
+          aria-label={t("topbar.notifications")}
+          className="relative transition-colors hover:text-foreground"
+        >
+          <Bell className="size-[18px]" />
+          <span className="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-gold" />
+        </button>
+      </div>
+    </div>
+  );
+}

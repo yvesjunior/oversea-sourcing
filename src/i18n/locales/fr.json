@@ -1,0 +1,191 @@
+{
+  "brand": { "tagline": "Oversea Sourcing Intelligence" },
+  "nav": {
+    "accueil": "Accueil",
+    "demandes": "Demandes",
+    "fournisseurs": "Fournisseurs",
+    "transactions": "Transactions",
+    "partenaires": "Partenaires",
+    "documents": "Documents",
+    "analyses": "Analyses",
+    "parametres": "Paramètres"
+  },
+  "user": { "role": "Administrateur" },
+  "topbar": {
+    "downloads": "Téléchargements",
+    "notifications": "Notifications",
+    "openMenu": "Ouvrir le menu",
+    "navTitle": "Navigation OSI",
+    "switchLanguage": "Changer de langue"
+  },
+  "home": {
+    "greeting": "Bonjour {{name}},",
+    "heroTitle": "Que souhaitez-vous approvisionner aujourd’hui ?",
+    "placeholder": "Décrivez votre besoin en détail...",
+    "voice": "Dictée vocale",
+    "attach": "Joindre un fichier",
+    "addPlan": "Ajouter un plan",
+    "launch": "Lancer l’analyse IA",
+    "recent": "Vos dossiers récents",
+    "seeAll": "Voir tout",
+    "visionTitle": "Design axé sur notre vision"
+  },
+  "stats": {
+    "activeRequests": "Demandes actives",
+    "evaluatedSuppliers": "Fournisseurs évalués",
+    "ongoingTransactions": "Transactions en cours",
+    "savings": "Économies générées",
+    "thisWeek": "cette semaine",
+    "thisMonth": "ce mois-ci"
+  },
+  "values": {
+    "intelligent": { "title": "Intelligent", "text": "L’IA vous accompagne à chaque étape" },
+    "confiance": { "title": "Confiance", "text": "Fournisseurs vérifiés et évalués" },
+    "simplicite": { "title": "Simplicité", "text": "Interface épurée et intuitive" },
+    "securite": { "title": "Sécurité", "text": "Vos données sont protégées" },
+    "efficacite": { "title": "Efficacité", "text": "Tout votre approvisionnement au même endroit" }
+  },
+  "statuses": {
+    "En analyse": "En analyse",
+    "Validation fournisseur": "Validation fournisseur",
+    "Rapport prêt": "Rapport prêt",
+    "Recherche terminée": "Recherche terminée"
+  },
+  "risk": { "Faible": "Faible", "Moyen": "Moyen", "Élevé": "Élevé" },
+  "countries": {
+    "DE": "Allemagne",
+    "SE": "Suède",
+    "US": "États-Unis",
+    "CN": "Chine",
+    "IT": "Italie"
+  },
+  "time": {
+    "min15": "Il y a 15 min",
+    "h1": "Il y a 1 h",
+    "h3": "Il y a 3 h",
+    "h5": "Il y a 5 h",
+    "yesterday": "Hier"
+  },
+  "dossier": {
+    "status": "Statut",
+    "compatibility": "Compatibilité",
+    "updated": "Mis à jour"
+  },
+  "dossiers": {
+    "2541": "Pompes industrielles inox",
+    "2540": "Composants électroniques",
+    "2539": "Machines CNC",
+    "2538": "Emballage alimentaire",
+    "2537": "Roulements haute charge",
+    "2536": "Textiles techniques"
+  },
+  "demandes": {
+    "title": "Demandes",
+    "subtitle_one": "{{count}} dossier d’approvisionnement en cours",
+    "subtitle_other": "{{count}} dossiers d’approvisionnement en cours"
+  },
+  "detail": {
+    "back": "Retour",
+    "requestNo": "Demande #{{id}}",
+    "viewReport": "Voir le rapport",
+    "progressTitle": "Suivi de l’avancement",
+    "analysisInProgress": "Analyse IA en cours",
+    "analysisOngoing": "Analyse en cours...",
+    "top5": "Top 5 fournisseurs les plus compatibles",
+    "analyzed": "{{count}} fournisseurs analysés",
+    "compatibility": "Compatibilité",
+    "confidence": "Score confiance",
+    "outOf100": "/100",
+    "risk": "Risque",
+    "compare": "Comparer",
+    "resultsNote": "Ces résultats sont basés sur 32 critères de compatibilité OSI",
+    "assistant": "Assistant IA OSI",
+    "chatUnderstood": "J’ai bien compris votre besoin. Voici les points clés :",
+    "chatMore": "Souhaitez-vous ajouter ou modifier quelque chose ?",
+    "chatUser": "Oui, ajouter certification ATEX et préférence pour un fournisseur en Europe.",
+    "chatRelaunch": "Parfait, je relance la recherche avec ces nouveaux critères.",
+    "chatPlaceholder": "Posez une question à l’IA...",
+    "send": "Envoyer"
+  },
+  "stepsFlux": {
+    "received": "Demande reçue",
+    "analysis": "Analyse IA",
+    "search": "Recherche mondiale",
+    "validation": "Validation",
+    "report": "Rapport"
+  },
+  "criteria": {
+    "material": "Matériau : Acier inoxydable 316",
+    "flow": "Débit : 50 à 100 m³/h",
+    "pressure": "Pression : 10 à 16 bar",
+    "certifications": "Certifications : ISO, CE, UL",
+    "quantity": "Quantité annuelle : 500 unités",
+    "delivery": "Délai de livraison : 30 jours max"
+  },
+  "stepsDemande": {
+    "received": { "title": "Demande reçue", "detail": "15 mai 2024 - 09:14" },
+    "analysis": { "title": "Analyse IA", "detail": "15 mai 2024 - 09:36" },
+    "search": { "title": "Recherche mondiale", "detail": "En cours..." },
+    "validation": { "title": "Validation fournisseur", "detail": "En attente" },
+    "report": { "title": "Rapport final", "detail": "En attente" }
+  },
+  "fournisseurs": {
+    "title": "Fournisseurs",
+    "subtitle": "{{count}} fournisseurs évalués par l’IA OSI",
+    "compatibility": "Compatibilité",
+    "confidence": "Score confiance",
+    "outOf100": "/100",
+    "risk": "Risque",
+    "compare": "Comparer"
+  },
+  "transactions": {
+    "title": "Transactions",
+    "inProgress": "En cours",
+    "txTitle": "Transaction #T-2024-1587",
+    "txSubtitle": "Pompes industrielles inox — AQUATEK Solutions",
+    "fabProgress": "Progression fabrication",
+    "viewDocs": "Voir tous les documents"
+  },
+  "stepsTransaction": {
+    "order": { "title": "Commande confirmée", "detail": "12 mai 2024" },
+    "payment": { "title": "Paiement sécurisé", "detail": "12 mai 2024 — 25 000 $ USD" },
+    "fabrication": { "title": "Fabrication", "detail": "En cours — 65 %" },
+    "inspection": { "title": "Inspection qualité", "detail": "En attente" },
+    "shipping": { "title": "Expédition", "detail": "En attente" },
+    "customs": { "title": "Douanes", "detail": "En attente" },
+    "delivery": { "title": "Livraison prévue", "detail": "26 juin 2024" }
+  },
+  "analyses": {
+    "title": "Analyses",
+    "thisMonth": "Ce mois-ci",
+    "vsLastMonth": "vs mois dernier",
+    "spendDistribution": "Répartition des dépenses",
+    "mainCategories": "Catégories principales"
+  },
+  "kpis": {
+    "totalSpend": "Dépenses totales",
+    "savings": "Économies générées",
+    "transactions": "Transactions",
+    "activeSuppliers": "Fournisseurs actifs"
+  },
+  "regions": {
+    "asia": "Asie",
+    "europe": "Europe",
+    "northAmerica": "Amérique du Nord",
+    "others": "Autres"
+  },
+  "categories": {
+    "machines": "Machines",
+    "components": "Composants",
+    "electronics": "Électronique",
+    "others": "Autres"
+  },
+  "empty": {
+    "documentsTitle": "Documents",
+    "documentsText": "Contrats, certificats et rapports d’inspection seront regroupés ici.",
+    "partenairesTitle": "Partenaires",
+    "partenairesText": "Vos partenaires d’inspection, de transport et de financement apparaîtront ici.",
+    "parametresTitle": "Paramètres",
+    "parametresText": "Profil, équipe, langue et règles de sourcing seront configurables ici."
+  }
+}
