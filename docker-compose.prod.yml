@@ -14,7 +14,8 @@ services:
       - NODE_ENV=production
       - PORT=3000
     ports:
-      - "${WEB_PORT:-3000}:3000"
+      # Host 3010 → container 3000. Override with WEB_PORT=<port> if needed.
+      - "${WEB_PORT:-3010}:3000"
     # depends_on:
     #   - database
 

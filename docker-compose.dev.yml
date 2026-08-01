@@ -14,7 +14,7 @@ services:
     environment:
       - NODE_ENV=development
     ports:
-      # Vite dev server binds 8080 (Lovable sandbox config), not 3000.
+      # Vite dev server binds 8080 (Lovable sandbox config). Host 8080 → container 8080.
       - "${WEB_PORT:-8080}:8080"
     volumes:
       - ./:/app

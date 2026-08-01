@@ -1,12 +1,11 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # OSI — web app (TanStack Start · Vite · Nitro SSR)
 #
-# NOTE ON DEPLOY TARGET (undecided — left as a TODO):
-# `npm run build` currently targets Cloudflare Workers (see vite.config.ts / the
-# Lovable vite plugin). To run as a standalone Node container, the build must use
-# Nitro's "node-server" preset, e.g. build with `NITRO_PRESET=node-server`.
-# Until the target is locked in, the `runtime` stage below assumes a Node output
-# at .output/server/index.mjs.
+# DEPLOY TARGET: standalone Node container.
+# The Lovable vite plugin defaults Nitro to the Cloudflare Workers preset, so the
+# build is forced to Nitro's "node-server" preset below, producing a Node entry at
+# .output/server/index.mjs. NODE_ENV=production is set explicitly — without it, a
+# dev-mode JSX runtime leaks into the SSR bundle and crashes rendering at runtime.
 # ─────────────────────────────────────────────────────────────────────────────
 FROM node:22-alpine AS base
 WORKDIR /app
@@ -16,11 +15,11 @@ FROM base AS deps
 COPY package.json package-lock.json* ./
 RUN npm ci
 
-# ── build: compile the SSR bundle ───────────────────────────────────────────
+# ── build: compile the SSR bundle (standalone Node output) ───────────────────
 FROM deps AS build
+ENV NODE_ENV=production
+ENV NITRO_PRESET=node-server
 COPY . .
-# TODO: enable when standalone Node output is required:
-# ENV NITRO_PRESET=node-server
 RUN npm run build
 
 # ── runtime: minimal production image ───────────────────────────────────────

@@ -31,8 +31,8 @@ gitignored `.env.local` for local secret overrides.
 # Dev — hot-reload, source mounted, http://localhost:8080
 docker compose -f docker-compose.dev.yml up --build
 
-# Prod — built image
-docker compose -f docker-compose.prod.yml up --build
+# Prod — built Node image (standalone), serves on host port 3010
+docker compose -f docker-compose.prod.yml up -d --build
 ```
 
 ## Internationalization
