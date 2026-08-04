@@ -280,5 +280,11 @@
   "facilitation": {
     "tabAll": "All files",
     "tabMine": "My files"
+  },
+  "interne": {
+    "title": "Internal area",
+    "facilitationCount_one": "{{count}} buyer file",
+    "facilitationCount_other": "{{count}} buyer files",
+    "soon": "Coming soon"
   }
 }

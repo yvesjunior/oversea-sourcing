@@ -5,9 +5,10 @@ import { HeroPrompt } from "@/components/osi/HeroPrompt";
 import { StatCard } from "@/components/osi/StatCard";
 import { DossierCard } from "@/components/osi/DossierCard";
 import { EmptyRequests } from "@/components/osi/EmptyRequests";
+import { InterneSection } from "@/components/osi/InterneSection";
 import { statsConfig, valeurs } from "@/data/osi";
 import { getMyRequestsFn } from "@/lib/requests-fns";
-import { getDashboardStatsFn } from "@/lib/stats-fns";
+import { getDashboardStatsFn, getOpsSummaryFn } from "@/lib/stats-fns";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -29,8 +30,12 @@ export const Route = createFileRoute("/")({
   }),
   // Real per-user data (zeros/empty when anonymous — the page stays public).
   loader: async () => {
-    const [stats, demandes] = await Promise.all([getDashboardStatsFn(), getMyRequestsFn()]);
-    return { stats, demandes };
+    const [stats, demandes, ops] = await Promise.all([
+      getDashboardStatsFn(),
+      getMyRequestsFn(),
+      getOpsSummaryFn(),
+    ]);
+    return { stats, demandes, ops };
   },
   component: Accueil,
 });
@@ -40,8 +45,9 @@ function Accueil() {
   // Public route: anonymous visitors see the hero + value props; logged-in
   // users get their personal dashboard (doc/BACKLOG.md — public landing).
   const { session } = Route.useRouteContext();
-  const { stats, demandes } = Route.useLoaderData();
+  const { stats, demandes, ops } = Route.useLoaderData();
   const loggedIn = Boolean(session);
+  const platformRole = (session?.user as { platformRole?: string } | undefined)?.platformRole;
 
   return (
     <div className="flex flex-1 flex-col gap-12">
@@ -58,6 +64,8 @@ function Accueil() {
           />
         ))}
       </section>
+
+      {loggedIn && <InterneSection platformRole={platformRole} ops={ops} />}
 
       {loggedIn && (
         <section>

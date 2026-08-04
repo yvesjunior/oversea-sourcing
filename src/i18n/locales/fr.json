@@ -280,5 +280,11 @@
   "facilitation": {
     "tabAll": "Tous les dossiers",
     "tabMine": "Mes dossiers"
+  },
+  "interne": {
+    "title": "Espace interne",
+    "facilitationCount_one": "{{count}} dossier acheteur",
+    "facilitationCount_other": "{{count}} dossiers acheteurs",
+    "soon": "Bientôt disponible"
   }
 }

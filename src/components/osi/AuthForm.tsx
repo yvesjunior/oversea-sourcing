@@ -90,6 +90,27 @@ export function AuthForm({
     void authClient.signIn.social({ provider: "google", callbackURL: target });
   };
 
+  // Dev-only connection facilitator: one-click sign-in as any seeded demo
+  // account. `import.meta.env.DEV` is compiled out of production builds.
+  const quickLogin = async (demoEmail: string) => {
+    setError(null);
+    setPending(true);
+    try {
+      const result = await authClient.signIn.email({
+        email: demoEmail,
+        password: "osi-demo-1234",
+      });
+      if (result.error) {
+        setError(t("auth.errorGeneric"));
+        return;
+      }
+      await router.invalidate();
+      await router.navigate({ to: target });
+    } finally {
+      setPending(false);
+    }
+  };
+
   return (
     <div className="card-surface w-full max-w-md p-8">
       <div className="text-center">
@@ -166,6 +187,29 @@ export function AuthForm({
             <GoogleIcon /> {t("auth.google")}
           </Button>
         </>
+      )}
+
+      {import.meta.env.DEV && mode === "signin" && (
+        <div className="mt-6 rounded-xl border border-dashed border-border p-4">
+          <p className="text-center text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+            Connexion rapide — dev
+          </p>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            {["buyer", "manager", "accountant", "owner"].map((compte) => (
+              <Button
+                key={compte}
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={pending}
+                onClick={() => void quickLogin(`${compte}@osi.dev`)}
+                className="capitalize"
+              >
+                {compte}
+              </Button>
+            ))}
+          </div>
+        </div>
       )}
 
       <p className="mt-6 text-center text-sm text-muted-foreground">
