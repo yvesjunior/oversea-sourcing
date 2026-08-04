@@ -70,7 +70,8 @@ npm run db:studio     # browse the dev database (drizzle-kit studio)
 # Seed demo accounts (dev only) — password: osi-demo-1234
 docker compose -f docker-compose.dev.yml exec web npm run db:seed
 # owner@osi.dev · manager@osi.dev · accountant@osi.dev (platform employees)
-# buyer@osi.dev (regular buyer)
+# buyer@osi.dev (regular buyer, seeded with 6 demo dossiers)
+# Dev builds show a one-click "Connexion rapide" box on /login for these accounts.
 ```
 
 Required secrets in `.env.local` (**prod**): `POSTGRES_PASSWORD`, `DATABASE_URL`,

@@ -87,10 +87,13 @@ role forbids: `owner`/`manager` see **all** sourcing dossiers platform-wide;
 domain is finance (transactions, E8). Policy centralized in `src/lib/roles.ts`
 (`canSeeAllRequests`).
 
-**Surface rule:** personal surfaces ("Vos dossiers récents", `/demandes`, dashboard
-stats) are **own-workspace for everyone** — employees included. Buyers' data shows up
-for employees only on the **Interne ops surfaces** (Facilitation lists every buyer
-dossier with a workspace badge) and via direct detail access (badge in the header).
+**Employee view pattern (implemented 2026-08-04):** every data surface for
+`owner`/`manager` splits into **"Vue globale"** (all buyers' data, workspace badges) and
+**"Mes données"** (their own) via the shared `EmployeeTabs` component — on the home
+dashboard (stats + dossiers récents move together), `/demandes` (real data both tabs),
+`/fournisseurs`, `/transactions`, `/documents` (showcase/placeholder under Vue globale,
+truthful empty state under Mes données until E4/E8), and `/interne/facilitation`.
+Buyers and `accountant` never see the tabs — own workspace only.
 
 **Public landing / auth gate (decided 2026-08-04):** the default page (`/`) requires
 **no login** — anonymous visitors see the hero prompt and value props and can type their
@@ -150,7 +153,7 @@ transactions…) requires login. Logged-in users see the personal dashboard on `
 - [x] Drizzle + drizzle-kit: schema layout in `src/database/`, migration workflow, `npm run db:migrate` / `db:seed`
 - [ ] API route structure under TanStack Start (`/api/*`), zod validation, typed error envelope
 - [ ] pg-boss bootstrap + worker entrypoint (same container, second process) — job: `echo` smoke test
-- [ ] Seed script: demo workspace, users per role, ~20 suppliers, 1 request in each status
+- [x] Seed script: demo accounts per role (named after the role) + 6 demo dossiers for the buyer — suppliers arrive with E4
 
 ### E1 — Auth & user management
 
@@ -165,6 +168,8 @@ transactions…) requires login. Logged-in users see the personal dashboard on `
 - [ ] User profile: name, locale (persist language server-side, sync with the existing toggle)
 - [ ] `platform_role` on users; guard helper `requireStaff()`
 - [ ] Rate limiting on auth endpoints
+- [x] Dev-only quick-login facilitator on /login (Buyer/Manager/Accountant/Owner — `import.meta.env.DEV`, compiled out of prod)
+- [x] Shell session from router context (no stale "Se connecter" after sign-in/out)
 
 ### E2 — Workspaces, roles & tenancy
 
@@ -184,8 +189,8 @@ transactions…) requires login. Logged-in users see the personal dashboard on `
 - [ ] Criteria review/edit UI (add/remove/edit before launching search)
 - [ ] **Per-request AI chat**: message → Claude with criteria context → optional criteria mutation + re-run
 - [ ] Pipeline orchestrator job: `analyzing → searching → validating → report_ready` with progress events
-- [ ] Wire demandes list + detail pages to real data (drop mock)
-- [ ] **Personal dashboard** (Accueil): real session user greeting, stats + "Vos dossiers
+- [x] Wire demandes list + detail pages to real data (drop mock) — `request` table (migration 0001), workspace-scoped queries; detail criteria/top-5/chat remain showcase until E3/E5
+- [x] **Personal dashboard** (Accueil): real session user greeting, stats + "Vos dossiers
       récents" scoped to the logged-in user, per-role workspace visibility
 - [ ] Activity feed: recent events across _my_ requests/engagements (from engagement_events + status changes)
 
@@ -210,6 +215,7 @@ transactions…) requires login. Logged-in users see the personal dashboard on `
 
 ### E6 — Facilitation (engagements) · the OSI moment
 
+- [x] Ops list view on `/interne/facilitation`: all buyer dossiers + Vue globale/Mes données tabs (engagement queue below still pending)
 - [ ] Engagement creation from a match (buyer clicks "Engager" on a Top-5 supplier)
 - [ ] Status machine + `engagement_events` timeline
 - [ ] Ops queue in admin: list, assign to ops user, transition statuses, add notes
