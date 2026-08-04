@@ -15,11 +15,13 @@ import { auth } from "../server/auth";
 
 const PASSWORD = "osi-demo-1234";
 
+// Named after their role on purpose — the dashboard greeting instantly tells
+// you which account you are testing with ("Bonjour Manager,").
 const comptes = [
-  { email: "owner@osi.dev", name: "Olivia Owner", platformRole: "owner" },
-  { email: "manager@osi.dev", name: "Marc Manager", platformRole: "manager" },
-  { email: "accountant@osi.dev", name: "Alice Accountant", platformRole: "accountant" },
-  { email: "buyer@osi.dev", name: "Henrik Karlsson", platformRole: "user" },
+  { email: "owner@osi.dev", name: "Owner", platformRole: "owner" },
+  { email: "manager@osi.dev", name: "Manager", platformRole: "manager" },
+  { email: "accountant@osi.dev", name: "Accountant", platformRole: "accountant" },
+  { email: "buyer@osi.dev", name: "Buyer", platformRole: "user" },
 ] as const;
 
 async function main() {
@@ -28,7 +30,12 @@ async function main() {
       where: eq(schema.user.email, compte.email),
     });
     if (existing) {
-      console.log(`= exists: ${compte.email}`);
+      // Converge existing accounts to the desired name/role (idempotent upsert).
+      await db
+        .update(schema.user)
+        .set({ name: compte.name, platformRole: compte.platformRole })
+        .where(eq(schema.user.email, compte.email));
+      console.log(`~ updated: ${compte.email} (${compte.name}, ${compte.platformRole})`);
       continue;
     }
     // Sign up through better-auth so password hashing and the personal
