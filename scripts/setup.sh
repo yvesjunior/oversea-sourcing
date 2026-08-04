@@ -37,5 +37,6 @@ fi
 
 echo
 echo "Done. Next steps:"
-echo "  ./scripts/dev.sh     # run the app locally (hot-reload) → http://localhost:8080"
+echo "  ./scripts/dev.sh     # run the app locally (hot-reload) → http://localhost:3010"
 echo "  ./scripts/prod.sh    # test the production image locally → http://localhost:3010"
+echo "  (dev and local-prod share port 3010 — run one at a time)"

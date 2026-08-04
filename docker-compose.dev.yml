@@ -14,8 +14,9 @@ services:
     environment:
       - NODE_ENV=development
     ports:
-      # Vite dev server binds 8080 (Lovable sandbox config). Host 8080 → container 8080.
-      - "${WEB_PORT:-8080}:8080"
+      # Same host port as prod (3010). Vite binds 8080 inside the container
+      # (Lovable sandbox config) — only the host mapping changes.
+      - "${WEB_PORT:-3010}:8080"
     volumes:
       - ./:/app
       - /app/node_modules # keep the image's node_modules, don't shadow with host

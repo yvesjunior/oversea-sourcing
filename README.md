@@ -17,8 +17,8 @@ single committed, secret-free [`.env`](.env); secrets live in a gitignored
 | Situation | Command |
 | --- | --- |
 | **New machine, first time** | `./scripts/setup.sh` — checks Docker, creates `.env.local` |
-| **Develop locally** (hot-reload) | `./scripts/dev.sh` → http://localhost:8080 |
-| **Test the prod image locally** | `./scripts/prod.sh` → http://localhost:3010 |
+| **Develop locally** (hot-reload) | `./scripts/dev.sh` → http://localhost:3010 |
+| **Test the prod image locally** | `./scripts/prod.sh` → http://localhost:3010 (stop dev first — same port) |
 | **Stop local stacks** | `./scripts/stop.sh [dev\|prod\|all]` (volumes kept) |
 | **Provision a (new) prod VM** | `./scripts/setup-vm.sh` — Docker check, clone, `.env.local` |
 | **Deploy to prod** | `./scripts/deploy.sh` — pull `main`, rebuild, restart, health-check |
@@ -61,7 +61,7 @@ enable-triggers in [doc/INFRA.md](doc/INFRA.md).
 ### Without Docker (plain Node)
 
 ```sh
-npm install && npm run dev    # http://localhost:8080
+npm install && npm run dev    # http://localhost:8080 (Vite's own port — Docker maps it to 3010)
 ```
 
 Other npm scripts: `build`, `preview`, `lint`, `format`.

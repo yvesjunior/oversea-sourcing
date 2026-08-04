@@ -12,7 +12,7 @@ DEPLOY_HOST="${DEPLOY_HOST:-yves@192.168.2.56}"
 DEPLOY_PATH="${DEPLOY_PATH:-/home/yves/workspace/apps/oversea-sourcing}"
 WEB_PORT="${WEB_PORT:-3010}"
 
-echo "── Local · dev (http://localhost:8080) ─────────────────────────"
+echo "── Local · dev (http://localhost:3010) ─────────────────────────"
 docker compose -f docker-compose.dev.yml ps 2>/dev/null | tail -n +1 || true
 
 echo
