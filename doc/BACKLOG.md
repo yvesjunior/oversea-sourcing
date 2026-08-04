@@ -61,6 +61,12 @@ erDiagram
 **Workspace roles:** `owner` (everything + delete workspace) · `admin` (members, settings)
 · `buyer` (create requests, select suppliers, engagements) · `viewer` (read-only).
 
+**Per-user dashboard (decided 2026-08-04):** after login every user lands on *their own*
+dashboard — greeting, stats, "Vos dossiers récents" and activity feed scoped to **them**
+(their requests + their engagements). Workspace-wide visibility follows the role
+(owner/admin see all workspace requests; buyer manages their own; viewer reads all).
+Signup creates a personal workspace, so solo users are fully isolated by construction.
+
 ### Requests (demandes)
 
 | Table | Key fields | Notes |
@@ -139,6 +145,9 @@ erDiagram
 - [ ] **Per-request AI chat**: message → Claude with criteria context → optional criteria mutation + re-run
 - [ ] Pipeline orchestrator job: `analyzing → searching → validating → report_ready` with progress events
 - [ ] Wire demandes list + detail pages to real data (drop mock)
+- [ ] **Personal dashboard** (Accueil): real session user greeting, stats + "Vos dossiers
+      récents" scoped to the logged-in user, per-role workspace visibility
+- [ ] Activity feed: recent events across *my* requests/engagements (from engagement_events + status changes)
 
 ### E4 — Supplier data platform
 - [ ] Supplier schema + satellites (capabilities, certifications, contacts) + provenance fields

@@ -79,7 +79,9 @@ flowchart LR
 
 ### Stage 3 — horizontal (only if the business demands it)
 
-- Container platform (managed containers / Swarm / K8s — decide then, not now)
+- Container orchestration: **Docker Swarm or a managed container service — explicitly
+  NOT Kubernetes** (decided 2026-08-04; ops overhead not worth it for this team).
+  Compose files translate to Swarm stacks almost as-is.
 - Extract on evidence: research-agent service, search service, AI gateway service
 - Read replica for analytics; CDN for static assets
 - Multi-region only if customers require it

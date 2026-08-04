@@ -8,53 +8,63 @@ Continue developing in the [Lovable editor](https://lovable.dev/projects/a2274c5
 Every change made in Lovable is committed straight to this repo; pushes to `main`
 sync back into Lovable.
 
-## Development
+## Scripts — how to proceed in each case
 
-### Local (Node)
+Everything operational is a script in [`scripts/`](scripts). Config comes from the
+single committed, secret-free [`.env`](.env); secrets live in a gitignored
+`.env.local` (created by the setup scripts).
 
-Needs Node.js + npm ([install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)).
+| Situation | Command |
+| --- | --- |
+| **New machine, first time** | `./scripts/setup.sh` — checks Docker, creates `.env.local` |
+| **Develop locally** (hot-reload) | `./scripts/dev.sh` → http://localhost:8080 |
+| **Test the prod image locally** | `./scripts/prod.sh` → http://localhost:3010 |
+| **Stop local stacks** | `./scripts/stop.sh [dev\|prod\|all]` (volumes kept) |
+| **Provision a (new) prod VM** | `./scripts/setup-vm.sh` — Docker check, clone, `.env.local` |
+| **Deploy to prod** | `./scripts/deploy.sh` — pull `main`, rebuild, restart, health-check |
+| **See what's running where** | `./scripts/status.sh` — local + VM containers & health |
+| **Follow logs** | `./scripts/logs.sh [dev\|prod]` · `./scripts/logs.sh --remote` |
+| **Enable optional infra** | `./scripts/addons.sh [--remote] storage monitoring …` |
+| **Disable optional infra** | `./scripts/addons.sh [--remote] --down` (never touches the app) |
+| **Back up the database** | `./scripts/backup.sh [--local]` → `./backups/` *(active once E0 lands)* |
+| **Restore a backup** | `./scripts/restore.sh <dump> --local\|--remote` *(destructive, confirmed)* |
 
-```sh
-npm install
-npm run dev        # http://localhost:8080
-```
-
-Other scripts: `npm run build`, `npm run preview`, `npm run lint`, `npm run format`.
-
-### Docker
-
-A single, committed, secret-free `.env` at the root is the one config source for
-the whole project (both compose files load it). Keep secrets out of it — use a
-gitignored `.env.local` for local secret overrides.
-
-```sh
-./scripts/dev.sh    # dev, hot-reload, source mounted  → http://localhost:8080
-./scripts/prod.sh   # prod Node image, built locally    → http://localhost:3010
-```
-
-Under the hood these wrap `docker compose -f docker-compose.{dev,prod}.yml up --build`.
-
-## Deployment
-
-Production runs as a standalone Node container on the prod VM. One command from a
-local checkout pulls the latest `main` on the VM, rebuilds the image, restarts the
-container, and health-checks it:
-
-```sh
-./scripts/deploy.sh
-```
-
-Defaults (override via env vars): `DEPLOY_HOST=yves@192.168.2.56`,
+All remote scripts default to `DEPLOY_HOST=yves@192.168.2.56`,
 `DEPLOY_PATH=/home/yves/workspace/apps/oversea-sourcing`, `WEB_PORT=3010`,
-`BRANCH=main`. Live at **http://192.168.2.56:3010**.
+`BRANCH=main` — override any of them per run:
 
 ```sh
-# e.g. deploy a different branch on a different port
 BRANCH=staging WEB_PORT=3011 ./scripts/deploy.sh
 ```
 
+### Typical flows
+
+```sh
+# Day-to-day development
+./scripts/setup.sh && ./scripts/dev.sh
+
+# Ship to production
+git push && ./scripts/deploy.sh && ./scripts/status.sh
+
+# Bring up monitoring + object storage on the VM
+./scripts/addons.sh --remote monitoring storage
+```
+
+Prod is live at **http://192.168.2.56:3010**. Optional add-on components
+(MinIO, Redis, Meilisearch, Uptime-Kuma, Dozzle, ClamAV, Adminer) are
+profile-gated in `docker-compose.addons.yml` — off by default, catalog and
+enable-triggers in [doc/INFRA.md](doc/INFRA.md).
+
 > No reverse proxy / TLS / firewall sits in front of the container yet — it's
-> exposed directly on the VM's LAN.
+> exposed directly on the VM's LAN. Required before any external user (see INFRA §7).
+
+### Without Docker (plain Node)
+
+```sh
+npm install && npm run dev    # http://localhost:8080
+```
+
+Other npm scripts: `build`, `preview`, `lint`, `format`.
 
 ## Internationalization
 
