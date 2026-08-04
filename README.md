@@ -26,7 +26,7 @@ single committed, secret-free [`.env`](.env); secrets live in a gitignored
 | **Follow logs**                  | `./scripts/logs.sh [dev\|prod]` · `./scripts/logs.sh --remote`             |
 | **Enable optional infra**        | `./scripts/addons.sh [--remote] storage monitoring …`                      |
 | **Disable optional infra**       | `./scripts/addons.sh [--remote] --down` (never touches the app)            |
-| **Back up the database**         | `./scripts/backup.sh [--local]` → `./backups/` _(active once E0 lands)_    |
+| **Back up the database**         | `./scripts/backup.sh [--local]` → `./backups/`                             |
 | **Restore a backup**             | `./scripts/restore.sh <dump> --local\|--remote` _(destructive, confirmed)_ |
 
 All remote scripts default to `DEPLOY_HOST=yves@192.168.2.56`,
@@ -96,7 +96,8 @@ Other npm scripts: `build`, `preview`, `lint`, `format`.
 - Config: `src/i18n/config.ts`. The language toggle is in the top bar and persists
   to `localStorage`.
 - Never hardcode user-facing strings in components; add a key and use `t(...)`.
-  Mock data in `src/data/osi.ts` stores i18n **keys**, translated at render time.
+  Remaining showcase data in `src/data/osi.ts` stores i18n **keys**, translated at
+  render time (requests are DB-backed; suppliers/transactions land with E4/E8).
 
 ## Project structure
 
@@ -105,8 +106,8 @@ Other npm scripts: `build`, `preview`, `lint`, `format`.
 | `src/`                                 | Web app (frontend)                                                                       |
 | `src/i18n/`                            | i18n config + `fr`/`en` locales                                                          |
 | `src/data/osi.ts`                      | Mock data (as i18n keys)                                                                 |
-| `src/database/`                        | Database layer — **placeholder, engine TBD**                                             |
-| `infra/Docker/`                        | Container images (`web.Dockerfile`; `database` TBD)                                      |
+| `src/database/`                        | Drizzle schema, migrations, seed (Postgres 16 + pgvector)                                |
+| `infra/Docker/`                        | Container images (`web.Dockerfile`; database uses the pgvector image)                    |
 | `docker-compose.dev.yml` / `.prod.yml` | Dev / prod orchestration                                                                 |
 | `docker-compose.addons.yml`            | Optional infra (profile-gated, off by default) — see `doc/INFRA.md`                      |
 | `scripts/`                             | `dev.sh` / `prod.sh` (local Docker) · `deploy.sh` (prod VM)                              |
@@ -115,8 +116,6 @@ Other npm scripts: `build`, `preview`, `lint`, `format`.
 
 ## Open decisions (TODO)
 
-- **Database engine** — Postgres / ORM / backend service undecided. `src/database`
-  is a placeholder and the `database` service is commented out in the compose files.
 - **`src/web/`** — the frontend currently lives at `src/`. Moving it under `src/web/`
   requires rewiring the Lovable vite plugin, `tsconfig` paths and `styles.css`, and
   risks breaking Lovable editor sync — deferred.
