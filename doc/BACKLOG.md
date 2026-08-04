@@ -82,10 +82,15 @@ Signup creates a personal workspace, so solo users are fully isolated by constru
 
 **Data visibility across workspaces (decided 2026-08-04):** buyers see **their own
 workspace only**. Employees see the buyers' data _plus_ their own, except what their
-role forbids: `owner`/`manager` see **all** sourcing dossiers platform-wide (ops needs
-them; cross-workspace rows carry a workspace badge in the UI); `accountant` is
-**forbidden** from buyers' sourcing dossiers — their cross-workspace domain is finance
-(transactions, E8). Policy centralized in `src/lib/roles.ts` (`canSeeAllRequests`).
+role forbids: `owner`/`manager` see **all** sourcing dossiers platform-wide;
+`accountant` is **forbidden** from buyers' sourcing dossiers — their cross-workspace
+domain is finance (transactions, E8). Policy centralized in `src/lib/roles.ts`
+(`canSeeAllRequests`).
+
+**Surface rule:** personal surfaces ("Vos dossiers récents", `/demandes`, dashboard
+stats) are **own-workspace for everyone** — employees included. Buyers' data shows up
+for employees only on the **Interne ops surfaces** (Facilitation lists every buyer
+dossier with a workspace badge) and via direct detail access (badge in the header).
 
 **Public landing / auth gate (decided 2026-08-04):** the default page (`/`) requires
 **no login** — anonymous visitors see the hero prompt and value props and can type their

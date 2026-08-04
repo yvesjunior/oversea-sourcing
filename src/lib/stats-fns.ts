@@ -40,19 +40,22 @@ export const getDashboardStatsFn = createServerFn({ method: "GET" }).handler(
     const workspaceId = session?.session.activeOrganizationId;
     if (!session || !workspaceId) return ZERO_STATS;
 
-    const [{ db }, { and, count, eq, notInArray }, schema, { canSeeAllRequests }] =
-      await Promise.all([
-        import("@/database"),
-        import("drizzle-orm"),
-        import("@/database/schema"),
-        import("@/lib/roles"),
-      ]);
-    // Same visibility as the request list: owner/manager count platform-wide.
-    const activeOnly = notInArray(schema.request.status, ["closed", "cancelled"]);
-    const scope = canSeeAllRequests(session.user.platformRole)
-      ? activeOnly
-      : and(eq(schema.request.organizationId, workspaceId), activeOnly);
-    const [row] = await db.select({ value: count() }).from(schema.request).where(scope);
+    const [{ db }, { and, count, eq, notInArray }, schema] = await Promise.all([
+      import("@/database"),
+      import("drizzle-orm"),
+      import("@/database/schema"),
+    ]);
+    // Personal dashboard stat: always the user's own workspace. Platform-wide
+    // ops KPIs belong to the Interne surfaces.
+    const [row] = await db
+      .select({ value: count() })
+      .from(schema.request)
+      .where(
+        and(
+          eq(schema.request.organizationId, workspaceId),
+          notInArray(schema.request.status, ["closed", "cancelled"]),
+        ),
+      );
 
     // Remaining metrics land with their tables:
     //   suppliersEvaluated  → E4/E5: count(matches) across the user's requests

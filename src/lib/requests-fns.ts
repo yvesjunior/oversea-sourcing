@@ -15,9 +15,9 @@ export type RequestSummary = {
   workspaceName: string | null;
 };
 
-/** Sourcing requests, newest first — straight from the DB, visibility by role:
- *  buyer → own workspace · owner/manager → all workspaces · accountant → own.
- *  Anonymous visitors get an empty list. */
+/** YOUR sourcing requests, newest first — personal surfaces are own-workspace
+ *  only for everyone ("Vos dossiers récents"). Buyers' data for employees
+ *  lives on the ops surfaces (getAllRequestsFn → Facilitation). */
 export const getMyRequestsFn = createServerFn({ method: "GET" }).handler(
   async (): Promise<RequestSummary[]> => {
     const [{ auth }, { getRequest }, { db }, { desc, eq }, schema] = await Promise.all([
@@ -31,8 +31,42 @@ export const getMyRequestsFn = createServerFn({ method: "GET" }).handler(
     const workspaceId = session?.session.activeOrganizationId;
     if (!session || !workspaceId) return [];
 
-    const seesAll = canSeeAllRequests(session.user.platformRole);
-    const base = db
+    const rows = await db
+      .select({
+        id: schema.request.id,
+        title: schema.request.title,
+        status: schema.request.status,
+        compatibilityScore: schema.request.compatibilityScore,
+        updatedAt: schema.request.updatedAt,
+      })
+      .from(schema.request)
+      .where(eq(schema.request.organizationId, workspaceId))
+      .orderBy(desc(schema.request.updatedAt));
+
+    return rows.map((row) => ({
+      ...row,
+      updatedAt: row.updatedAt.toISOString(),
+      workspaceName: null,
+    }));
+  },
+);
+
+/** ALL buyers' requests — the ops view (Facilitation). Only owner/manager;
+ *  everyone else gets an empty list (accountant is forbidden by policy). */
+export const getAllRequestsFn = createServerFn({ method: "GET" }).handler(
+  async (): Promise<RequestSummary[]> => {
+    const [{ auth }, { getRequest }, { db }, { desc, eq }, schema] = await Promise.all([
+      import("@/server/auth"),
+      import("@tanstack/react-start/server"),
+      import("@/database"),
+      import("drizzle-orm"),
+      import("@/database/schema"),
+    ]);
+    const session = await auth.api.getSession({ headers: getRequest().headers });
+    if (!session || !canSeeAllRequests(session.user.platformRole)) return [];
+    const ownWorkspaceId = session.session.activeOrganizationId;
+
+    const rows = await db
       .select({
         id: schema.request.id,
         title: schema.request.title,
@@ -46,19 +80,13 @@ export const getMyRequestsFn = createServerFn({ method: "GET" }).handler(
       .innerJoin(schema.organization, eq(schema.request.organizationId, schema.organization.id))
       .orderBy(desc(schema.request.updatedAt));
 
-    const rows = seesAll
-      ? await base
-      : await base.where(eq(schema.request.organizationId, workspaceId));
-
     return rows.map((row) => ({
       id: row.id,
       title: row.title,
       status: row.status,
       compatibilityScore: row.compatibilityScore,
       updatedAt: row.updatedAt.toISOString(),
-      // Label the owner workspace only for cross-workspace views (employees),
-      // and only when it's not the viewer's own workspace.
-      workspaceName: seesAll && row.organizationId !== workspaceId ? row.workspaceName : null,
+      workspaceName: row.organizationId === ownWorkspaceId ? null : row.workspaceName,
     }));
   },
 );
