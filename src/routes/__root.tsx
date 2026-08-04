@@ -134,7 +134,7 @@ function RootShell({ children }: { children: ReactNode }) {
 }
 
 function RootComponent() {
-  const { queryClient } = Route.useRouteContext();
+  const { queryClient, session } = Route.useRouteContext();
 
   // Restore the visitor's saved language after hydration (server always renders
   // the default language, so this keeps SSR markup stable and avoids mismatches).
@@ -148,7 +148,9 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <AppShell>
+      {/* Session comes from the router context (server-fetched, refreshed by
+          router.invalidate() on sign-in/out) — the shell never goes stale. */}
+      <AppShell session={session}>
         {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
         <Outlet />
       </AppShell>

@@ -15,8 +15,9 @@ import {
   Wallet,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { authClient, useSession } from "@/lib/auth-client";
+import { authClient } from "@/lib/auth-client";
 import { hasPlatformFeature, type PlatformFeature } from "@/lib/roles";
+import type { SessionData } from "@/lib/session-fns";
 import { cn } from "@/lib/utils";
 
 const items = [
@@ -49,11 +50,16 @@ function initialsOf(name: string): string {
   );
 }
 
-export function AppSidebar({ onNavigate }: { onNavigate?: () => void } = {}) {
+export function AppSidebar({
+  session,
+  onNavigate,
+}: {
+  session: SessionData;
+  onNavigate?: () => void;
+}) {
   const { t } = useTranslation();
   const router = useRouter();
   const pathname = useRouterState({ select: (r) => r.location.pathname });
-  const { data: session } = useSession();
   const platformRole = (session?.user as { platformRole?: string } | undefined)?.platformRole;
   const interneVisible = itemsInterne.filter((item) => hasPlatformFeature(platformRole, item.key));
 
