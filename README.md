@@ -75,9 +75,10 @@ BRANCH=staging WEB_PORT=3011 ./scripts/deploy.sh
 | `src/database/` | Database layer — **placeholder, engine TBD** |
 | `infra/Docker/` | Container images (`web.Dockerfile`; `database` TBD) |
 | `docker-compose.dev.yml` / `.prod.yml` | Dev / prod orchestration |
+| `docker-compose.addons.yml` | Optional infra (profile-gated, off by default) — see `doc/INFRA.md` |
 | `scripts/` | `dev.sh` / `prod.sh` (local Docker) · `deploy.sh` (prod VM) |
 | `.env` | Single project env file (root only; keep secret-free) |
-| `doc/` | Additional documentation |
+| `doc/` | `PLAN.md` (product) · `BACKLOG.md` (MVP1 tasks/data model) · `INFRA.md` (infrastructure) |
 
 ## Open decisions (TODO)
 

@@ -1,0 +1,110 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Optional infrastructure add-ons — ALL gated behind compose profiles.
+# Nothing in this file starts by default. See doc/INFRA.md §8 for the catalog,
+# statuses and enable-triggers.
+#
+# Enable a component alongside the main stack, e.g.:
+#   docker compose -f docker-compose.prod.yml -f docker-compose.addons.yml \
+#     --profile storage --profile monitoring up -d
+#
+# Conventions:
+#   - Admin/tool UIs bind to 127.0.0.1 only (reach them via SSH tunnel), never LAN.
+#   - Secrets come from .env.local / shell env — never from the committed .env.
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+  # ── storage: S3-compatible object storage (files, reports, backups) ─────────
+  minio:
+    profiles: ["storage"]
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    restart: unless-stopped
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER:-osi}
+      # Set in .env.local / shell env — service refuses to start when empty.
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-}
+    volumes:
+      - osi-minio-data:/data
+    ports:
+      - "127.0.0.1:9000:9000" # S3 API
+      - "127.0.0.1:9001:9001" # console
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # ── cache: Redis (cache + distributed rate limiting) ────────────────────────
+  redis:
+    profiles: ["cache"]
+    image: redis:7-alpine
+    command: redis-server --appendonly yes
+    restart: unless-stopped
+    volumes:
+      - osi-redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # ── search: Meilisearch (supplier directory search/faceting) ────────────────
+  meilisearch:
+    profiles: ["search"]
+    image: getmeili/meilisearch:v1.12
+    restart: unless-stopped
+    environment:
+      # Set in .env.local / shell env — service refuses to start when empty.
+      - MEILI_MASTER_KEY=${MEILI_MASTER_KEY:-}
+      - MEILI_ENV=production
+    volumes:
+      - osi-meili-data:/meili_data
+    ports:
+      - "127.0.0.1:7700:7700"
+
+  # ── dbtools: DB browsing (SSH-tunnel to use; never expose beyond localhost) ─
+  adminer:
+    profiles: ["dbtools"]
+    image: adminer:latest
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8081:8080"
+
+  # ── monitoring: uptime + container logs ─────────────────────────────────────
+  uptime-kuma:
+    profiles: ["monitoring"]
+    image: louislam/uptime-kuma:1
+    restart: unless-stopped
+    volumes:
+      - osi-uptime-data:/app/data
+    ports:
+      - "127.0.0.1:3001:3001"
+
+  dozzle:
+    profiles: ["monitoring"]
+    image: amir20/dozzle:latest
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    ports:
+      - "127.0.0.1:8082:8080"
+
+  # ── av: upload antivirus scanning ────────────────────────────────────────────
+  clamav:
+    profiles: ["av"]
+    image: clamav/clamav:stable
+    restart: unless-stopped
+    volumes:
+      - osi-clamav-data:/var/lib/clamav
+
+  # ── stubs (need config decided at enable time — see doc/INFRA.md) ───────────
+  # pgbouncer:   profiles: ["dbtools"]   — add when web replicas exhaust PG connections
+  # glitchtip:   profiles: ["errors"]    — error tracking (needs its own PG db + secret)
+  # langfuse:    profiles: ["llmops"]    — LLM tracing (needs its own PG db + secret)
+
+volumes:
+  osi-minio-data:
+  osi-redis-data:
+  osi-meili-data:
+  osi-uptime-data:
+  osi-clamav-data:
