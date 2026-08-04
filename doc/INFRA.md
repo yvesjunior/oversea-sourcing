@@ -96,12 +96,19 @@ flowchart LR
 | 4 | **SSR under traffic** | Slow TTFB | Replicate web containers (stateless by rule); cache headers on public assets; CDN at Stage 3 |
 | 5 | **File storage** | Disk fills VM | MinIO → cloud bucket is a config change |
 
-## 5 · Delivery pipeline (CI/CD)
+## 5 · Delivery pipeline — no CI (decided 2026-08-04)
 
-- **GitHub Actions**: on push to `main` → lint + typecheck + tests → build image → push to **GHCR** (`ghcr.io/yvesjunior/oversea-sourcing`)
-- Deploy = VM pulls the tagged image (`scripts/deploy.sh` evolves: no more building on the VM — faster, reproducible, rollback = previous tag)
-- `migrate` runs as a one-shot container before web/worker restart
-- Staging environment (compose profile or the home VM after Stage 2) deploys `main`; prod deploys tags (`v0.x.y`)
+**Builds are local everywhere, prod as in dev.** No CI service, no image registry.
+
+- **Dev**: your machine builds and runs (`scripts/dev.sh` / `scripts/prod.sh`)
+- **Prod**: `scripts/deploy.sh` → the VM does `git pull` and builds its own image
+  (`docker compose up -d --build`), then restarts and health-checks
+- Quality gates run locally before pushing: `npm run lint` + typecheck (make it a habit
+  or a git pre-push hook — not a server)
+- Rollback = `git checkout <previous-commit>` on the VM + rebuild
+- `migrate` runs as a one-shot container before web/worker restart (with E0)
+- Seam kept open: if reproducible builds/instant rollback ever matter, a registry can
+  be added later without changing anything else — explicitly out of scope for now
 
 ## 6 · Environments
 
@@ -207,9 +214,9 @@ flowchart LR
 ### Delivery & DR
 | Component | Role | Default choice | Status | Enable trigger |
 | --- | --- | --- | --- | --- |
-| CI | lint/typecheck/test/build | GitHub Actions | 🟢 Stage 1 | — |
-| Registry | Versioned images | GHCR | 🟢 Stage 1 | — |
-| Pull-based deploy | VM pulls tag, restarts | `scripts/deploy.sh` v2 | 🟢 Stage 1 | — |
+| CI / registry | — | **none — decided against.** Builds are local everywhere (dev machine & VM) | ⚪ | Only if reproducible builds / instant rollback become a real need |
+| Local quality gates | lint/typecheck before push | npm scripts (optional pre-push hook) | 🟢 | — |
+| Build-on-VM deploy | VM pulls `main`, builds, restarts, health-checks | `scripts/deploy.sh` | 🟢 today | — |
 | Staging env | Pre-prod checks | compose project #2 on VM | 🟡 | First risky migration |
 | DB backups | Nightly dump, offsite | pg_dump + restic → bucket | 🟢 with E0 | — |
 | Restore drills | Prove backups work | monthly scripted restore | 🟢 with E0 | — |
