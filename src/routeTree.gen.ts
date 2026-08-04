@@ -20,6 +20,10 @@ import { Route as SignupRouteImport } from './routes/signup'
 import { Route as TransactionsRouteImport } from './routes/transactions'
 import { Route as DemandesIndexRouteImport } from './routes/demandes/index'
 import { Route as DemandesIdRouteImport } from './routes/demandes/$id'
+import { Route as InterneFacilitationRouteImport } from './routes/interne/facilitation'
+import { Route as InterneFinanceRouteImport } from './routes/interne/finance'
+import { Route as InterneImportsRouteImport } from './routes/interne/imports'
+import { Route as InterneVerificationRouteImport } from './routes/interne/verification'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 
 const IndexRoute = IndexRouteImport.update({
@@ -77,6 +81,26 @@ const DemandesIdRoute = DemandesIdRouteImport.update({
   path: '/demandes/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const InterneFacilitationRoute = InterneFacilitationRouteImport.update({
+  id: '/interne/facilitation',
+  path: '/interne/facilitation',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const InterneFinanceRoute = InterneFinanceRouteImport.update({
+  id: '/interne/finance',
+  path: '/interne/finance',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const InterneImportsRoute = InterneImportsRouteImport.update({
+  id: '/interne/imports',
+  path: '/interne/imports',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const InterneVerificationRoute = InterneVerificationRouteImport.update({
+  id: '/interne/verification',
+  path: '/interne/verification',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
   path: '/api/auth/$',
@@ -94,6 +118,10 @@ export interface FileRoutesByFullPath {
   '/signup': typeof SignupRoute
   '/transactions': typeof TransactionsRoute
   '/demandes/$id': typeof DemandesIdRoute
+  '/interne/facilitation': typeof InterneFacilitationRoute
+  '/interne/finance': typeof InterneFinanceRoute
+  '/interne/imports': typeof InterneImportsRoute
+  '/interne/verification': typeof InterneVerificationRoute
   '/demandes/': typeof DemandesIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
@@ -108,6 +136,10 @@ export interface FileRoutesByTo {
   '/signup': typeof SignupRoute
   '/transactions': typeof TransactionsRoute
   '/demandes/$id': typeof DemandesIdRoute
+  '/interne/facilitation': typeof InterneFacilitationRoute
+  '/interne/finance': typeof InterneFinanceRoute
+  '/interne/imports': typeof InterneImportsRoute
+  '/interne/verification': typeof InterneVerificationRoute
   '/demandes': typeof DemandesIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
@@ -123,6 +155,10 @@ export interface FileRoutesById {
   '/signup': typeof SignupRoute
   '/transactions': typeof TransactionsRoute
   '/demandes/$id': typeof DemandesIdRoute
+  '/interne/facilitation': typeof InterneFacilitationRoute
+  '/interne/finance': typeof InterneFinanceRoute
+  '/interne/imports': typeof InterneImportsRoute
+  '/interne/verification': typeof InterneVerificationRoute
   '/demandes/': typeof DemandesIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
@@ -139,6 +175,10 @@ export interface FileRouteTypes {
     | '/signup'
     | '/transactions'
     | '/demandes/$id'
+    | '/interne/facilitation'
+    | '/interne/finance'
+    | '/interne/imports'
+    | '/interne/verification'
     | '/demandes/'
     | '/api/auth/$'
   fileRoutesByTo: FileRoutesByTo
@@ -153,6 +193,10 @@ export interface FileRouteTypes {
     | '/signup'
     | '/transactions'
     | '/demandes/$id'
+    | '/interne/facilitation'
+    | '/interne/finance'
+    | '/interne/imports'
+    | '/interne/verification'
     | '/demandes'
     | '/api/auth/$'
   id:
@@ -167,6 +211,10 @@ export interface FileRouteTypes {
     | '/signup'
     | '/transactions'
     | '/demandes/$id'
+    | '/interne/facilitation'
+    | '/interne/finance'
+    | '/interne/imports'
+    | '/interne/verification'
     | '/demandes/'
     | '/api/auth/$'
   fileRoutesById: FileRoutesById
@@ -182,6 +230,10 @@ export interface RootRouteChildren {
   SignupRoute: typeof SignupRoute
   TransactionsRoute: typeof TransactionsRoute
   DemandesIdRoute: typeof DemandesIdRoute
+  InterneFacilitationRoute: typeof InterneFacilitationRoute
+  InterneFinanceRoute: typeof InterneFinanceRoute
+  InterneImportsRoute: typeof InterneImportsRoute
+  InterneVerificationRoute: typeof InterneVerificationRoute
   DemandesIndexRoute: typeof DemandesIndexRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
 }
@@ -265,6 +317,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DemandesIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/interne/facilitation': {
+      id: '/interne/facilitation'
+      path: '/interne/facilitation'
+      fullPath: '/interne/facilitation'
+      preLoaderRoute: typeof InterneFacilitationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/interne/finance': {
+      id: '/interne/finance'
+      path: '/interne/finance'
+      fullPath: '/interne/finance'
+      preLoaderRoute: typeof InterneFinanceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/interne/imports': {
+      id: '/interne/imports'
+      path: '/interne/imports'
+      fullPath: '/interne/imports'
+      preLoaderRoute: typeof InterneImportsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/interne/verification': {
+      id: '/interne/verification'
+      path: '/interne/verification'
+      fullPath: '/interne/verification'
+      preLoaderRoute: typeof InterneVerificationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/auth/$': {
       id: '/api/auth/$'
       path: '/api/auth/$'
@@ -286,6 +366,10 @@ const rootRouteChildren: RootRouteChildren = {
   SignupRoute: SignupRoute,
   TransactionsRoute: TransactionsRoute,
   DemandesIdRoute: DemandesIdRoute,
+  InterneFacilitationRoute: InterneFacilitationRoute,
+  InterneFinanceRoute: InterneFinanceRoute,
+  InterneImportsRoute: InterneImportsRoute,
+  InterneVerificationRoute: InterneVerificationRoute,
   DemandesIndexRoute: DemandesIndexRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
 }

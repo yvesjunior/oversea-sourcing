@@ -65,8 +65,14 @@ erDiagram
 **Platform roles** (OSI employees, decided 2026-08-04): `owner` (full platform control) ·
 `manager` (ops — facilitation queue, supplier verification, imports) · `accountant`
 (finance — transactions and payment oversight). Stored on `users.platform_role`;
-regular buyers keep the default `user`. Backoffice guards: `requireStaff()` (any employee
-role) + per-area checks (e.g. accountant-only finance views).
+regular buyers keep the default `user`.
+
+**One dashboard for everyone (decided 2026-08-04):** there is **no separate admin
+backoffice app**. Every user gets the same shell/dashboard; features are added or
+removed based on role. Employee features (facilitation queue, supplier verification,
+imports, finance) appear as extra role-gated navigation sections in the shared
+dashboard. Feature→role mapping lives in `src/lib/roles.ts`:
+facilitation/verification/imports → `owner|manager` · finance → `owner|accountant`.
 
 **Per-user dashboard (decided 2026-08-04):** after login every user lands on _their own_
 dashboard — greeting, stats, "Vos dossiers récents" and activity feed scoped to **them**

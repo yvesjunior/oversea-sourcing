@@ -8,7 +8,12 @@
     "partenaires": "Partenaires",
     "documents": "Documents",
     "analyses": "Analyses",
-    "parametres": "Paramètres"
+    "parametres": "Paramètres",
+    "interne": "Interne",
+    "facilitation": "Facilitation",
+    "verification": "Vérification fournisseurs",
+    "imports": "Imports",
+    "finance": "Finance"
   },
   "user": { "role": "Administrateur" },
   "auth": {
@@ -206,6 +211,14 @@
     "others": "Autres"
   },
   "empty": {
+    "facilitationTitle": "Facilitation",
+    "facilitationText": "La file des mises en relation acheteur–fournisseur apparaîtra ici.",
+    "verificationTitle": "Vérification fournisseurs",
+    "verificationText": "Les fournisseurs en attente de vérification apparaîtront ici.",
+    "importsTitle": "Imports",
+    "importsText": "Les imports de données fournisseurs et leur suivi apparaîtront ici.",
+    "financeTitle": "Finance",
+    "financeText": "Le suivi des transactions et des paiements apparaîtra ici.",
     "documentsTitle": "Documents",
     "documentsText": "Contrats, certificats et rapports d’inspection seront regroupés ici.",
     "partenairesTitle": "Partenaires",

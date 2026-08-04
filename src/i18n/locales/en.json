@@ -8,7 +8,12 @@
     "partenaires": "Partners",
     "documents": "Documents",
     "analyses": "Analytics",
-    "parametres": "Settings"
+    "parametres": "Settings",
+    "interne": "Internal",
+    "facilitation": "Facilitation",
+    "verification": "Supplier verification",
+    "imports": "Imports",
+    "finance": "Finance"
   },
   "user": { "role": "Administrator" },
   "auth": {
@@ -206,6 +211,14 @@
     "others": "Others"
   },
   "empty": {
+    "facilitationTitle": "Facilitation",
+    "facilitationText": "The buyer–supplier connection queue will appear here.",
+    "verificationTitle": "Supplier verification",
+    "verificationText": "Suppliers awaiting verification will appear here.",
+    "importsTitle": "Imports",
+    "importsText": "Supplier data imports and their tracking will appear here.",
+    "financeTitle": "Finance",
+    "financeText": "Transaction and payment oversight will appear here.",
     "documentsTitle": "Documents",
     "documentsText": "Contracts, certificates and inspection reports will be gathered here.",
     "partenairesTitle": "Partners",

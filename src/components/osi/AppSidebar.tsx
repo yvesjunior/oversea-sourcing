@@ -3,16 +3,20 @@ import {
   BarChart3,
   FileText,
   Home,
+  Import,
   Inbox,
   LogIn,
   LogOut,
   Settings,
+  ShieldCheck,
   Repeat,
   Users,
   Handshake,
+  Wallet,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { authClient, useSession } from "@/lib/auth-client";
+import { hasPlatformFeature, type PlatformFeature } from "@/lib/roles";
 import { cn } from "@/lib/utils";
 
 const items = [
@@ -24,6 +28,14 @@ const items = [
   { key: "documents", url: "/documents", icone: FileText },
   { key: "analyses", url: "/analyses", icone: BarChart3 },
   { key: "parametres", url: "/parametres", icone: Settings },
+];
+
+// Employee features — same dashboard, extra entries per platform role.
+const itemsInterne: { key: PlatformFeature; url: string; icone: typeof Home }[] = [
+  { key: "facilitation", url: "/interne/facilitation", icone: Handshake },
+  { key: "verification", url: "/interne/verification", icone: ShieldCheck },
+  { key: "imports", url: "/interne/imports", icone: Import },
+  { key: "finance", url: "/interne/finance", icone: Wallet },
 ];
 
 function initialsOf(name: string): string {
@@ -42,6 +54,8 @@ export function AppSidebar({ onNavigate }: { onNavigate?: () => void } = {}) {
   const router = useRouter();
   const pathname = useRouterState({ select: (r) => r.location.pathname });
   const { data: session } = useSession();
+  const platformRole = (session?.user as { platformRole?: string } | undefined)?.platformRole;
+  const interneVisible = itemsInterne.filter((item) => hasPlatformFeature(platformRole, item.key));
 
   const seDeconnecter = async () => {
     await authClient.signOut();
@@ -80,6 +94,33 @@ export function AppSidebar({ onNavigate }: { onNavigate?: () => void } = {}) {
             </Link>
           );
         })}
+
+        {interneVisible.length > 0 && (
+          <>
+            <p className="px-4 pb-1 pt-5 text-[10px] font-semibold uppercase tracking-widest text-sidebar-foreground/40">
+              {t("nav.interne")}
+            </p>
+            {interneVisible.map((item) => {
+              const actif = pathname.startsWith(item.url);
+              return (
+                <Link
+                  key={item.url}
+                  to={item.url}
+                  onClick={onNavigate}
+                  className={cn(
+                    "flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-colors",
+                    actif
+                      ? "bg-sidebar-primary text-sidebar-primary-foreground"
+                      : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                  )}
+                >
+                  <item.icone className="size-[18px] shrink-0" />
+                  <span className="truncate">{t(`nav.${item.key}`)}</span>
+                </Link>
+              );
+            })}
+          </>
+        )}
       </nav>
 
       {session?.user ? (

@@ -1,4 +1,5 @@
 import { redirect } from "@tanstack/react-router";
+import { hasPlatformFeature, type PlatformFeature } from "@/lib/roles";
 import type { SessionData } from "@/lib/session-fns";
 
 /** Routes reachable without a session. Everything else is default-deny
@@ -18,5 +19,14 @@ export function isPublicPath(pathname: string): boolean {
 export function enforceAuth(session: SessionData, pathname: string, href: string): void {
   if (!session && !isPublicPath(pathname)) {
     throw redirect({ to: "/login", search: { redirect: href } });
+  }
+}
+
+/** Route guard for employee features (shared dashboard, role-gated).
+ *  Buyers hitting an internal URL are sent home — the feature simply
+ *  doesn't exist for them. */
+export function requirePlatformFeature(session: SessionData, feature: PlatformFeature): void {
+  if (!hasPlatformFeature(session?.user.platformRole, feature)) {
+    throw redirect({ to: "/" });
   }
 }
