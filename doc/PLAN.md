@@ -13,6 +13,11 @@ connection — introduction, coordination, then transaction tracking through del
 - **Two-sided eventually, buyer-first now.** MVP1 covers the buyer journey only;
   the facilitation handoff is the bridge to the supplier side (no supplier portal in MVP1).
 - **Multi-tenant** buyer workspaces from day one.
+- **Public landing, gated action.** The default page requires no login — anyone can
+  type their need. **“Lancer l’analyse IA” is the auth gate**: login/signup with the
+  draft preserved, then the request is created automatically. All other routes need auth.
+- **Per-user dashboard.** After login each user lands on their own dashboard —
+  their requests and activities, with role-based workspace visibility.
 - **Payments are track-only** in MVP; escrow integration is deferred.
 
 ## Supplier data strategy (hybrid)

@@ -67,6 +67,13 @@ dashboard — greeting, stats, "Vos dossiers récents" and activity feed scoped 
 (owner/admin see all workspace requests; buyer manages their own; viewer reads all).
 Signup creates a personal workspace, so solo users are fully isolated by construction.
 
+**Public landing / auth gate (decided 2026-08-04):** the default page (`/`) requires
+**no login** — anonymous visitors see the hero prompt and value props and can type their
+need. Clicking **“Lancer l’analyse IA” is the auth gate**: it redirects to login/signup,
+the typed draft (+ attachments intent) is preserved across the redirect, and the request
+is created automatically right after auth. Every other app route (demandes, fournisseurs,
+transactions…) requires login. Logged-in users see the personal dashboard on `/`.
+
 ### Requests (demandes)
 
 | Table | Key fields | Notes |
@@ -124,6 +131,10 @@ Signup creates a personal workspace, so solo users are fully isolated by constru
 - [ ] Signup flow → creates user + personal workspace (owner)
 - [ ] Email verification + password reset (token + email)
 - [ ] Login/logout UI (new routes) — bilingual
+- [ ] Route guards: `/` public (anonymous = hero + value props; logged-in = personal
+      dashboard); all other app routes require auth
+- [ ] **“Lancer l’analyse IA” auth gate**: anonymous click → preserve the typed draft →
+      login/signup → auto-create the request and resume the flow (no retyping)
 - [ ] User profile: name, locale (persist language server-side, sync with the existing toggle)
 - [ ] `platform_role` on users; guard helper `requireStaff()`
 - [ ] Rate limiting on auth endpoints
