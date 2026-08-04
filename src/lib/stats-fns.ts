@@ -64,33 +64,3 @@ export const getDashboardStatsFn = createServerFn({ method: "GET" }).handler(
     return { ...ZERO_STATS, activeRequests: row?.value ?? 0 };
   },
 );
-
-export type OpsSummary = {
-  /** Buyer dossiers platform-wide (owner/manager only). */
-  buyersDossiers: number;
-} | null;
-
-/** Home-dashboard summary for the Espace interne section. Null for non-employees
- *  and for roles without the facilitation feature. */
-export const getOpsSummaryFn = createServerFn({ method: "GET" }).handler(
-  async (): Promise<OpsSummary> => {
-    const [{ auth }, { getRequest }, { canSeeAllRequests }] = await Promise.all([
-      import("@/server/auth"),
-      import("@tanstack/react-start/server"),
-      import("@/lib/roles"),
-    ]);
-    const session = await auth.api.getSession({ headers: getRequest().headers });
-    if (!session || !canSeeAllRequests(session.user.platformRole)) return null;
-
-    const [{ db }, { count, notInArray }, schema] = await Promise.all([
-      import("@/database"),
-      import("drizzle-orm"),
-      import("@/database/schema"),
-    ]);
-    const [row] = await db
-      .select({ value: count() })
-      .from(schema.request)
-      .where(notInArray(schema.request.status, ["closed", "cancelled"]));
-    return { buyersDossiers: row?.value ?? 0 };
-  },
-);

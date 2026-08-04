@@ -5,10 +5,10 @@ import { HeroPrompt } from "@/components/osi/HeroPrompt";
 import { StatCard } from "@/components/osi/StatCard";
 import { DossierCard } from "@/components/osi/DossierCard";
 import { EmptyRequests } from "@/components/osi/EmptyRequests";
-import { InterneSection } from "@/components/osi/InterneSection";
 import { statsConfig, valeurs } from "@/data/osi";
+import { isEmployee } from "@/lib/roles";
 import { getMyRequestsFn } from "@/lib/requests-fns";
-import { getDashboardStatsFn, getOpsSummaryFn } from "@/lib/stats-fns";
+import { getDashboardStatsFn } from "@/lib/stats-fns";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -30,12 +30,8 @@ export const Route = createFileRoute("/")({
   }),
   // Real per-user data (zeros/empty when anonymous — the page stays public).
   loader: async () => {
-    const [stats, demandes, ops] = await Promise.all([
-      getDashboardStatsFn(),
-      getMyRequestsFn(),
-      getOpsSummaryFn(),
-    ]);
-    return { stats, demandes, ops };
+    const [stats, demandes] = await Promise.all([getDashboardStatsFn(), getMyRequestsFn()]);
+    return { stats, demandes };
   },
   component: Accueil,
 });
@@ -45,29 +41,33 @@ function Accueil() {
   // Public route: anonymous visitors see the hero + value props; logged-in
   // users get their personal dashboard (doc/BACKLOG.md — public landing).
   const { session } = Route.useRouteContext();
-  const { stats, demandes, ops } = Route.useLoaderData();
+  const { stats, demandes } = Route.useLoaderData();
   const loggedIn = Boolean(session);
   const platformRole = (session?.user as { platformRole?: string } | undefined)?.platformRole;
+  // Employees work through the INTERNE nav — the home page keeps only the hero
+  // and value props for them (buyer widgets would just be empty noise).
+  const employee = isEmployee(platformRole);
 
   return (
     <div className="flex flex-1 flex-col gap-12">
       <HeroPrompt user={session?.user ?? null} />
 
-      {/* Stats are public: real per-user numbers when logged in, zeros otherwise. */}
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {statsConfig.map((config) => (
-          <StatCard
-            key={config.key}
-            config={config}
-            value={stats[config.key]}
-            delta={stats.deltas[config.key]}
-          />
-        ))}
-      </section>
+      {/* Stats: real per-user numbers for buyers, zeros for anonymous visitors.
+          Hidden for employees — their work lives in the INTERNE nav. */}
+      {!employee && (
+        <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {statsConfig.map((config) => (
+            <StatCard
+              key={config.key}
+              config={config}
+              value={stats[config.key]}
+              delta={stats.deltas[config.key]}
+            />
+          ))}
+        </section>
+      )}
 
-      {loggedIn && <InterneSection platformRole={platformRole} ops={ops} />}
-
-      {loggedIn && (
+      {loggedIn && !employee && (
         <section>
           <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4">
             <h2 className="truncate text-lg font-semibold">{t("home.recent")}</h2>
