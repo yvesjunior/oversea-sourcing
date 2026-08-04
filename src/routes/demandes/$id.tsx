@@ -70,6 +70,11 @@ function DemandeDetail() {
         </Link>
         <h1 className="truncate text-center font-display text-lg font-semibold">
           {t("detail.requestNo", { id: demande.id })}
+          {demande.workspaceName && (
+            <span className="ml-2 align-middle rounded-full bg-gold-soft px-2 py-0.5 text-[11px] font-semibold text-gold">
+              {demande.workspaceName}
+            </span>
+          )}
         </h1>
         <Button variant="gold" size="sm">
           <FileText className="size-4" /> {t("detail.viewReport")}

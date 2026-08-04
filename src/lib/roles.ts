@@ -20,3 +20,11 @@ export function isEmployee(role: string | undefined): boolean {
 export function hasPlatformFeature(role: string | undefined, feature: PlatformFeature): boolean {
   return (PLATFORM_FEATURES[feature] as readonly string[]).includes(role ?? "user");
 }
+
+/** Data visibility (decided 2026-08-04): buyers see their own workspace only;
+ *  owner/manager see ALL buyers' sourcing data (ops) plus their own;
+ *  accountant is forbidden from buyers' sourcing dossiers — their domain is
+ *  finance (transactions, E8) plus their own data. */
+export function canSeeAllRequests(role: string | undefined): boolean {
+  return role === "owner" || role === "manager";
+}

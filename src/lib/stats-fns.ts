@@ -38,22 +38,21 @@ export const getDashboardStatsFn = createServerFn({ method: "GET" }).handler(
     ]);
     const session = await auth.api.getSession({ headers: getRequest().headers });
     const workspaceId = session?.session.activeOrganizationId;
-    if (!workspaceId) return ZERO_STATS;
+    if (!session || !workspaceId) return ZERO_STATS;
 
-    const [{ db }, { and, count, eq, notInArray }, schema] = await Promise.all([
-      import("@/database"),
-      import("drizzle-orm"),
-      import("@/database/schema"),
-    ]);
-    const [row] = await db
-      .select({ value: count() })
-      .from(schema.request)
-      .where(
-        and(
-          eq(schema.request.organizationId, workspaceId),
-          notInArray(schema.request.status, ["closed", "cancelled"]),
-        ),
-      );
+    const [{ db }, { and, count, eq, notInArray }, schema, { canSeeAllRequests }] =
+      await Promise.all([
+        import("@/database"),
+        import("drizzle-orm"),
+        import("@/database/schema"),
+        import("@/lib/roles"),
+      ]);
+    // Same visibility as the request list: owner/manager count platform-wide.
+    const activeOnly = notInArray(schema.request.status, ["closed", "cancelled"]);
+    const scope = canSeeAllRequests(session.user.platformRole)
+      ? activeOnly
+      : and(eq(schema.request.organizationId, workspaceId), activeOnly);
+    const [row] = await db.select({ value: count() }).from(schema.request).where(scope);
 
     // Remaining metrics land with their tables:
     //   suppliersEvaluated  → E4/E5: count(matches) across the user's requests

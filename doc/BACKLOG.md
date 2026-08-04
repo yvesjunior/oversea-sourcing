@@ -80,6 +80,13 @@ dashboard — greeting, stats, "Vos dossiers récents" and activity feed scoped 
 (owner/admin see all workspace requests; buyer manages their own; viewer reads all).
 Signup creates a personal workspace, so solo users are fully isolated by construction.
 
+**Data visibility across workspaces (decided 2026-08-04):** buyers see **their own
+workspace only**. Employees see the buyers' data _plus_ their own, except what their
+role forbids: `owner`/`manager` see **all** sourcing dossiers platform-wide (ops needs
+them; cross-workspace rows carry a workspace badge in the UI); `accountant` is
+**forbidden** from buyers' sourcing dossiers — their cross-workspace domain is finance
+(transactions, E8). Policy centralized in `src/lib/roles.ts` (`canSeeAllRequests`).
+
 **Public landing / auth gate (decided 2026-08-04):** the default page (`/`) requires
 **no login** — anonymous visitors see the hero prompt and value props and can type their
 need. Clicking **“Lancer l’analyse IA” is the auth gate**: it redirects to login/signup,

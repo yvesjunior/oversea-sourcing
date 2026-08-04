@@ -23,6 +23,11 @@ export function DossierCard({ demande }: { demande: RequestSummary }) {
       <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
         <FileBox className="size-4 shrink-0" />
         <span>#{demande.id}</span>
+        {demande.workspaceName && (
+          <span className="ml-auto max-w-[55%] truncate rounded-full bg-gold-soft px-2 py-0.5 text-[10px] font-semibold text-gold">
+            {demande.workspaceName}
+          </span>
+        )}
       </div>
 
       <h3 className="mt-3 truncate text-base font-semibold">{demande.title}</h3>
