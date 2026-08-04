@@ -1,5 +1,5 @@
 # Development stack — hot-reloading web app with source mounted from the host.
-# Usage: docker compose -f docker-compose.dev.yml up
+# Usage: ./scripts/dev.sh   (→ http://localhost:3010)
 
 services:
   web:
@@ -13,6 +13,12 @@ services:
       - .env
     environment:
       - NODE_ENV=development
+      # Dev-only credentials (non-secret by design; prod uses .env.local)
+      - DATABASE_URL=postgres://osi:osi@database:5432/osi
+      - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET:-osi-dev-insecure-secret}
+      - BETTER_AUTH_URL=${BETTER_AUTH_URL:-http://localhost:3010}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
     ports:
       # Same host port as prod (3010). Vite binds 8080 inside the container
       # (Lovable sandbox config) — only the host mapping changes.
@@ -20,24 +26,47 @@ services:
     volumes:
       - ./:/app
       - /app/node_modules # keep the image's node_modules, don't shadow with host
-    # depends_on:
-    #   - database
+    depends_on:
+      database:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
 
-  # ── database ────────────────────────────────────────────────────────────────
-  # TODO: engine not decided yet (see src/database/README.md). Example scaffold:
-  # database:
-  #   image: postgres:16-alpine
-  #   restart: unless-stopped
-  #   env_file:
-  #     - .env
-  #   environment:
-  #     - POSTGRES_USER=${POSTGRES_USER}
-  #     - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-  #     - POSTGRES_DB=${POSTGRES_DB}
-  #   ports:
-  #     - "${DB_PORT:-5432}:5432"
-  #   volumes:
-  #     - osi-db-data:/var/lib/postgresql/data
+  # One-shot: applies Drizzle migrations on every `up`, then exits.
+  migrate:
+    build:
+      context: .
+      dockerfile: infra/Docker/web.Dockerfile
+      target: deps
+    command: npm run db:migrate
+    working_dir: /app
+    environment:
+      - DATABASE_URL=postgres://osi:osi@database:5432/osi
+    volumes:
+      - ./:/app
+      - /app/node_modules
+    depends_on:
+      database:
+        condition: service_healthy
 
-# volumes:
-#   osi-db-data:
+  database:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      # Dev-only credentials — never reused in prod.
+      - POSTGRES_USER=osi
+      - POSTGRES_PASSWORD=osi
+      - POSTGRES_DB=osi
+    ports:
+      # Host access for local tooling (drizzle-kit studio, psql) — localhost only.
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - osi-dev-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U osi -d osi"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+volumes:
+  osi-dev-db-data:

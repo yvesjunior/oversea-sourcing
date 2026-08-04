@@ -1,12 +1,41 @@
+import { useEffect, useState, type FormEvent } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import { Mic, Paperclip, Sparkles, Wrench } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import globe from "@/assets/globe.jpg";
-import { utilisateur } from "@/data/osi";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 
-export function HeroPrompt() {
+const DRAFT_KEY = "osi-draft-besoin";
+
+type HeroUser = { name: string } | null;
+
+export function HeroPrompt({ user }: { user: HeroUser }) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
+  const [besoin, setBesoin] = useState("");
+  const loggedIn = user !== null;
+  const prenom = user?.name?.split(" ")[0];
+
+  // Restore a draft that survived the login/signup redirect (auth gate).
+  useEffect(() => {
+    const draft = window.localStorage.getItem(DRAFT_KEY);
+    if (draft) {
+      setBesoin(draft);
+      if (loggedIn) window.localStorage.removeItem(DRAFT_KEY);
+    }
+  }, [loggedIn]);
+
+  const onSubmit = (event: FormEvent) => {
+    event.preventDefault();
+    if (!loggedIn) {
+      // The auth gate: preserve the typed need, send to login, restore after.
+      if (besoin.trim()) window.localStorage.setItem(DRAFT_KEY, besoin);
+      void navigate({ to: "/login", search: { redirect: "/" } });
+      return;
+    }
+    // Logged in: request creation ships with E3 (AI criteria extraction).
+  };
 
   return (
     <section className="relative overflow-hidden pt-4">
@@ -23,15 +52,17 @@ export function HeroPrompt() {
       />
 
       <div className="relative z-10 max-w-2xl">
-        <p className="text-lg text-muted-foreground">
-          {t("home.greeting", { name: utilisateur.prenom })}
-        </p>
+        {loggedIn && (
+          <p className="text-lg text-muted-foreground">{t("home.greeting", { name: prenom })}</p>
+        )}
         <h1 className="mt-2 font-display text-4xl font-semibold leading-tight sm:text-[42px]">
           {t("home.heroTitle")}
         </h1>
 
-        <form className="card-surface mt-8 p-4" onSubmit={(event) => event.preventDefault()}>
+        <form className="card-surface mt-8 p-4" onSubmit={onSubmit}>
           <Textarea
+            value={besoin}
+            onChange={(e) => setBesoin(e.target.value)}
             placeholder={t("home.placeholder")}
             className="min-h-[92px] resize-none border-0 bg-transparent px-2 text-base shadow-none focus-visible:ring-0"
           />
@@ -62,6 +93,8 @@ export function HeroPrompt() {
             </Button>
           </div>
         </form>
+
+        {!loggedIn && <p className="mt-3 text-xs text-muted-foreground">{t("auth.gateHint")}</p>}
       </div>
     </section>
   );

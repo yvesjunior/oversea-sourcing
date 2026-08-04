@@ -1,5 +1,8 @@
-# Production stack — built, immutable web image.
-# Usage: docker compose -f docker-compose.prod.yml up --build
+# Production stack — built, immutable web image + Postgres.
+# Usage: ./scripts/deploy.sh (VM) or ./scripts/prod.sh (local test)
+#
+# Secrets come from .env.local (gitignored): POSTGRES_PASSWORD, DATABASE_URL,
+# BETTER_AUTH_SECRET (+ GOOGLE_CLIENT_ID/SECRET once a domain+TLS exist).
 
 services:
   web:
@@ -10,28 +13,54 @@ services:
     restart: unless-stopped
     env_file:
       - .env
+      - path: .env.local
+        required: false
     environment:
       - NODE_ENV=production
       - PORT=3000
     ports:
       # Host 3010 → container 3000. Override with WEB_PORT=<port> if needed.
       - "${WEB_PORT:-3010}:3000"
-    # depends_on:
-    #   - database
+    depends_on:
+      database:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
 
-  # ── database ────────────────────────────────────────────────────────────────
-  # TODO: engine not decided yet (see src/database/README.md). Example scaffold:
-  # database:
-  #   image: postgres:16-alpine
-  #   restart: unless-stopped
-  #   env_file:
-  #     - .env
-  #   environment:
-  #     - POSTGRES_USER=${POSTGRES_USER}
-  #     - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-  #     - POSTGRES_DB=${POSTGRES_DB}
-  #   volumes:
-  #     - osi-db-data:/var/lib/postgresql/data
+  # One-shot: applies Drizzle migrations on every deploy, then exits.
+  # Uses the build stage (full source + dev deps → drizzle-kit available).
+  migrate:
+    build:
+      context: .
+      dockerfile: infra/Docker/web.Dockerfile
+      target: build
+    command: npm run db:migrate
+    env_file:
+      - .env
+      - path: .env.local
+        required: false
+    depends_on:
+      database:
+        condition: service_healthy
 
-# volumes:
-#   osi-db-data:
+  database:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    env_file:
+      - path: .env.local
+        required: false
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-osi}
+      - POSTGRES_DB=${POSTGRES_DB:-osi}
+      # POSTGRES_PASSWORD must come from .env.local — no default on purpose.
+    # No host port: the database is reachable only on the compose network.
+    volumes:
+      - osi-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-osi} -d ${POSTGRES_DB:-osi}"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+volumes:
+  osi-db-data:

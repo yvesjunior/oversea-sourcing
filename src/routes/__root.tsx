@@ -13,6 +13,8 @@ import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { AppShell } from "@/components/osi/AppShell";
 import i18n, { STORAGE_KEY } from "@/i18n/config";
+import { enforceAuth } from "@/lib/auth-guard";
+import { getSessionFn, type SessionData } from "@/lib/session-fns";
 
 function NotFoundComponent() {
   return (
@@ -75,6 +77,14 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
 }
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
+  // Session is fetched once per navigation and exposed to every route via
+  // context.session. Auth is enforced here, default-deny: only the public
+  // paths in auth-guard.ts are reachable anonymously.
+  beforeLoad: async ({ location }): Promise<{ session: SessionData }> => {
+    const session = await getSessionFn();
+    enforceAuth(session, location.pathname, location.href);
+    return { session };
+  },
   head: () => ({
     meta: [
       { charSet: "utf-8" },

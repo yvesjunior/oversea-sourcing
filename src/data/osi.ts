@@ -13,35 +13,41 @@ export type Dossier = {
   maj: string;
 };
 
-export const utilisateur = {
-  nom: "Henrik K.",
-  prenom: "Henrik",
-  /** i18n key */
-  role: "user.role",
-  initiales: "HK",
-};
-
-export type StatCardData = {
-  /** i18n key under "stats" */
-  key: string;
-  valeur: string;
-  delta: string;
-  /** i18n key under "stats" */
+// Presentational config for the dashboard stat cards; values come from
+// getDashboardStatsFn (real, per-user — zeros when anonymous).
+export type StatCardConfig = {
+  /** key into DashboardStats + i18n label under "stats" */
+  key: "activeRequests" | "suppliersEvaluated" | "ongoingTransactions" | "savingsGenerated";
+  /** i18n label key under "stats" */
+  labelKey: string;
+  /** i18n key under "stats" for the delta note */
   note: string;
   icone: "demandes" | "fournisseurs" | "transactions" | "economies" | "analyses";
+  /** formats as money when true */
+  money?: boolean;
 };
 
-export const statistiques: StatCardData[] = [
-  { key: "activeRequests", valeur: "12", delta: "+2", note: "thisWeek", icone: "demandes" },
+export const statsConfig: StatCardConfig[] = [
+  { key: "activeRequests", labelKey: "activeRequests", note: "thisWeek", icone: "demandes" },
   {
-    key: "evaluatedSuppliers",
-    valeur: "842",
-    delta: "+128",
+    key: "suppliersEvaluated",
+    labelKey: "evaluatedSuppliers",
     note: "thisWeek",
     icone: "fournisseurs",
   },
-  { key: "ongoingTransactions", valeur: "7", delta: "+1", note: "thisWeek", icone: "transactions" },
-  { key: "savings", valeur: "128 450 $", delta: "+18%", note: "thisMonth", icone: "economies" },
+  {
+    key: "ongoingTransactions",
+    labelKey: "ongoingTransactions",
+    note: "thisWeek",
+    icone: "transactions",
+  },
+  {
+    key: "savingsGenerated",
+    labelKey: "savings",
+    note: "thisMonth",
+    icone: "economies",
+    money: true,
+  },
 ];
 
 export const dossiers: Dossier[] = [

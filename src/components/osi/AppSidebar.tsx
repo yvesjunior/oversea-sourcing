@@ -1,7 +1,18 @@
-import { Link, useRouterState } from "@tanstack/react-router";
-import { BarChart3, FileText, Home, Inbox, Settings, Repeat, Users, Handshake } from "lucide-react";
+import { Link, useRouter, useRouterState } from "@tanstack/react-router";
+import {
+  BarChart3,
+  FileText,
+  Home,
+  Inbox,
+  LogIn,
+  LogOut,
+  Settings,
+  Repeat,
+  Users,
+  Handshake,
+} from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { utilisateur } from "@/data/osi";
+import { authClient, useSession } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 
 const items = [
@@ -15,9 +26,28 @@ const items = [
   { key: "parametres", url: "/parametres", icone: Settings },
 ];
 
+function initialsOf(name: string): string {
+  return (
+    name
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase())
+      .join("") || "?"
+  );
+}
+
 export function AppSidebar({ onNavigate }: { onNavigate?: () => void } = {}) {
   const { t } = useTranslation();
+  const router = useRouter();
   const pathname = useRouterState({ select: (r) => r.location.pathname });
+  const { data: session } = useSession();
+
+  const seDeconnecter = async () => {
+    await authClient.signOut();
+    await router.invalidate();
+    await router.navigate({ to: "/" });
+  };
 
   return (
     <aside className="flex h-full w-[248px] shrink-0 flex-col bg-sidebar text-sidebar-foreground">
@@ -52,17 +82,37 @@ export function AppSidebar({ onNavigate }: { onNavigate?: () => void } = {}) {
         })}
       </nav>
 
-      <div className="m-3 flex min-w-0 items-center gap-3 rounded-xl px-3 py-4">
-        <span className="grid size-10 shrink-0 place-items-center rounded-full bg-sidebar-accent text-xs font-semibold text-sidebar-accent-foreground">
-          {utilisateur.initiales}
-        </span>
-        <span className="min-w-0">
-          <span className="block truncate text-sm font-semibold">{utilisateur.nom}</span>
-          <span className="block truncate text-xs text-sidebar-foreground/50">
-            {t(utilisateur.role)}
+      {session?.user ? (
+        <div className="m-3 flex min-w-0 items-center gap-3 rounded-xl px-3 py-4">
+          <span className="grid size-10 shrink-0 place-items-center rounded-full bg-sidebar-accent text-xs font-semibold text-sidebar-accent-foreground">
+            {initialsOf(session.user.name)}
           </span>
-        </span>
-      </div>
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-sm font-semibold">{session.user.name}</span>
+            <span className="block truncate text-xs text-sidebar-foreground/50">
+              {session.user.email}
+            </span>
+          </span>
+          <button
+            onClick={() => void seDeconnecter()}
+            aria-label={t("auth.signout")}
+            title={t("auth.signout")}
+            className="shrink-0 text-sidebar-foreground/50 transition-colors hover:text-sidebar-foreground"
+          >
+            <LogOut className="size-[18px]" />
+          </button>
+        </div>
+      ) : (
+        <div className="m-3">
+          <Link
+            to="/login"
+            onClick={onNavigate}
+            className="flex items-center justify-center gap-2 rounded-xl bg-sidebar-accent px-3 py-3 text-sm font-medium text-sidebar-accent-foreground transition-colors hover:bg-sidebar-primary"
+          >
+            <LogIn className="size-4" /> {t("auth.submitSignin")}
+          </Link>
+        </div>
+      )}
     </aside>
   );
 }

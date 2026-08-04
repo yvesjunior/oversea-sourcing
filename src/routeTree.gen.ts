@@ -13,11 +13,14 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AnalysesRouteImport } from './routes/analyses'
 import { Route as DocumentsRouteImport } from './routes/documents'
 import { Route as FournisseursRouteImport } from './routes/fournisseurs'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as ParametresRouteImport } from './routes/parametres'
 import { Route as PartenairesRouteImport } from './routes/partenaires'
+import { Route as SignupRouteImport } from './routes/signup'
 import { Route as TransactionsRouteImport } from './routes/transactions'
 import { Route as DemandesIndexRouteImport } from './routes/demandes/index'
 import { Route as DemandesIdRouteImport } from './routes/demandes/$id'
+import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -39,6 +42,11 @@ const FournisseursRoute = FournisseursRouteImport.update({
   path: '/fournisseurs',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ParametresRoute = ParametresRouteImport.update({
   id: '/parametres',
   path: '/parametres',
@@ -47,6 +55,11 @@ const ParametresRoute = ParametresRouteImport.update({
 const PartenairesRoute = PartenairesRouteImport.update({
   id: '/partenaires',
   path: '/partenaires',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SignupRoute = SignupRouteImport.update({
+  id: '/signup',
+  path: '/signup',
   getParentRoute: () => rootRouteImport,
 } as any)
 const TransactionsRoute = TransactionsRouteImport.update({
@@ -64,28 +77,39 @@ const DemandesIdRoute = DemandesIdRouteImport.update({
   path: '/demandes/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
+  id: '/api/auth/$',
+  path: '/api/auth/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/analyses': typeof AnalysesRoute
   '/documents': typeof DocumentsRoute
   '/fournisseurs': typeof FournisseursRoute
+  '/login': typeof LoginRoute
   '/parametres': typeof ParametresRoute
   '/partenaires': typeof PartenairesRoute
+  '/signup': typeof SignupRoute
   '/transactions': typeof TransactionsRoute
   '/demandes/$id': typeof DemandesIdRoute
   '/demandes/': typeof DemandesIndexRoute
+  '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/analyses': typeof AnalysesRoute
   '/documents': typeof DocumentsRoute
   '/fournisseurs': typeof FournisseursRoute
+  '/login': typeof LoginRoute
   '/parametres': typeof ParametresRoute
   '/partenaires': typeof PartenairesRoute
+  '/signup': typeof SignupRoute
   '/transactions': typeof TransactionsRoute
   '/demandes/$id': typeof DemandesIdRoute
   '/demandes': typeof DemandesIndexRoute
+  '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -93,11 +117,14 @@ export interface FileRoutesById {
   '/analyses': typeof AnalysesRoute
   '/documents': typeof DocumentsRoute
   '/fournisseurs': typeof FournisseursRoute
+  '/login': typeof LoginRoute
   '/parametres': typeof ParametresRoute
   '/partenaires': typeof PartenairesRoute
+  '/signup': typeof SignupRoute
   '/transactions': typeof TransactionsRoute
   '/demandes/$id': typeof DemandesIdRoute
   '/demandes/': typeof DemandesIndexRoute
+  '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -106,33 +133,42 @@ export interface FileRouteTypes {
     | '/analyses'
     | '/documents'
     | '/fournisseurs'
+    | '/login'
     | '/parametres'
     | '/partenaires'
+    | '/signup'
     | '/transactions'
     | '/demandes/$id'
     | '/demandes/'
+    | '/api/auth/$'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/analyses'
     | '/documents'
     | '/fournisseurs'
+    | '/login'
     | '/parametres'
     | '/partenaires'
+    | '/signup'
     | '/transactions'
     | '/demandes/$id'
     | '/demandes'
+    | '/api/auth/$'
   id:
     | '__root__'
     | '/'
     | '/analyses'
     | '/documents'
     | '/fournisseurs'
+    | '/login'
     | '/parametres'
     | '/partenaires'
+    | '/signup'
     | '/transactions'
     | '/demandes/$id'
     | '/demandes/'
+    | '/api/auth/$'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -140,11 +176,14 @@ export interface RootRouteChildren {
   AnalysesRoute: typeof AnalysesRoute
   DocumentsRoute: typeof DocumentsRoute
   FournisseursRoute: typeof FournisseursRoute
+  LoginRoute: typeof LoginRoute
   ParametresRoute: typeof ParametresRoute
   PartenairesRoute: typeof PartenairesRoute
+  SignupRoute: typeof SignupRoute
   TransactionsRoute: typeof TransactionsRoute
   DemandesIdRoute: typeof DemandesIdRoute
   DemandesIndexRoute: typeof DemandesIndexRoute
+  ApiAuthSplatRoute: typeof ApiAuthSplatRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -177,6 +216,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof FournisseursRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/parametres': {
       id: '/parametres'
       path: '/parametres'
@@ -189,6 +235,13 @@ declare module '@tanstack/react-router' {
       path: '/partenaires'
       fullPath: '/partenaires'
       preLoaderRoute: typeof PartenairesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/signup': {
+      id: '/signup'
+      path: '/signup'
+      fullPath: '/signup'
+      preLoaderRoute: typeof SignupRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/transactions': {
@@ -212,6 +265,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DemandesIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/auth/$': {
+      id: '/api/auth/$'
+      path: '/api/auth/$'
+      fullPath: '/api/auth/$'
+      preLoaderRoute: typeof ApiAuthSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -220,11 +280,14 @@ const rootRouteChildren: RootRouteChildren = {
   AnalysesRoute: AnalysesRoute,
   DocumentsRoute: DocumentsRoute,
   FournisseursRoute: FournisseursRoute,
+  LoginRoute: LoginRoute,
   ParametresRoute: ParametresRoute,
   PartenairesRoute: PartenairesRoute,
+  SignupRoute: SignupRoute,
   TransactionsRoute: TransactionsRoute,
   DemandesIdRoute: DemandesIdRoute,
   DemandesIndexRoute: DemandesIndexRoute,
+  ApiAuthSplatRoute: ApiAuthSplatRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

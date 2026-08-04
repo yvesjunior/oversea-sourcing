@@ -1,13 +1,16 @@
 import { useState } from "react";
-import { Bell, Download, Globe, Menu } from "lucide-react";
+import { Link } from "@tanstack/react-router";
+import { Bell, Download, Globe, LogIn, Menu } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { STORAGE_KEY, resolveLanguage } from "@/i18n/config";
+import { useSession } from "@/lib/auth-client";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { AppSidebar } from "./AppSidebar";
 
 export function TopBar() {
   const { t, i18n } = useTranslation();
   const [menuOuvert, setMenuOuvert] = useState(false);
+  const { data: session, isPending } = useSession();
   const current = resolveLanguage(i18n.language);
 
   const toggleLangue = () => {
@@ -54,6 +57,14 @@ export function TopBar() {
           <Bell className="size-[18px]" />
           <span className="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-gold" />
         </button>
+        {!isPending && !session && (
+          <Link
+            to="/login"
+            className="flex items-center gap-2 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground transition-opacity hover:opacity-90"
+          >
+            <LogIn className="size-3.5" /> {t("auth.submitSignin")}
+          </Link>
+        )}
       </div>
     </div>
   );
