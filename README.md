@@ -28,12 +28,33 @@ the whole project (both compose files load it). Keep secrets out of it — use a
 gitignored `.env.local` for local secret overrides.
 
 ```sh
-# Dev — hot-reload, source mounted, http://localhost:8080
-docker compose -f docker-compose.dev.yml up --build
-
-# Prod — built Node image (standalone), serves on host port 3010
-docker compose -f docker-compose.prod.yml up -d --build
+./scripts/dev.sh    # dev, hot-reload, source mounted  → http://localhost:8080
+./scripts/prod.sh   # prod Node image, built locally    → http://localhost:3010
 ```
+
+Under the hood these wrap `docker compose -f docker-compose.{dev,prod}.yml up --build`.
+
+## Deployment
+
+Production runs as a standalone Node container on the prod VM. One command from a
+local checkout pulls the latest `main` on the VM, rebuilds the image, restarts the
+container, and health-checks it:
+
+```sh
+./scripts/deploy.sh
+```
+
+Defaults (override via env vars): `DEPLOY_HOST=yves@192.168.2.56`,
+`DEPLOY_PATH=/home/yves/workspace/apps/oversea-sourcing`, `WEB_PORT=3010`,
+`BRANCH=main`. Live at **http://192.168.2.56:3010**.
+
+```sh
+# e.g. deploy a different branch on a different port
+BRANCH=staging WEB_PORT=3011 ./scripts/deploy.sh
+```
+
+> No reverse proxy / TLS / firewall sits in front of the container yet — it's
+> exposed directly on the VM's LAN.
 
 ## Internationalization
 
@@ -54,6 +75,7 @@ docker compose -f docker-compose.prod.yml up -d --build
 | `src/database/` | Database layer — **placeholder, engine TBD** |
 | `infra/Docker/` | Container images (`web.Dockerfile`; `database` TBD) |
 | `docker-compose.dev.yml` / `.prod.yml` | Dev / prod orchestration |
+| `scripts/` | `dev.sh` / `prod.sh` (local Docker) · `deploy.sh` (prod VM) |
 | `.env` | Single project env file (root only; keep secret-free) |
 | `doc/` | Additional documentation |
 
@@ -61,9 +83,6 @@ docker compose -f docker-compose.prod.yml up -d --build
 
 - **Database engine** — Postgres / ORM / backend service undecided. `src/database`
   is a placeholder and the `database` service is commented out in the compose files.
-- **Web deploy target** — the build defaults to Cloudflare Workers. Running `web`
-  as a standalone Node container needs Nitro's `node-server` preset
-  (`NITRO_PRESET=node-server`); see `infra/Docker/web.Dockerfile`.
 - **`src/web/`** — the frontend currently lives at `src/`. Moving it under `src/web/`
   requires rewiring the Lovable vite plugin, `tsconfig` paths and `styles.css`, and
   risks breaking Lovable editor sync — deferred.
