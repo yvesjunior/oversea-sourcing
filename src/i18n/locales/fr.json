@@ -60,9 +60,11 @@
     "attach": "Joindre un fichier",
     "addPlan": "Ajouter un plan",
     "launch": "Lancer l’analyse IA",
-    "recent": "Vos dossiers récents",
+    "recent": "Dossiers récents",
     "seeAll": "Voir tout",
-    "visionTitle": "Design axé sur notre vision"
+    "visionTitle": "Design axé sur notre vision",
+    "tabAll": "Vue globale",
+    "tabMine": "Mes données"
   },
   "stats": {
     "activeRequests": "Demandes actives",

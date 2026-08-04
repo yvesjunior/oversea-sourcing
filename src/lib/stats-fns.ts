@@ -45,8 +45,7 @@ export const getDashboardStatsFn = createServerFn({ method: "GET" }).handler(
       import("drizzle-orm"),
       import("@/database/schema"),
     ]);
-    // Personal dashboard stat: always the user's own workspace. Platform-wide
-    // ops KPIs belong to the Interne surfaces.
+    // Own-workspace scope for everyone; the global view is getAllStatsFn.
     const [row] = await db
       .select({ value: count() })
       .from(schema.request)
@@ -61,6 +60,31 @@ export const getDashboardStatsFn = createServerFn({ method: "GET" }).handler(
     //   suppliersEvaluated  → E4/E5: count(matches) across the user's requests
     //   ongoingTransactions → E8: count(transactions) where status active
     //   savingsGenerated    → E8: sum of realized savings
+    return { ...ZERO_STATS, activeRequests: row?.value ?? 0 };
+  },
+);
+
+/** Platform-wide stats — the employee "global view" tab (owner/manager only,
+ *  null for everyone else). */
+export const getAllStatsFn = createServerFn({ method: "GET" }).handler(
+  async (): Promise<DashboardStats | null> => {
+    const [{ auth }, { getRequest }, { canSeeAllRequests }] = await Promise.all([
+      import("@/server/auth"),
+      import("@tanstack/react-start/server"),
+      import("@/lib/roles"),
+    ]);
+    const session = await auth.api.getSession({ headers: getRequest().headers });
+    if (!session || !canSeeAllRequests(session.user.platformRole)) return null;
+
+    const [{ db }, { count, notInArray }, schema] = await Promise.all([
+      import("@/database"),
+      import("drizzle-orm"),
+      import("@/database/schema"),
+    ]);
+    const [row] = await db
+      .select({ value: count() })
+      .from(schema.request)
+      .where(notInArray(schema.request.status, ["closed", "cancelled"]));
     return { ...ZERO_STATS, activeRequests: row?.value ?? 0 };
   },
 );

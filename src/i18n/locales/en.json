@@ -60,9 +60,11 @@
     "attach": "Attach a file",
     "addPlan": "Add a plan",
     "launch": "Launch AI analysis",
-    "recent": "Your recent files",
+    "recent": "Recent files",
     "seeAll": "See all",
-    "visionTitle": "Design driven by our vision"
+    "visionTitle": "Design driven by our vision",
+    "tabAll": "Global view",
+    "tabMine": "My data"
   },
   "stats": {
     "activeRequests": "Active requests",
