@@ -282,5 +282,8 @@
   "facilitation": {
     "tabAll": "Tous les dossiers",
     "tabMine": "Mes dossiers"
+  },
+  "tabs": {
+    "nothingMine": "Rien pour l’instant"
   }
 }

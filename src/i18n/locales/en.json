@@ -282,5 +282,8 @@
   "facilitation": {
     "tabAll": "All files",
     "tabMine": "My files"
+  },
+  "tabs": {
+    "nothingMine": "Nothing yet"
   }
 }

@@ -2,8 +2,10 @@ import { createFileRoute } from "@tanstack/react-router";
 import { FileText } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
+import { EmployeeTabs, MineEmpty } from "@/components/osi/EmployeeTabs";
 import { Timeline } from "@/components/osi/Timeline";
 import { etapesTransaction } from "@/data/osi";
+import { canSeeAllRequests } from "@/lib/roles";
 import { Progress } from "@/components/ui/progress";
 
 export const Route = createFileRoute("/transactions")({
@@ -29,6 +31,34 @@ export const Route = createFileRoute("/transactions")({
 
 function Transactions() {
   const { t } = useTranslation();
+  const { session } = Route.useRouteContext();
+  const platformRole = (session?.user as { platformRole?: string } | undefined)?.platformRole;
+  const employee = canSeeAllRequests(platformRole);
+
+  // Showcase content until E8 wires real transactions through the DB.
+  const contenu = (
+    <section className="card-surface max-w-2xl p-6">
+      <h2 className="text-base font-semibold">{t("transactions.txTitle")}</h2>
+      <p className="mt-1 text-xs text-muted-foreground">{t("transactions.txSubtitle")}</p>
+
+      <Timeline etapes={etapesTransaction} className="mt-6" />
+
+      <div className="mt-6 rounded-xl border border-border bg-secondary/60 p-4">
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
+          <span className="truncate text-xs text-muted-foreground">
+            {t("transactions.fabProgress")}
+          </span>
+          <span className="text-sm font-semibold">65%</span>
+        </div>
+        <Progress value={65} className="mt-2 h-1.5" />
+      </div>
+
+      <Button variant="outline" className="mt-6 w-full">
+        <FileText className="size-4" /> {t("transactions.viewDocs")}
+      </Button>
+    </section>
+  );
+
   return (
     <div className="space-y-6 pt-6">
       <header className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4">
@@ -38,26 +68,7 @@ function Transactions() {
         </span>
       </header>
 
-      <section className="card-surface max-w-2xl p-6">
-        <h2 className="text-base font-semibold">{t("transactions.txTitle")}</h2>
-        <p className="mt-1 text-xs text-muted-foreground">{t("transactions.txSubtitle")}</p>
-
-        <Timeline etapes={etapesTransaction} className="mt-6" />
-
-        <div className="mt-6 rounded-xl border border-border bg-secondary/60 p-4">
-          <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
-            <span className="truncate text-xs text-muted-foreground">
-              {t("transactions.fabProgress")}
-            </span>
-            <span className="text-sm font-semibold">65%</span>
-          </div>
-          <Progress value={65} className="mt-2 h-1.5" />
-        </div>
-
-        <Button variant="outline" className="mt-6 w-full">
-          <FileText className="size-4" /> {t("transactions.viewDocs")}
-        </Button>
-      </section>
+      {employee ? <EmployeeTabs global={contenu} mine={<MineEmpty />} /> : contenu}
     </div>
   );
 }
