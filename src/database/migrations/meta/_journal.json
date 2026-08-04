@@ -8,6 +8,13 @@
       "when": 1785865391300,
       "tag": "0000_heavy_microchip",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1785869381846,
+      "tag": "0001_uneven_kronos",
+      "breakpoints": true
     }
   ]
 }

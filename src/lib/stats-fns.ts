@@ -37,14 +37,28 @@ export const getDashboardStatsFn = createServerFn({ method: "GET" }).handler(
       import("@tanstack/react-start/server"),
     ]);
     const session = await auth.api.getSession({ headers: getRequest().headers });
-    if (!session) return ZERO_STATS;
+    const workspaceId = session?.session.activeOrganizationId;
+    if (!workspaceId) return ZERO_STATS;
 
-    // Real per-user queries land with their tables:
-    //   activeRequests      → E3: count(requests) where workspace + status active
+    const [{ db }, { and, count, eq, notInArray }, schema] = await Promise.all([
+      import("@/database"),
+      import("drizzle-orm"),
+      import("@/database/schema"),
+    ]);
+    const [row] = await db
+      .select({ value: count() })
+      .from(schema.request)
+      .where(
+        and(
+          eq(schema.request.organizationId, workspaceId),
+          notInArray(schema.request.status, ["closed", "cancelled"]),
+        ),
+      );
+
+    // Remaining metrics land with their tables:
     //   suppliersEvaluated  → E4/E5: count(matches) across the user's requests
     //   ongoingTransactions → E8: count(transactions) where status active
     //   savingsGenerated    → E8: sum of realized savings
-    // Until then the honest value for a fresh account is zero.
-    return ZERO_STATS;
+    return { ...ZERO_STATS, activeRequests: row?.value ?? 0 };
   },
 );

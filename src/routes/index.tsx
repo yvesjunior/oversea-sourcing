@@ -4,7 +4,9 @@ import { useTranslation } from "react-i18next";
 import { HeroPrompt } from "@/components/osi/HeroPrompt";
 import { StatCard } from "@/components/osi/StatCard";
 import { DossierCard } from "@/components/osi/DossierCard";
-import { dossiers, statsConfig, valeurs } from "@/data/osi";
+import { EmptyRequests } from "@/components/osi/EmptyRequests";
+import { statsConfig, valeurs } from "@/data/osi";
+import { getMyRequestsFn } from "@/lib/requests-fns";
 import { getDashboardStatsFn } from "@/lib/stats-fns";
 
 export const Route = createFileRoute("/")({
@@ -25,8 +27,11 @@ export const Route = createFileRoute("/")({
       { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
-  // Real per-user stats (zeros when anonymous — the section stays public).
-  loader: () => getDashboardStatsFn(),
+  // Real per-user data (zeros/empty when anonymous — the page stays public).
+  loader: async () => {
+    const [stats, demandes] = await Promise.all([getDashboardStatsFn(), getMyRequestsFn()]);
+    return { stats, demandes };
+  },
   component: Accueil,
 });
 
@@ -35,7 +40,7 @@ function Accueil() {
   // Public route: anonymous visitors see the hero + value props; logged-in
   // users get their personal dashboard (doc/BACKLOG.md — public landing).
   const { session } = Route.useRouteContext();
-  const stats = Route.useLoaderData();
+  const { stats, demandes } = Route.useLoaderData();
   const loggedIn = Boolean(session);
 
   return (
@@ -65,11 +70,17 @@ function Accueil() {
               {t("home.seeAll")} <ChevronRight className="size-4" />
             </Link>
           </div>
-          <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            {dossiers.slice(0, 4).map((dossier) => (
-              <DossierCard key={dossier.id} dossier={dossier} />
-            ))}
-          </div>
+          {demandes.length === 0 ? (
+            <div className="mt-5">
+              <EmptyRequests />
+            </div>
+          ) : (
+            <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              {demandes.slice(0, 4).map((demande) => (
+                <DossierCard key={demande.id} demande={demande} />
+              ))}
+            </div>
+          )}
         </section>
       )}
 

@@ -1,4 +1,4 @@
-import { boolean, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import { boolean, index, integer, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Identity & tenancy — better-auth core tables + organization plugin.
@@ -86,6 +86,47 @@ export const member = pgTable("member", {
   role: text("role").notNull().default("buyer"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
+
+// ── Requests (demandes) — the core loop (doc/BACKLOG.md E3) ─────────────────
+
+export const REQUEST_STATUSES = [
+  "draft",
+  "received",
+  "analyzing",
+  "searching",
+  "validating",
+  "report_ready",
+  "closed",
+  "cancelled",
+] as const;
+export type RequestStatus = (typeof REQUEST_STATUSES)[number];
+
+export const request = pgTable(
+  "request",
+  {
+    id: text("id").primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    createdBy: text("created_by")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    descriptionRaw: text("description_raw").notNull().default(""),
+    status: text("status").$type<RequestStatus>().notNull().default("draft"),
+    locale: text("locale").notNull().default("fr"),
+    // Denormalized display cache — source of truth becomes `matches` at E5.
+    compatibilityScore: integer("compatibility_score"),
+    launchedAt: timestamp("launched_at"),
+    completedAt: timestamp("completed_at"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (table) => [
+    index("request_org_idx").on(table.organizationId),
+    index("request_created_by_idx").on(table.createdBy),
+  ],
+);
 
 export const invitation = pgTable("invitation", {
   id: text("id").primaryKey(),

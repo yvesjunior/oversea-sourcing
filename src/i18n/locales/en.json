@@ -1,5 +1,7 @@
 {
-  "brand": { "tagline": "Oversea Sourcing Intelligence" },
+  "brand": {
+    "tagline": "Oversea Sourcing Intelligence"
+  },
   "nav": {
     "accueil": "Home",
     "demandes": "Requests",
@@ -15,7 +17,9 @@
     "imports": "Imports",
     "finance": "Finance"
   },
-  "user": { "role": "Administrator" },
+  "user": {
+    "role": "Administrator"
+  },
   "auth": {
     "signinTitle": "Welcome back",
     "signinSubtitle": "Sign in to access your workspace",
@@ -69,19 +73,42 @@
     "thisMonth": "this month"
   },
   "values": {
-    "intelligent": { "title": "Intelligent", "text": "AI guides you at every step" },
-    "confiance": { "title": "Trust", "text": "Verified and rated suppliers" },
-    "simplicite": { "title": "Simplicity", "text": "Clean and intuitive interface" },
-    "securite": { "title": "Security", "text": "Your data is protected" },
-    "efficacite": { "title": "Efficiency", "text": "All your sourcing in one place" }
+    "intelligent": {
+      "title": "Intelligent",
+      "text": "AI guides you at every step"
+    },
+    "confiance": {
+      "title": "Trust",
+      "text": "Verified and rated suppliers"
+    },
+    "simplicite": {
+      "title": "Simplicity",
+      "text": "Clean and intuitive interface"
+    },
+    "securite": {
+      "title": "Security",
+      "text": "Your data is protected"
+    },
+    "efficacite": {
+      "title": "Efficiency",
+      "text": "All your sourcing in one place"
+    }
   },
   "statuses": {
-    "En analyse": "In analysis",
-    "Validation fournisseur": "Supplier validation",
-    "Rapport prêt": "Report ready",
-    "Recherche terminée": "Search complete"
+    "draft": "Draft",
+    "received": "Received",
+    "analyzing": "In analysis",
+    "searching": "Global search",
+    "validating": "Supplier validation",
+    "report_ready": "Report ready",
+    "closed": "Closed",
+    "cancelled": "Cancelled"
   },
-  "risk": { "Faible": "Low", "Moyen": "Medium", "Élevé": "High" },
+  "risk": {
+    "Faible": "Low",
+    "Moyen": "Medium",
+    "Élevé": "High"
+  },
   "countries": {
     "DE": "Germany",
     "SE": "Sweden",
@@ -89,30 +116,18 @@
     "CN": "China",
     "IT": "Italy"
   },
-  "time": {
-    "min15": "15 min ago",
-    "h1": "1 h ago",
-    "h3": "3 h ago",
-    "h5": "5 h ago",
-    "yesterday": "Yesterday"
-  },
   "dossier": {
     "status": "Status",
     "compatibility": "Compatibility",
     "updated": "Updated"
   },
-  "dossiers": {
-    "2541": "Industrial stainless pumps",
-    "2540": "Electronic components",
-    "2539": "CNC machines",
-    "2538": "Food packaging",
-    "2537": "Heavy-duty bearings",
-    "2536": "Technical textiles"
-  },
   "demandes": {
     "title": "Requests",
     "subtitle_one": "{{count}} active sourcing file",
-    "subtitle_other": "{{count}} active sourcing files"
+    "subtitle_other": "{{count}} active sourcing files",
+    "emptyTitle": "No files yet",
+    "emptyText": "Describe your need and launch the AI analysis to create your first file.",
+    "emptyCta": "Describe a need"
   },
   "detail": {
     "back": "Back",
@@ -153,11 +168,26 @@
     "delivery": "Lead time: 30 days max"
   },
   "stepsDemande": {
-    "received": { "title": "Request received", "detail": "May 15, 2024 - 9:14 AM" },
-    "analysis": { "title": "AI analysis", "detail": "May 15, 2024 - 9:36 AM" },
-    "search": { "title": "Global search", "detail": "In progress..." },
-    "validation": { "title": "Supplier validation", "detail": "Pending" },
-    "report": { "title": "Final report", "detail": "Pending" }
+    "received": {
+      "title": "Request received",
+      "detail": "May 15, 2024 - 9:14 AM"
+    },
+    "analysis": {
+      "title": "AI analysis",
+      "detail": "May 15, 2024 - 9:36 AM"
+    },
+    "search": {
+      "title": "Global search",
+      "detail": "In progress..."
+    },
+    "validation": {
+      "title": "Supplier validation",
+      "detail": "Pending"
+    },
+    "report": {
+      "title": "Final report",
+      "detail": "Pending"
+    }
   },
   "fournisseurs": {
     "title": "Suppliers",
@@ -177,13 +207,34 @@
     "viewDocs": "View all documents"
   },
   "stepsTransaction": {
-    "order": { "title": "Order confirmed", "detail": "May 12, 2024" },
-    "payment": { "title": "Secure payment", "detail": "May 12, 2024 — $25,000 USD" },
-    "fabrication": { "title": "Manufacturing", "detail": "In progress — 65%" },
-    "inspection": { "title": "Quality inspection", "detail": "Pending" },
-    "shipping": { "title": "Shipping", "detail": "Pending" },
-    "customs": { "title": "Customs", "detail": "Pending" },
-    "delivery": { "title": "Estimated delivery", "detail": "June 26, 2024" }
+    "order": {
+      "title": "Order confirmed",
+      "detail": "May 12, 2024"
+    },
+    "payment": {
+      "title": "Secure payment",
+      "detail": "May 12, 2024 — $25,000 USD"
+    },
+    "fabrication": {
+      "title": "Manufacturing",
+      "detail": "In progress — 65%"
+    },
+    "inspection": {
+      "title": "Quality inspection",
+      "detail": "Pending"
+    },
+    "shipping": {
+      "title": "Shipping",
+      "detail": "Pending"
+    },
+    "customs": {
+      "title": "Customs",
+      "detail": "Pending"
+    },
+    "delivery": {
+      "title": "Estimated delivery",
+      "detail": "June 26, 2024"
+    }
   },
   "analyses": {
     "title": "Analytics",

@@ -1,5 +1,7 @@
 {
-  "brand": { "tagline": "Oversea Sourcing Intelligence" },
+  "brand": {
+    "tagline": "Oversea Sourcing Intelligence"
+  },
   "nav": {
     "accueil": "Accueil",
     "demandes": "Demandes",
@@ -15,7 +17,9 @@
     "imports": "Imports",
     "finance": "Finance"
   },
-  "user": { "role": "Administrateur" },
+  "user": {
+    "role": "Administrateur"
+  },
   "auth": {
     "signinTitle": "Bon retour",
     "signinSubtitle": "Connectez-vous pour accéder à votre espace",
@@ -69,19 +73,42 @@
     "thisMonth": "ce mois-ci"
   },
   "values": {
-    "intelligent": { "title": "Intelligent", "text": "L’IA vous accompagne à chaque étape" },
-    "confiance": { "title": "Confiance", "text": "Fournisseurs vérifiés et évalués" },
-    "simplicite": { "title": "Simplicité", "text": "Interface épurée et intuitive" },
-    "securite": { "title": "Sécurité", "text": "Vos données sont protégées" },
-    "efficacite": { "title": "Efficacité", "text": "Tout votre approvisionnement au même endroit" }
+    "intelligent": {
+      "title": "Intelligent",
+      "text": "L’IA vous accompagne à chaque étape"
+    },
+    "confiance": {
+      "title": "Confiance",
+      "text": "Fournisseurs vérifiés et évalués"
+    },
+    "simplicite": {
+      "title": "Simplicité",
+      "text": "Interface épurée et intuitive"
+    },
+    "securite": {
+      "title": "Sécurité",
+      "text": "Vos données sont protégées"
+    },
+    "efficacite": {
+      "title": "Efficacité",
+      "text": "Tout votre approvisionnement au même endroit"
+    }
   },
   "statuses": {
-    "En analyse": "En analyse",
-    "Validation fournisseur": "Validation fournisseur",
-    "Rapport prêt": "Rapport prêt",
-    "Recherche terminée": "Recherche terminée"
+    "draft": "Brouillon",
+    "received": "Reçue",
+    "analyzing": "En analyse",
+    "searching": "Recherche mondiale",
+    "validating": "Validation fournisseur",
+    "report_ready": "Rapport prêt",
+    "closed": "Clôturée",
+    "cancelled": "Annulée"
   },
-  "risk": { "Faible": "Faible", "Moyen": "Moyen", "Élevé": "Élevé" },
+  "risk": {
+    "Faible": "Faible",
+    "Moyen": "Moyen",
+    "Élevé": "Élevé"
+  },
   "countries": {
     "DE": "Allemagne",
     "SE": "Suède",
@@ -89,30 +116,18 @@
     "CN": "Chine",
     "IT": "Italie"
   },
-  "time": {
-    "min15": "Il y a 15 min",
-    "h1": "Il y a 1 h",
-    "h3": "Il y a 3 h",
-    "h5": "Il y a 5 h",
-    "yesterday": "Hier"
-  },
   "dossier": {
     "status": "Statut",
     "compatibility": "Compatibilité",
     "updated": "Mis à jour"
   },
-  "dossiers": {
-    "2541": "Pompes industrielles inox",
-    "2540": "Composants électroniques",
-    "2539": "Machines CNC",
-    "2538": "Emballage alimentaire",
-    "2537": "Roulements haute charge",
-    "2536": "Textiles techniques"
-  },
   "demandes": {
     "title": "Demandes",
     "subtitle_one": "{{count}} dossier d’approvisionnement en cours",
-    "subtitle_other": "{{count}} dossiers d’approvisionnement en cours"
+    "subtitle_other": "{{count}} dossiers d’approvisionnement en cours",
+    "emptyTitle": "Aucun dossier pour l’instant",
+    "emptyText": "Décrivez votre besoin et lancez l’analyse IA pour créer votre premier dossier.",
+    "emptyCta": "Décrire un besoin"
   },
   "detail": {
     "back": "Retour",
@@ -153,11 +168,26 @@
     "delivery": "Délai de livraison : 30 jours max"
   },
   "stepsDemande": {
-    "received": { "title": "Demande reçue", "detail": "15 mai 2024 - 09:14" },
-    "analysis": { "title": "Analyse IA", "detail": "15 mai 2024 - 09:36" },
-    "search": { "title": "Recherche mondiale", "detail": "En cours..." },
-    "validation": { "title": "Validation fournisseur", "detail": "En attente" },
-    "report": { "title": "Rapport final", "detail": "En attente" }
+    "received": {
+      "title": "Demande reçue",
+      "detail": "15 mai 2024 - 09:14"
+    },
+    "analysis": {
+      "title": "Analyse IA",
+      "detail": "15 mai 2024 - 09:36"
+    },
+    "search": {
+      "title": "Recherche mondiale",
+      "detail": "En cours..."
+    },
+    "validation": {
+      "title": "Validation fournisseur",
+      "detail": "En attente"
+    },
+    "report": {
+      "title": "Rapport final",
+      "detail": "En attente"
+    }
   },
   "fournisseurs": {
     "title": "Fournisseurs",
@@ -177,13 +207,34 @@
     "viewDocs": "Voir tous les documents"
   },
   "stepsTransaction": {
-    "order": { "title": "Commande confirmée", "detail": "12 mai 2024" },
-    "payment": { "title": "Paiement sécurisé", "detail": "12 mai 2024 — 25 000 $ USD" },
-    "fabrication": { "title": "Fabrication", "detail": "En cours — 65 %" },
-    "inspection": { "title": "Inspection qualité", "detail": "En attente" },
-    "shipping": { "title": "Expédition", "detail": "En attente" },
-    "customs": { "title": "Douanes", "detail": "En attente" },
-    "delivery": { "title": "Livraison prévue", "detail": "26 juin 2024" }
+    "order": {
+      "title": "Commande confirmée",
+      "detail": "12 mai 2024"
+    },
+    "payment": {
+      "title": "Paiement sécurisé",
+      "detail": "12 mai 2024 — 25 000 $ USD"
+    },
+    "fabrication": {
+      "title": "Fabrication",
+      "detail": "En cours — 65 %"
+    },
+    "inspection": {
+      "title": "Inspection qualité",
+      "detail": "En attente"
+    },
+    "shipping": {
+      "title": "Expédition",
+      "detail": "En attente"
+    },
+    "customs": {
+      "title": "Douanes",
+      "detail": "En attente"
+    },
+    "delivery": {
+      "title": "Livraison prévue",
+      "detail": "26 juin 2024"
+    }
   },
   "analyses": {
     "title": "Analyses",

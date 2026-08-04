@@ -1,17 +1,7 @@
 // Mock data for the OSI demo. Display strings are stored as i18n keys and
 // translated at render time via `t(...)` — never hardcode user-facing text here.
 
-export type Statut =
-  "En analyse" | "Validation fournisseur" | "Rapport prêt" | "Recherche terminée";
 export type Risque = "Faible" | "Moyen" | "Élevé";
-
-export type Dossier = {
-  id: string;
-  statut: Statut;
-  compatibilite: number;
-  /** i18n key, e.g. "time.min15" */
-  maj: string;
-};
 
 // Presentational config for the dashboard stat cards; values come from
 // getDashboardStatsFn (real, per-user — zeros when anonymous).
@@ -48,15 +38,6 @@ export const statsConfig: StatCardConfig[] = [
     icone: "economies",
     money: true,
   },
-];
-
-export const dossiers: Dossier[] = [
-  { id: "2541", statut: "En analyse", compatibilite: 91, maj: "time.min15" },
-  { id: "2540", statut: "Validation fournisseur", compatibilite: 87, maj: "time.h1" },
-  { id: "2539", statut: "Rapport prêt", compatibilite: 95, maj: "time.h3" },
-  { id: "2538", statut: "Recherche terminée", compatibilite: 88, maj: "time.h5" },
-  { id: "2537", statut: "Rapport prêt", compatibilite: 84, maj: "time.yesterday" },
-  { id: "2536", statut: "En analyse", compatibilite: 79, maj: "time.yesterday" },
 ];
 
 export const etapesDemande = [

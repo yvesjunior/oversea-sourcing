@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import {
   ArrowLeft,
   Check,
@@ -16,7 +16,8 @@ import { ScoreRing } from "@/components/osi/ScoreRing";
 import { Timeline } from "@/components/osi/Timeline";
 import { CountryTag } from "@/components/osi/CountryTag";
 import { RiskBadge } from "@/components/osi/RiskBadge";
-import { criteres, dossiers, etapesDemande, fournisseurs } from "@/data/osi";
+import { criteres, etapesDemande, fournisseurs } from "@/data/osi";
+import { getRequestFn, type RequestSummary } from "@/lib/requests-fns";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/demandes/$id")({
@@ -36,6 +37,12 @@ export const Route = createFileRoute("/demandes/$id")({
       { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
+  // Real request from the DB (workspace-scoped); unknown ids go back to the list.
+  loader: async ({ params }): Promise<RequestSummary> => {
+    const demande = await getRequestFn({ data: { id: params.id } });
+    if (!demande) throw redirect({ to: "/demandes" });
+    return demande;
+  },
   component: DemandeDetail,
 });
 
@@ -49,8 +56,7 @@ const etapesFlux = [
 
 function DemandeDetail() {
   const { t } = useTranslation();
-  const { id } = Route.useParams();
-  const dossier = dossiers.find((d) => d.id === id) ?? dossiers[0]!;
+  const demande = Route.useLoaderData() as RequestSummary;
 
   return (
     <div className="space-y-6 pt-6">
@@ -63,7 +69,7 @@ function DemandeDetail() {
           <span className="hidden sm:inline">{t("detail.back")}</span>
         </Link>
         <h1 className="truncate text-center font-display text-lg font-semibold">
-          {t("detail.requestNo", { id: dossier.id })}
+          {t("detail.requestNo", { id: demande.id })}
         </h1>
         <Button variant="gold" size="sm">
           <FileText className="size-4" /> {t("detail.viewReport")}
@@ -108,7 +114,7 @@ function DemandeDetail() {
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,340px)_minmax(0,1fr)]">
         <section className="card-surface p-6">
-          <h2 className="text-base font-semibold">{t(`dossiers.${dossier.id}`)}</h2>
+          <h2 className="text-base font-semibold">{demande.title}</h2>
           <p className="mt-1 text-xs text-muted-foreground">{t("detail.progressTitle")}</p>
           <Timeline etapes={etapesDemande} className="mt-6" />
 

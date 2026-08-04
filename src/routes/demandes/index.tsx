@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import { DossierCard } from "@/components/osi/DossierCard";
-import { dossiers } from "@/data/osi";
+import { EmptyRequests } from "@/components/osi/EmptyRequests";
+import { getMyRequestsFn } from "@/lib/requests-fns";
 
 export const Route = createFileRoute("/demandes/")({
   head: () => ({
@@ -21,27 +22,34 @@ export const Route = createFileRoute("/demandes/")({
       { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
+  loader: () => getMyRequestsFn(),
   component: Demandes,
 });
 
 function Demandes() {
   const { t } = useTranslation();
+  const demandes = Route.useLoaderData();
+
   return (
     <div className="space-y-6 pt-6">
       <header className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4">
         <div className="min-w-0">
           <h1 className="truncate font-display text-2xl font-semibold">{t("demandes.title")}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {t("demandes.subtitle", { count: dossiers.length })}
+            {t("demandes.subtitle", { count: demandes.length })}
           </p>
         </div>
       </header>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        {dossiers.map((dossier) => (
-          <DossierCard key={dossier.id} dossier={dossier} />
-        ))}
-      </div>
+      {demandes.length === 0 ? (
+        <EmptyRequests />
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {demandes.map((demande) => (
+            <DossierCard key={demande.id} demande={demande} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
