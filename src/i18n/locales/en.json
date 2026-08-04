@@ -276,5 +276,9 @@
     "partenairesText": "Your inspection, transport and financing partners will appear here.",
     "parametresTitle": "Settings",
     "parametresText": "Profile, team, language and sourcing rules will be configurable here."
+  },
+  "facilitation": {
+    "tabAll": "All files",
+    "tabMine": "My files"
   }
 }
