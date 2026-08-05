@@ -103,20 +103,20 @@ function CriterionForm({
   );
 }
 
-/** Criteria review/edit (E3). `editable` = pipeline paused at "analyzing";
- *  `canEdit` = own workspace (employees read foreign dossiers read-only). */
+/** Criteria review/edit (E3). Criteria are parsed at intake and stay editable
+ *  while the dossier is open; `showLaunch` only appears on legacy dossiers
+ *  paused in "analyzing" (the pre-removal review flow). `editable` = own
+ *  workspace + non-terminal status. */
 export function CriteriaPanel({
   requestId,
   criteria,
-  canEdit,
   editable,
-  extracting,
+  showLaunch,
 }: {
   requestId: string;
   criteria: Criterion[];
-  canEdit: boolean;
   editable: boolean;
-  extracting: boolean;
+  showLaunch: boolean;
 }) {
   const { t } = useTranslation();
   const router = useRouter();
@@ -126,7 +126,7 @@ export function CriteriaPanel({
   const [busy, setBusy] = useState(false);
   const [launching, setLaunching] = useState(false);
 
-  const allowWrites = canEdit && editable;
+  const allowWrites = editable;
 
   const refresh = () => router.invalidate();
 
@@ -190,12 +190,6 @@ export function CriteriaPanel({
   return (
     <div className="mt-6 rounded-xl border border-border bg-secondary/60 p-4">
       <h3 className="text-sm font-semibold">{t("detail.criteriaTitle")}</h3>
-
-      {extracting && criteria.length === 0 && (
-        <p className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
-          <Loader2 className="size-3.5 animate-spin text-gold" /> {t("detail.extracting")}
-        </p>
-      )}
 
       <ul className="mt-3 space-y-2">
         {criteria.map((criterion) =>
@@ -278,7 +272,7 @@ export function CriteriaPanel({
         </button>
       )}
 
-      {allowWrites && criteria.length > 0 && (
+      {showLaunch && criteria.length > 0 && (
         <div className="mt-4 space-y-2">
           <p className="text-xs text-muted-foreground">{t("detail.criteriaReadyHint")}</p>
           <Button

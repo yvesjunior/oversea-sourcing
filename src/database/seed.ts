@@ -219,13 +219,16 @@ async function seedRequests() {
   const MIN = 60_000;
   // No hardcoded scores: the matcher computes them for dossiers whose pipeline
   // reached the matching stage; earlier dossiers legitimately have none yet.
+  // Mid-pipeline statuses (received/searching/validating) are transient: the
+  // worker's recovery sweep adopts them shortly after boot and runs them to
+  // report_ready — which is exactly how a real dossier behaves.
   const demandes = [
-    { id: "2541", title: "Pompes industrielles inox", status: "analyzing", age: 15 * MIN },
+    { id: "2541", title: "Pompes industrielles inox", status: "received", age: 15 * MIN },
     { id: "2540", title: "Composants électroniques", status: "validating", age: 60 * MIN },
     { id: "2539", title: "Machines CNC", status: "report_ready", age: 3 * 60 * MIN },
     { id: "2538", title: "Emballage alimentaire", status: "searching", age: 5 * 60 * MIN },
     { id: "2537", title: "Roulements haute charge", status: "report_ready", age: 26 * 60 * MIN },
-    { id: "2536", title: "Textiles techniques", status: "analyzing", age: 30 * 60 * MIN },
+    { id: "2536", title: "Textiles techniques", status: "received", age: 30 * 60 * MIN },
   ] as const;
 
   const { createMatchesForRequest } = await import("../server/matching");
@@ -316,10 +319,10 @@ const CRITERES_DEMO: Record<
 
 /** How far the pipeline progressed per status → which status.* events exist. */
 const STATUS_TRAIL: Record<string, string[]> = {
-  analyzing: ["received", "analyzing"],
-  searching: ["received", "analyzing", "searching"],
-  validating: ["received", "analyzing", "searching", "validating"],
-  report_ready: ["received", "analyzing", "searching", "validating", "report_ready"],
+  received: ["received"],
+  searching: ["received", "searching"],
+  validating: ["received", "searching", "validating"],
+  report_ready: ["received", "searching", "validating", "report_ready"],
 };
 
 /** Criteria, chat and events for a demo request — delete-then-insert with
@@ -369,9 +372,6 @@ async function seedRequestChildren(
       message: JSON.stringify({ count: criteres.length }),
       minutes: 3,
     },
-    ...(trail.includes("searching")
-      ? [{ type: "search.launched", message: null as string | null, minutes: 4 }]
-      : []),
     ...(trail.includes("validating")
       ? [
           {

@@ -4,11 +4,9 @@
 import { PgBoss } from "pg-boss";
 
 export const QUEUES = {
-  extractCriteria: "request.extract-criteria",
   pipeline: "request.pipeline",
 } as const;
 
-export type ExtractCriteriaJob = { requestId: string };
 export type PipelineJob = { requestId: string };
 
 let boss: PgBoss | null = null;
@@ -28,10 +26,6 @@ async function send(queue: string, data: object): Promise<void> {
   const instance = await getBoss();
   await instance.createQueue(queue);
   await instance.send(queue, data);
-}
-
-export async function enqueueExtractCriteria(requestId: string): Promise<void> {
-  await send(QUEUES.extractCriteria, { requestId } satisfies ExtractCriteriaJob);
 }
 
 export async function enqueuePipeline(requestId: string): Promise<void> {

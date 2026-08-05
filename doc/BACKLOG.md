@@ -14,7 +14,7 @@ the standalone Node container we already ship.
 | Background jobs  | **pg-boss** (queue lives in Postgres — no Redis to operate)                   |
 | Auth             | **better-auth** (TS-native, Drizzle adapter) — email/password + sessions      |
 | Validation       | **zod** on every API boundary                                                 |
-| AI               | **Claude API** via the `src/server/ai/` gateway (extraction, chat refinement, research agent, report drafting). **Opt-in per flag, both default off** (`AI_PROMPT_ANALYSIS`, `AI_CHAT` — tokens reserved for E4 supplier research); deterministic heuristic fallback keeps the loop running without `ANTHROPIC_API_KEY` |
+| AI               | **Claude API** via the `src/server/ai/` gateway — reserved for **supplier research (E4)**, report drafting (E7) and the flag-gated chat (`AI_CHAT`, default off). The pre-search prompt analysis was removed (2026-08-05): criteria are parsed synchronously at intake (`src/server/parse-criteria.ts`, zero tokens), guided by the hero prompt's info helper |
 | File storage     | Local Docker volume for MVP1, S3-compatible interface from day one            |
 | Email            | SMTP provider (Resend or similar), templates FR/EN                            |
 
@@ -185,9 +185,10 @@ transactions…) requires login. Logged-in users see the personal dashboard on `
 - [x] `requests` CRUD + status state machine (guarded transitions in `src/lib/request-status.ts` + `src/server/requests.ts`, launchedAt/completedAt timestamps, request_event trail)
 - [x] Hero prompt → creates request (sequence ids from 3000; draft→received + extraction job; post-auth draft auto-creates)
 - [x] File upload endpoint + storage adapter (`/api/upload`, `/api/files/$id`, local volume behind S3-shaped `src/server/storage.ts`)
-- [x] **Job: criteria extraction** — behind `AI_PROMPT_ANALYSIS` (default **false**, decided 2026-08-04 — tokens reserved for E4 supplier research): true = Claude structured output (`claude-haiku-4-5` via `ANTHROPIC_MODEL`, heuristic fallback when no key); false = free regex heuristic → `request_criterion` rows either way
-- [x] Criteria review/edit UI (add/remove/edit, then "Lancer la recherche") — the review pause only exists with `AI_PROMPT_ANALYSIS=true` (`PIPELINE_AUTOLAUNCH=true` skips it); with the flag off the request goes straight to supplier search
-- [x] **Per-request AI chat** — behind `AI_CHAT` (default **false**: UI hidden, server refuses; the hero prompt is the only AI-facing input): message → Claude with criteria context → optional criteria mutations applied (persisted in `request_message`)
+- [x] **Criteria at intake** — the pre-search AI analysis was **removed entirely (decided 2026-08-05)**: an ℹ️ info helper on the hero prompt guides buyers to structured input, and `src/server/parse-criteria.ts` parses criteria synchronously at creation (zero tokens). Requests go **straight to supplier search** — no pause, no `AI_PROMPT_ANALYSIS` flag. Legacy `analyzing` dossiers keep a manual launch button.
+- [x] Criteria review/edit UI (add/remove/edit) — editable on the dossier until it closes
+- [x] **Per-request AI chat** — behind `AI_CHAT` (default **false**: UI + transcripts hidden, server refuses; the hero prompt is the only AI-facing input): message → Claude with criteria context → optional criteria mutations applied (persisted in `request_message`)
+- [x] Worker recovery sweep: requests stranded mid-pipeline (crash/lost enqueue) are re-adopted on boot + every 60s
 - [x] Pipeline orchestrator job: `analyzing → searching → validating → report_ready` with progress events — **simulated stages (~10s each) until E4/E5 provide real search/matching**
 - [x] Wire demandes list + detail pages to real data (drop mock) — `request` table (migration 0001), workspace-scoped queries; detail criteria/top-5/chat remain showcase until E3/E5
 - [x] **Personal dashboard** (Accueil): real session user greeting, stats + "Vos dossiers

@@ -43,7 +43,7 @@
     "errorInvalid": "Incorrect email or password.",
     "errorExists": "An account already exists with this email.",
     "errorGeneric": "Something went wrong. Please try again.",
-    "gateHint": "Sign in to launch the analysis — your input is preserved."
+    "gateHint": "Sign in to launch the search — your input is preserved."
   },
   "topbar": {
     "downloads": "Downloads",
@@ -59,7 +59,19 @@
     "voice": "Voice input",
     "attach": "Attach a file",
     "addPlan": "Add a plan",
-    "launch": "Launch AI analysis",
+    "launch": "Launch the search",
+    "helpAria": "How to describe your need",
+    "helpTitle": "How to describe your need?",
+    "helpIntro": "The more precise your request, the more relevant the supplier search. Where possible, mention:",
+    "helpHints": {
+      "product": "The product or component you need (e.g. butterfly valves, bearings)",
+      "material": "The material (e.g. 316 stainless steel, aluminium, PET)",
+      "specs": "Quantified technical specs (pressure in bar, flow in m³/h, dimensions)",
+      "certifications": "Required certifications (ISO 9001, CE, ATEX, FDA…)",
+      "quantity": "The quantity (units, pieces — per order or per year)",
+      "leadTime": "The desired lead time (e.g. delivery within 45 days)"
+    },
+    "helpExample": "E.g.: “316 stainless steel centrifugal pumps, pressure 10 to 16 bar, flow 50 m³/h, ISO 9001 and CE certification required, 500 units per year, delivery within 30 days.”",
     "removeFile": "Remove file",
     "recent": "Recent files",
     "seeAll": "See all",
@@ -132,7 +144,7 @@
     "subtitle_one": "{{count}} active sourcing file",
     "subtitle_other": "{{count}} active sourcing files",
     "emptyTitle": "No files yet",
-    "emptyText": "Describe your need and launch the AI analysis to create your first file.",
+    "emptyText": "Describe your need and launch the search to create your first file.",
     "emptyCta": "Describe a need"
   },
   "detail": {
@@ -155,7 +167,6 @@
     "chatThinking": "The assistant is thinking...",
     "send": "Send",
     "criteriaTitle": "Identified criteria",
-    "extracting": "The AI is analyzing your need and extracting criteria...",
     "addCriterion": "Add a criterion",
     "editCriterion": "Edit criterion",
     "deleteCriterion": "Delete criterion",
@@ -177,7 +188,6 @@
   },
   "stepsFlux": {
     "received": "Request received",
-    "analysis": "AI analysis",
     "search": "Global search",
     "validation": "Validation",
     "report": "Report"
@@ -211,9 +221,6 @@
   "stepsDemande": {
     "received": {
       "title": "Request received"
-    },
-    "analysis": {
-      "title": "AI analysis"
     },
     "search": {
       "title": "Global search"

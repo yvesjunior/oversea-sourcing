@@ -92,32 +92,32 @@ into `docker-compose.dev.yml` — nothing to configure. Both compose files also 
 ### Background worker & AI (E3)
 
 A third process — `worker` (same image, [`src/worker.ts`](src/worker.ts), pg-boss
-queues in Postgres) — runs the request pipeline asynchronously.
+queue in Postgres) — runs the request pipeline asynchronously.
 
-**AI is opt-in, per flag (`src/server/ai/flags.ts`) — tokens are reserved for
-supplier research (E4). Both default to OFF; the hero request prompt is the
-only AI-facing input:**
+**There is no pre-search AI analysis (removed 2026-08-05).** An ℹ️ info helper
+on the hero prompt guides buyers to structured input; the platform does the
+rest without spending a token. AI is reserved for supplier research (E4) and
+the flag-gated chat:
 
-| Flag                      | OFF (default)                                                         | ON                                                                  |
-| ------------------------- | --------------------------------------------------------------------- | ------------------------------------------------------------------- |
-| `AI_PROMPT_ANALYSIS`      | Free heuristic criteria; request goes **straight to supplier search** | Claude extraction + review pause + "Lancer la recherche" button     |
-| `AI_CHAT`                 | Assistant chat hidden (server refuses new messages)                   | Per-request assistant chat (can apply criteria changes)             |
-
-The flow:
-
-1. **Create**: the hero prompt inserts a `request` (ids from `request_id_seq`,
-   `#3000+`) and enqueues extraction.
-2. **Analysis**: criteria via the AI gateway (`src/server/ai/`, default model
-   `claude-haiku-4-5`, override with `ANTHROPIC_MODEL`) when
-   `AI_PROMPT_ANALYSIS=true` — deterministic regex heuristics otherwise (also
-   the fallback when `ANTHROPIC_API_KEY` is missing).
-3. **Review** (only with `AI_PROMPT_ANALYSIS=true`): the pipeline pauses at
-   "En analyse" for criteria review/edit; the buyer launches the search
-   (`PIPELINE_AUTOLAUNCH=true` skips the pause). With the flag off this step
-   is skipped entirely.
-4. **Matching**: the pipeline scores the platform-global `supplier` pool and
+1. **Create** (`createRequestFn`): the hero prompt inserts a `request` (ids
+   from `request_id_seq`, `#3000+`), **parses criteria synchronously at
+   intake** (`src/server/parse-criteria.ts`, deterministic regex — instant,
+   zero tokens, still manually editable on the dossier) and enqueues the
+   pipeline. No pause, no analysis stage.
+2. **Pipeline** (worker): `received → searching → validating → report_ready`.
+   During `searching` it scores the platform-global `supplier` pool and
    persists a ranked Top-5 in `match` (deterministic heuristic in
-   `src/server/matching.ts` — the E5 seam), then advances to `report_ready`.
+   `src/server/matching.ts` — the E5 seam replaced by the real engine later).
+3. **Recovery sweep**: on boot and every 60 s the worker re-adopts requests
+   stranded mid-pipeline (crash, lost enqueue) and runs them to completion.
+
+| Flag      | OFF (default)                                       | ON                                                      |
+| --------- | ---------------------------------------------------- | ------------------------------------------------------- |
+| `AI_CHAT` | Assistant chat hidden (server refuses new messages) | Per-request assistant chat (can apply criteria changes) |
+
+Legacy note: dossiers created under the old flow may rest in the `analyzing`
+status — they keep a manual "Lancer la recherche" button and are otherwise
+handled by the same pipeline.
 
 Every status change writes a `request_event` row — timelines, activity feeds and
 dashboard stats are pure read-models of the DB. Attachments upload via

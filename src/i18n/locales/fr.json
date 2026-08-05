@@ -43,7 +43,7 @@
     "errorInvalid": "E-mail ou mot de passe incorrect.",
     "errorExists": "Un compte existe déjà avec cet e-mail.",
     "errorGeneric": "Une erreur est survenue. Réessayez.",
-    "gateHint": "Connectez-vous pour lancer l’analyse — votre saisie est conservée."
+    "gateHint": "Connectez-vous pour lancer la recherche — votre saisie est conservée."
   },
   "topbar": {
     "downloads": "Téléchargements",
@@ -59,7 +59,19 @@
     "voice": "Dictée vocale",
     "attach": "Joindre un fichier",
     "addPlan": "Ajouter un plan",
-    "launch": "Lancer l’analyse IA",
+    "launch": "Lancer la recherche",
+    "helpAria": "Comment décrire votre besoin",
+    "helpTitle": "Comment décrire votre besoin ?",
+    "helpIntro": "Plus votre demande est précise, plus la recherche de fournisseurs est pertinente. Mentionnez si possible :",
+    "helpHints": {
+      "product": "Le produit ou composant recherché (ex. vannes papillon, roulements)",
+      "material": "Le matériau (ex. acier inoxydable 316, aluminium, PET)",
+      "specs": "Les spécifications techniques chiffrées (pression en bar, débit en m³/h, dimensions)",
+      "certifications": "Les certifications exigées (ISO 9001, CE, ATEX, FDA…)",
+      "quantity": "La quantité (unités, pièces — par commande ou par an)",
+      "leadTime": "Le délai de livraison souhaité (ex. livraison sous 45 jours)"
+    },
+    "helpExample": "Ex. : « Pompes centrifuges en acier inoxydable 316, pression 10 à 16 bar, débit 50 m³/h, certification ISO 9001 et CE obligatoire, 500 unités par an, livraison sous 30 jours. »",
     "removeFile": "Retirer le fichier",
     "recent": "Dossiers récents",
     "seeAll": "Voir tout",
@@ -132,7 +144,7 @@
     "subtitle_one": "{{count}} dossier d’approvisionnement en cours",
     "subtitle_other": "{{count}} dossiers d’approvisionnement en cours",
     "emptyTitle": "Aucun dossier pour l’instant",
-    "emptyText": "Décrivez votre besoin et lancez l’analyse IA pour créer votre premier dossier.",
+    "emptyText": "Décrivez votre besoin et lancez la recherche pour créer votre premier dossier.",
     "emptyCta": "Décrire un besoin"
   },
   "detail": {
@@ -155,7 +167,6 @@
     "chatThinking": "L’assistant réfléchit...",
     "send": "Envoyer",
     "criteriaTitle": "Critères identifiés",
-    "extracting": "L’IA analyse votre besoin et extrait les critères...",
     "addCriterion": "Ajouter un critère",
     "editCriterion": "Modifier le critère",
     "deleteCriterion": "Supprimer le critère",
@@ -177,7 +188,6 @@
   },
   "stepsFlux": {
     "received": "Demande reçue",
-    "analysis": "Analyse IA",
     "search": "Recherche mondiale",
     "validation": "Validation",
     "report": "Rapport"
@@ -211,9 +221,6 @@
   "stepsDemande": {
     "received": {
       "title": "Demande reçue"
-    },
-    "analysis": {
-      "title": "Analyse IA"
     },
     "search": {
       "title": "Recherche mondiale"

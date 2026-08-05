@@ -1,9 +1,17 @@
-// Keyless criteria extraction — deterministic regex heuristics used when
-// ANTHROPIC_API_KEY is absent, so the full request loop stays validatable.
-// No SDK dependency; the worker prefers the real Claude extractor when
-// configured and falls back here on AiConfigError.
+// Intake criteria parsing — deterministic regex heuristics run synchronously
+// when a request is created (zero tokens, no AI stage). The info helper on the
+// hero prompt guides buyers to structured input; this turns it into rows the
+// matcher, the future E4 research agent and the report consume.
 
-import type { ExtractedCriterion } from "./extract-criteria";
+import type { CriteriaCategory } from "@/database/schema";
+
+export type ParsedCriterion = {
+  category: CriteriaCategory;
+  label: string;
+  value: string;
+  unit: string | null;
+  required: boolean;
+};
 
 const MATERIAL_WORDS =
   /\b(acier(?:\s+(?:inoxydable|inox|chromé|galvanisé|carbone))?(?:\s+\d{2,4}\w{0,3})?|inox(?:ydable)?|stainless steel(?:\s+\d{2,4}\w{0,3})?|steel|aluminium|aluminum|titane|titanium|cuivre|copper|laiton|brass|fonte|caoutchouc|rubber|EPDM|PTFE|PET|PVC|polypropyl[eè]ne|plastique|plastic|aramide|kevlar|c[ée]ramique|ceramic)\b/i;
@@ -37,15 +45,11 @@ const LABELS: Record<"fr" | "en", Labels> = {
   },
 };
 
-/** Best-effort structured criteria from free text — same shape as the Claude
- *  extractor so everything downstream (review UI, matching) works unchanged. */
-export function fallbackExtractCriteria(
-  descriptionRaw: string,
-  locale: string,
-): ExtractedCriterion[] {
+/** Best-effort structured criteria from free text. */
+export function parseCriteria(descriptionRaw: string, locale: string): ParsedCriterion[] {
   const labels = LABELS[locale === "en" ? "en" : "fr"];
   const text = descriptionRaw.replace(/\s+/g, " ").trim();
-  const criteria: ExtractedCriterion[] = [];
+  const criteria: ParsedCriterion[] = [];
 
   const material = text.match(MATERIAL_WORDS);
   if (material?.[0]) {

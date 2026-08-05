@@ -1,11 +1,21 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { Loader2, Mic, Paperclip, Sparkles, Wrench, X } from "lucide-react";
+import { Info, Loader2, Mic, Paperclip, Sparkles, Wrench, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import globe from "@/assets/globe.jpg";
 import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
 import { createRequestFn } from "@/lib/requests-fns";
+
+const HELP_HINT_KEYS = [
+  "product",
+  "material",
+  "specs",
+  "certifications",
+  "quantity",
+  "leadTime",
+] as const;
 
 const DRAFT_KEY = "osi-draft-besoin";
 
@@ -99,12 +109,42 @@ export function HeroPrompt({ user }: { user: HeroUser }) {
         </h1>
 
         <form className="card-surface mt-8 p-4" onSubmit={onSubmit}>
-          <Textarea
-            value={besoin}
-            onChange={(e) => setBesoin(e.target.value)}
-            placeholder={t("home.placeholder")}
-            className="min-h-[92px] resize-none border-0 bg-transparent px-2 text-base shadow-none focus-visible:ring-0"
-          />
+          <div className="flex items-start gap-2">
+            <Textarea
+              value={besoin}
+              onChange={(e) => setBesoin(e.target.value)}
+              placeholder={t("home.placeholder")}
+              className="min-h-[92px] flex-1 resize-none border-0 bg-transparent px-2 text-base shadow-none focus-visible:ring-0"
+            />
+            {/* The input guide replaces the removed pre-search AI analysis:
+                buyers structure the need themselves; intake parsing does the rest. */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  aria-label={t("home.helpAria")}
+                  className="mt-1 shrink-0 text-muted-foreground transition-colors hover:text-gold"
+                >
+                  <Info className="size-[18px]" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-80 text-sm">
+                <p className="font-semibold">{t("home.helpTitle")}</p>
+                <p className="mt-1 text-xs text-muted-foreground">{t("home.helpIntro")}</p>
+                <ul className="mt-3 space-y-1.5 text-xs text-muted-foreground">
+                  {HELP_HINT_KEYS.map((key) => (
+                    <li key={key} className="flex gap-2">
+                      <span className="mt-1.5 size-1 shrink-0 rounded-full bg-gold" />
+                      <span>{t(`home.helpHints.${key}`)}</span>
+                    </li>
+                  ))}
+                </ul>
+                <p className="mt-3 rounded-lg bg-secondary p-3 text-xs italic leading-relaxed text-muted-foreground">
+                  {t("home.helpExample")}
+                </p>
+              </PopoverContent>
+            </Popover>
+          </div>
           {files.length > 0 && (
             <ul className="mt-2 flex flex-wrap gap-2 px-2">
               {files.map((file, index) => (

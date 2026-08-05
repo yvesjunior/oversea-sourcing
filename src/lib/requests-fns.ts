@@ -161,7 +161,8 @@ export type RequestDetail = RequestSummary & {
   aiChatEnabled: boolean;
 };
 
-/** Create a request from the hero prompt: draft → received + extraction job. */
+/** Create a request from the hero prompt: draft → received, criteria parsed
+ *  synchronously at intake (no AI stage), then straight to supplier search. */
 export const createRequestFn = createServerFn({ method: "POST" })
   .inputValidator(z.object({ description: z.string().trim().min(1).max(5000) }))
   .handler(async ({ data }): Promise<{ id: string } | null> => {
@@ -181,6 +182,7 @@ export const createRequestFn = createServerFn({ method: "POST" })
 
     const firstLine = data.description.split("\n").find((line) => line.trim()) ?? "";
     const title = firstLine.trim().slice(0, 80) || `#${id}`;
+    const locale = session.user.locale ?? "fr";
 
     await db.insert(schema.request).values({
       id,
@@ -189,19 +191,41 @@ export const createRequestFn = createServerFn({ method: "POST" })
       title,
       descriptionRaw: data.description,
       status: "draft",
-      locale: session.user.locale ?? "fr",
+      locale,
     });
 
     const { recordEvent, transitionRequest } = await import("@/server/requests");
     await recordEvent(id, workspaceId, "request.created");
     await transitionRequest(id, workspaceId, "draft", "received");
 
+    // Intake parsing (instant, zero tokens) — the info helper on the hero
+    // prompt guides buyers to input this can pick apart.
+    const { parseCriteria } = await import("@/server/parse-criteria");
+    const criteria = parseCriteria(data.description, locale);
+    if (criteria.length > 0) {
+      await db.insert(schema.requestCriterion).values(
+        criteria.map((criterion, index) => ({
+          id: crypto.randomUUID(),
+          requestId: id,
+          category: criterion.category,
+          label: criterion.label,
+          value: criterion.value,
+          unit: criterion.unit,
+          required: criterion.required,
+          source: "ai" as const,
+          position: index,
+        })),
+      );
+      await recordEvent(id, workspaceId, "criteria.extracted", { count: criteria.length });
+    }
+
     try {
-      const { enqueueExtractCriteria } = await import("@/server/queue");
-      await enqueueExtractCriteria(id);
+      const { enqueuePipeline } = await import("@/server/queue");
+      await enqueuePipeline(id);
     } catch (error) {
-      // The request survives a queue failure — it just waits in "received".
-      console.error(`createRequest: failed to enqueue extraction for ${id}`, error);
+      // The request survives a queue failure — the worker's recovery sweep
+      // re-adopts anything resting in "received".
+      console.error(`createRequest: failed to enqueue pipeline for ${id}`, error);
     }
 
     return { id };

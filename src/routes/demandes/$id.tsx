@@ -55,7 +55,6 @@ export const Route = createFileRoute("/demandes/$id")({
 
 const etapesFlux = [
   { key: "received", icone: FileText },
-  { key: "analysis", icone: ScanSearch },
   { key: "search", icone: Globe },
   { key: "validation", icone: ShieldCheck },
   { key: "report", icone: FileText },
@@ -69,12 +68,10 @@ function DemandeDetail() {
 
   const stepIndex = pipelineIndex(demande.status);
   const finished = demande.status === "report_ready" || demande.status === "closed";
-  const extracting = demande.status === "analyzing" && demande.criteria.length === 0;
-  // Poll while the pipeline moves on its own: in-flight statuses, extraction
-  // still pending, or search launched but the worker hasn't advanced us yet.
+  // Poll while the pipeline moves on its own — plus legacy "analyzing" rows
+  // whose search was just launched but not yet picked up by the worker.
   const searchLaunched = demande.events.some((event) => event.type === "search.launched");
-  const polling =
-    isInFlight(demande.status) || extracting || (demande.status === "analyzing" && searchLaunched);
+  const polling = isInFlight(demande.status) || (demande.status === "analyzing" && searchLaunched);
 
   useEffect(() => {
     if (!polling) return;
@@ -206,9 +203,8 @@ function DemandeDetail() {
           <CriteriaPanel
             requestId={demande.id}
             criteria={demande.criteria}
-            canEdit={demande.canEdit}
-            editable={demande.status === "analyzing" && !searchLaunched}
-            extracting={extracting}
+            editable={demande.canEdit && !finished && demande.status !== "cancelled"}
+            showLaunch={demande.canEdit && demande.status === "analyzing" && !searchLaunched}
           />
 
           {demande.status !== "draft" && demande.status !== "cancelled" && !finished && (
