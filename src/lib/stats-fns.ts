@@ -46,21 +46,32 @@ export const getDashboardStatsFn = createServerFn({ method: "GET" }).handler(
       import("@/database/schema"),
     ]);
     // Own-workspace scope for everyone; the global view is getAllStatsFn.
-    const [row] = await db
-      .select({ value: count() })
-      .from(schema.request)
-      .where(
-        and(
-          eq(schema.request.organizationId, workspaceId),
-          notInArray(schema.request.status, ["closed", "cancelled"]),
+    const [[requests], [evaluated]] = await Promise.all([
+      db
+        .select({ value: count() })
+        .from(schema.request)
+        .where(
+          and(
+            eq(schema.request.organizationId, workspaceId),
+            // Drafts are unlaunched/abandoned — "active" means launched work.
+            notInArray(schema.request.status, ["draft", "closed", "cancelled"]),
+          ),
         ),
-      );
+      db
+        .select({ value: count() })
+        .from(schema.match)
+        .innerJoin(schema.request, eq(schema.match.requestId, schema.request.id))
+        .where(eq(schema.request.organizationId, workspaceId)),
+    ]);
 
     // Remaining metrics land with their tables:
-    //   suppliersEvaluated  → E4/E5: count(matches) across the user's requests
     //   ongoingTransactions → E8: count(transactions) where status active
     //   savingsGenerated    → E8: sum of realized savings
-    return { ...ZERO_STATS, activeRequests: row?.value ?? 0 };
+    return {
+      ...ZERO_STATS,
+      activeRequests: requests?.value ?? 0,
+      suppliersEvaluated: evaluated?.value ?? 0,
+    };
   },
 );
 
@@ -81,10 +92,17 @@ export const getAllStatsFn = createServerFn({ method: "GET" }).handler(
       import("drizzle-orm"),
       import("@/database/schema"),
     ]);
-    const [row] = await db
-      .select({ value: count() })
-      .from(schema.request)
-      .where(notInArray(schema.request.status, ["closed", "cancelled"]));
-    return { ...ZERO_STATS, activeRequests: row?.value ?? 0 };
+    const [[requests], [evaluated]] = await Promise.all([
+      db
+        .select({ value: count() })
+        .from(schema.request)
+        .where(notInArray(schema.request.status, ["draft", "closed", "cancelled"])),
+      db.select({ value: count() }).from(schema.match),
+    ]);
+    return {
+      ...ZERO_STATS,
+      activeRequests: requests?.value ?? 0,
+      suppliersEvaluated: evaluated?.value ?? 0,
+    };
   },
 );

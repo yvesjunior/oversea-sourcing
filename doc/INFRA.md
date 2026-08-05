@@ -13,7 +13,7 @@
 2. **Stateless services.** No state in app containers: sessions in Postgres, files
    in object storage, jobs in the queue. Any container can be killed/replicated.
 3. **12-factor config.** All environment differences via env vars. Same image runs
-   dev, staging, prod.
+   dev and prod.
 4. **Everything replaceable.** Each infra component hidden behind a thin adapter
    (storage, email, search, AI) so providers can change without touching domain code.
 5. **Scale on signal, not on fear.** Each stage below has an explicit trigger; we
@@ -27,7 +27,7 @@
 | **Workers** (pg-boss) | **Separate container, same image** (`node worker.mjs`)                                                       | Scale worker replicas independently; per-queue concurrency; later: dedicated worker VM(s)                                        |
 | **AI gateway**        | Module `src/server/ai/` — sole owner of Claude API calls, retries, rate limits, cost metering, model tiering | Extract to its own service if multiple apps consume it; budget guards live here                                                  |
 | **Research agent**    | Job type inside workers                                                                                      | Heaviest load → its own queue from day one (`research`), own concurrency knob; first candidate for a dedicated worker pool       |
-| **Database**          | Postgres 16 container + named volume                                                                         | → pgbouncer → dedicated DB host → managed Postgres (read replicas for analytics)                                                 |
+| **Database**          | Postgres 16 container + named volume                                                                         | → pgbouncer → dedicated local DB VM (read replica for analytics) — no managed/cloud PG (no-cloud decision, §3)                   |
 | **Queue**             | pg-boss (in Postgres)                                                                                        | Keeps ops surface tiny. Seam: JobQueue interface → swap to Redis/BullMQ or SQS only if queue throughput hurts Postgres           |
 | **File storage**      | MinIO container (S3 API)                                                                                     | Same code → any S3-compatible cloud (R2/S3/B2). Never write to local disk directly                                               |
 | **Search**            | Postgres FTS + trigram indexes                                                                               | Seam: SearchIndex interface → Meilisearch/Typesense when supplier directory search outgrows SQL                                  |
@@ -45,19 +45,25 @@
 
 ### Stage 0 — today
 
-Single VM (192.168.2.56), compose, web-only, no TLS. Fine for demos on LAN.
+Single VM (192.168.2.56), compose. Public ingress + TLS via a **Cloudflare
+Tunnel** (`cloudflared` container) on **osi-solutions.com** — the app container
+is not internet-exposed. Since E3 the stack is already **three processes from
+one image** — `web`, `worker` (pg-boss: AI extraction + pipeline/matching jobs)
+and one-shot `migrate` — plus Postgres and a named `uploads` volume (local-disk
+storage adapter; MinIO stays a dormant profile).
 
 ### Stage 1 — MVP1 target (same VM, modular compose)
 
 ```mermaid
 flowchart LR
-    U((Users)) --> C[Caddy proxy TLS]
-    subgraph VM [prod VM · docker compose]
-        C --> W1[web · Node SSR/API]
+    U((Users)) --> CF[Cloudflare · osi-solutions.com TLS/DDoS]
+    subgraph VM [prod VM · docker compose · no public IP]
+        CF -. tunnel .-> T[cloudflared]
+        T --> W1[web · Node SSR/API]
         W1 --> PG[(Postgres 16)]
         WK[worker · pg-boss] --> PG
-        W1 --> M[(MinIO S3)]
-        WK --> M
+        W1 --> UP[(uploads volume)]
+        WK --> UP
     end
     WK -.-> CL[Claude API]
     WK -.-> WS[Web search API]
@@ -65,27 +71,35 @@ flowchart LR
     PG -. nightly dump .-> BK[(Offsite backups)]
 ```
 
-- **Caddy** in front: automatic TLS, gzip, security headers, single entry point
-- **web** and **worker** are separate containers from the same image
-- **Postgres** + **MinIO** with named volumes + healthchecks
+- **Cloudflare Tunnel** in front (live): TLS, DDoS shielding, single entry point —
+  the VM needs no public IP or open ports
+- **web** and **worker** are separate containers from the same image (live)
+- **Postgres** + `uploads` named volumes + healthchecks (MinIO stays a dormant profile)
 - Nightly `pg_dump` shipped **off the VM** (object storage bucket)
-- **Trigger to leave Stage 1:** sustained CPU/RAM pressure, or first paying external users (availability expectations a home VM can't meet)
+- **Trigger to leave Stage 1:** sustained CPU/RAM pressure, or first paying external users (single-machine availability: add hardware redundancy, UPS, and a second local VM — see Stage 2)
 
-### Stage 2 — first real load (split hosts, managed data)
+### Stage 2 — first real load (split hosts, still local)
 
-- Move Postgres to a **managed instance** (or dedicated node) + pgbouncer
-- Object storage to cloud (R2/S3) — MinIO code path unchanged
+> **No cloud provider — decided 2026-08-04.** Deployment stays on local/own
+> VMs behind the Cloudflare Tunnel (ingress, TLS and DDoS shielding come from
+> Cloudflare; the machines never need public IPs). Scaling = more/beefier
+> local hardware, not a cloud migration.
+
+- Move Postgres to a **dedicated local VM** + pgbouncer
+- Object storage stays local (MinIO named volume); offsite **backups** still ship
+  to a bucket (R2/B2 — storage-only, not compute)
 - **2–3 web replicas** + **dedicated worker pool** (research queue gets its own replicas)
-- VM(s) at a cloud provider; home VM becomes staging
+- Second local VM for capacity/redundancy — both reachable only through their tunnels (still dev + prod only, no staging)
 - **Trigger to leave Stage 2:** deploy friction across multiple hosts, or worker fleet needs autoscaling
 
 ### Stage 3 — horizontal (only if the business demands it)
 
-- Container orchestration: **Docker Swarm or a managed container service — explicitly
-  NOT Kubernetes** (decided 2026-08-04; ops overhead not worth it for this team).
-  Compose files translate to Swarm stacks almost as-is.
+- Container orchestration: **Docker Swarm across the local VMs — explicitly
+  NOT Kubernetes and not a managed cloud service** (decided 2026-08-04; ops
+  overhead not worth it for this team). Compose files translate to Swarm
+  stacks almost as-is; Cloudflare Tunnel replicas provide the load-balanced ingress.
 - Extract on evidence: research-agent service, search service, AI gateway service
-- Read replica for analytics; CDN for static assets
+- Read replica for analytics; Cloudflare CDN/cache for static assets
 - Multi-region only if customers require it
 
 ## 4 · Where overload will actually hit first (and the lever)
@@ -114,15 +128,23 @@ flowchart LR
 
 ## 6 · Environments
 
-| Env     | Where                                                | Data                | Purpose            |
-| ------- | ---------------------------------------------------- | ------------------- | ------------------ |
-| dev     | laptop compose (`scripts/dev.sh`)                    | seeded              | daily work         |
-| staging | prod VM (Stage 1: compose project #2 on other ports) | seeded + anonymized | pre-release checks |
-| prod    | prod VM → cloud (Stage 2)                            | real                | users              |
+> **Two environments only — decided 2026-08-04. No staging.** Pre-release
+> checks happen in dev (`scripts/prod.sh` runs the prod image locally when the
+> build itself needs validating).
+
+| Env  | Where                                          | Data   | Purpose    |
+| ---- | ---------------------------------------------- | ------ | ---------- |
+| dev  | laptop compose (`scripts/dev.sh`)              | seeded | daily work |
+| prod | local VM behind Cloudflare Tunnel (all stages) | real   | users      |
 
 ## 7 · Security & operations baseline (Stage 1, non-negotiable before first external user)
 
-- TLS via Caddy + a real domain (open decision below)
+- ~~TLS + public ingress~~ — **live via Cloudflare Tunnel** (`cloudflared`
+  container on the VM) on **osi-solutions.com**; the app container is not
+  internet-exposed. Requires `BETTER_AUTH_URL=https://osi-solutions.com` in the
+  VM's `.env.local` (wrong value ⇒ better-auth `INVALID_ORIGIN` on login);
+  Google OAuth can be enabled now that an https origin exists. Caddy is no
+  longer needed for TLS — reconsider only for response headers/gzip tuning
 - Postgres/MinIO **not** exposed on host ports in prod (internal network only)
 - Secrets in `.env.local` on the VM (never committed); rotate on team changes
 - Backups: nightly `pg_dump` + weekly restore **test** (a backup that's never restored doesn't exist)
@@ -142,7 +164,7 @@ flowchart LR
 
 | Component           | Role                                    | Default choice               | Status     | Enable trigger |
 | ------------------- | --------------------------------------- | ---------------------------- | ---------- | -------------- |
-| Reverse proxy + TLS | Single entrypoint, HTTPS, headers, gzip | Caddy                        | 🟢 Stage 1 | —              |
+| Ingress + TLS       | Single entrypoint, HTTPS, DDoS shield   | **Cloudflare Tunnel** (`cloudflared`) | 🟢 live | — (Caddy only if response-header/gzip tuning is ever needed) |
 | Web (SSR/API)       | The app                                 | Node/Nitro container         | 🟢         | —              |
 | Worker              | Async jobs                              | Same image, `worker` process | 🟢 with E0 | —              |
 | Migrate             | One-shot schema migration on deploy     | Same image                   | 🟢 with E0 | —              |
@@ -155,7 +177,7 @@ flowchart LR
 | pgvector               | Embeddings in PG — **semantic supplier matching** | PG extension        | 🟡 (install with E0, use in E5)  | Matching quality needs semantics, not just filters |
 | pgbouncer              | Connection pooling                                | container           | 🟡 profile `dbtools`             | Connection exhaustion / many web replicas          |
 | Read replica           | Analytics / heavy reads                           | managed PG feature  | ⚪                               | Analytics queries hurt OLTP                        |
-| Object storage         | Files, reports, backups                           | MinIO → cloud S3/R2 | 🟢 profile `storage`, on with E3 | —                                                  |
+| Object storage         | Files, reports, backups                           | local volume (E3) → MinIO → S3/R2 | 🟢 local-disk adapter live (`src/server/storage.ts`); MinIO profile 🟡 | Disk pressure / offsite needs |
 | Redis                  | Cache + distributed rate limits                   | redis:7             | 🟡 profile `cache`               | Hot reads or multi-replica rate limiting           |
 | Meilisearch            | Supplier directory search                         | container           | 🟡 profile `search`              | PG FTS too slow / faceting needs                   |
 | ClickHouse / warehouse | BI at scale                                       | —                   | ⚪                               | Analytics outgrow PG aggregates                    |
@@ -227,15 +249,19 @@ flowchart LR
 | CI / registry       | —                                                | **none — decided against.** Builds are local everywhere (dev machine & VM) | ⚪         | Only if reproducible builds / instant rollback become a real need |
 | Local quality gates | lint/typecheck before push                       | npm scripts (optional pre-push hook)                                       | 🟢         | —                                                                 |
 | Build-on-VM deploy  | VM pulls `main`, builds, restarts, health-checks | `scripts/deploy.sh`                                                        | 🟢 today   | —                                                                 |
-| Staging env         | Pre-prod checks                                  | compose project #2 on VM                                                   | 🟡         | First risky migration                                             |
+| Staging env         | —                                                | **none — decided against** (dev + prod only; rehearse risky migrations on a dev restore of a prod dump) | ⚪ | Only if a regulated client demands it |
 | DB backups          | Nightly dump, offsite                            | pg_dump + restic → bucket                                                  | 🟢 with E0 | —                                                                 |
 | Restore drills      | Prove backups work                               | monthly scripted restore                                                   | 🟢 with E0 | —                                                                 |
 | Volume snapshots    | MinIO/uploads backup                             | restic same bucket                                                         | 🟢 with E3 | —                                                                 |
 
 ## 9 · Open decisions
 
-- **Domain name** for the platform (needed for TLS/emails)
-- Cloud provider for Stage 2 (Hetzner/OVH/Fly/AWS — cost vs ops comfort)
+- ~~Domain name~~ — **decided & live 2026-08-04: [osi-solutions.com](https://osi-solutions.com)**
+  — the apex serves the app through a Cloudflare Tunnel from the prod VM;
+  transactional email sender will be `@osi-solutions.com`
+- ~~Cloud provider for Stage 2~~ — **decided 2026-08-04: none.** Local VM
+  deployment behind Cloudflare Tunnel at every stage; scaling is additional
+  local hardware (see §3 Stage 2)
 - Web-search API for the research agent (Tavily / Brave / SerpAPI)
 - Email provider (Resend vs SMTP relay)
 - Error-tracking tool (Sentry self-hosted vs SaaS) — can wait, logs first

@@ -34,7 +34,7 @@ All remote scripts default to `DEPLOY_HOST=yves@192.168.2.56`,
 `BRANCH=main` — override any of them per run:
 
 ```sh
-BRANCH=staging WEB_PORT=3011 ./scripts/deploy.sh
+BRANCH=hotfix/my-branch WEB_PORT=3011 ./scripts/deploy.sh
 ```
 
 ### Typical flows
@@ -50,10 +50,12 @@ git push && ./scripts/deploy.sh && ./scripts/status.sh
 ./scripts/addons.sh --remote monitoring storage
 ```
 
-Prod is live at **http://192.168.2.56:3010**. Optional add-on components
-(MinIO, Redis, Meilisearch, Uptime-Kuma, Dozzle, ClamAV, Adminer) are
-profile-gated in `docker-compose.addons.yml` — off by default, catalog and
-enable-triggers in [doc/INFRA.md](doc/INFRA.md).
+Prod is live at **https://osi-solutions.com** — served from the VM through a
+**Cloudflare Tunnel** (`cloudflared` container; LAN address for direct access:
+http://192.168.2.56:3010). Optional add-on components (MinIO, Redis, Meilisearch,
+Uptime-Kuma, Dozzle, ClamAV, Adminer) are profile-gated in
+`docker-compose.addons.yml` — off by default, catalog and enable-triggers in
+[doc/INFRA.md](doc/INFRA.md).
 
 ### Database & auth
 
@@ -70,16 +72,56 @@ npm run db:studio     # browse the dev database (drizzle-kit studio)
 # Seed demo accounts (dev only) — password: osi-demo-1234
 docker compose -f docker-compose.dev.yml exec web npm run db:seed
 # owner@osi.dev · manager@osi.dev · accountant@osi.dev (platform employees)
-# buyer@osi.dev (regular buyer, seeded with 6 demo dossiers)
+# buyer@osi.dev (regular buyer, seeded with 6 demo dossiers incl. criteria/chat/matches)
+# + a 12-supplier platform-global pool (stands in for the E4 import pipeline)
 # Dev builds show a one-click "Connexion rapide" box on /login for these accounts.
 ```
 
 Required secrets in `.env.local` (**prod**): `POSTGRES_PASSWORD`, `DATABASE_URL`,
 `BETTER_AUTH_SECRET` (32+ chars), `BETTER_AUTH_URL`. Dev uses safe defaults baked
-into `docker-compose.dev.yml` — nothing to configure.
+into `docker-compose.dev.yml` — nothing to configure. Both compose files also load
+`.env.local` so `ANTHROPIC_API_KEY` reaches the containers.
 
-> No reverse proxy / TLS / firewall sits in front of the container yet — it's
-> exposed directly on the VM's LAN. Required before any external user (see INFRA §7).
+### Background worker & AI (E3)
+
+A third process — `worker` (same image, [`src/worker.ts`](src/worker.ts), pg-boss
+queues in Postgres) — runs the request pipeline asynchronously.
+
+**AI is opt-in, per flag (`src/server/ai/flags.ts`) — tokens are reserved for
+supplier research (E4). Both default to OFF; the hero request prompt is the
+only AI-facing input:**
+
+| Flag                      | OFF (default)                                                         | ON                                                                  |
+| ------------------------- | --------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| `AI_PROMPT_ANALYSIS`      | Free heuristic criteria; request goes **straight to supplier search** | Claude extraction + review pause + "Lancer la recherche" button     |
+| `AI_CHAT`                 | Assistant chat hidden (server refuses new messages)                   | Per-request assistant chat (can apply criteria changes)             |
+
+The flow:
+
+1. **Create**: the hero prompt inserts a `request` (ids from `request_id_seq`,
+   `#3000+`) and enqueues extraction.
+2. **Analysis**: criteria via the AI gateway (`src/server/ai/`, default model
+   `claude-haiku-4-5`, override with `ANTHROPIC_MODEL`) when
+   `AI_PROMPT_ANALYSIS=true` — deterministic regex heuristics otherwise (also
+   the fallback when `ANTHROPIC_API_KEY` is missing).
+3. **Review** (only with `AI_PROMPT_ANALYSIS=true`): the pipeline pauses at
+   "En analyse" for criteria review/edit; the buyer launches the search
+   (`PIPELINE_AUTOLAUNCH=true` skips the pause). With the flag off this step
+   is skipped entirely.
+4. **Matching**: the pipeline scores the platform-global `supplier` pool and
+   persists a ranked Top-5 in `match` (deterministic heuristic in
+   `src/server/matching.ts` — the E5 seam), then advances to `report_ready`.
+
+Every status change writes a `request_event` row — timelines, activity feeds and
+dashboard stats are pure read-models of the DB. Attachments upload via
+`/api/upload` to a named volume (`UPLOAD_DIR`, S3-swappable adapter in
+`src/server/storage.ts`). Worker logs: `./scripts/logs.sh dev worker`.
+
+> Public ingress + TLS are handled by the **Cloudflare Tunnel** on
+> [osi-solutions.com](https://osi-solutions.com) — the container is not exposed
+> to the internet directly. `BETTER_AUTH_URL` in the VM's `.env.local` must be
+> the public origin (`https://osi-solutions.com`), otherwise better-auth rejects
+> logins from the domain with `INVALID_ORIGIN`.
 
 ### Without Docker (plain Node)
 
@@ -97,7 +139,8 @@ Other npm scripts: `build`, `preview`, `lint`, `format`.
   to `localStorage`.
 - Never hardcode user-facing strings in components; add a key and use `t(...)`.
   Remaining showcase data in `src/data/osi.ts` stores i18n **keys**, translated at
-  render time (requests are DB-backed; suppliers/transactions land with E4/E8).
+  render time (requests, criteria, chat AND suppliers/matches are DB-backed;
+  only transactions/analyses remain showcase until E8).
 
 ## Project structure
 
@@ -105,8 +148,11 @@ Other npm scripts: `build`, `preview`, `lint`, `format`.
 | -------------------------------------- | ---------------------------------------------------------------------------------------- |
 | `src/`                                 | Web app (frontend)                                                                       |
 | `src/i18n/`                            | i18n config + `fr`/`en` locales                                                          |
-| `src/data/osi.ts`                      | Mock data (as i18n keys)                                                                 |
+| `src/data/osi.ts`                      | Remaining showcase data (transactions/analyses — E8)                                     |
 | `src/database/`                        | Drizzle schema, migrations, seed (Postgres 16 + pgvector)                                |
+| `src/server/`                          | Server-only modules: auth, AI gateway (`ai/`), queue, matching, storage, transitions     |
+| `src/worker.ts`                        | Background worker entrypoint (pg-boss: extraction + pipeline jobs)                       |
+| `src/lib/*-fns.ts`                     | Server functions (requests, criteria, chat, suppliers, stats) — zod-validated            |
 | `infra/Docker/`                        | Container images (`web.Dockerfile`; database uses the pgvector image)                    |
 | `docker-compose.dev.yml` / `.prod.yml` | Dev / prod orchestration                                                                 |
 | `docker-compose.addons.yml`            | Optional infra (profile-gated, off by default) — see `doc/INFRA.md`                      |

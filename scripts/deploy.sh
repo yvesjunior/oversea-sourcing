@@ -45,7 +45,7 @@ for _ in $(seq 1 30); do
   sleep 2
 done
 echo "✗ Health check failed — recent logs:"
-docker compose -f docker-compose.prod.yml logs --tail=30 web
+docker compose -f docker-compose.prod.yml logs --tail=30 web worker
 exit 1
 REMOTE
 

@@ -41,7 +41,15 @@ function Transactions() {
       <h2 className="text-base font-semibold">{t("transactions.txTitle")}</h2>
       <p className="mt-1 text-xs text-muted-foreground">{t("transactions.txSubtitle")}</p>
 
-      <Timeline etapes={etapesTransaction} className="mt-6" />
+      {/* Timeline takes display strings since E3 — translate the keys here. */}
+      <Timeline
+        etapes={etapesTransaction.map((etape) => ({
+          ...etape,
+          titre: t(etape.titre),
+          detail: t(etape.detail),
+        }))}
+        className="mt-6"
+      />
 
       <div className="mt-6 rounded-xl border border-border bg-secondary/60 p-4">
         <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">

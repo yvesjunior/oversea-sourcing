@@ -60,6 +60,7 @@
     "attach": "Attach a file",
     "addPlan": "Add a plan",
     "launch": "Launch AI analysis",
+    "removeFile": "Remove file",
     "recent": "Recent files",
     "seeAll": "See all",
     "visionTitle": "Design driven by our vision",
@@ -116,7 +117,10 @@
     "SE": "Sweden",
     "US": "United States",
     "CN": "China",
-    "IT": "Italy"
+    "IT": "Italy",
+    "FR": "France",
+    "ES": "Spain",
+    "JP": "Japan"
   },
   "dossier": {
     "status": "Status",
@@ -136,7 +140,6 @@
     "requestNo": "Request #{{id}}",
     "viewReport": "View report",
     "progressTitle": "Progress tracking",
-    "analysisInProgress": "AI analysis in progress",
     "analysisOngoing": "Analysis in progress...",
     "top5": "Top 5 most compatible suppliers",
     "analyzed": "{{count}} suppliers analyzed",
@@ -147,12 +150,30 @@
     "compare": "Compare",
     "resultsNote": "These results are based on 32 OSI compatibility criteria",
     "assistant": "OSI AI Assistant",
-    "chatUnderstood": "I’ve understood your need. Here are the key points:",
-    "chatMore": "Would you like to add or change anything?",
-    "chatUser": "Yes, add ATEX certification and a preference for a supplier in Europe.",
-    "chatRelaunch": "Perfect, I’m relaunching the search with these new criteria.",
     "chatPlaceholder": "Ask the AI a question...",
-    "send": "Send"
+    "chatEmpty": "Ask a question or request a criteria change — the assistant knows your file.",
+    "chatThinking": "The assistant is thinking...",
+    "send": "Send",
+    "criteriaTitle": "Identified criteria",
+    "extracting": "The AI is analyzing your need and extracting criteria...",
+    "addCriterion": "Add a criterion",
+    "editCriterion": "Edit criterion",
+    "deleteCriterion": "Delete criterion",
+    "criterionLabel": "Criterion (e.g. Material)",
+    "criterionValue": "Value (e.g. 316 stainless steel)",
+    "criterionUnit": "Unit (optional)",
+    "required": "Required",
+    "editedByYou": "edited",
+    "save": "Save",
+    "cancel": "Cancel",
+    "launchSearch": "Launch global search",
+    "criteriaReadyHint": "Review the criteria, then launch the supplier search.",
+    "stepInProgress": "In progress...",
+    "stepPending": "Pending",
+    "activityTitle": "Activity",
+    "attachments": "Attachments",
+    "addAttachment": "Add a file",
+    "cancelRequest": "Cancel request"
   },
   "stepsFlux": {
     "received": "Request received",
@@ -161,44 +182,68 @@
     "validation": "Validation",
     "report": "Report"
   },
-  "criteria": {
-    "material": "Material: 316 stainless steel",
-    "flow": "Flow rate: 50 to 100 m³/h",
-    "pressure": "Pressure: 10 to 16 bar",
-    "certifications": "Certifications: ISO, CE, UL",
-    "quantity": "Annual quantity: 500 units",
-    "delivery": "Lead time: 30 days max"
+  "criteriaCategories": {
+    "material": "Material",
+    "flow": "Flow rate",
+    "pressure": "Pressure",
+    "certification": "Certification",
+    "quantity": "Quantity",
+    "lead_time": "Lead time",
+    "other": "Other"
+  },
+  "events": {
+    "request_created": "Request created",
+    "status_received": "Request received",
+    "status_analyzing": "AI analysis started",
+    "status_searching": "Global search launched",
+    "status_validating": "Supplier validation",
+    "status_report_ready": "Report available",
+    "status_closed": "Request closed",
+    "status_cancelled": "Request cancelled",
+    "criteria_extracted_one": "{{count}} criterion identified",
+    "criteria_extracted_other": "{{count}} criteria identified",
+    "criteria_updated": "Criteria updated",
+    "chat_refined": "Criteria refined via the assistant ({{count}})",
+    "search_launched": "Search approved by the buyer",
+    "attachment_added": "{{count}} attachment(s) added",
+    "matches_created": "Top {{count}} selected out of {{analyzed}} suppliers analyzed"
   },
   "stepsDemande": {
     "received": {
-      "title": "Request received",
-      "detail": "May 15, 2024 - 9:14 AM"
+      "title": "Request received"
     },
     "analysis": {
-      "title": "AI analysis",
-      "detail": "May 15, 2024 - 9:36 AM"
+      "title": "AI analysis"
     },
     "search": {
-      "title": "Global search",
-      "detail": "In progress..."
+      "title": "Global search"
     },
     "validation": {
-      "title": "Supplier validation",
-      "detail": "Pending"
+      "title": "Supplier validation"
     },
     "report": {
-      "title": "Final report",
-      "detail": "Pending"
+      "title": "Final report"
     }
   },
   "fournisseurs": {
     "title": "Suppliers",
     "subtitle": "{{count}} suppliers evaluated by OSI AI",
-    "compatibility": "Compatibility",
     "confidence": "Confidence score",
     "outOf100": "/100",
     "risk": "Risk",
-    "compare": "Compare"
+    "matched": "Linked files",
+    "provenance": "Provenance"
+  },
+  "provenance": {
+    "imported": "Imported",
+    "ai_researched": "AI research",
+    "osi_verified": "OSI verified"
+  },
+  "verification": {
+    "unverified": "Unverified",
+    "pending": "Verification pending",
+    "verified": "Verified",
+    "rejected": "Rejected"
   },
   "transactions": {
     "title": "Transactions",

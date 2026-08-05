@@ -18,6 +18,7 @@ import { Route as ParametresRouteImport } from './routes/parametres'
 import { Route as PartenairesRouteImport } from './routes/partenaires'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as TransactionsRouteImport } from './routes/transactions'
+import { Route as ApiUploadRouteImport } from './routes/api/upload'
 import { Route as DemandesIndexRouteImport } from './routes/demandes/index'
 import { Route as DemandesIdRouteImport } from './routes/demandes/$id'
 import { Route as InterneFacilitationRouteImport } from './routes/interne/facilitation'
@@ -25,6 +26,7 @@ import { Route as InterneFinanceRouteImport } from './routes/interne/finance'
 import { Route as InterneImportsRouteImport } from './routes/interne/imports'
 import { Route as InterneVerificationRouteImport } from './routes/interne/verification'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
+import { Route as ApiFilesIdRouteImport } from './routes/api/files/$id'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -71,6 +73,11 @@ const TransactionsRoute = TransactionsRouteImport.update({
   path: '/transactions',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiUploadRoute = ApiUploadRouteImport.update({
+  id: '/api/upload',
+  path: '/api/upload',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DemandesIndexRoute = DemandesIndexRouteImport.update({
   id: '/demandes/',
   path: '/demandes/',
@@ -106,6 +113,11 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiFilesIdRoute = ApiFilesIdRouteImport.update({
+  id: '/api/files/$id',
+  path: '/api/files/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -117,6 +129,7 @@ export interface FileRoutesByFullPath {
   '/partenaires': typeof PartenairesRoute
   '/signup': typeof SignupRoute
   '/transactions': typeof TransactionsRoute
+  '/api/upload': typeof ApiUploadRoute
   '/demandes/$id': typeof DemandesIdRoute
   '/interne/facilitation': typeof InterneFacilitationRoute
   '/interne/finance': typeof InterneFinanceRoute
@@ -124,6 +137,7 @@ export interface FileRoutesByFullPath {
   '/interne/verification': typeof InterneVerificationRoute
   '/demandes/': typeof DemandesIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/files/$id': typeof ApiFilesIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -135,6 +149,7 @@ export interface FileRoutesByTo {
   '/partenaires': typeof PartenairesRoute
   '/signup': typeof SignupRoute
   '/transactions': typeof TransactionsRoute
+  '/api/upload': typeof ApiUploadRoute
   '/demandes/$id': typeof DemandesIdRoute
   '/interne/facilitation': typeof InterneFacilitationRoute
   '/interne/finance': typeof InterneFinanceRoute
@@ -142,6 +157,7 @@ export interface FileRoutesByTo {
   '/interne/verification': typeof InterneVerificationRoute
   '/demandes': typeof DemandesIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/files/$id': typeof ApiFilesIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -154,6 +170,7 @@ export interface FileRoutesById {
   '/partenaires': typeof PartenairesRoute
   '/signup': typeof SignupRoute
   '/transactions': typeof TransactionsRoute
+  '/api/upload': typeof ApiUploadRoute
   '/demandes/$id': typeof DemandesIdRoute
   '/interne/facilitation': typeof InterneFacilitationRoute
   '/interne/finance': typeof InterneFinanceRoute
@@ -161,6 +178,7 @@ export interface FileRoutesById {
   '/interne/verification': typeof InterneVerificationRoute
   '/demandes/': typeof DemandesIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/files/$id': typeof ApiFilesIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -174,6 +192,7 @@ export interface FileRouteTypes {
     | '/partenaires'
     | '/signup'
     | '/transactions'
+    | '/api/upload'
     | '/demandes/$id'
     | '/interne/facilitation'
     | '/interne/finance'
@@ -181,6 +200,7 @@ export interface FileRouteTypes {
     | '/interne/verification'
     | '/demandes/'
     | '/api/auth/$'
+    | '/api/files/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -192,6 +212,7 @@ export interface FileRouteTypes {
     | '/partenaires'
     | '/signup'
     | '/transactions'
+    | '/api/upload'
     | '/demandes/$id'
     | '/interne/facilitation'
     | '/interne/finance'
@@ -199,6 +220,7 @@ export interface FileRouteTypes {
     | '/interne/verification'
     | '/demandes'
     | '/api/auth/$'
+    | '/api/files/$id'
   id:
     | '__root__'
     | '/'
@@ -210,6 +232,7 @@ export interface FileRouteTypes {
     | '/partenaires'
     | '/signup'
     | '/transactions'
+    | '/api/upload'
     | '/demandes/$id'
     | '/interne/facilitation'
     | '/interne/finance'
@@ -217,6 +240,7 @@ export interface FileRouteTypes {
     | '/interne/verification'
     | '/demandes/'
     | '/api/auth/$'
+    | '/api/files/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -229,6 +253,7 @@ export interface RootRouteChildren {
   PartenairesRoute: typeof PartenairesRoute
   SignupRoute: typeof SignupRoute
   TransactionsRoute: typeof TransactionsRoute
+  ApiUploadRoute: typeof ApiUploadRoute
   DemandesIdRoute: typeof DemandesIdRoute
   InterneFacilitationRoute: typeof InterneFacilitationRoute
   InterneFinanceRoute: typeof InterneFinanceRoute
@@ -236,6 +261,7 @@ export interface RootRouteChildren {
   InterneVerificationRoute: typeof InterneVerificationRoute
   DemandesIndexRoute: typeof DemandesIndexRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  ApiFilesIdRoute: typeof ApiFilesIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -303,6 +329,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TransactionsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/upload': {
+      id: '/api/upload'
+      path: '/api/upload'
+      fullPath: '/api/upload'
+      preLoaderRoute: typeof ApiUploadRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/demandes/': {
       id: '/demandes/'
       path: '/demandes'
@@ -352,6 +385,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/files/$id': {
+      id: '/api/files/$id'
+      path: '/api/files/$id'
+      fullPath: '/api/files/$id'
+      preLoaderRoute: typeof ApiFilesIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -365,6 +405,7 @@ const rootRouteChildren: RootRouteChildren = {
   PartenairesRoute: PartenairesRoute,
   SignupRoute: SignupRoute,
   TransactionsRoute: TransactionsRoute,
+  ApiUploadRoute: ApiUploadRoute,
   DemandesIdRoute: DemandesIdRoute,
   InterneFacilitationRoute: InterneFacilitationRoute,
   InterneFinanceRoute: InterneFinanceRoute,
@@ -372,6 +413,7 @@ const rootRouteChildren: RootRouteChildren = {
   InterneVerificationRoute: InterneVerificationRoute,
   DemandesIndexRoute: DemandesIndexRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
+  ApiFilesIdRoute: ApiFilesIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

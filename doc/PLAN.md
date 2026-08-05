@@ -92,8 +92,9 @@ Consequences:
 
 ## Deferred / open decisions
 
-- Backend architecture: extend TanStack Start (server routes, monolith) vs separate API service — **next decision**
-- Database engine & ORM (Postgres assumed; ORM TBD)
+- ~~Backend architecture~~ — **decided & built**: TanStack Start monolith + pg-boss worker (see BACKLOG "Architecture")
+- ~~Database engine & ORM~~ — **decided & built**: Postgres 16 + Drizzle
 - External supplier data sources & licensing (which directories / trade data)
 - Escrow / payment provider choice (Phase 4)
-- The concrete list of the "32 compatibility criteria"
+- The concrete list of the "32 compatibility criteria" — a deterministic v0 matcher
+  (`src/server/matching.ts`) stands in until this workshop happens

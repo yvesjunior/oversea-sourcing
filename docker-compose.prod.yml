@@ -21,6 +21,29 @@ services:
     ports:
       # Host 3010 → container 3000. Override with WEB_PORT=<port> if needed.
       - "${WEB_PORT:-3010}:3000"
+    volumes:
+      - osi-uploads:/data/uploads
+    depends_on:
+      database:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
+  # Background jobs (pg-boss): AI criteria extraction + pipeline orchestrator.
+  # Uses the build stage (full source + dev deps → tsx available), like migrate.
+  worker:
+    build:
+      context: .
+      dockerfile: infra/Docker/web.Dockerfile
+      target: build
+    command: npx tsx src/worker.ts
+    restart: unless-stopped
+    env_file:
+      - .env
+      - path: .env.local
+        required: false
+    environment:
+      - NODE_ENV=production
     depends_on:
       database:
         condition: service_healthy
@@ -64,3 +87,4 @@ services:
 
 volumes:
   osi-db-data:
+  osi-uploads:

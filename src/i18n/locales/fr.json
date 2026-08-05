@@ -60,6 +60,7 @@
     "attach": "Joindre un fichier",
     "addPlan": "Ajouter un plan",
     "launch": "Lancer l’analyse IA",
+    "removeFile": "Retirer le fichier",
     "recent": "Dossiers récents",
     "seeAll": "Voir tout",
     "visionTitle": "Design axé sur notre vision",
@@ -116,7 +117,10 @@
     "SE": "Suède",
     "US": "États-Unis",
     "CN": "Chine",
-    "IT": "Italie"
+    "IT": "Italie",
+    "FR": "France",
+    "ES": "Espagne",
+    "JP": "Japon"
   },
   "dossier": {
     "status": "Statut",
@@ -136,7 +140,6 @@
     "requestNo": "Demande #{{id}}",
     "viewReport": "Voir le rapport",
     "progressTitle": "Suivi de l’avancement",
-    "analysisInProgress": "Analyse IA en cours",
     "analysisOngoing": "Analyse en cours...",
     "top5": "Top 5 fournisseurs les plus compatibles",
     "analyzed": "{{count}} fournisseurs analysés",
@@ -147,12 +150,30 @@
     "compare": "Comparer",
     "resultsNote": "Ces résultats sont basés sur 32 critères de compatibilité OSI",
     "assistant": "Assistant IA OSI",
-    "chatUnderstood": "J’ai bien compris votre besoin. Voici les points clés :",
-    "chatMore": "Souhaitez-vous ajouter ou modifier quelque chose ?",
-    "chatUser": "Oui, ajouter certification ATEX et préférence pour un fournisseur en Europe.",
-    "chatRelaunch": "Parfait, je relance la recherche avec ces nouveaux critères.",
     "chatPlaceholder": "Posez une question à l’IA...",
-    "send": "Envoyer"
+    "chatEmpty": "Posez une question ou demandez une modification des critères — l’assistant connaît votre dossier.",
+    "chatThinking": "L’assistant réfléchit...",
+    "send": "Envoyer",
+    "criteriaTitle": "Critères identifiés",
+    "extracting": "L’IA analyse votre besoin et extrait les critères...",
+    "addCriterion": "Ajouter un critère",
+    "editCriterion": "Modifier le critère",
+    "deleteCriterion": "Supprimer le critère",
+    "criterionLabel": "Critère (ex. Matériau)",
+    "criterionValue": "Valeur (ex. Acier inoxydable 316)",
+    "criterionUnit": "Unité (optionnel)",
+    "required": "Obligatoire",
+    "editedByYou": "modifié",
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "launchSearch": "Lancer la recherche mondiale",
+    "criteriaReadyHint": "Vérifiez les critères, puis lancez la recherche de fournisseurs.",
+    "stepInProgress": "En cours...",
+    "stepPending": "En attente",
+    "activityTitle": "Activité",
+    "attachments": "Pièces jointes",
+    "addAttachment": "Ajouter un fichier",
+    "cancelRequest": "Annuler la demande"
   },
   "stepsFlux": {
     "received": "Demande reçue",
@@ -161,44 +182,68 @@
     "validation": "Validation",
     "report": "Rapport"
   },
-  "criteria": {
-    "material": "Matériau : Acier inoxydable 316",
-    "flow": "Débit : 50 à 100 m³/h",
-    "pressure": "Pression : 10 à 16 bar",
-    "certifications": "Certifications : ISO, CE, UL",
-    "quantity": "Quantité annuelle : 500 unités",
-    "delivery": "Délai de livraison : 30 jours max"
+  "criteriaCategories": {
+    "material": "Matériau",
+    "flow": "Débit",
+    "pressure": "Pression",
+    "certification": "Certification",
+    "quantity": "Quantité",
+    "lead_time": "Délai",
+    "other": "Autre"
+  },
+  "events": {
+    "request_created": "Demande créée",
+    "status_received": "Demande reçue",
+    "status_analyzing": "Analyse IA démarrée",
+    "status_searching": "Recherche mondiale lancée",
+    "status_validating": "Validation des fournisseurs",
+    "status_report_ready": "Rapport disponible",
+    "status_closed": "Demande clôturée",
+    "status_cancelled": "Demande annulée",
+    "criteria_extracted_one": "{{count}} critère identifié",
+    "criteria_extracted_other": "{{count}} critères identifiés",
+    "criteria_updated": "Critères mis à jour",
+    "chat_refined": "Critères affinés via l’assistant ({{count}})",
+    "search_launched": "Recherche validée par l’acheteur",
+    "attachment_added": "{{count}} pièce(s) jointe(s) ajoutée(s)",
+    "matches_created": "Top {{count}} sélectionné sur {{analyzed}} fournisseurs analysés"
   },
   "stepsDemande": {
     "received": {
-      "title": "Demande reçue",
-      "detail": "15 mai 2024 - 09:14"
+      "title": "Demande reçue"
     },
     "analysis": {
-      "title": "Analyse IA",
-      "detail": "15 mai 2024 - 09:36"
+      "title": "Analyse IA"
     },
     "search": {
-      "title": "Recherche mondiale",
-      "detail": "En cours..."
+      "title": "Recherche mondiale"
     },
     "validation": {
-      "title": "Validation fournisseur",
-      "detail": "En attente"
+      "title": "Validation fournisseur"
     },
     "report": {
-      "title": "Rapport final",
-      "detail": "En attente"
+      "title": "Rapport final"
     }
   },
   "fournisseurs": {
     "title": "Fournisseurs",
     "subtitle": "{{count}} fournisseurs évalués par l’IA OSI",
-    "compatibility": "Compatibilité",
     "confidence": "Score confiance",
     "outOf100": "/100",
     "risk": "Risque",
-    "compare": "Comparer"
+    "matched": "Dossiers associés",
+    "provenance": "Provenance"
+  },
+  "provenance": {
+    "imported": "Importé",
+    "ai_researched": "Recherche IA",
+    "osi_verified": "Vérifié OSI"
+  },
+  "verification": {
+    "unverified": "Non vérifié",
+    "pending": "Vérification en cours",
+    "verified": "Vérifié",
+    "rejected": "Rejeté"
   },
   "transactions": {
     "title": "Transactions",

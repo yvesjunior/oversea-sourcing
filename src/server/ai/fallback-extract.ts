@@ -1,0 +1,134 @@
+// Keyless criteria extraction — deterministic regex heuristics used when
+// ANTHROPIC_API_KEY is absent, so the full request loop stays validatable.
+// No SDK dependency; the worker prefers the real Claude extractor when
+// configured and falls back here on AiConfigError.
+
+import type { ExtractedCriterion } from "./extract-criteria";
+
+const MATERIAL_WORDS =
+  /\b(acier(?:\s+(?:inoxydable|inox|chromé|galvanisé|carbone))?(?:\s+\d{2,4}\w{0,3})?|inox(?:ydable)?|stainless steel(?:\s+\d{2,4}\w{0,3})?|steel|aluminium|aluminum|titane|titanium|cuivre|copper|laiton|brass|fonte|caoutchouc|rubber|EPDM|PTFE|PET|PVC|polypropyl[eè]ne|plastique|plastic|aramide|kevlar|c[ée]ramique|ceramic)\b/i;
+
+const CERT_PATTERN =
+  /\b(ISO\s?\d{3,5}|EN\s?(?:ISO\s?)?\d{3,5}|CE|ATEX|UL|FDA|RoHS|REACH|ASME|API\s?\d+)\b/g;
+
+type Labels = Record<
+  "material" | "flow" | "pressure" | "certification" | "quantity" | "lead_time" | "need",
+  string
+>;
+
+const LABELS: Record<"fr" | "en", Labels> = {
+  fr: {
+    material: "Matériau",
+    flow: "Débit",
+    pressure: "Pression",
+    certification: "Certifications",
+    quantity: "Quantité",
+    lead_time: "Délai",
+    need: "Besoin",
+  },
+  en: {
+    material: "Material",
+    flow: "Flow rate",
+    pressure: "Pressure",
+    certification: "Certifications",
+    quantity: "Quantity",
+    lead_time: "Lead time",
+    need: "Need",
+  },
+};
+
+/** Best-effort structured criteria from free text — same shape as the Claude
+ *  extractor so everything downstream (review UI, matching) works unchanged. */
+export function fallbackExtractCriteria(
+  descriptionRaw: string,
+  locale: string,
+): ExtractedCriterion[] {
+  const labels = LABELS[locale === "en" ? "en" : "fr"];
+  const text = descriptionRaw.replace(/\s+/g, " ").trim();
+  const criteria: ExtractedCriterion[] = [];
+
+  const material = text.match(MATERIAL_WORDS);
+  if (material?.[0]) {
+    criteria.push({
+      category: "material",
+      label: labels.material,
+      value: material[0].trim(),
+      unit: null,
+      required: true,
+    });
+  }
+
+  const pressure = text.match(/(\d+(?:[.,]\d+)?(?:\s*(?:à|a|-|–)\s*\d+(?:[.,]\d+)?)?)\s*bars?\b/i);
+  if (pressure?.[1]) {
+    criteria.push({
+      category: "pressure",
+      label: labels.pressure,
+      value: pressure[1].trim(),
+      unit: "bar",
+      required: false,
+    });
+  }
+
+  const flow = text.match(
+    /(\d+(?:[.,]\d+)?(?:\s*(?:à|a|-|–)\s*\d+(?:[.,]\d+)?)?)\s*(m³\/h|m3\/h|l\/min|L\/min)/i,
+  );
+  if (flow?.[1]) {
+    criteria.push({
+      category: "flow",
+      label: labels.flow,
+      value: flow[1].trim(),
+      unit: flow[2] === "m3/h" ? "m³/h" : (flow[2] ?? null),
+      required: false,
+    });
+  }
+
+  const certs = [...new Set(text.match(CERT_PATTERN) ?? [])];
+  if (certs.length > 0) {
+    criteria.push({
+      category: "certification",
+      label: labels.certification,
+      value: certs.join(", "),
+      unit: null,
+      required: /obligatoire|required|mandatory/i.test(text),
+    });
+  }
+
+  const quantity = text.match(
+    /(\d[\d\s.,]*)\s*(unit[ée]s?|pi[eè]ces?|pcs|machines?|exemplaires?|units?)(\s*(?:par an|\/an|per year|annuelles?))?/i,
+  );
+  if (quantity?.[1]) {
+    criteria.push({
+      category: "quantity",
+      label: labels.quantity,
+      value: `${quantity[1].trim()} ${quantity[2]}${quantity[3] ?? ""}`.trim(),
+      unit: null,
+      required: false,
+    });
+  }
+
+  const lead = text.match(
+    /(?:livraison|d[ée]lai|delivery|lead time)[^\d]{0,20}(\d+)\s*(jours?|semaines?|mois|days?|weeks?|months?)/i,
+  );
+  if (lead?.[1]) {
+    criteria.push({
+      category: "lead_time",
+      label: labels.lead_time,
+      value: `${lead[1]} ${lead[2]}`,
+      unit: null,
+      required: false,
+    });
+  }
+
+  if (criteria.length === 0) {
+    // Nothing recognizable — keep the loop moving with the need itself.
+    criteria.push({
+      category: "other",
+      label: labels.need,
+      value: text.slice(0, 120),
+      unit: null,
+      required: false,
+    });
+  }
+
+  return criteria.slice(0, 8);
+}

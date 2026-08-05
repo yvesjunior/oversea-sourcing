@@ -1,8 +1,8 @@
 import { useTranslation } from "react-i18next";
-import type { Fournisseur } from "@/data/osi";
 import { cn } from "@/lib/utils";
 
-export function CountryTag({ code, className }: { code: Fournisseur["code"]; className?: string }) {
+/** `code`: ISO country code — also the i18n key under "countries". */
+export function CountryTag({ code, className }: { code: string; className?: string }) {
   const { t } = useTranslation();
   return (
     <span

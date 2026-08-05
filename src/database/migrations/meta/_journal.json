@@ -15,6 +15,20 @@
       "when": 1785869381846,
       "tag": "0001_uneven_kronos",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1785884062543,
+      "tag": "0002_blushing_meggan",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1785887139033,
+      "tag": "0003_magical_reptil",
+      "breakpoints": true
     }
   ]
 }

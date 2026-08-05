@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { canSeeAllRequests } from "@/lib/roles";
-import type { RequestStatus } from "@/database/schema";
+import type { CriteriaCategory, RequestStatus } from "@/database/schema";
 
 /** Shape the UI consumes; E3 will extend (criteria, pipeline progress…). */
 export type RequestSummary = {
@@ -90,6 +90,335 @@ export const getAllRequestsFn = createServerFn({ method: "GET" }).handler(
     }));
   },
 );
+
+export type Criterion = {
+  id: string;
+  category: CriteriaCategory;
+  label: string;
+  value: string;
+  unit: string | null;
+  required: boolean;
+  source: "ai" | "user";
+  position: number;
+};
+
+export type ChatMessage = {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  /** ISO timestamp */
+  createdAt: string;
+};
+
+export type RequestEventView = {
+  id: string;
+  type: string;
+  /** Parsed i18n interpolation params (from the JSON `message` column). */
+  params: Record<string, string | number>;
+  /** ISO timestamp */
+  createdAt: string;
+};
+
+export type AttachmentView = {
+  id: string;
+  fileId: string;
+  filename: string;
+  mime: string;
+  size: number;
+};
+
+export type MatchView = {
+  id: string;
+  rank: number;
+  compatibilityScore: number;
+  confidenceScore: number;
+  riskLevel: "low" | "medium" | "high";
+  status: "candidate" | "presented" | "selected" | "rejected";
+  supplier: {
+    id: string;
+    name: string;
+    descriptor: string | null;
+    countryCode: string;
+  };
+};
+
+export type RequestDetail = RequestSummary & {
+  descriptionRaw: string;
+  createdAt: string;
+  launchedAt: string | null;
+  completedAt: string | null;
+  criteria: Criterion[];
+  messages: ChatMessage[];
+  events: RequestEventView[];
+  attachments: AttachmentView[];
+  /** Top-5 supplier candidates, ranked (empty until the search stage ran). */
+  matches: MatchView[];
+  /** Size of the supplier pool scored for this request (matches.created event). */
+  suppliersAnalyzed: number | null;
+  /** Writes allowed — own workspace only (employees read foreign dossiers). */
+  canEdit: boolean;
+  /** Platform flag AI_CHAT — the assistant UI is hidden when false. */
+  aiChatEnabled: boolean;
+};
+
+/** Create a request from the hero prompt: draft → received + extraction job. */
+export const createRequestFn = createServerFn({ method: "POST" })
+  .inputValidator(z.object({ description: z.string().trim().min(1).max(5000) }))
+  .handler(async ({ data }): Promise<{ id: string } | null> => {
+    const [{ auth }, { getRequest }, { db }, { sql }, schema] = await Promise.all([
+      import("@/server/auth"),
+      import("@tanstack/react-start/server"),
+      import("@/database"),
+      import("drizzle-orm"),
+      import("@/database/schema"),
+    ]);
+    const session = await auth.api.getSession({ headers: getRequest().headers });
+    const workspaceId = session?.session.activeOrganizationId;
+    if (!session || !workspaceId) return null;
+
+    const seq = await db.execute(sql`select nextval('request_id_seq')::text as id`);
+    const id = String((seq.rows[0] as { id: string }).id);
+
+    const firstLine = data.description.split("\n").find((line) => line.trim()) ?? "";
+    const title = firstLine.trim().slice(0, 80) || `#${id}`;
+
+    await db.insert(schema.request).values({
+      id,
+      organizationId: workspaceId,
+      createdBy: session.user.id,
+      title,
+      descriptionRaw: data.description,
+      status: "draft",
+      locale: session.user.locale ?? "fr",
+    });
+
+    const { recordEvent, transitionRequest } = await import("@/server/requests");
+    await recordEvent(id, workspaceId, "request.created");
+    await transitionRequest(id, workspaceId, "draft", "received");
+
+    try {
+      const { enqueueExtractCriteria } = await import("@/server/queue");
+      await enqueueExtractCriteria(id);
+    } catch (error) {
+      // The request survives a queue failure — it just waits in "received".
+      console.error(`createRequest: failed to enqueue extraction for ${id}`, error);
+    }
+
+    return { id };
+  });
+
+/** Full request detail — criteria, chat, events, attachments. Same visibility
+ *  rules as getRequestFn (own workspace, or employee cross-workspace read). */
+export const getRequestDetailFn = createServerFn({ method: "GET" })
+  .inputValidator(z.object({ id: z.string() }))
+  .handler(async ({ data }): Promise<RequestDetail | null> => {
+    const [{ auth }, { getRequest }, { db }, { asc, eq }, schema] = await Promise.all([
+      import("@/server/auth"),
+      import("@tanstack/react-start/server"),
+      import("@/database"),
+      import("drizzle-orm"),
+      import("@/database/schema"),
+    ]);
+    const session = await auth.api.getSession({ headers: getRequest().headers });
+    const workspaceId = session?.session.activeOrganizationId;
+    if (!session || !workspaceId) return null;
+
+    const row = await db.query.request.findFirst({
+      where: eq(schema.request.id, data.id),
+    });
+    if (!row) return null;
+
+    const isOwn = row.organizationId === workspaceId;
+    if (!isOwn && !canSeeAllRequests(session.user.platformRole)) return null;
+
+    let workspaceName: string | null = null;
+    if (!isOwn) {
+      const org = await db.query.organization.findFirst({
+        where: eq(schema.organization.id, row.organizationId),
+      });
+      workspaceName = org?.name ?? null;
+    }
+
+    const [criteria, messages, events, attachments, matches] = await Promise.all([
+      db.query.requestCriterion.findMany({
+        where: eq(schema.requestCriterion.requestId, row.id),
+        orderBy: [asc(schema.requestCriterion.position), asc(schema.requestCriterion.createdAt)],
+      }),
+      db.query.requestMessage.findMany({
+        where: eq(schema.requestMessage.requestId, row.id),
+        orderBy: [asc(schema.requestMessage.createdAt)],
+      }),
+      db.query.requestEvent.findMany({
+        where: eq(schema.requestEvent.requestId, row.id),
+        orderBy: [asc(schema.requestEvent.createdAt)],
+      }),
+      db
+        .select({
+          id: schema.requestAttachment.id,
+          fileId: schema.file.id,
+          filename: schema.file.filename,
+          mime: schema.file.mime,
+          size: schema.file.size,
+        })
+        .from(schema.requestAttachment)
+        .innerJoin(schema.file, eq(schema.requestAttachment.fileId, schema.file.id))
+        .where(eq(schema.requestAttachment.requestId, row.id)),
+      db
+        .select({
+          id: schema.match.id,
+          rank: schema.match.rank,
+          compatibilityScore: schema.match.compatibilityScore,
+          confidenceScore: schema.match.confidenceScore,
+          riskLevel: schema.match.riskLevel,
+          status: schema.match.status,
+          supplierId: schema.supplier.id,
+          supplierName: schema.supplier.name,
+          supplierDescriptor: schema.supplier.descriptor,
+          supplierCountry: schema.supplier.countryCode,
+        })
+        .from(schema.match)
+        .innerJoin(schema.supplier, eq(schema.match.supplierId, schema.supplier.id))
+        .where(eq(schema.match.requestId, row.id))
+        .orderBy(asc(schema.match.rank)),
+    ]);
+
+    const matchesCreated = [...events].reverse().find((event) => event.type === "matches.created");
+    let suppliersAnalyzed: number | null = null;
+    if (matchesCreated?.message) {
+      try {
+        const params = JSON.parse(matchesCreated.message) as { analyzed?: number };
+        suppliersAnalyzed = typeof params.analyzed === "number" ? params.analyzed : null;
+      } catch {
+        suppliersAnalyzed = null;
+      }
+    }
+
+    return {
+      id: row.id,
+      title: row.title,
+      status: row.status,
+      compatibilityScore: row.compatibilityScore,
+      updatedAt: row.updatedAt.toISOString(),
+      workspaceName,
+      descriptionRaw: row.descriptionRaw,
+      createdAt: row.createdAt.toISOString(),
+      launchedAt: row.launchedAt?.toISOString() ?? null,
+      completedAt: row.completedAt?.toISOString() ?? null,
+      criteria: criteria.map((criterion) => ({
+        id: criterion.id,
+        category: criterion.category,
+        label: criterion.label,
+        value: criterion.value,
+        unit: criterion.unit,
+        required: criterion.required,
+        source: criterion.source,
+        position: criterion.position,
+      })),
+      messages: messages.map((message) => ({
+        id: message.id,
+        role: message.role,
+        content: message.content,
+        createdAt: message.createdAt.toISOString(),
+      })),
+      events: events.map((event) => {
+        let params: Record<string, string | number> = {};
+        if (event.message) {
+          try {
+            params = JSON.parse(event.message) as Record<string, string | number>;
+          } catch {
+            params = {};
+          }
+        }
+        return { id: event.id, type: event.type, params, createdAt: event.createdAt.toISOString() };
+      }),
+      attachments,
+      aiChatEnabled: (await import("@/server/ai/flags")).chatEnabled(),
+      matches: matches.map((m) => ({
+        id: m.id,
+        rank: m.rank,
+        compatibilityScore: m.compatibilityScore,
+        confidenceScore: m.confidenceScore,
+        riskLevel: m.riskLevel,
+        status: m.status,
+        supplier: {
+          id: m.supplierId,
+          name: m.supplierName,
+          descriptor: m.supplierDescriptor,
+          countryCode: m.supplierCountry,
+        },
+      })),
+      suppliersAnalyzed,
+      canEdit: isOwn,
+    };
+  });
+
+/** Buyer validated the criteria → run the pipeline (searching → … → report). */
+export const launchSearchFn = createServerFn({ method: "POST" })
+  .inputValidator(z.object({ id: z.string() }))
+  .handler(async ({ data }): Promise<{ ok: boolean }> => {
+    const [{ auth }, { getRequest }, { db }, { eq }, schema] = await Promise.all([
+      import("@/server/auth"),
+      import("@tanstack/react-start/server"),
+      import("@/database"),
+      import("drizzle-orm"),
+      import("@/database/schema"),
+    ]);
+    const session = await auth.api.getSession({ headers: getRequest().headers });
+    const workspaceId = session?.session.activeOrganizationId;
+    if (!session || !workspaceId) return { ok: false };
+
+    const row = await db.query.request.findFirst({
+      where: eq(schema.request.id, data.id),
+    });
+    if (!row || row.organizationId !== workspaceId || row.status !== "analyzing") {
+      return { ok: false };
+    }
+
+    // Idempotency: one launch per request (double-clicks, stale tabs).
+    const { and } = await import("drizzle-orm");
+    const alreadyLaunched = await db.query.requestEvent.findFirst({
+      where: and(
+        eq(schema.requestEvent.requestId, row.id),
+        eq(schema.requestEvent.type, "search.launched"),
+      ),
+    });
+    if (alreadyLaunched) return { ok: false };
+
+    // Enqueue first: if it throws, no event is written and launch stays retryable.
+    const { enqueuePipeline } = await import("@/server/queue");
+    await enqueuePipeline(row.id);
+    const { recordEvent } = await import("@/server/requests");
+    await recordEvent(row.id, workspaceId, "search.launched");
+    return { ok: true };
+  });
+
+/** Cancel an in-flight request (own workspace, legal transitions only). */
+export const cancelRequestFn = createServerFn({ method: "POST" })
+  .inputValidator(z.object({ id: z.string() }))
+  .handler(async ({ data }): Promise<{ ok: boolean }> => {
+    const [{ auth }, { getRequest }, { db }, { eq }, schema] = await Promise.all([
+      import("@/server/auth"),
+      import("@tanstack/react-start/server"),
+      import("@/database"),
+      import("drizzle-orm"),
+      import("@/database/schema"),
+    ]);
+    const session = await auth.api.getSession({ headers: getRequest().headers });
+    const workspaceId = session?.session.activeOrganizationId;
+    if (!session || !workspaceId) return { ok: false };
+
+    const row = await db.query.request.findFirst({
+      where: eq(schema.request.id, data.id),
+    });
+    if (!row || row.organizationId !== workspaceId) return { ok: false };
+
+    const { canTransition } = await import("@/lib/request-status");
+    if (!canTransition(row.status, "cancelled")) return { ok: false };
+
+    const { transitionRequest } = await import("@/server/requests");
+    await transitionRequest(row.id, workspaceId, row.status, "cancelled");
+    return { ok: true };
+  });
 
 /** A single request — same visibility rules as the list (null when forbidden). */
 export const getRequestFn = createServerFn({ method: "GET" })

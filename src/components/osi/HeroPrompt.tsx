@@ -1,10 +1,11 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { Mic, Paperclip, Sparkles, Wrench } from "lucide-react";
+import { Loader2, Mic, Paperclip, Sparkles, Wrench, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import globe from "@/assets/globe.jpg";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { createRequestFn } from "@/lib/requests-fns";
 
 const DRAFT_KEY = "osi-draft-besoin";
 
@@ -14,16 +15,49 @@ export function HeroPrompt({ user }: { user: HeroUser }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [besoin, setBesoin] = useState("");
+  const [files, setFiles] = useState<File[]>([]);
+  const [submitting, setSubmitting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const loggedIn = user !== null;
   const prenom = user?.name?.split(" ")[0];
 
-  // Restore a draft that survived the login/signup redirect (auth gate).
+  const submitNeed = async (text: string, attachments: File[]) => {
+    if (!text.trim() || submitting) return;
+    setSubmitting(true);
+    try {
+      const created = await createRequestFn({ data: { description: text } });
+      if (!created) {
+        // Session evaporated — fall back to the auth gate.
+        window.localStorage.setItem(DRAFT_KEY, text);
+        void navigate({ to: "/login", search: { redirect: "/" } });
+        return;
+      }
+      if (attachments.length > 0) {
+        const form = new FormData();
+        form.set("requestId", created.id);
+        for (const file of attachments) form.append("files", file);
+        // Best-effort: the request exists either way; failures surface on the
+        // detail page where files can be re-attached.
+        await fetch("/api/upload", { method: "POST", body: form }).catch(() => {});
+      }
+      void navigate({ to: "/demandes/$id", params: { id: created.id } });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // Restore a draft that survived the login/signup redirect (auth gate) —
+  // once authenticated, the request is created automatically (no retyping).
   useEffect(() => {
     const draft = window.localStorage.getItem(DRAFT_KEY);
-    if (draft) {
-      setBesoin(draft);
-      if (loggedIn) window.localStorage.removeItem(DRAFT_KEY);
+    if (!draft) return;
+    setBesoin(draft);
+    if (loggedIn) {
+      // Remove BEFORE the async create: guards StrictMode double-effects.
+      window.localStorage.removeItem(DRAFT_KEY);
+      void submitNeed(draft, []);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loggedIn]);
 
   const onSubmit = (event: FormEvent) => {
@@ -34,7 +68,12 @@ export function HeroPrompt({ user }: { user: HeroUser }) {
       void navigate({ to: "/login", search: { redirect: "/" } });
       return;
     }
-    // Logged in: request creation ships with E3 (AI criteria extraction).
+    void submitNeed(besoin, files);
+  };
+
+  const onFilesPicked = (picked: FileList | null) => {
+    if (!picked) return;
+    setFiles((current) => [...current, ...Array.from(picked)]);
   };
 
   return (
@@ -66,6 +105,27 @@ export function HeroPrompt({ user }: { user: HeroUser }) {
             placeholder={t("home.placeholder")}
             className="min-h-[92px] resize-none border-0 bg-transparent px-2 text-base shadow-none focus-visible:ring-0"
           />
+          {files.length > 0 && (
+            <ul className="mt-2 flex flex-wrap gap-2 px-2">
+              {files.map((file, index) => (
+                <li
+                  key={`${file.name}-${index}`}
+                  className="flex items-center gap-1.5 rounded-full bg-secondary px-3 py-1 text-xs text-muted-foreground"
+                >
+                  <Paperclip className="size-3" />
+                  <span className="max-w-[180px] truncate">{file.name}</span>
+                  <button
+                    type="button"
+                    aria-label={t("home.removeFile")}
+                    onClick={() => setFiles((current) => current.filter((_, i) => i !== index))}
+                    className="transition-colors hover:text-foreground"
+                  >
+                    <X className="size-3" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
           <div className="mt-3 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
             <div className="flex min-w-0 items-center gap-4 text-sm text-muted-foreground">
               <button
@@ -75,8 +135,20 @@ export function HeroPrompt({ user }: { user: HeroUser }) {
               >
                 <Mic className="size-[18px]" />
               </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                accept=".pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xls,.xlsx,.txt,.csv"
+                className="hidden"
+                onChange={(e) => {
+                  onFilesPicked(e.target.files);
+                  e.target.value = "";
+                }}
+              />
               <button
                 type="button"
+                onClick={() => fileInputRef.current?.click()}
                 className="hidden items-center gap-2 transition-colors hover:text-foreground sm:flex"
               >
                 <Paperclip className="size-4" /> {t("home.attach")}
@@ -88,8 +160,13 @@ export function HeroPrompt({ user }: { user: HeroUser }) {
                 <Wrench className="size-4" /> {t("home.addPlan")}
               </button>
             </div>
-            <Button type="submit" variant="gold" size="lg">
-              <Sparkles className="size-4" /> {t("home.launch")}
+            <Button type="submit" variant="gold" size="lg" disabled={submitting}>
+              {submitting ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Sparkles className="size-4" />
+              )}{" "}
+              {t("home.launch")}
             </Button>
           </div>
         </form>

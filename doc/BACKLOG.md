@@ -14,7 +14,7 @@ the standalone Node container we already ship.
 | Background jobs  | **pg-boss** (queue lives in Postgres — no Redis to operate)                   |
 | Auth             | **better-auth** (TS-native, Drizzle adapter) — email/password + sessions      |
 | Validation       | **zod** on every API boundary                                                 |
-| AI               | **Claude API** (extraction, chat refinement, research agent, report drafting) |
+| AI               | **Claude API** via the `src/server/ai/` gateway (extraction, chat refinement, research agent, report drafting) — deterministic heuristic fallback keeps the loop running without `ANTHROPIC_API_KEY` |
 | File storage     | Local Docker volume for MVP1, S3-compatible interface from day one            |
 | Email            | SMTP provider (Resend or similar), templates FR/EN                            |
 
@@ -151,8 +151,8 @@ transactions…) requires login. Logged-in users see the personal dashboard on `
 - [x] Enable `database` (postgres:16) in both compose files: volume, healthcheck, `depends_on`
 - [x] `DATABASE_URL` wiring — secrets in `.env.local`, never in committed `.env`
 - [x] Drizzle + drizzle-kit: schema layout in `src/database/`, migration workflow, `npm run db:migrate` / `db:seed`
-- [ ] API route structure under TanStack Start (`/api/*`), zod validation, typed error envelope
-- [ ] pg-boss bootstrap + worker entrypoint (same container, second process) — job: `echo` smoke test
+- [x] API route structure under TanStack Start (`/api/*` upload/download routes, zod on every server fn) — typed error envelope still ad-hoc
+- [x] pg-boss bootstrap + worker entrypoint (`src/worker.ts`, separate compose service, same image) — jobs: criteria extraction + pipeline
 - [x] Seed script: demo accounts per role (named after the role) + 6 demo dossiers for the buyer — suppliers arrive with E4
 
 ### E1 — Auth & user management
@@ -182,13 +182,13 @@ transactions…) requires login. Logged-in users see the personal dashboard on `
 
 ### E3 — Requests core loop
 
-- [ ] `requests` CRUD + status state machine (guarded transitions, timestamps)
-- [ ] Hero prompt → creates draft request (wire existing UI)
-- [ ] File upload endpoint + storage adapter (local volume; S3 interface)
-- [ ] **Job: AI criteria extraction** (Claude) → `request_criteria` rows; status `analyzing`
-- [ ] Criteria review/edit UI (add/remove/edit before launching search)
-- [ ] **Per-request AI chat**: message → Claude with criteria context → optional criteria mutation + re-run
-- [ ] Pipeline orchestrator job: `analyzing → searching → validating → report_ready` with progress events
+- [x] `requests` CRUD + status state machine (guarded transitions in `src/lib/request-status.ts` + `src/server/requests.ts`, launchedAt/completedAt timestamps, request_event trail)
+- [x] Hero prompt → creates request (sequence ids from 3000; draft→received + extraction job; post-auth draft auto-creates)
+- [x] File upload endpoint + storage adapter (`/api/upload`, `/api/files/$id`, local volume behind S3-shaped `src/server/storage.ts`)
+- [x] **Job: AI criteria extraction** (Claude, structured output, model `claude-haiku-4-5` via `ANTHROPIC_MODEL`; regex-heuristic fallback when no API key) → `request_criterion` rows; status `analyzing`
+- [x] Criteria review/edit UI (add/remove/edit, then "Lancer la recherche" — pipeline pauses for review; `PIPELINE_AUTOLAUNCH=true` to skip)
+- [x] **Per-request AI chat**: message → Claude with criteria context → optional criteria mutations applied (persisted in `request_message`)
+- [x] Pipeline orchestrator job: `analyzing → searching → validating → report_ready` with progress events — **simulated stages (~10s each) until E4/E5 provide real search/matching**
 - [x] Wire demandes list + detail pages to real data (drop mock) — `request` table (migration 0001), workspace-scoped queries; detail criteria/top-5/chat remain showcase until E3/E5
 - [x] **Personal dashboard** (Accueil): real session user greeting, stats + "Vos dossiers
       récents" scoped to the logged-in user, per-role workspace visibility
@@ -196,21 +196,21 @@ transactions…) requires login. Logged-in users see the personal dashboard on `
 
 ### E4 — Supplier data platform
 
-- [ ] Supplier schema + satellites (capabilities, certifications, contacts) + provenance fields
-- [ ] CSV/JSON import pipeline v1 + `import_runs` (admin-triggered)
+- [x] Supplier schema core (provenance, verification_status, confidence, risk — platform-global) — satellites (capabilities, certifications, contacts) still pending
+- [ ] CSV/JSON import pipeline v1 + `import_runs` (admin-triggered) — seed script stands in for now
 - [ ] **Job: AI research agent** — web search per request criteria → LLM extraction → candidate `suppliers` (provenance `ai_researched`, `research_runs` tracked)
 - [ ] Dedup / entity resolution v1 (normalize name + country + website; merge tool in admin)
-- [ ] Supplier directory UI wiring (list, detail, filters) — real data
+- [x] Supplier directory UI wiring (list) — real data with match counts; detail page + filters pending
 - [ ] Country risk reference table (seed data)
 
 ### E5 — Matching & scoring
 
 - [ ] **Define the 32 compatibility criteria** (product workshop — weights per category)
-- [ ] Matching query: request criteria × supplier capabilities × sourcing_rules → candidate set
+- [ ] Matching query: request criteria × supplier capabilities × sourcing_rules → candidate set — **v0 heuristic lives in `src/server/matching.ts`** (deterministic, replace when this lands)
 - [ ] Compatibility score: weighted per-criterion, store breakdown jsonb
 - [ ] Confidence score: provenance + profile completeness + verification
 - [ ] Risk level: country risk + data flags (v1 heuristic)
-- [ ] Top-5 persistence in `matches` + ranking; "87 fournisseurs analysés" becomes real
+- [x] Top-5 persistence in `match` + ranking; "N fournisseurs analysés" is real (matches.created event)
 - [ ] Comparison view wiring ("Comparer" side-by-side)
 
 ### E6 — Facilitation (engagements) · the OSI moment
