@@ -14,7 +14,7 @@ the standalone Node container we already ship.
 | Background jobs  | **pg-boss** (queue lives in Postgres — no Redis to operate)                   |
 | Auth             | **better-auth** (TS-native, Drizzle adapter) — email/password + sessions      |
 | Validation       | **zod** on every API boundary                                                 |
-| AI               | **Claude API** via the `src/server/ai/` gateway (extraction, chat refinement, research agent, report drafting) — deterministic heuristic fallback keeps the loop running without `ANTHROPIC_API_KEY` |
+| AI               | **Claude API** via the `src/server/ai/` gateway (extraction, chat refinement, research agent, report drafting). **Opt-in per flag, both default off** (`AI_PROMPT_ANALYSIS`, `AI_CHAT` — tokens reserved for E4 supplier research); deterministic heuristic fallback keeps the loop running without `ANTHROPIC_API_KEY` |
 | File storage     | Local Docker volume for MVP1, S3-compatible interface from day one            |
 | Email            | SMTP provider (Resend or similar), templates FR/EN                            |
 
@@ -168,7 +168,7 @@ transactions…) requires login. Logged-in users see the personal dashboard on `
 - [ ] User profile: name, locale (persist language server-side, sync with the existing toggle)
 - [ ] `platform_role` on users; guard helper `requireStaff()`
 - [ ] Rate limiting on auth endpoints
-- [x] Dev-only quick-login facilitator on /login (Buyer/Manager/Accountant/Owner — `import.meta.env.DEV`, compiled out of prod)
+- [x] Quick-login facilitator on /login (Buyer/Manager/Accountant/Owner) — always in dev builds, elsewhere via runtime `SHOW_TEST_LOGIN=true` (on during the test phase; off before real users)
 - [x] Shell session from router context (no stale "Se connecter" after sign-in/out)
 
 ### E2 — Workspaces, roles & tenancy
@@ -185,9 +185,9 @@ transactions…) requires login. Logged-in users see the personal dashboard on `
 - [x] `requests` CRUD + status state machine (guarded transitions in `src/lib/request-status.ts` + `src/server/requests.ts`, launchedAt/completedAt timestamps, request_event trail)
 - [x] Hero prompt → creates request (sequence ids from 3000; draft→received + extraction job; post-auth draft auto-creates)
 - [x] File upload endpoint + storage adapter (`/api/upload`, `/api/files/$id`, local volume behind S3-shaped `src/server/storage.ts`)
-- [x] **Job: AI criteria extraction** (Claude, structured output, model `claude-haiku-4-5` via `ANTHROPIC_MODEL`; regex-heuristic fallback when no API key) → `request_criterion` rows; status `analyzing`
-- [x] Criteria review/edit UI (add/remove/edit, then "Lancer la recherche" — pipeline pauses for review; `PIPELINE_AUTOLAUNCH=true` to skip)
-- [x] **Per-request AI chat**: message → Claude with criteria context → optional criteria mutations applied (persisted in `request_message`)
+- [x] **Job: criteria extraction** — behind `AI_PROMPT_ANALYSIS` (default **false**, decided 2026-08-04 — tokens reserved for E4 supplier research): true = Claude structured output (`claude-haiku-4-5` via `ANTHROPIC_MODEL`, heuristic fallback when no key); false = free regex heuristic → `request_criterion` rows either way
+- [x] Criteria review/edit UI (add/remove/edit, then "Lancer la recherche") — the review pause only exists with `AI_PROMPT_ANALYSIS=true` (`PIPELINE_AUTOLAUNCH=true` skips it); with the flag off the request goes straight to supplier search
+- [x] **Per-request AI chat** — behind `AI_CHAT` (default **false**: UI hidden, server refuses; the hero prompt is the only AI-facing input): message → Claude with criteria context → optional criteria mutations applied (persisted in `request_message`)
 - [x] Pipeline orchestrator job: `analyzing → searching → validating → report_ready` with progress events — **simulated stages (~10s each) until E4/E5 provide real search/matching**
 - [x] Wire demandes list + detail pages to real data (drop mock) — `request` table (migration 0001), workspace-scoped queries; detail criteria/top-5/chat remain showcase until E3/E5
 - [x] **Personal dashboard** (Accueil): real session user greeting, stats + "Vos dossiers

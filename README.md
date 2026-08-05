@@ -52,10 +52,12 @@ git push && ./scripts/deploy.sh && ./scripts/status.sh
 
 Prod is live at **https://osi-solutions.com** — served from the VM through a
 **Cloudflare Tunnel** (`cloudflared` container; LAN address for direct access:
-http://192.168.2.56:3010). Optional add-on components (MinIO, Redis, Meilisearch,
-Uptime-Kuma, Dozzle, ClamAV, Adminer) are profile-gated in
-`docker-compose.addons.yml` — off by default, catalog and enable-triggers in
-[doc/INFRA.md](doc/INFRA.md).
+http://192.168.2.56:3010). **Currently in test phase**: prod runs the seeded
+demo data (accounts, dossiers, 12-supplier pool) with the test login box
+enabled — all of it gets wiped before real users. Optional add-on components
+(MinIO, Redis, Meilisearch, Uptime-Kuma, Dozzle, ClamAV, Adminer) are
+profile-gated in `docker-compose.addons.yml` — off by default, catalog and
+enable-triggers in [doc/INFRA.md](doc/INFRA.md).
 
 ### Database & auth
 
@@ -74,8 +76,13 @@ docker compose -f docker-compose.dev.yml exec web npm run db:seed
 # owner@osi.dev · manager@osi.dev · accountant@osi.dev (platform employees)
 # buyer@osi.dev (regular buyer, seeded with 6 demo dossiers incl. criteria/chat/matches)
 # + a 12-supplier platform-global pool (stands in for the E4 import pipeline)
-# Dev builds show a one-click "Connexion rapide" box on /login for these accounts.
 ```
+
+A one-click **"Connexion rapide — test"** box on `/login` signs in as any demo
+account: always visible in dev builds, and elsewhere when `SHOW_TEST_LOGIN=true`
+(runtime flag, read per request — a container restart is enough). It is **on**
+in the committed `.env` for the current test phase; set it to `false` before
+real users, the seeded credentials are public.
 
 Required secrets in `.env.local` (**prod**): `POSTGRES_PASSWORD`, `DATABASE_URL`,
 `BETTER_AUTH_SECRET` (32+ chars), `BETTER_AUTH_URL`. Dev uses safe defaults baked
