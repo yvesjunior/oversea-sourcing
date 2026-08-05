@@ -336,13 +336,14 @@ function DemandeDetail() {
             </section>
           )}
 
-          {/* Chat is platform-gated (AI_CHAT): hidden unless enabled — existing
-              transcripts stay readable. The hero prompt is the AI entry point. */}
-          {(demande.aiChatEnabled || demande.messages.length > 0) && (
+          {/* Chat is platform-gated (AI_CHAT): when off, the whole section —
+              transcripts included — is hidden (a conversation that can't
+              continue is noise). The hero prompt is the AI entry point. */}
+          {demande.aiChatEnabled && (
             <RequestChat
               requestId={demande.id}
               messages={demande.messages}
-              canChat={demande.canEdit && demande.aiChatEnabled}
+              canChat={demande.canEdit}
             />
           )}
         </div>

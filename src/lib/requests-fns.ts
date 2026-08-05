@@ -239,15 +239,21 @@ export const getRequestDetailFn = createServerFn({ method: "GET" })
       workspaceName = org?.name ?? null;
     }
 
+    const { chatEnabled } = await import("@/server/ai/flags");
+    const aiChatEnabled = chatEnabled();
+
     const [criteria, messages, events, attachments, matches] = await Promise.all([
       db.query.requestCriterion.findMany({
         where: eq(schema.requestCriterion.requestId, row.id),
         orderBy: [asc(schema.requestCriterion.position), asc(schema.requestCriterion.createdAt)],
       }),
-      db.query.requestMessage.findMany({
-        where: eq(schema.requestMessage.requestId, row.id),
-        orderBy: [asc(schema.requestMessage.createdAt)],
-      }),
+      // Chat off ⇒ no transcript leaves the server (data stays in the DB).
+      aiChatEnabled
+        ? db.query.requestMessage.findMany({
+            where: eq(schema.requestMessage.requestId, row.id),
+            orderBy: [asc(schema.requestMessage.createdAt)],
+          })
+        : Promise.resolve([]),
       db.query.requestEvent.findMany({
         where: eq(schema.requestEvent.requestId, row.id),
         orderBy: [asc(schema.requestEvent.createdAt)],
@@ -332,7 +338,7 @@ export const getRequestDetailFn = createServerFn({ method: "GET" })
         return { id: event.id, type: event.type, params, createdAt: event.createdAt.toISOString() };
       }),
       attachments,
-      aiChatEnabled: (await import("@/server/ai/flags")).chatEnabled(),
+      aiChatEnabled,
       matches: matches.map((m) => ({
         id: m.id,
         rank: m.rank,
