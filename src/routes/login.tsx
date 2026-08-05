@@ -23,7 +23,14 @@ export const Route = createFileRoute("/login")({
 });
 
 function LoginPage() {
-  const { googleEnabled } = Route.useLoaderData();
+  const { googleEnabled, quickLoginEnabled } = Route.useLoaderData();
   const { redirect: target } = Route.useSearch();
-  return <AuthForm mode="signin" googleEnabled={googleEnabled} redirect={target} />;
+  return (
+    <AuthForm
+      mode="signin"
+      googleEnabled={googleEnabled}
+      quickLoginEnabled={quickLoginEnabled}
+      redirect={target}
+    />
+  );
 }

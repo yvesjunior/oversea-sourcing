@@ -19,8 +19,13 @@ export const getSessionFn = createServerFn({ method: "GET" }).handler(
   },
 );
 
-/** Public auth configuration the login/signup pages need. */
+/** Public auth configuration the login/signup pages need.
+ *  quickLoginEnabled: SHOW_TEST_LOGIN=true surfaces the one-click demo-account
+ *  box outside dev builds (test phases — the seeded credentials are public). */
 export const getAuthConfigFn = createServerFn({ method: "GET" }).handler(async () => {
   const { isGoogleEnabled } = await import("@/server/auth");
-  return { googleEnabled: isGoogleEnabled };
+  return {
+    googleEnabled: isGoogleEnabled,
+    quickLoginEnabled: process.env["SHOW_TEST_LOGIN"] === "true",
+  };
 });

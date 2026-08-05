@@ -38,10 +38,13 @@ export function AuthForm({
   mode,
   googleEnabled,
   redirect,
+  quickLoginEnabled = false,
 }: {
   mode: "signin" | "signup";
   googleEnabled: boolean;
   redirect?: string | undefined;
+  /** Runtime opt-in (SHOW_TEST_LOGIN) — dev builds always show the box. */
+  quickLoginEnabled?: boolean;
 }) {
   const { t, i18n } = useTranslation();
   const router = useRouter();
@@ -90,8 +93,10 @@ export function AuthForm({
     void authClient.signIn.social({ provider: "google", callbackURL: target });
   };
 
-  // Dev-only connection facilitator: one-click sign-in as any seeded demo
-  // account. `import.meta.env.DEV` is compiled out of production builds.
+  // Connection facilitator: one-click sign-in as any seeded demo account.
+  // Always on in dev builds; elsewhere only when SHOW_TEST_LOGIN=true is set
+  // (test phases) — see getAuthConfigFn.
+  const showQuickLogin = import.meta.env.DEV || quickLoginEnabled;
   const quickLogin = async (demoEmail: string) => {
     setError(null);
     setPending(true);
@@ -189,10 +194,10 @@ export function AuthForm({
         </>
       )}
 
-      {import.meta.env.DEV && mode === "signin" && (
+      {showQuickLogin && mode === "signin" && (
         <div className="mt-6 rounded-xl border border-dashed border-border p-4">
           <p className="text-center text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
-            Connexion rapide — dev
+            Connexion rapide — test
           </p>
           <div className="mt-3 grid grid-cols-2 gap-2">
             {["buyer", "manager", "accountant", "owner"].map((compte) => (
