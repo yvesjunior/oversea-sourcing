@@ -25,7 +25,6 @@ const items = [
   { key: "demandes", url: "/demandes", icone: Inbox },
   { key: "fournisseurs", url: "/fournisseurs", icone: Users },
   { key: "transactions", url: "/transactions", icone: Repeat },
-  { key: "partenaires", url: "/partenaires", icone: Handshake },
   { key: "documents", url: "/documents", icone: FileText },
   { key: "analyses", url: "/analyses", icone: BarChart3 },
   { key: "parametres", url: "/parametres", icone: Settings },

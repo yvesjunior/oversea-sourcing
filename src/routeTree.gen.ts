@@ -15,7 +15,6 @@ import { Route as DocumentsRouteImport } from './routes/documents'
 import { Route as FournisseursRouteImport } from './routes/fournisseurs'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as ParametresRouteImport } from './routes/parametres'
-import { Route as PartenairesRouteImport } from './routes/partenaires'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as TransactionsRouteImport } from './routes/transactions'
 import { Route as ApiUploadRouteImport } from './routes/api/upload'
@@ -56,11 +55,6 @@ const LoginRoute = LoginRouteImport.update({
 const ParametresRoute = ParametresRouteImport.update({
   id: '/parametres',
   path: '/parametres',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PartenairesRoute = PartenairesRouteImport.update({
-  id: '/partenaires',
-  path: '/partenaires',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SignupRoute = SignupRouteImport.update({
@@ -126,7 +120,6 @@ export interface FileRoutesByFullPath {
   '/fournisseurs': typeof FournisseursRoute
   '/login': typeof LoginRoute
   '/parametres': typeof ParametresRoute
-  '/partenaires': typeof PartenairesRoute
   '/signup': typeof SignupRoute
   '/transactions': typeof TransactionsRoute
   '/api/upload': typeof ApiUploadRoute
@@ -146,7 +139,6 @@ export interface FileRoutesByTo {
   '/fournisseurs': typeof FournisseursRoute
   '/login': typeof LoginRoute
   '/parametres': typeof ParametresRoute
-  '/partenaires': typeof PartenairesRoute
   '/signup': typeof SignupRoute
   '/transactions': typeof TransactionsRoute
   '/api/upload': typeof ApiUploadRoute
@@ -167,7 +159,6 @@ export interface FileRoutesById {
   '/fournisseurs': typeof FournisseursRoute
   '/login': typeof LoginRoute
   '/parametres': typeof ParametresRoute
-  '/partenaires': typeof PartenairesRoute
   '/signup': typeof SignupRoute
   '/transactions': typeof TransactionsRoute
   '/api/upload': typeof ApiUploadRoute
@@ -189,7 +180,6 @@ export interface FileRouteTypes {
     | '/fournisseurs'
     | '/login'
     | '/parametres'
-    | '/partenaires'
     | '/signup'
     | '/transactions'
     | '/api/upload'
@@ -209,7 +199,6 @@ export interface FileRouteTypes {
     | '/fournisseurs'
     | '/login'
     | '/parametres'
-    | '/partenaires'
     | '/signup'
     | '/transactions'
     | '/api/upload'
@@ -229,7 +218,6 @@ export interface FileRouteTypes {
     | '/fournisseurs'
     | '/login'
     | '/parametres'
-    | '/partenaires'
     | '/signup'
     | '/transactions'
     | '/api/upload'
@@ -250,7 +238,6 @@ export interface RootRouteChildren {
   FournisseursRoute: typeof FournisseursRoute
   LoginRoute: typeof LoginRoute
   ParametresRoute: typeof ParametresRoute
-  PartenairesRoute: typeof PartenairesRoute
   SignupRoute: typeof SignupRoute
   TransactionsRoute: typeof TransactionsRoute
   ApiUploadRoute: typeof ApiUploadRoute
@@ -306,13 +293,6 @@ declare module '@tanstack/react-router' {
       path: '/parametres'
       fullPath: '/parametres'
       preLoaderRoute: typeof ParametresRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/partenaires': {
-      id: '/partenaires'
-      path: '/partenaires'
-      fullPath: '/partenaires'
-      preLoaderRoute: typeof PartenairesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/signup': {
@@ -402,7 +382,6 @@ const rootRouteChildren: RootRouteChildren = {
   FournisseursRoute: FournisseursRoute,
   LoginRoute: LoginRoute,
   ParametresRoute: ParametresRoute,
-  PartenairesRoute: PartenairesRoute,
   SignupRoute: SignupRoute,
   TransactionsRoute: TransactionsRoute,
   ApiUploadRoute: ApiUploadRoute,

@@ -7,7 +7,6 @@
     "demandes": "Requests",
     "fournisseurs": "Suppliers",
     "transactions": "Transactions",
-    "partenaires": "Partners",
     "documents": "Documents",
     "analyses": "Analytics",
     "parametres": "Settings",
@@ -325,8 +324,6 @@
     "financeText": "Transaction and payment oversight will appear here.",
     "documentsTitle": "Documents",
     "documentsText": "Contracts, certificates and inspection reports will be gathered here.",
-    "partenairesTitle": "Partners",
-    "partenairesText": "Your inspection, transport and financing partners will appear here.",
     "parametresTitle": "Settings",
     "parametresText": "Profile, team, language and sourcing rules will be configurable here."
   },
