@@ -1,9 +1,18 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import { Cell, Line, LineChart, Pie, PieChart, ResponsiveContainer } from "recharts";
 import { categories, kpisAnalyses, repartition, tendance } from "@/data/osi";
+import { hasPlatformFeature } from "@/lib/roles";
 
 export const Route = createFileRoute("/analyses")({
+  // Employee-only surface (PLATFORM_FEATURES.analytics) — buyers land on "/".
+  beforeLoad: ({ context }) => {
+    const platformRole = (context.session?.user as { platformRole?: string } | undefined)
+      ?.platformRole;
+    if (!hasPlatformFeature(platformRole, "analytics")) {
+      throw redirect({ to: "/" });
+    }
+  },
   head: () => ({
     meta: [
       { title: "Analyses des dépenses et économies | OSI" },

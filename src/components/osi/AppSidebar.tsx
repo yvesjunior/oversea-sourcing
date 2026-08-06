@@ -26,7 +26,8 @@ const items = [
   { key: "fournisseurs", url: "/fournisseurs", icone: Users },
   { key: "transactions", url: "/transactions", icone: Repeat },
   { key: "documents", url: "/documents", icone: FileText },
-  { key: "analyses", url: "/analyses", icone: BarChart3 },
+  // Employee-only (PLATFORM_FEATURES.analytics) — filtered per role below.
+  { key: "analyses", url: "/analyses", icone: BarChart3, feature: "analytics" as const },
   { key: "parametres", url: "/parametres", icone: Settings },
 ];
 
@@ -60,6 +61,9 @@ export function AppSidebar({
   const router = useRouter();
   const pathname = useRouterState({ select: (r) => r.location.pathname });
   const platformRole = (session?.user as { platformRole?: string } | undefined)?.platformRole;
+  const itemsVisible = items.filter(
+    (item) => !("feature" in item) || hasPlatformFeature(platformRole, item.feature),
+  );
   const interneVisible = itemsInterne.filter((item) => hasPlatformFeature(platformRole, item.key));
 
   const seDeconnecter = async () => {
@@ -80,7 +84,7 @@ export function AppSidebar({
       </div>
 
       <nav className="flex-1 space-y-1 px-3 py-2">
-        {items.map((item) => {
+        {itemsVisible.map((item) => {
           const actif = item.url === "/" ? pathname === "/" : pathname.startsWith(item.url);
           return (
             <Link
