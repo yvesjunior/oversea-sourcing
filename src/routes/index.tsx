@@ -122,10 +122,16 @@ function Accueil() {
            so the footer stays fully visible in both. */
         <Tabs defaultValue="tous" className="-mt-6">
           <TabsList className="h-8">
-            <TabsTrigger value="tous" className="py-1">
+            <TabsTrigger
+              value="tous"
+              className="py-1 data-[state=active]:bg-gold-gradient data-[state=active]:text-gold-foreground data-[state=active]:shadow-gold"
+            >
               {t("home.tabAll")}
             </TabsTrigger>
-            <TabsTrigger value="miens" className="py-1">
+            <TabsTrigger
+              value="miens"
+              className="py-1 data-[state=active]:bg-gold-gradient data-[state=active]:text-gold-foreground data-[state=active]:shadow-gold"
+            >
               {t("home.tabMine")}
             </TabsTrigger>
           </TabsList>

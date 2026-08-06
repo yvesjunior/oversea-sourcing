@@ -19,11 +19,19 @@ export function EmployeeTabs({
   const label = (key: string, count?: number) =>
     count === undefined ? t(key) : `${t(key)} (${count})`;
 
+  // Active tab wears the OSI gold — same treatment as the home dashboard tabs.
+  const triggerGold =
+    "data-[state=active]:bg-gold-gradient data-[state=active]:text-gold-foreground data-[state=active]:shadow-gold";
+
   return (
     <Tabs defaultValue="tous">
       <TabsList>
-        <TabsTrigger value="tous">{label("home.tabAll", globalCount)}</TabsTrigger>
-        <TabsTrigger value="miens">{label("home.tabMine", mineCount)}</TabsTrigger>
+        <TabsTrigger value="tous" className={triggerGold}>
+          {label("home.tabAll", globalCount)}
+        </TabsTrigger>
+        <TabsTrigger value="miens" className={triggerGold}>
+          {label("home.tabMine", mineCount)}
+        </TabsTrigger>
       </TabsList>
       <TabsContent value="tous" className="mt-5">
         {global}
