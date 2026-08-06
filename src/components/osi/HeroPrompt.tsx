@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { Info, Loader2, Mic, Paperclip, Sparkles, Wrench, X } from "lucide-react";
+import { Info, Loader2, Mic, Paperclip, Sparkles, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import globe from "@/assets/globe.jpg";
 import { Button } from "@/components/ui/button";
@@ -192,12 +192,6 @@ export function HeroPrompt({ user }: { user: HeroUser }) {
                 className="hidden items-center gap-2 transition-colors hover:text-foreground sm:flex"
               >
                 <Paperclip className="size-4" /> {t("home.attach")}
-              </button>
-              <button
-                type="button"
-                className="hidden items-center gap-2 transition-colors hover:text-foreground lg:flex"
-              >
-                <Wrench className="size-4" /> {t("home.addPlan")}
               </button>
             </div>
             <Button type="submit" variant="gold" size="lg" disabled={submitting}>

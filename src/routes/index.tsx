@@ -69,7 +69,7 @@ function DossiersRecents({
 }) {
   const { t } = useTranslation();
   return (
-    <section className="mt-12">
+    <section>
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4">
         <h2 className="truncate text-lg font-semibold">{t("home.recent")}</h2>
         <Link
@@ -113,7 +113,7 @@ function Accueil() {
   const employee = canSeeAllRequests(platformRole) && statsAll !== null;
 
   return (
-    <div className="flex flex-1 flex-col gap-12">
+    <div className="flex flex-1 flex-col gap-8">
       <HeroPrompt user={session?.user ?? null} />
 
       {employee ? (
@@ -122,11 +122,11 @@ function Accueil() {
             <TabsTrigger value="tous">{t("home.tabAll")}</TabsTrigger>
             <TabsTrigger value="miens">{t("home.tabMine")}</TabsTrigger>
           </TabsList>
-          <TabsContent value="tous" className="mt-5">
+          <TabsContent value="tous" className="mt-5 space-y-8">
             <StatsGrid stats={statsAll} />
             <DossiersRecents demandes={toutes} mine={false} seeAllTo="/interne/facilitation" />
           </TabsContent>
-          <TabsContent value="miens" className="mt-5">
+          <TabsContent value="miens" className="mt-5 space-y-8">
             <StatsGrid stats={stats} />
             <DossiersRecents demandes={demandes} mine seeAllTo="/demandes" />
           </TabsContent>
