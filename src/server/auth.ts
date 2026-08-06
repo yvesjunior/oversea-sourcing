@@ -28,6 +28,16 @@ export const auth = betterAuth({
   baseURL: process.env["BETTER_AUTH_URL"] ?? "http://localhost:3010",
   secret: process.env["BETTER_AUTH_SECRET"] ?? "osi-dev-insecure-secret",
   database: drizzleAdapter(db, { provider: "pg", schema }),
+  advanced: {
+    ipAddress: {
+      // Prod sits behind a Cloudflare Tunnel: the socket peer is the local
+      // cloudflared container, so without this every visitor shared ONE
+      // rate-limit bucket (collective 429s on /sign-in). cf-connecting-ip is
+      // set by Cloudflare and not client-spoofable; x-forwarded-for covers
+      // other proxies; absent headers fall back to the socket (dev).
+      ipAddressHeaders: ["cf-connecting-ip", "x-forwarded-for"],
+    },
+  },
   emailAndPassword: {
     enabled: true,
     minPasswordLength: 8,

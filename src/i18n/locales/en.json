@@ -42,6 +42,7 @@
     "errorInvalid": "Incorrect email or password.",
     "errorExists": "An account already exists with this email.",
     "errorGeneric": "Something went wrong. Please try again.",
+    "errorRateLimit": "Too many sign-in attempts. Wait a few seconds and try again.",
     "gateHint": "Sign in to launch the search — your input is preserved."
   },
   "topbar": {

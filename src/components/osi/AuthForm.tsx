@@ -72,11 +72,13 @@ export function AuthForm({
       if (result.error) {
         const code = result.error.code ?? "";
         setError(
-          code.includes("ALREADY_EXISTS")
-            ? t("auth.errorExists")
-            : code.includes("INVALID") || result.error.status === 401
-              ? t("auth.errorInvalid")
-              : t("auth.errorGeneric"),
+          result.error.status === 429
+            ? t("auth.errorRateLimit")
+            : code.includes("ALREADY_EXISTS")
+              ? t("auth.errorExists")
+              : code.includes("INVALID") || result.error.status === 401
+                ? t("auth.errorInvalid")
+                : t("auth.errorGeneric"),
         );
         return;
       }
@@ -106,7 +108,7 @@ export function AuthForm({
         password: "osi-demo-1234",
       });
       if (result.error) {
-        setError(t("auth.errorGeneric"));
+        setError(result.error.status === 429 ? t("auth.errorRateLimit") : t("auth.errorGeneric"));
         return;
       }
       await router.invalidate();
