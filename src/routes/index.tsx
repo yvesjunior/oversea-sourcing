@@ -117,16 +117,23 @@ function Accueil() {
       <HeroPrompt user={session?.user ?? null} />
 
       {employee ? (
-        <Tabs defaultValue="tous">
-          <TabsList>
-            <TabsTrigger value="tous">{t("home.tabAll")}</TabsTrigger>
-            <TabsTrigger value="miens">{t("home.tabMine")}</TabsTrigger>
+        /* -mt-6: the tab bar slots into the section gap instead of adding a
+           row — employee and buyer dashboards keep (almost) the same height,
+           so the footer stays fully visible in both. */
+        <Tabs defaultValue="tous" className="-mt-6">
+          <TabsList className="h-8">
+            <TabsTrigger value="tous" className="py-1">
+              {t("home.tabAll")}
+            </TabsTrigger>
+            <TabsTrigger value="miens" className="py-1">
+              {t("home.tabMine")}
+            </TabsTrigger>
           </TabsList>
-          <TabsContent value="tous" className="mt-5 space-y-8">
+          <TabsContent value="tous" className="mt-3 space-y-8">
             <StatsGrid stats={statsAll} />
             <DossiersRecents demandes={toutes} mine={false} seeAllTo="/interne/facilitation" />
           </TabsContent>
-          <TabsContent value="miens" className="mt-5 space-y-8">
+          <TabsContent value="miens" className="mt-3 space-y-8">
             <StatsGrid stats={stats} />
             <DossiersRecents demandes={demandes} mine seeAllTo="/demandes" />
           </TabsContent>

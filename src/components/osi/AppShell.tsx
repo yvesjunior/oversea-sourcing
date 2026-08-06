@@ -25,7 +25,7 @@ export function AppShell({ session, children }: { session: SessionData; children
       </div>
       <div className="flex min-w-0 flex-1 flex-col bg-background md:rounded-l-[28px]">
         <TopBar session={session} />
-        <main className="flex min-w-0 flex-1 flex-col px-5 pb-14 pt-2 sm:px-8">{children}</main>
+        <main className="flex min-w-0 flex-1 flex-col px-5 pb-8 pt-2 sm:px-8">{children}</main>
       </div>
     </div>
   );
