@@ -24,8 +24,15 @@ function slugify(input: string): string {
   );
 }
 
+const baseURL = process.env["BETTER_AUTH_URL"] ?? "http://localhost:3010";
+// Cloudflare serves the app on both the apex and www — trust both origins so
+// logins work regardless of which host the visitor landed on (the apex is
+// canonical; a www→apex redirect at Cloudflare is the nicer long-term fix).
+const wwwVariant = baseURL.includes("://www.") ? null : baseURL.replace("://", "://www.");
+
 export const auth = betterAuth({
-  baseURL: process.env["BETTER_AUTH_URL"] ?? "http://localhost:3010",
+  baseURL,
+  trustedOrigins: wwwVariant ? [wwwVariant] : [],
   secret: process.env["BETTER_AUTH_SECRET"] ?? "osi-dev-insecure-secret",
   database: drizzleAdapter(db, { provider: "pg", schema }),
   advanced: {
