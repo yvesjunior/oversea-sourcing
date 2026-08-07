@@ -26,9 +26,10 @@ function slugify(input: string): string {
 
 const baseURL = process.env["BETTER_AUTH_URL"] ?? "http://localhost:3010";
 // Cloudflare serves the app on both the apex and www — trust both origins so
-// logins work regardless of which host the visitor landed on (the apex is
-// canonical; a www→apex redirect at Cloudflare is the nicer long-term fix).
+// logins work regardless of which host the visitor landed on.
 const wwwVariant = baseURL.includes("://www.") ? null : baseURL.replace("://", "://www.");
+// Real domain (not localhost/IP) ⇒ share the session cookie across subdomains.
+const isPublicHost = /\.[a-z]{2,}$/i.test(new URL(baseURL).hostname);
 
 export const auth = betterAuth({
   baseURL,
@@ -44,6 +45,10 @@ export const auth = betterAuth({
       // other proxies; absent headers fall back to the socket (dev).
       ipAddressHeaders: ["cf-connecting-ip", "x-forwarded-for"],
     },
+    // One login valid on apex AND www: the session cookie is set on the root
+    // domain (`.osi-solutions.com`, derived from BETTER_AUTH_URL) instead of
+    // the exact host. Disabled on localhost (dev).
+    crossSubDomainCookies: { enabled: isPublicHost },
   },
   emailAndPassword: {
     enabled: true,
