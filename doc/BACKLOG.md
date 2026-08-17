@@ -87,6 +87,15 @@ role forbids: `owner`/`manager` see **all** sourcing dossiers platform-wide;
 domain is finance (transactions, E8). Policy centralized in `src/lib/roles.ts`
 (`canSeeAllRequests`).
 
+**Nav gating (2026-08-16):** entries whose feature has no data behind it are
+rendered **disabled** — greyed, `aria-disabled`, and emitted as a `<span>` rather
+than a styled link so they cannot be reached by keyboard or middle-click — instead
+of being hidden or linking to an empty page. Current state: Transactions and
+Documents disabled for everyone (E8 / E3+); Paramètres disabled for `user` and
+`manager` (owner/accountant keep it); the whole Interne section disabled for
+`manager` while those ops surfaces are placeholders. Config: `items` /
+`itemsInterne` in `src/components/osi/AppSidebar.tsx`.
+
 **Employee view pattern (implemented 2026-08-04):** every data surface for
 `owner`/`manager` splits into **"Vue globale"** (all buyers' data, workspace badges) and
 **"Mes données"** (their own) via the shared `EmployeeTabs` component — on the home

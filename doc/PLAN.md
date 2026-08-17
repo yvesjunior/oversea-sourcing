@@ -81,7 +81,11 @@ Consequences:
 
 - Documents: central repo linked to requests/transactions/suppliers (versioning; e-sign later)
 - Partenaires: inspection / freight / financing directory (MVP2+)
-- Analyses: real aggregation of spend, savings, regional & category breakdowns
+- Analyses: ✅ real aggregates (2026-08-16) — requests by status, supplier pool
+  by provenance and country, web-search and research-pass counts. **Spend and
+  savings are deliberately absent** until transactions exist (E8): the page
+  previously showed invented figures ($245,680 spend, 156 suppliers) that no
+  amount of data-clearing would empty
 - Paramètres: profile, team, language, sourcing rules (preferred regions, required certs)
 
 ## Build phases

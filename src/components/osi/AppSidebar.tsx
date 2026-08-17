@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { authClient } from "@/lib/auth-client";
-import { hasPlatformFeature, isEmployee, type PlatformFeature } from "@/lib/roles";
+import { hasPlatformFeature, type PlatformFeature, type PlatformRole } from "@/lib/roles";
 import type { SessionData } from "@/lib/session-fns";
 import { cn } from "@/lib/utils";
 
@@ -28,8 +28,8 @@ type NavItem = {
   feature?: PlatformFeature;
   /** Shown but greyed and unclickable — the feature exists, it has no data yet. */
   disabled?: boolean;
-  /** Disabled for buyers, live for OSI employees. */
-  disabledForBuyers?: boolean;
+  /** Greyed for these platform roles only. Anonymous visitors count as "user". */
+  disabledForRoles?: readonly PlatformRole[];
 };
 
 const items: NavItem[] = [
@@ -42,16 +42,35 @@ const items: NavItem[] = [
   { key: "documents", url: "/documents", icone: FileText, disabled: true },
   // Employee-only (PLATFORM_FEATURES.analytics) — filtered per role below.
   { key: "analyses", url: "/analyses", icone: BarChart3, feature: "analytics" },
-  // Nothing on it is wired for buyers yet (E11); employees still need the page.
-  { key: "parametres", url: "/parametres", icone: Settings, disabledForBuyers: true },
+  // Nothing on it is wired for buyers (E11), and managers do not administer
+  // the platform — owner and accountant keep it.
+  { key: "parametres", url: "/parametres", icone: Settings, disabledForRoles: ["user", "manager"] },
 ];
 
 // Employee features — same dashboard, extra entries per platform role.
-const itemsInterne: { key: PlatformFeature; url: string; icone: typeof Home }[] = [
-  { key: "facilitation", url: "/interne/facilitation", icone: Handshake },
-  { key: "verification", url: "/interne/verification", icone: ShieldCheck },
-  { key: "imports", url: "/interne/imports", icone: Import },
-  { key: "finance", url: "/interne/finance", icone: Wallet },
+// The ops surfaces are still placeholders, so they are greyed for managers
+// rather than linking to empty pages; the entries stay visible so the role
+// can see what is coming.
+const itemsInterne: {
+  key: PlatformFeature;
+  url: string;
+  icone: typeof Home;
+  disabledForRoles?: readonly PlatformRole[];
+}[] = [
+  {
+    key: "facilitation",
+    url: "/interne/facilitation",
+    icone: Handshake,
+    disabledForRoles: ["manager"],
+  },
+  {
+    key: "verification",
+    url: "/interne/verification",
+    icone: ShieldCheck,
+    disabledForRoles: ["manager"],
+  },
+  { key: "imports", url: "/interne/imports", icone: Import, disabledForRoles: ["manager"] },
+  { key: "finance", url: "/interne/finance", icone: Wallet, disabledForRoles: ["manager"] },
 ];
 
 function initialsOf(name: string): string {
@@ -76,12 +95,12 @@ export function AppSidebar({
   const router = useRouter();
   const pathname = useRouterState({ select: (r) => r.location.pathname });
   const platformRole = (session?.user as { platformRole?: string } | undefined)?.platformRole;
-  const employee = isEmployee(platformRole);
+  const role = (platformRole ?? "user") as PlatformRole;
   const itemsVisible = items.filter(
     (item) => !item.feature || hasPlatformFeature(platformRole, item.feature),
   );
-  const isDisabled = (item: NavItem) =>
-    item.disabled === true || (item.disabledForBuyers === true && !employee);
+  const isDisabled = (item: { disabled?: boolean; disabledForRoles?: readonly PlatformRole[] }) =>
+    item.disabled === true || (item.disabledForRoles?.includes(role) ?? false);
   const interneVisible = itemsInterne.filter((item) => hasPlatformFeature(platformRole, item.key));
 
   const seDeconnecter = async () => {
@@ -148,13 +167,30 @@ export function AppSidebar({
             </p>
             {interneVisible.map((item) => {
               const actif = pathname.startsWith(item.url);
+              const rowBase =
+                "flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-colors";
+
+              if (isDisabled(item)) {
+                return (
+                  <span
+                    key={item.url}
+                    aria-disabled="true"
+                    title={t("nav.soon")}
+                    className={cn(rowBase, "cursor-not-allowed text-sidebar-foreground/30")}
+                  >
+                    <item.icone className="size-[18px] shrink-0" />
+                    <span className="truncate">{t(`nav.${item.key}`)}</span>
+                  </span>
+                );
+              }
+
               return (
                 <Link
                   key={item.url}
                   to={item.url}
                   onClick={onNavigate}
                   className={cn(
-                    "flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-colors",
+                    rowBase,
                     actif
                       ? "bg-sidebar-primary text-sidebar-primary-foreground"
                       : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",

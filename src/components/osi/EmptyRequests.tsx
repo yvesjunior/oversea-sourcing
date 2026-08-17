@@ -14,7 +14,6 @@ export function EmptyRequests() {
         <FileBox className="size-4" />
       </span>
       <p className="text-sm font-semibold">{t("demandes.emptyTitle")}</p>
-      <p className="max-w-sm text-xs text-muted-foreground">{t("demandes.emptyText")}</p>
       <Link
         to="/"
         className="mt-1 inline-flex items-center gap-2 rounded-lg bg-gold-gradient px-4 py-1.5 text-sm font-medium text-gold-foreground shadow-gold transition-opacity hover:opacity-90"

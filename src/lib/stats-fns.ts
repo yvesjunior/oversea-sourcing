@@ -106,3 +106,116 @@ export const getAllStatsFn = createServerFn({ method: "GET" }).handler(
     };
   },
 );
+
+// ── Analytics (employee surface) ─────────────────────────────────────────────
+
+export type AnalyticsData = {
+  requests: { total: number; active: number; completed: number };
+  suppliers: {
+    total: number;
+    byProvenance: Array<{ key: string; value: number }>;
+    topCountries: Array<{ key: string; value: number }>;
+  };
+  research: { runs: number; searches: number; candidatesFound: number; suppliersAdded: number };
+  /** Requests created per month, oldest first — the only real trend we have. */
+  trend: Array<{ month: string; value: number }>;
+  /** Spend/savings need the transactions table (E8). Null = "no data source
+   *  yet", which the UI states plainly instead of inventing a figure. */
+  spend: null;
+  savings: null;
+};
+
+const EMPTY_ANALYTICS: AnalyticsData = {
+  requests: { total: 0, active: 0, completed: 0 },
+  suppliers: { total: 0, byProvenance: [], topCountries: [] },
+  research: { runs: 0, searches: 0, candidatesFound: 0, suppliersAdded: 0 },
+  trend: [],
+  spend: null,
+  savings: null,
+};
+
+/** Platform-wide analytics for the employee surface. Everything here is a real
+ *  aggregate — metrics without a table are returned as null, never invented. */
+export const getAnalyticsFn = createServerFn({ method: "GET" }).handler(
+  async (): Promise<AnalyticsData> => {
+    const [{ auth }, { getRequest }, { hasPlatformFeature }] = await Promise.all([
+      import("@/server/auth"),
+      import("@tanstack/react-start/server"),
+      import("@/lib/roles"),
+    ]);
+    const session = await auth.api.getSession({ headers: getRequest().headers });
+    if (!session || !hasPlatformFeature(session.user.platformRole, "analytics")) {
+      return EMPTY_ANALYTICS;
+    }
+
+    const [{ db }, { count, desc, sql }, schema] = await Promise.all([
+      import("@/database"),
+      import("drizzle-orm"),
+      import("@/database/schema"),
+    ]);
+
+    const [requestsByStatus, suppliersByProvenance, byCountry, [research], trendRows] =
+      await Promise.all([
+        db
+          .select({ status: schema.request.status, value: count() })
+          .from(schema.request)
+          .groupBy(schema.request.status),
+        db
+          .select({ key: schema.supplier.provenance, value: count() })
+          .from(schema.supplier)
+          .groupBy(schema.supplier.provenance)
+          .orderBy(desc(count())),
+        db
+          .select({ key: schema.supplier.countryCode, value: count() })
+          .from(schema.supplier)
+          .groupBy(schema.supplier.countryCode)
+          .orderBy(desc(count()))
+          .limit(6),
+        db
+          .select({
+            runs: count(),
+            searches: sql<number>`coalesce(sum(jsonb_array_length(${schema.researchRun.queries})), 0)::int`,
+            candidatesFound: sql<number>`coalesce(sum(${schema.researchRun.candidatesFound}), 0)::int`,
+            suppliersAdded: sql<number>`coalesce(sum(${schema.researchRun.suppliersAdded}), 0)::int`,
+          })
+          .from(schema.researchRun),
+        db
+          .select({
+            month: sql<string>`to_char(date_trunc('month', ${schema.request.createdAt}), 'YYYY-MM')`,
+            value: count(),
+          })
+          .from(schema.request)
+          .groupBy(sql`date_trunc('month', ${schema.request.createdAt})`)
+          .orderBy(sql`date_trunc('month', ${schema.request.createdAt})`)
+          .limit(12),
+      ]);
+
+    const byStatus = new Map<string, number>(
+      requestsByStatus.map((r) => [r.status as string, r.value]),
+    );
+    const sum = (statuses: string[]) =>
+      statuses.reduce((total, status) => total + (byStatus.get(status) ?? 0), 0);
+
+    return {
+      requests: {
+        total: requestsByStatus.reduce((t, r) => t + r.value, 0),
+        active: sum(["received", "analyzing", "searching", "validating"]),
+        completed: sum(["report_ready", "closed"]),
+      },
+      suppliers: {
+        total: suppliersByProvenance.reduce((t, r) => t + r.value, 0),
+        byProvenance: suppliersByProvenance,
+        topCountries: byCountry,
+      },
+      research: {
+        runs: research?.runs ?? 0,
+        searches: research?.searches ?? 0,
+        candidatesFound: research?.candidatesFound ?? 0,
+        suppliersAdded: research?.suppliersAdded ?? 0,
+      },
+      trend: trendRows,
+      spend: null,
+      savings: null,
+    };
+  },
+);

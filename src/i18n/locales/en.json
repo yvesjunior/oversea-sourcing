@@ -144,7 +144,6 @@
     "subtitle_one": "{{count}} active sourcing file",
     "subtitle_other": "{{count}} active sourcing files",
     "emptyTitle": "No files yet",
-    "emptyText": "Describe your need and launch the search to create your first file.",
     "emptyCta": "Describe a need"
   },
   "detail": {
@@ -299,10 +298,19 @@
   },
   "analyses": {
     "title": "Analytics",
-    "thisMonth": "This month",
-    "vsLastMonth": "vs last month",
-    "spendDistribution": "Spend distribution",
-    "mainCategories": "Top categories"
+    "emptyTitle": "No data to analyse yet",
+    "kpiRequests": "Requests",
+    "kpiRequestsHint": "{{active}} in progress · {{completed}} completed",
+    "kpiSuppliers": "Suppliers in the pool",
+    "kpiSuppliersHint": "{{added}} of them found by research",
+    "kpiSearches": "Web searches",
+    "kpiSearchesHint": "across {{runs}} research passes",
+    "kpiCandidates": "Companies identified",
+    "kpiCandidatesHint": "before deduplication",
+    "trendTitle": "Requests per month",
+    "provenanceTitle": "Supplier provenance",
+    "countriesTitle": "Top countries",
+    "pendingNote": "Spend and savings will appear here once transaction tracking exists (E8) — no figure is shown until it is measured."
   },
   "kpis": {
     "totalSpend": "Total spend",

@@ -203,9 +203,7 @@ function Rapport() {
             {t("report.methodSection")}
           </h2>
           <ul className="mt-3 space-y-1 text-xs text-muted-foreground">
-            {researchEvent && (
-              <li>{t("events.research_completed", researchEvent.params)}</li>
-            )}
+            {researchEvent && <li>{t("events.research_completed", researchEvent.params)}</li>}
             {demande.suppliersAnalyzed !== null && (
               <li>{t("detail.analyzed", { count: demande.suppliersAnalyzed })}</li>
             )}

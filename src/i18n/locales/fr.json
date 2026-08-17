@@ -144,7 +144,6 @@
     "subtitle_one": "{{count}} dossier d’approvisionnement en cours",
     "subtitle_other": "{{count}} dossiers d’approvisionnement en cours",
     "emptyTitle": "Aucun dossier pour l’instant",
-    "emptyText": "Décrivez votre besoin et lancez la recherche pour créer votre premier dossier.",
     "emptyCta": "Décrire un besoin"
   },
   "detail": {
@@ -299,10 +298,19 @@
   },
   "analyses": {
     "title": "Analyses",
-    "thisMonth": "Ce mois-ci",
-    "vsLastMonth": "vs mois dernier",
-    "spendDistribution": "Répartition des dépenses",
-    "mainCategories": "Catégories principales"
+    "emptyTitle": "Pas encore de données à analyser",
+    "kpiRequests": "Demandes",
+    "kpiRequestsHint": "{{active}} en cours · {{completed}} terminées",
+    "kpiSuppliers": "Fournisseurs au catalogue",
+    "kpiSuppliersHint": "dont {{added}} trouvés par la recherche",
+    "kpiSearches": "Recherches web",
+    "kpiSearchesHint": "sur {{runs}} passages de recherche",
+    "kpiCandidates": "Entreprises identifiées",
+    "kpiCandidatesHint": "avant dédoublonnage",
+    "trendTitle": "Demandes par mois",
+    "provenanceTitle": "Origine des fournisseurs",
+    "countriesTitle": "Principaux pays",
+    "pendingNote": "Les dépenses et économies apparaîtront ici une fois le suivi des transactions en place (E8) — aucune valeur n’est affichée tant qu’elle n’est pas mesurée."
   },
   "kpis": {
     "totalSpend": "Dépenses totales",
