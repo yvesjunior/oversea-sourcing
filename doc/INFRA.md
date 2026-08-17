@@ -121,6 +121,11 @@ flowchart LR
   (`docker compose up -d --build`), then restarts and health-checks
 - Quality gates run locally before pushing: `npm run lint` + typecheck (make it a habit
   or a git pre-push hook — not a server)
+- **Docs are a release gate, not an afterthought (2026-08-16):** a commit that
+  ships to prod updates `doc/PLAN.md` / `doc/BACKLOG.md` / `doc/INFRA.md` in the
+  same commit — checkboxes for what landed, the decision behind it, and any
+  deviation from the plan. With no CI and no staging, these files are the only
+  durable record of why prod is the way it is
 - Rollback = `git checkout <previous-commit>` on the VM + rebuild
 - `migrate` runs as a one-shot container before web/worker restart (with E0)
 - Seam kept open: if reproducible builds/instant rollback ever matter, a registry can

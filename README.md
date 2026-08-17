@@ -40,11 +40,18 @@ BRANCH=hotfix/my-branch WEB_PORT=3011 ./scripts/deploy.sh
 
 ### Typical flows
 
+> **Every prod push updates the docs in the same commit.** `doc/PLAN.md`
+> (product decisions), `doc/BACKLOG.md` (what is built vs still open) and
+> `doc/INFRA.md` (infrastructure choices and their triggers) are the record of
+> why the system looks the way it does — a deploy that changes behaviour without
+> updating them leaves the next person reading a plan that no longer describes
+> the product. Check off what shipped, record the decision, note the deviation.
+
 ```sh
 # Day-to-day development
 ./scripts/setup.sh && ./scripts/dev.sh
 
-# Ship to production
+# Ship to production — docs updated in the same commit
 git push && ./scripts/deploy.sh && ./scripts/status.sh
 
 # Bring up monitoring + object storage on the VM
