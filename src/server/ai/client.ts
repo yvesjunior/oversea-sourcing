@@ -3,9 +3,18 @@
 // Server-only: reach this exclusively through dynamic imports or the worker.
 
 import Anthropic from "@anthropic-ai/sdk";
+import { resolveResearchModel } from "./models";
 
-/** Default model for extraction/chat — override with ANTHROPIC_MODEL. */
-export const MODEL = process.env["ANTHROPIC_MODEL"] ?? "claude-haiku-4-5";
+/** Resolved from ANTHROPIC_MODEL, which accepts a tier (cheap | balanced | best)
+ *  or a raw model id — see src/server/ai/models.ts for the registry. */
+export const RESEARCH_MODEL = resolveResearchModel(process.env["ANTHROPIC_MODEL"]);
+
+/** Reasoning model id — supplier research (E4), chat. */
+export const MODEL = RESEARCH_MODEL.id;
+
+/** Model tiering (doc/INFRA.md §4): turning prose into rows does not need the
+ *  strong model. Override with ANTHROPIC_EXTRACTION_MODEL. */
+export const EXTRACTION_MODEL = process.env["ANTHROPIC_EXTRACTION_MODEL"] ?? "claude-haiku-4-5";
 
 /** Raised when ANTHROPIC_API_KEY is missing — callers degrade gracefully. */
 export class AiConfigError extends Error {

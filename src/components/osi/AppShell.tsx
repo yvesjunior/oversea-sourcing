@@ -19,13 +19,17 @@ export function AppShell({ session, children }: { session: SessionData; children
   }
 
   return (
-    <div className="flex min-h-screen w-full bg-sidebar">
-      <div className="hidden md:block">
+    <div className="flex min-h-screen w-full bg-sidebar print:block print:min-h-0">
+      <div className="hidden print:hidden md:block">
         <AppSidebar session={session} />
       </div>
-      <div className="flex min-w-0 flex-1 flex-col bg-background md:rounded-l-[28px]">
-        <TopBar session={session} />
-        <main className="flex min-w-0 flex-1 flex-col px-5 pb-8 pt-2 sm:px-8">{children}</main>
+      <div className="flex min-w-0 flex-1 flex-col bg-background md:rounded-l-[28px] print:rounded-none">
+        <div className="print:hidden">
+          <TopBar session={session} />
+        </div>
+        <main className="flex min-w-0 flex-1 flex-col px-5 pb-8 pt-2 sm:px-8 print:p-0">
+          {children}
+        </main>
       </div>
     </div>
   );

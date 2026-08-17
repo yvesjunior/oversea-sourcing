@@ -16,19 +16,34 @@ import {
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { authClient } from "@/lib/auth-client";
-import { hasPlatformFeature, type PlatformFeature } from "@/lib/roles";
+import { hasPlatformFeature, isEmployee, type PlatformFeature } from "@/lib/roles";
 import type { SessionData } from "@/lib/session-fns";
 import { cn } from "@/lib/utils";
 
-const items = [
+type NavItem = {
+  key: string;
+  url: string;
+  icone: typeof Home;
+  /** Hidden entirely unless the platform role has this feature. */
+  feature?: PlatformFeature;
+  /** Shown but greyed and unclickable — the feature exists, it has no data yet. */
+  disabled?: boolean;
+  /** Disabled for buyers, live for OSI employees. */
+  disabledForBuyers?: boolean;
+};
+
+const items: NavItem[] = [
   { key: "accueil", url: "/", icone: Home },
   { key: "demandes", url: "/demandes", icone: Inbox },
   { key: "fournisseurs", url: "/fournisseurs", icone: Users },
-  { key: "transactions", url: "/transactions", icone: Repeat },
-  { key: "documents", url: "/documents", icone: FileText },
+  // Disabled rather than removed: the buyer should see the journey continues
+  // past the report, even while these pages hold nothing real (E8 / E3+).
+  { key: "transactions", url: "/transactions", icone: Repeat, disabled: true },
+  { key: "documents", url: "/documents", icone: FileText, disabled: true },
   // Employee-only (PLATFORM_FEATURES.analytics) — filtered per role below.
-  { key: "analyses", url: "/analyses", icone: BarChart3, feature: "analytics" as const },
-  { key: "parametres", url: "/parametres", icone: Settings },
+  { key: "analyses", url: "/analyses", icone: BarChart3, feature: "analytics" },
+  // Nothing on it is wired for buyers yet (E11); employees still need the page.
+  { key: "parametres", url: "/parametres", icone: Settings, disabledForBuyers: true },
 ];
 
 // Employee features — same dashboard, extra entries per platform role.
@@ -61,9 +76,12 @@ export function AppSidebar({
   const router = useRouter();
   const pathname = useRouterState({ select: (r) => r.location.pathname });
   const platformRole = (session?.user as { platformRole?: string } | undefined)?.platformRole;
+  const employee = isEmployee(platformRole);
   const itemsVisible = items.filter(
-    (item) => !("feature" in item) || hasPlatformFeature(platformRole, item.feature),
+    (item) => !item.feature || hasPlatformFeature(platformRole, item.feature),
   );
+  const isDisabled = (item: NavItem) =>
+    item.disabled === true || (item.disabledForBuyers === true && !employee);
   const interneVisible = itemsInterne.filter((item) => hasPlatformFeature(platformRole, item.key));
 
   const seDeconnecter = async () => {
@@ -86,13 +104,32 @@ export function AppSidebar({
       <nav className="flex-1 space-y-1 px-3 py-2">
         {itemsVisible.map((item) => {
           const actif = item.url === "/" ? pathname === "/" : pathname.startsWith(item.url);
+          const rowBase =
+            "flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-colors";
+
+          // Rendered as a span, not a disabled Link: an anchor with a href is
+          // still followable by keyboard and middle-click however it is styled.
+          if (isDisabled(item)) {
+            return (
+              <span
+                key={item.url}
+                aria-disabled="true"
+                title={t("nav.soon")}
+                className={cn(rowBase, "cursor-not-allowed text-sidebar-foreground/30")}
+              >
+                <item.icone className="size-[18px] shrink-0" />
+                <span className="truncate">{t(`nav.${item.key}`)}</span>
+              </span>
+            );
+          }
+
           return (
             <Link
               key={item.url}
               to={item.url}
               onClick={onNavigate}
               className={cn(
-                "flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-colors",
+                rowBase,
                 actif
                   ? "bg-sidebar-primary text-sidebar-primary-foreground"
                   : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",

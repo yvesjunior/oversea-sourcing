@@ -14,7 +14,8 @@
     "facilitation": "Facilitation",
     "verification": "Supplier verification",
     "imports": "Imports",
-    "finance": "Finance"
+    "finance": "Finance",
+    "soon": "Coming soon"
   },
   "user": {
     "role": "Administrator"
@@ -182,8 +183,10 @@
     "stepPending": "Pending",
     "activityTitle": "Activity",
     "attachments": "Attachments",
-    "addAttachment": "Add a file",
-    "cancelRequest": "Cancel request"
+    "cancelRequest": "Cancel request",
+    "visitSite": "Visit site",
+    "noSite": "No website available",
+    "originalNeed": "Your request"
   },
   "stepsFlux": {
     "received": "Request received",
@@ -214,8 +217,12 @@
     "criteria_updated": "Criteria updated",
     "chat_refined": "Criteria refined via the assistant ({{count}})",
     "search_launched": "Search approved by the buyer",
+    "research_started": "Global web research running",
+    "research_completed": "{{found}} suppliers found on the web · {{added}} added to the database",
+    "research_failed": "Web research unavailable — ranking the existing database",
     "attachment_added": "{{count}} attachment(s) added",
-    "matches_created": "Top {{count}} selected out of {{analyzed}} suppliers analyzed"
+    "matches_created": "Top {{count}} selected out of {{analyzed}} suppliers analyzed",
+    "criteria_fromAttachment": "{{count}} criteria extracted from the attachments"
   },
   "stepsDemande": {
     "received": {
@@ -238,7 +245,8 @@
     "outOf100": "/100",
     "risk": "Risk",
     "matched": "Linked files",
-    "provenance": "Provenance"
+    "provenance": "Provenance",
+    "viewSourceRequest": "View request #{{id}}"
   },
   "provenance": {
     "imported": "Imported",
@@ -334,5 +342,18 @@
   },
   "tabs": {
     "nothingMine": "Nothing yet"
+  },
+  "report": {
+    "title": "Sourcing report — request #{{id}}",
+    "download": "Download as PDF",
+    "issued": "Issued",
+    "needSection": "The stated need",
+    "criteriaSection": "Criteria applied",
+    "resultsSection": "Recommended suppliers",
+    "methodSection": "Methodology",
+    "submitted": "Request submitted",
+    "completed": "Report finalised",
+    "noCriteria": "No structured criteria were extracted.",
+    "noResults": "No supplier was shortlisted for this request."
   }
 }

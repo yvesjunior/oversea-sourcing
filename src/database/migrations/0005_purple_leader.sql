@@ -1,0 +1,2 @@
+ALTER TABLE "supplier" ADD COLUMN "discovered_by_request_id" text;--> statement-breakpoint
+ALTER TABLE "supplier" ADD CONSTRAINT "supplier_discovered_by_request_id_request_id_fk" FOREIGN KEY ("discovered_by_request_id") REFERENCES "public"."request"("id") ON DELETE set null ON UPDATE no action;

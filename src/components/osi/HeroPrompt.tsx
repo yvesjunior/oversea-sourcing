@@ -6,7 +6,7 @@ import globe from "@/assets/globe.jpg";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
-import { createRequestFn } from "@/lib/requests-fns";
+import { createRequestFn, startRequestPipelineFn } from "@/lib/requests-fns";
 
 const HELP_HINT_KEYS = [
   "product",
@@ -35,20 +35,28 @@ export function HeroPrompt({ user }: { user: HeroUser }) {
     if (!text.trim() || submitting) return;
     setSubmitting(true);
     try {
-      const created = await createRequestFn({ data: { description: text } });
+      const hasFiles = attachments.length > 0;
+      // With files, creation does NOT start the pipeline — otherwise the worker
+      // would read the attachments before they finished uploading.
+      const created = await createRequestFn({
+        data: { description: text, attachmentsPending: hasFiles },
+      });
       if (!created) {
         // Session evaporated — fall back to the auth gate.
         window.localStorage.setItem(DRAFT_KEY, text);
         void navigate({ to: "/login", search: { redirect: "/" } });
         return;
       }
-      if (attachments.length > 0) {
+      if (hasFiles) {
         const form = new FormData();
         form.set("requestId", created.id);
         for (const file of attachments) form.append("files", file);
         // Best-effort: the request exists either way; failures surface on the
         // detail page where files can be re-attached.
         await fetch("/api/upload", { method: "POST", body: form }).catch(() => {});
+        // Release the pipeline now the files are stored. If this call fails the
+        // request still runs — the worker sweeps "received" after two minutes.
+        await startRequestPipelineFn({ data: { id: created.id } }).catch(() => {});
       }
       void navigate({ to: "/demandes/$id", params: { id: created.id } });
     } finally {

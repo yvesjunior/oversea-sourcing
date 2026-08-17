@@ -1,7 +1,7 @@
 # Production stack — built, immutable web image + Postgres.
 # Usage: ./scripts/deploy.sh (VM) or ./scripts/prod.sh (local test)
 #
-# Secrets come from .env.local (gitignored): POSTGRES_PASSWORD, DATABASE_URL,
+# Secrets come from .env (gitignored; template in .env.example): POSTGRES_PASSWORD, DATABASE_URL,
 # BETTER_AUTH_SECRET (+ GOOGLE_CLIENT_ID/SECRET once a domain+TLS exist).
 
 services:
@@ -13,8 +13,6 @@ services:
     restart: unless-stopped
     env_file:
       - .env
-      - path: .env.local
-        required: false
     environment:
       - NODE_ENV=production
       - PORT=3000
@@ -40,10 +38,12 @@ services:
     restart: unless-stopped
     env_file:
       - .env
-      - path: .env.local
-        required: false
     environment:
       - NODE_ENV=production
+    volumes:
+      # The worker reads buyer attachments during research (E4) — without this
+      # mount every file lookup is an ENOENT, since only `web` writes uploads.
+      - osi-uploads:/data/uploads
     depends_on:
       database:
         condition: service_healthy
@@ -60,8 +60,6 @@ services:
     command: npm run db:migrate
     env_file:
       - .env
-      - path: .env.local
-        required: false
     depends_on:
       database:
         condition: service_healthy
@@ -70,12 +68,11 @@ services:
     image: pgvector/pgvector:pg16
     restart: unless-stopped
     env_file:
-      - path: .env.local
-        required: false
+      - .env
     environment:
       - POSTGRES_USER=${POSTGRES_USER:-osi}
       - POSTGRES_DB=${POSTGRES_DB:-osi}
-      # POSTGRES_PASSWORD must come from .env.local — no default on purpose.
+      # POSTGRES_PASSWORD must come from .env — no default on purpose.
     # No host port: the database is reachable only on the compose network.
     volumes:
       - osi-db-data:/var/lib/postgresql/data

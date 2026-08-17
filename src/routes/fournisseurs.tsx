@@ -1,6 +1,7 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { BadgeCheck } from "lucide-react";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { BadgeCheck, ScanSearch } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { Button } from "@/components/ui/button";
 import { CountryTag } from "@/components/osi/CountryTag";
 import { RiskBadge } from "@/components/osi/RiskBadge";
 import { EmployeeTabs, MineEmpty } from "@/components/osi/EmployeeTabs";
@@ -86,6 +87,17 @@ function SupplierGrid({ suppliers }: { suppliers: SupplierView[] }) {
               <span className="text-xs text-muted-foreground">{t("fournisseurs.provenance")}</span>
               <span className="text-xs">{t(`provenance.${s.provenance}`)}</span>
             </div>
+            {/* Which request's research surfaced this company. Absent for
+                seeded/imported rows, and withheld server-side when the dossier
+                belongs to another workspace. */}
+            {s.discoveredByRequestId && (
+              <Button variant="outline" size="sm" className="w-full" asChild>
+                <Link to="/demandes/$id" params={{ id: s.discoveredByRequestId }}>
+                  <ScanSearch className="size-4" />
+                  {t("fournisseurs.viewSourceRequest", { id: s.discoveredByRequestId })}
+                </Link>
+              </Button>
+            )}
           </div>
         </article>
       ))}

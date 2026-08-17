@@ -12,6 +12,7 @@ import { eq } from "drizzle-orm";
 import { db } from "./index";
 import * as schema from "./schema";
 import { auth } from "../server/auth";
+import { supplierDedupKey } from "../lib/supplier-key";
 
 const PASSWORD = "osi-demo-1234";
 
@@ -185,9 +186,12 @@ const SUPPLIERS_DEMO = [
 
 async function seedSuppliers() {
   for (const s of SUPPLIERS_DEMO) {
+    // dedup_key is what stops the E4 research agent re-adding a company we
+    // already know — seeded rows need it too, or the agent would duplicate them.
+    const dedupKey = supplierDedupKey(s.name, s.countryCode);
     await db
       .insert(schema.supplier)
-      .values(s)
+      .values({ ...s, dedupKey })
       .onConflictDoUpdate({
         target: schema.supplier.id,
         set: {
@@ -198,6 +202,7 @@ async function seedSuppliers() {
           verificationStatus: s.verificationStatus,
           confidenceScore: s.confidenceScore,
           riskLevel: s.riskLevel,
+          dedupKey,
         },
       });
   }

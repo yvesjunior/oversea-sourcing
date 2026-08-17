@@ -139,6 +139,10 @@ export type MatchView = {
     name: string;
     descriptor: string | null;
     countryCode: string;
+    /** The company's own site — the buyer's first "who are these people?" click. */
+    website: string | null;
+    /** Page the research agent read this supplier from (provenance). */
+    sourceRef: string | null;
   };
 };
 
@@ -164,7 +168,15 @@ export type RequestDetail = RequestSummary & {
 /** Create a request from the hero prompt: draft → received, criteria parsed
  *  synchronously at intake (no AI stage), then straight to supplier search. */
 export const createRequestFn = createServerFn({ method: "POST" })
-  .inputValidator(z.object({ description: z.string().trim().min(1).max(5000) }))
+  .inputValidator(
+    z.object({
+      description: z.string().trim().min(1).max(5000),
+      /** The client is about to upload files for this request. Hold the
+       *  pipeline until it says go, so the worker doesn't research a request
+       *  whose attachments have not landed yet. */
+      attachmentsPending: z.boolean().optional(),
+    }),
+  )
   .handler(async ({ data }): Promise<{ id: string } | null> => {
     const [{ auth }, { getRequest }, { db }, { sql }, schema] = await Promise.all([
       import("@/server/auth"),
@@ -219,16 +231,47 @@ export const createRequestFn = createServerFn({ method: "POST" })
       await recordEvent(id, workspaceId, "criteria.extracted", { count: criteria.length });
     }
 
-    try {
-      const { enqueuePipeline } = await import("@/server/queue");
-      await enqueuePipeline(id);
-    } catch (error) {
-      // The request survives a queue failure — the worker's recovery sweep
-      // re-adopts anything resting in "received".
-      console.error(`createRequest: failed to enqueue pipeline for ${id}`, error);
+    // Attachments coming: startRequestPipelineFn enqueues once they are stored.
+    // If the browser dies in between, the worker's sweep re-adopts the request
+    // from "received" after two minutes — delaying the launch, never losing it.
+    if (!data.attachmentsPending) {
+      try {
+        const { enqueuePipeline } = await import("@/server/queue");
+        await enqueuePipeline(id);
+      } catch (error) {
+        // The request survives a queue failure — same sweep covers this.
+        console.error(`createRequest: failed to enqueue pipeline for ${id}`, error);
+      }
     }
 
     return { id };
+  });
+
+/** Start the pipeline for a request whose attachments have finished uploading.
+ *  Idempotent: pg-boss dedupes nothing, so the worker's own "already has
+ *  matches / already researched" guards are what make a double call harmless. */
+export const startRequestPipelineFn = createServerFn({ method: "POST" })
+  .inputValidator(z.object({ id: z.string() }))
+  .handler(async ({ data }): Promise<{ ok: boolean }> => {
+    const [{ auth }, { getRequest }, { db }, { eq }, schema] = await Promise.all([
+      import("@/server/auth"),
+      import("@tanstack/react-start/server"),
+      import("@/database"),
+      import("drizzle-orm"),
+      import("@/database/schema"),
+    ]);
+    const session = await auth.api.getSession({ headers: getRequest().headers });
+    const workspaceId = session?.session.activeOrganizationId;
+    if (!session || !workspaceId) return { ok: false };
+
+    const row = await db.query.request.findFirst({ where: eq(schema.request.id, data.id) });
+    if (!row || row.organizationId !== workspaceId || row.status !== "received") {
+      return { ok: false };
+    }
+
+    const { enqueuePipeline } = await import("@/server/queue");
+    await enqueuePipeline(row.id);
+    return { ok: true };
   });
 
 /** Full request detail — criteria, chat, events, attachments. Same visibility
@@ -305,6 +348,8 @@ export const getRequestDetailFn = createServerFn({ method: "GET" })
           supplierName: schema.supplier.name,
           supplierDescriptor: schema.supplier.descriptor,
           supplierCountry: schema.supplier.countryCode,
+          supplierWebsite: schema.supplier.website,
+          supplierSourceRef: schema.supplier.sourceRef,
         })
         .from(schema.match)
         .innerJoin(schema.supplier, eq(schema.match.supplierId, schema.supplier.id))
@@ -375,6 +420,8 @@ export const getRequestDetailFn = createServerFn({ method: "GET" })
           name: m.supplierName,
           descriptor: m.supplierDescriptor,
           countryCode: m.supplierCountry,
+          website: m.supplierWebsite,
+          sourceRef: m.supplierSourceRef,
         },
       })),
       suppliersAnalyzed,

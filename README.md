@@ -10,9 +10,10 @@ sync back into Lovable.
 
 ## Scripts — how to proceed in each case
 
-Everything operational is a script in [`scripts/`](scripts). Config comes from the
-single committed, secret-free [`.env`](.env); secrets live in a gitignored
-`.env.local` (created by the setup scripts).
+Everything operational is a script in [`scripts/`](scripts). Config comes from a
+single **gitignored** `.env` holding config *and* secrets — copy
+[`.env.example`](.env.example) to start (changed 2026-08-16; the old committed
+`.env` + `.env.local` split was merged into one file).
 
 | Situation                        | Command                                                                    |
 | -------------------------------- | -------------------------------------------------------------------------- |
@@ -84,10 +85,10 @@ account: always visible in dev builds, and elsewhere when `SHOW_TEST_LOGIN=true`
 in the committed `.env` for the current test phase; set it to `false` before
 real users, the seeded credentials are public.
 
-Required secrets in `.env.local` (**prod**): `POSTGRES_PASSWORD`, `DATABASE_URL`,
-`BETTER_AUTH_SECRET` (32+ chars), `BETTER_AUTH_URL`. Dev uses safe defaults baked
-into `docker-compose.dev.yml` — nothing to configure. Both compose files also load
-`.env.local` so `ANTHROPIC_API_KEY` reaches the containers.
+Required in `.env`: `POSTGRES_PASSWORD`, `DATABASE_URL`, `BETTER_AUTH_SECRET`
+(32+ chars), `BETTER_AUTH_URL`, and `ANTHROPIC_API_KEY` for the AI features.
+Dev uses safe defaults baked into `docker-compose.dev.yml` for the database, so a
+fresh clone only needs `cp .env.example .env` plus the API key.
 
 ### Background worker & AI (E3)
 
@@ -95,9 +96,8 @@ A third process — `worker` (same image, [`src/worker.ts`](src/worker.ts), pg-b
 queue in Postgres) — runs the request pipeline asynchronously.
 
 **There is no pre-search AI analysis (removed 2026-08-05).** An ℹ️ info helper
-on the hero prompt guides buyers to structured input; the platform does the
-rest without spending a token. AI is reserved for supplier research (E4) and
-the flag-gated chat:
+on the hero prompt guides buyers to structured input. AI is spent on **supplier
+research (E4, live since 2026-08-16)** and the flag-gated chat:
 
 1. **Create** (`createRequestFn`): the hero prompt inserts a `request` (ids
    from `request_id_seq`, `#3000+`), **parses criteria synchronously at
@@ -105,15 +105,27 @@ the flag-gated chat:
    zero tokens, still manually editable on the dossier) and enqueues the
    pipeline. No pause, no analysis stage.
 2. **Pipeline** (worker): `received → searching → validating → report_ready`.
-   During `searching` it scores the platform-global `supplier` pool and
-   persists a ranked Top-5 in `match` (deterministic heuristic in
-   `src/server/matching.ts` — the E5 seam replaced by the real engine later).
+   During `searching` it reads any attachments, runs a **real web search**
+   (`src/server/ai/research.ts`), inserts newly-found companies as
+   `ai_researched` suppliers (deduped on `supplier.dedup_key`), then scores the
+   platform-global pool and persists a ranked Top-5 in `match`. The ranking
+   itself is still the deterministic heuristic in `src/server/matching.ts` —
+   **it does not read the criteria**; that is the E5 seam.
 3. **Recovery sweep**: on boot and every 60 s the worker re-adopts requests
    stranded mid-pipeline (crash, lost enqueue) and runs them to completion.
 
-| Flag      | OFF (default)                                       | ON                                                      |
-| --------- | ---------------------------------------------------- | ------------------------------------------------------- |
-| `AI_CHAT` | Assistant chat hidden (server refuses new messages) | Per-request assistant chat (can apply criteria changes) |
+| Setting              | Default    | What it does                                                                                       |
+| -------------------- | ---------- | -------------------------------------------------------------------------------------------------- |
+| `AI_RESEARCH`        | **`true`** | Real web search per request (E4). Off falls back to the simulated search stage                     |
+| `AI_CHAT`            | `false`    | Per-request assistant chat. Off hides the UI and the server refuses messages                       |
+| `ANTHROPIC_MODEL`    | `cheap`    | Tier (`cheap` / `balanced` / `best`) or a raw model id — registry in `src/server/ai/models.ts`      |
+| `SUPPLIERS_RETURNED` | `5`        | Suppliers shown per dossier. Search count and candidate caps are **derived** from it                |
+
+Measured 2026-08-16 on identical requests: `cheap` (haiku-4-5, 3 searches) ≈ **$0.06**
+per request · `best` (opus-5, 6 searches) ≈ **$0.20** · `balanced` (sonnet-5, 6) ≈
+**$0.21** — no cheaper than `best` despite a 60% lower rate, because it spent 2.5×
+the output tokens. `cheap` finds roughly half as many companies and lets the odd
+directory through.
 
 Legacy note: dossiers created under the old flow may rest in the `analyzing`
 status — they keep a manual "Lancer la recherche" button and are otherwise
@@ -163,8 +175,8 @@ Other npm scripts: `build`, `preview`, `lint`, `format`.
 | `infra/Docker/`                        | Container images (`web.Dockerfile`; database uses the pgvector image)                    |
 | `docker-compose.dev.yml` / `.prod.yml` | Dev / prod orchestration                                                                 |
 | `docker-compose.addons.yml`            | Optional infra (profile-gated, off by default) — see `doc/INFRA.md`                      |
-| `scripts/`                             | `dev.sh` / `prod.sh` (local Docker) · `deploy.sh` (prod VM)                              |
-| `.env`                                 | Single project env file (root only; keep secret-free)                                    |
+| `scripts/`                             | `dev.sh` / `prod.sh` (local Docker) · `deploy.sh` (prod VM) · `db.sh` (psql)              |
+| `.env` / `.env.example`                | Single gitignored env file (config + secrets); the template is committed                 |
 | `doc/`                                 | `PLAN.md` (product) · `BACKLOG.md` (MVP1 tasks/data model) · `INFRA.md` (infrastructure) |
 
 ## Open decisions (TODO)

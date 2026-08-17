@@ -29,6 +29,27 @@
       "when": 1785887139033,
       "tag": "0003_magical_reptil",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1786927365115,
+      "tag": "0004_complete_paibok",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1786933147762,
+      "tag": "0005_purple_leader",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1786934383450,
+      "tag": "0006_hot_ultron",
+      "breakpoints": true
     }
   ]
 }

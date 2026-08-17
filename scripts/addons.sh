@@ -11,7 +11,7 @@
 #   ./scripts/addons.sh --down                      # stop ALL addon containers (local)
 #   ./scripts/addons.sh --remote --down             # same, on the VM
 #
-# Secrets (e.g. MINIO_ROOT_PASSWORD) are read from .env.local on the target.
+# Secrets (e.g. MINIO_ROOT_PASSWORD) are read from .env on the target.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -37,11 +37,10 @@ if [ "${down}" = 0 ] && [ "${#profiles[@]}" = 0 ]; then
   echo "Usage: $0 [--remote] [--down] <profile…>"; echo "Profiles: ${VALID_PROFILES}"; exit 1
 fi
 
-# Build the compose command. --env-file .env.local lets compose interpolate
-# secrets referenced in the addons file (compose does not read .env.local alone).
+# Build the compose command. --env-file .env lets compose interpolate the
+# secrets referenced in the addons file.
 build_cmd() {
   local cmd="docker compose -f docker-compose.prod.yml -f docker-compose.addons.yml --env-file .env"
-  [ -f .env.local ] && cmd+=" --env-file .env.local"
   if [ "${down}" = 1 ]; then
     # Down ONLY the addon services (never the web app). All profiles must be
     # active for compose to consider them.

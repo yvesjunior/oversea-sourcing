@@ -170,3 +170,26 @@
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-card);
 }
+
+/* ── Print / PDF export (E7 reports) ─────────────────────────────────────────
+   The report page is printed straight to PDF from the browser, so the app
+   chrome must disappear and cards must not be split across pages. Anything
+   interactive is marked print:hidden at the component level. */
+@media print {
+  html,
+  body {
+    background: #fff;
+    color: #000;
+  }
+  @page {
+    margin: 14mm;
+  }
+  .card-surface {
+    border: 1px solid #ddd !important;
+    box-shadow: none !important;
+    break-inside: avoid;
+  }
+  a[href]::after {
+    content: "";
+  }
+}

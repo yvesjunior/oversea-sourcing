@@ -24,9 +24,11 @@ connection — introduction, coordination, then transaction tracking through del
 
 1. **Import pipeline** — baseline coverage aggregated from external sources
    (B2B directories, trade registries, customs/import data).
-2. **Live AI web research** — "Recherche mondiale" is literal: per request, an AI
-   agent searches the web, extracts candidate suppliers, and **enriches the
-   database as a byproduct**. Every request grows the dataset.
+2. **Live AI web research** — ✅ **built 2026-08-16.** "Recherche mondiale" is
+   literal: per request, an AI agent searches the web, extracts candidate
+   suppliers, and **enriches the database as a byproduct**. Every request grows
+   the dataset. Buyer attachments (spec sheets, drawings) are read and feed both
+   the criteria and the search brief.
 
 Consequences:
 
@@ -47,14 +49,15 @@ Consequences:
 - Create request (free text + attachments) → **AI criteria extraction** (Claude API)
 - Criteria review/edit + **conversational refinement** (per-request AI chat)
 - Async pipeline: Reçue → Analyse IA → Recherche mondiale → Validation → Rapport
-- **Report generation** (PDF, bilingual)
+- **Report generation** — ✅ printable report page + PDF export (2026-08-16); server-stored PDFs pending the `documents` table
 
 ### Fournisseurs — supplier intelligence
 
 - Supplier DB: profiles, capabilities, certifications, provenance
 - Matching engine (criteria × capabilities) → candidate set
-- Scores: **compatibility** (the "32 OSI criteria" — to be defined), **confidence**,
-  **risk** (country, financial, compliance)
+- Scores: **compatibility** — ✅ criteria-aware v1 with a persisted per-criterion
+  breakdown (2026-08-16); the weighted "32 OSI criteria" list still needs the
+  product workshop — **confidence**, **risk** (country, financial, compliance)
 - Top-5 ranking + side-by-side comparison
 
 ### Facilitation — where OSI jumps in
@@ -94,7 +97,10 @@ Consequences:
 
 - ~~Backend architecture~~ — **decided & built**: TanStack Start monolith + pg-boss worker (see BACKLOG "Architecture")
 - ~~Database engine & ORM~~ — **decided & built**: Postgres 16 + Drizzle
-- External supplier data sources & licensing (which directories / trade data)
+- ~~Web-search provider~~ — **decided 2026-08-16**: Claude's server-side
+  `web_search` tool; no second vendor (see BACKLOG "Open items")
+- External supplier data sources & licensing for the **import** half (the AI
+  research half no longer needs one)
 - Escrow / payment provider choice (Phase 4)
 - The concrete list of the "32 compatibility criteria" — a deterministic v0 matcher
   (`src/server/matching.ts`) stands in until this workshop happens

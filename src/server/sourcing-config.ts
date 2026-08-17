@@ -1,0 +1,46 @@
+// Sourcing configuration — one knob, everything else derived from it.
+//
+// The only number that is a product decision is how many suppliers the buyer
+// gets back. Search count and candidate caps are not preferences: they are
+// whatever it takes to answer with that many GOOD suppliers, so they are
+// computed here rather than exposed as separate settings that can drift out of
+// step with each other (three searches while asking for a Top 20 would return
+// "the only 20 we found", which is a ranking of nothing).
+
+/** Read a bounded integer from the environment, falling back loudly rather than
+ *  letting a typo silently change what a request returns or costs. */
+function envInt(name: string, fallback: number, min: number, max: number): number {
+  const raw = process.env[name];
+  if (raw === undefined || raw.trim() === "") return fallback;
+  const value = Number.parseInt(raw, 10);
+  if (!Number.isInteger(value) || value < min || value > max) {
+    console.warn(`${name}="${raw}" is not an integer in [${min}, ${max}] — using ${fallback}`);
+    return fallback;
+  }
+  return value;
+}
+
+/**
+ * How many suppliers the buyer sees on a dossier. THE configurable number.
+ */
+export const SUPPLIERS_RETURNED = envInt("SUPPLIERS_RETURNED", 5, 1, 20);
+
+/**
+ * Companies one research pass may propose.
+ *
+ * Deliberately a multiple of what we display: ranking only means something when
+ * the matcher had more to choose from than it kept. Floored at 12 so a small
+ * Top 3 still gets a real shortlist behind it, capped at 30 to bound the
+ * extraction response.
+ */
+export const RESEARCH_CANDIDATE_CAP = Math.min(30, Math.max(12, SUPPLIERS_RETURNED * 3));
+
+/**
+ * Web searches per research pass — the main cost driver ($10 / 1000).
+ *
+ * Measured: 3 searches surface 6-12 companies, enough to rank a Top 5 with
+ * room to spare. More results asked for means more ground to cover, so this
+ * scales, but stays bounded — beyond ~6 a pass can outrun the worker's
+ * two-minute stranded window and collect a duplicate pipeline job.
+ */
+export const RESEARCH_SEARCHES = Math.min(6, Math.max(3, Math.ceil(SUPPLIERS_RETURNED / 2)));

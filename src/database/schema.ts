@@ -3,6 +3,7 @@ import {
   boolean,
   index,
   integer,
+  jsonb,
   pgSequence,
   pgTable,
   text,
@@ -223,24 +224,66 @@ export type VerificationStatus = (typeof VERIFICATION_STATUSES)[number];
 export const RISK_LEVELS = ["low", "medium", "high"] as const;
 export type RiskLevel = (typeof RISK_LEVELS)[number];
 
-export const supplier = pgTable("supplier", {
-  id: text("id").primaryKey(),
-  name: text("name").notNull(),
-  /** brand descriptor shown under the name (e.g. "Solutions", "Pumps") */
-  descriptor: text("descriptor"),
-  countryCode: text("country_code").notNull(),
-  website: text("website"),
-  description: text("description"),
-  provenance: text("provenance").$type<SupplierProvenance>().notNull().default("imported"),
-  verificationStatus: text("verification_status")
-    .$type<VerificationStatus>()
-    .notNull()
-    .default("unverified"),
-  /** 0-100 — provenance + profile completeness (heuristic until E5 scoring) */
-  confidenceScore: integer("confidence_score").notNull().default(50),
-  riskLevel: text("risk_level").$type<RiskLevel>().notNull().default("medium"),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-});
+export const supplier = pgTable(
+  "supplier",
+  {
+    id: text("id").primaryKey(),
+    name: text("name").notNull(),
+    /** brand descriptor shown under the name (e.g. "Solutions", "Pumps") */
+    descriptor: text("descriptor"),
+    countryCode: text("country_code").notNull(),
+    website: text("website"),
+    description: text("description"),
+    provenance: text("provenance").$type<SupplierProvenance>().notNull().default("imported"),
+    verificationStatus: text("verification_status")
+      .$type<VerificationStatus>()
+      .notNull()
+      .default("unverified"),
+    /** 0-100 — provenance + profile completeness (heuristic until E5 scoring) */
+    confidenceScore: integer("confidence_score").notNull().default(50),
+    riskLevel: text("risk_level").$type<RiskLevel>().notNull().default("medium"),
+    /** Where this record came from — the source URL for `ai_researched` rows (E4). */
+    sourceRef: text("source_ref"),
+    /** The request whose research first surfaced this company (E4 provenance).
+     *  `set null` on delete, never cascade: the supplier is a platform-global
+     *  asset that outlives the request that happened to find it. */
+    discoveredByRequestId: text("discovered_by_request_id").references(() => request.id, {
+      onDelete: "set null",
+    }),
+    /** Entity resolution (E4): normalized `name|COUNTRY`. The unique index is
+     *  what actually stops the research agent re-adding a company we already
+     *  know — application-side checks race, this doesn't. */
+    dedupKey: text("dedup_key"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex("supplier_dedup_key_uq").on(table.dedupKey)],
+);
+
+// ── Research runs (E4) — one row per AI web-research pass over a request ─────
+
+export const RESEARCH_RUN_STATUSES = ["running", "succeeded", "failed"] as const;
+export type ResearchRunStatus = (typeof RESEARCH_RUN_STATUSES)[number];
+
+export const researchRun = pgTable(
+  "research_run",
+  {
+    id: text("id").primaryKey(),
+    requestId: text("request_id")
+      .notNull()
+      .references(() => request.id, { onDelete: "cascade" }),
+    status: text("status").$type<ResearchRunStatus>().notNull().default("running"),
+    /** The search queries the agent actually ran — the audit trail for a result. */
+    queries: jsonb("queries").$type<string[]>(),
+    /** Companies the agent proposed, before dedup. */
+    candidatesFound: integer("candidates_found").notNull().default(0),
+    /** Companies that were genuinely new and got inserted. */
+    suppliersAdded: integer("suppliers_added").notNull().default(0),
+    error: text("error"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    completedAt: timestamp("completed_at"),
+  },
+  (table) => [index("research_run_request_idx").on(table.requestId)],
+);
 
 export const MATCH_STATUSES = ["candidate", "presented", "selected", "rejected"] as const;
 export type MatchStatus = (typeof MATCH_STATUSES)[number];
@@ -261,6 +304,11 @@ export const match = pgTable(
     confidenceScore: integer("confidence_score").notNull(),
     riskLevel: text("risk_level").$type<RiskLevel>().notNull().default("medium"),
     status: text("status").$type<MatchStatus>().notNull().default("presented"),
+    /** Per-criterion detail behind `compatibility_score` (E5) — which criteria
+     *  matched, which could not be checked, and how the modifiers landed. The
+     *  score is worthless to a buyer without the reason, and to us without an
+     *  audit trail when someone asks why rank 1 is rank 1. */
+    scoreBreakdown: jsonb("score_breakdown"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (table) => [

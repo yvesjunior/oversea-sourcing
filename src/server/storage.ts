@@ -29,6 +29,16 @@ export function getFileStream(storageKey: string): Readable {
   return createReadStream(target);
 }
 
+/** Whole-file read, for callers that must hand the bytes to something else
+ *  (E4 reads attachments so the AI can use what the buyer uploaded). */
+export async function getFileBuffer(storageKey: string): Promise<Buffer> {
+  const chunks: Buffer[] = [];
+  for await (const chunk of getFileStream(storageKey)) {
+    chunks.push(Buffer.from(chunk));
+  }
+  return Buffer.concat(chunks);
+}
+
 export async function deleteFile(storageKey: string): Promise<void> {
   const target = path.resolve(UPLOAD_DIR, storageKey);
   if (!target.startsWith(path.resolve(UPLOAD_DIR) + path.sep)) return;

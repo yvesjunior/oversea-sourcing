@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# First-time LOCAL setup: verify prerequisites and prepare .env.local.
+# First-time LOCAL setup: verify prerequisites and prepare .env.
 # Safe to re-run (idempotent).
 #
 # Usage: ./scripts/setup.sh
@@ -14,10 +14,10 @@ docker compose version >/dev/null 2>&1 || { echo "✗ docker compose v2 is requi
 echo "✓ $(docker --version)"
 echo "✓ $(docker compose version --short | sed 's/^/compose /')"
 
-if [ ! -f .env.local ]; then
-  cat > .env.local <<'EOF'
+if [ ! -f .env ]; then
+  cat > .env <<'EOF'
 # ── OSI local secrets — gitignored. ──────────────────────────────────────────
-# The committed .env holds only non-secret config; every secret lives here.
+# Single gitignored .env — config AND secrets. Template: .env.example
 # Fill values in as the matching component gets enabled (see doc/INFRA.md §8).
 
 # Add-ons (docker-compose.addons.yml)
@@ -30,9 +30,9 @@ if [ ! -f .env.local ]; then
 # AI (arrives with E3)
 # ANTHROPIC_API_KEY=
 EOF
-  echo "✓ Created .env.local (fill in secrets as components get enabled)"
+  echo "✓ Created .env (fill in secrets as components get enabled)"
 else
-  echo "✓ .env.local already present — left untouched"
+  echo "✓ .env already present — left untouched"
 fi
 
 echo

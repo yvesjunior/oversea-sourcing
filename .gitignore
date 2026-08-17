@@ -1,5 +1,7 @@
-# Env — a single, committed, secret-free .env lives at the root.
-# Keep secrets OUT of it; put local secret overrides in .env.local (ignored below).
+# Env — a single .env at the root holds ALL config, secrets included, and is
+# NEVER committed (changed 2026-08-16; .env.local was merged into it).
+# The committed template is .env.example — copy it to .env on a new machine.
+.env
 .env.local
 .env.*.local
 

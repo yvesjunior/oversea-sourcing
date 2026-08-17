@@ -1,6 +1,4 @@
-import { useRef, useState } from "react";
-import { useRouter } from "@tanstack/react-router";
-import { Loader2, Paperclip, Plus } from "lucide-react";
+import { Paperclip } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { AttachmentView } from "@/lib/requests-fns";
 
@@ -10,36 +8,18 @@ function formatSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} Mo`;
 }
 
-/** Request attachments (E3): list + download links + add (own workspace only). */
-export function AttachmentsList({
-  requestId,
-  attachments,
-  canEdit,
-}: {
-  requestId: string;
-  attachments: AttachmentView[];
-  canEdit: boolean;
-}) {
+/**
+ * Request attachments — read-only, and only when there are any.
+ *
+ * Adding a file here used to be possible, but it did nothing: research runs
+ * once during the `searching` stage and the `research_run` guard blocks a
+ * re-run, so a late upload was stored and never opened. Attachments are
+ * therefore part of *creating* a request (the hero prompt), not of editing one;
+ * this list exists to show which documents the criteria came from.
+ */
+export function AttachmentsList({ attachments }: { attachments: AttachmentView[] }) {
   const { t } = useTranslation();
-  const router = useRouter();
-  const inputRef = useRef<HTMLInputElement>(null);
-  const [uploading, setUploading] = useState(false);
-
-  if (attachments.length === 0 && !canEdit) return null;
-
-  const upload = async (picked: FileList | null) => {
-    if (!picked || picked.length === 0) return;
-    setUploading(true);
-    try {
-      const form = new FormData();
-      form.set("requestId", requestId);
-      for (const file of Array.from(picked)) form.append("files", file);
-      await fetch("/api/upload", { method: "POST", body: form });
-      await router.invalidate();
-    } finally {
-      setUploading(false);
-    }
-  };
+  if (attachments.length === 0) return null;
 
   return (
     <div className="mt-6">
@@ -60,34 +40,6 @@ export function AttachmentsList({
           </li>
         ))}
       </ul>
-      {canEdit && (
-        <>
-          <input
-            ref={inputRef}
-            type="file"
-            multiple
-            accept=".pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xls,.xlsx,.txt,.csv"
-            className="hidden"
-            onChange={(e) => {
-              void upload(e.target.files);
-              e.target.value = "";
-            }}
-          />
-          <button
-            type="button"
-            disabled={uploading}
-            onClick={() => inputRef.current?.click()}
-            className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground disabled:opacity-60"
-          >
-            {uploading ? (
-              <Loader2 className="size-3.5 animate-spin" />
-            ) : (
-              <Plus className="size-3.5" />
-            )}{" "}
-            {t("detail.addAttachment")}
-          </button>
-        </>
-      )}
     </div>
   );
 }

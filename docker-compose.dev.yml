@@ -10,14 +10,11 @@ services:
     command: npm run dev
     working_dir: /app
     env_file:
+      # Single .env holds config AND secrets (gitignored; see .env.example).
       - .env
-      # Secrets (ANTHROPIC_API_KEY…) — compose only interpolates ${...} from
-      # .env, so .env.local must be loaded explicitly to reach the container.
-      - path: .env.local
-        required: false
     environment:
       - NODE_ENV=development
-      # Dev-only credentials (non-secret by design; prod uses .env.local)
+      # Dev-only credentials (non-secret by design; prod values live in .env)
       - DATABASE_URL=postgres://osi:osi@database:5432/osi
       - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET:-osi-dev-insecure-secret}
       - BETTER_AUTH_URL=${BETTER_AUTH_URL:-http://localhost:3010}
@@ -47,14 +44,15 @@ services:
     working_dir: /app
     env_file:
       - .env
-      - path: .env.local
-        required: false
     environment:
       - NODE_ENV=development
       - DATABASE_URL=postgres://osi:osi@database:5432/osi
     volumes:
       - ./:/app
       - /app/node_modules
+      # The worker reads buyer attachments during research (E4) — same volume
+      # `web` writes uploads to, or every file lookup is an ENOENT.
+      - osi-dev-uploads:/data/uploads
     depends_on:
       database:
         condition: service_healthy

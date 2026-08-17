@@ -14,7 +14,8 @@
     "facilitation": "Facilitation",
     "verification": "Vérification fournisseurs",
     "imports": "Imports",
-    "finance": "Finance"
+    "finance": "Finance",
+    "soon": "Bientôt disponible"
   },
   "user": {
     "role": "Administrateur"
@@ -182,8 +183,10 @@
     "stepPending": "En attente",
     "activityTitle": "Activité",
     "attachments": "Pièces jointes",
-    "addAttachment": "Ajouter un fichier",
-    "cancelRequest": "Annuler la demande"
+    "cancelRequest": "Annuler la demande",
+    "visitSite": "Voir le site",
+    "noSite": "Site web non disponible",
+    "originalNeed": "Votre demande"
   },
   "stepsFlux": {
     "received": "Demande reçue",
@@ -214,8 +217,12 @@
     "criteria_updated": "Critères mis à jour",
     "chat_refined": "Critères affinés via l’assistant ({{count}})",
     "search_launched": "Recherche validée par l’acheteur",
+    "research_started": "Recherche mondiale en cours",
+    "research_completed": "{{found}} fournisseurs trouvés sur le web · {{added}} ajoutés à la base",
+    "research_failed": "Recherche web indisponible — analyse de la base existante",
     "attachment_added": "{{count}} pièce(s) jointe(s) ajoutée(s)",
-    "matches_created": "Top {{count}} sélectionné sur {{analyzed}} fournisseurs analysés"
+    "matches_created": "Top {{count}} sélectionné sur {{analyzed}} fournisseurs analysés",
+    "criteria_fromAttachment": "{{count}} critère(s) extrait(s) des pièces jointes"
   },
   "stepsDemande": {
     "received": {
@@ -238,7 +245,8 @@
     "outOf100": "/100",
     "risk": "Risque",
     "matched": "Dossiers associés",
-    "provenance": "Provenance"
+    "provenance": "Provenance",
+    "viewSourceRequest": "Voir la demande #{{id}}"
   },
   "provenance": {
     "imported": "Importé",
@@ -334,5 +342,18 @@
   },
   "tabs": {
     "nothingMine": "Rien pour l’instant"
+  },
+  "report": {
+    "title": "Rapport de sourcing — demande #{{id}}",
+    "download": "Télécharger en PDF",
+    "issued": "Émis le",
+    "needSection": "Le besoin exprimé",
+    "criteriaSection": "Critères retenus",
+    "resultsSection": "Fournisseurs recommandés",
+    "methodSection": "Méthodologie",
+    "submitted": "Demande soumise",
+    "completed": "Rapport finalisé",
+    "noCriteria": "Aucun critère structuré n’a été extrait.",
+    "noResults": "Aucun fournisseur n’a été retenu pour cette demande."
   }
 }

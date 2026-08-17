@@ -15,6 +15,8 @@ import type { RequestStatus } from "@/database/schema";
 import { QUEUES, type PipelineJob } from "@/server/queue";
 import { transitionRequest } from "@/server/requests";
 import { createMatchesForRequest } from "@/server/matching";
+import { researchEnabled } from "@/server/ai/flags";
+import { runResearchForRequest } from "@/server/research";
 
 const STAGE_MS = 8_000;
 const SWEEP_INTERVAL_MS = 60_000;
@@ -41,13 +43,20 @@ async function handlePipeline({ requestId }: PipelineJob): Promise<void> {
   if (status === "received" || status === "analyzing") {
     await transitionRequest(requestId, orgId, status, "searching");
     status = "searching";
-    await sleep(STAGE_MS);
   }
   if (status === "searching") {
     const existing = await db.query.match.findFirst({
       where: eq(schema.match.requestId, requestId),
     });
     if (!existing) {
+      // E4: with AI_RESEARCH on, this is a real global web search that also
+      // grows the supplier pool. Off, the stage is paced by a sleep so the UI
+      // still has four visible steps.
+      if (researchEnabled()) {
+        await runResearchForRequest(requestId, orgId);
+      } else {
+        await sleep(STAGE_MS);
+      }
       const analyzed = await createMatchesForRequest(requestId, orgId);
       console.log(`pipeline: ${requestId} matched top suppliers from a pool of ${analyzed}`);
     }

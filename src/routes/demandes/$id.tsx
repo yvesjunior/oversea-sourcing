@@ -2,7 +2,16 @@ import { useEffect } from "react";
 import { createFileRoute, Link, redirect, useRouter } from "@tanstack/react-router";
 import { format } from "date-fns";
 import { enUS, fr } from "date-fns/locale";
-import { ArrowLeft, Ban, FileText, Globe, Info, ScanSearch, ShieldCheck } from "lucide-react";
+import {
+  ArrowLeft,
+  Ban,
+  ExternalLink,
+  FileText,
+  Globe,
+  Info,
+  ScanSearch,
+  ShieldCheck,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { useTranslation } from "react-i18next";
@@ -19,6 +28,21 @@ import type { RiskLevel } from "@/database/schema";
 import { cancelRequestFn, getRequestDetailFn, type RequestDetail } from "@/lib/requests-fns";
 import { isInFlight, PIPELINE_ORDER, pipelineIndex, progressPct } from "@/lib/request-status";
 import { cn } from "@/lib/utils";
+
+/**
+ * Only ever hand http(s) URLs to an anchor. Supplier sites come from a model
+ * reading the open web, so treat them as untrusted input: a `javascript:` or
+ * `data:` value in an href would execute on click.
+ */
+function externalUrl(raw: string | null): string | null {
+  if (!raw) return null;
+  try {
+    const url = new URL(raw);
+    return url.protocol === "http:" || url.protocol === "https:" ? url.toString() : null;
+  } catch {
+    return null;
+  }
+}
 
 /** DB risk levels → the legacy display literals RiskBadge/i18n understand. */
 const RISK_LABEL: Record<RiskLevel, Risque> = {
@@ -141,8 +165,10 @@ function DemandeDetail() {
             </Button>
           )}
           {finished && (
-            <Button variant="gold" size="sm">
-              <FileText className="size-4" /> {t("detail.viewReport")}
+            <Button variant="gold" size="sm" asChild>
+              <Link to="/demandes/$id/rapport" params={{ id: demande.id }}>
+                <FileText className="size-4" /> {t("detail.viewReport")}
+              </Link>
             </Button>
           )}
         </span>
@@ -198,6 +224,21 @@ function DemandeDetail() {
         <section className="card-surface p-6">
           <h2 className="text-base font-semibold">{demande.title}</h2>
           <p className="mt-1 text-xs text-muted-foreground">{t("detail.progressTitle")}</p>
+
+          {/* The buyer's own words. The title is a truncated first line and the
+              criteria are derived, so without this there is nothing on the page
+              showing what the search was actually built from. */}
+          {demande.descriptionRaw.trim() && (
+            <details className="group mt-5 rounded-lg bg-secondary/60 p-3" open>
+              <summary className="cursor-pointer list-none text-[11px] font-semibold uppercase tracking-wide text-muted-foreground marker:content-none">
+                {t("detail.originalNeed")}
+              </summary>
+              <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-relaxed">
+                {demande.descriptionRaw}
+              </p>
+            </details>
+          )}
+
           <Timeline etapes={etapesTimeline} className="mt-6" />
 
           <CriteriaPanel
@@ -219,11 +260,7 @@ function DemandeDetail() {
             </div>
           )}
 
-          <AttachmentsList
-            requestId={demande.id}
-            attachments={demande.attachments}
-            canEdit={demande.canEdit}
-          />
+          <AttachmentsList attachments={demande.attachments} />
 
           {activity.length > 0 && (
             <div className="mt-6">
@@ -276,17 +313,24 @@ function DemandeDetail() {
                     </span>
 
                     <div className="grid min-w-0 gap-x-6 gap-y-3 py-4 pr-2 sm:grid-cols-2 xl:grid-cols-[160px_minmax(120px,auto)_auto_auto_auto] xl:items-center">
-                      <span className="shrink-0">
-                        <span className="block whitespace-nowrap text-sm font-bold">
+                      {/* min-w-0 + truncate, not shrink-0 + nowrap: researched
+                          names run long ("Jiangyin Haixing Heat-Exchange
+                          Facilities Co., Ltd.") and used to overflow this
+                          track and paint over the score columns. */}
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-bold" title={m.supplier.name}>
                           {m.supplier.name}
                         </span>
                         {m.supplier.descriptor && (
-                          <span className="block whitespace-nowrap text-[11px] tracking-wide text-muted-foreground">
+                          <span
+                            className="block truncate text-[11px] tracking-wide text-muted-foreground"
+                            title={m.supplier.descriptor}
+                          >
                             {m.supplier.descriptor}
                           </span>
                         )}
                       </span>
-                      <CountryTag code={m.supplier.countryCode} className="whitespace-nowrap" />
+                      <CountryTag code={m.supplier.countryCode} />
 
                       <span className="flex items-center gap-2">
                         <ScoreRing valeur={m.compatibilityScore} taille={30} />
@@ -318,8 +362,30 @@ function DemandeDetail() {
                       </span>
                     </div>
 
+                    {/* Replaced the inert "Comparer" (E5, unwired) with the
+                        action a buyer actually wants on a shortlist: see who
+                        this company is. Falls back to the page the research
+                        agent read them from when they have no own site. */}
                     <span className="pr-4">
-                      <Button size="sm">{t("detail.compare")}</Button>
+                      {(externalUrl(m.supplier.website) ?? externalUrl(m.supplier.sourceRef)) ? (
+                        <Button size="sm" asChild>
+                          <a
+                            href={
+                              externalUrl(m.supplier.website) ?? externalUrl(m.supplier.sourceRef)!
+                            }
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            title={m.supplier.website ?? m.supplier.sourceRef ?? undefined}
+                          >
+                            {t("detail.visitSite")}
+                            <ExternalLink className="size-3.5" />
+                          </a>
+                        </Button>
+                      ) : (
+                        <Button size="sm" disabled title={t("detail.noSite")}>
+                          {t("detail.visitSite")}
+                        </Button>
+                      )}
                     </span>
                   </li>
                 ))}

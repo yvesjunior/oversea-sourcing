@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # Provision a (new) production VM: verify Docker, clone the repo, prepare
-# .env.local — then hand off to ./scripts/deploy.sh for the first deploy.
+# .env — then hand off to ./scripts/deploy.sh for the first deploy.
 # Idempotent: safe to re-run on an already-provisioned VM.
 #
 # Docker is NOT installed automatically (needs sudo); if missing, the script
@@ -45,18 +45,18 @@ else
 fi
 
 cd "${DEPLOY_PATH}"
-if [ ! -f .env.local ]; then
-  cat > .env.local <<'EOF'
+if [ ! -f .env ]; then
+  cat > .env <<'EOF'
 # ── OSI prod secrets — NEVER commit. Fill in as components get enabled. ──────
 # MINIO_ROOT_PASSWORD=
 # MEILI_MASTER_KEY=
 # DATABASE_URL=
 # ANTHROPIC_API_KEY=
 EOF
-  chmod 600 .env.local
-  echo "✓ Created ${DEPLOY_PATH}/.env.local (fill in prod secrets)"
+  chmod 600 .env
+  echo "✓ Created ${DEPLOY_PATH}/.env (fill in prod secrets)"
 else
-  echo "✓ .env.local already present — left untouched"
+  echo "✓ .env already present — left untouched"
 fi
 REMOTE
 

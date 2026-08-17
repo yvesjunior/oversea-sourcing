@@ -9,7 +9,7 @@
 #
 # Conventions:
 #   - Admin/tool UIs bind to 127.0.0.1 only (reach them via SSH tunnel), never LAN.
-#   - Secrets come from .env.local / shell env — never from the committed .env.
+#   - Secrets come from .env (gitignored) or the shell env.
 # ─────────────────────────────────────────────────────────────────────────────
 
 services:
@@ -21,7 +21,7 @@ services:
     restart: unless-stopped
     environment:
       - MINIO_ROOT_USER=${MINIO_ROOT_USER:-osi}
-      # Set in .env.local / shell env — service refuses to start when empty.
+      # Set in .env / shell env — service refuses to start when empty.
       - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-}
     volumes:
       - osi-minio-data:/data
@@ -54,7 +54,7 @@ services:
     image: getmeili/meilisearch:v1.12
     restart: unless-stopped
     environment:
-      # Set in .env.local / shell env — service refuses to start when empty.
+      # Set in .env / shell env — service refuses to start when empty.
       - MEILI_MASTER_KEY=${MEILI_MASTER_KEY:-}
       - MEILI_ENV=production
     volumes:

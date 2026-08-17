@@ -26,7 +26,7 @@
 | **Web/SSR + API**     | Node container (Nitro)                                                                                       | Stateless → replicate behind the proxy (N containers). Later: split `/api` into its own service if SSR and API scale differently |
 | **Workers** (pg-boss) | **Separate container, same image** (`node worker.mjs`)                                                       | Scale worker replicas independently; per-queue concurrency; later: dedicated worker VM(s)                                        |
 | **AI gateway**        | Module `src/server/ai/` — sole owner of Claude API calls, retries, rate limits, cost metering, model tiering | Extract to its own service if multiple apps consume it; budget guards live here                                                  |
-| **Research agent**    | Job type inside workers                                                                                      | Heaviest load → its own queue from day one (`research`), own concurrency knob; first candidate for a dedicated worker pool       |
+| **Research agent**    | ⚠️ Inline in the pipeline job (`src/server/research.ts`), **not yet its own queue** — known deviation from the rule opposite | Heaviest load → its own queue (`research`), own concurrency knob; first candidate for a dedicated worker pool. Move it before load, not after |
 | **Database**          | Postgres 16 container + named volume                                                                         | → pgbouncer → dedicated local DB VM (read replica for analytics) — no managed/cloud PG (no-cloud decision, §3)                   |
 | **Queue**             | pg-boss (in Postgres)                                                                                        | Keeps ops surface tiny. Seam: JobQueue interface → swap to Redis/BullMQ or SQS only if queue throughput hurts Postgres           |
 | **File storage**      | MinIO container (S3 API)                                                                                     | Same code → any S3-compatible cloud (R2/S3/B2). Never write to local disk directly                                               |
@@ -197,7 +197,7 @@ flowchart LR
 | Component           | Role                                                              | Default choice             | Status              | Enable trigger                                           |
 | ------------------- | ----------------------------------------------------------------- | -------------------------- | ------------------- | -------------------------------------------------------- |
 | AI gateway module   | Sole Claude API owner: retries, rate/cost metering, model tiering | `src/server/ai/`           | 🟢 with E3          | —                                                        |
-| Web search API      | Research agent's eyes                                             | Tavily / Brave (decide E4) | 🟢 with E4          | —                                                        |
+| Web search API      | Research agent's eyes                                             | **Claude server-side `web_search` tool** (decided 2026-08-16 — no separate vendor; adapter seam kept in `ai/research.ts`) | 🟢 live | — |
 | Embeddings          | Vectorize criteria & capabilities → pgvector                      | Voyage / provider TBD      | 🟡 with E5          | Semantic matching                                        |
 | Prompt caching      | Cost control on repeated context                                  | Claude prompt caching      | 🟢 with E3          | —                                                        |
 | LLM observability   | Trace/eval prompts, cost per request                              | Langfuse (self-host)       | 🟡 profile `llmops` | AI spend > “who cares” threshold, or quality regressions |
@@ -232,7 +232,7 @@ flowchart LR
 | Component          | Role                        | Default choice                        | Status             | Enable trigger                       |
 | ------------------ | --------------------------- | ------------------------------------- | ------------------ | ------------------------------------ |
 | Email delivery     | Auth + notifications        | Resend/SMTP adapter                   | 🟢 with E1         | —                                    |
-| PDF rendering      | Reports                     | in-process (Playwright/Chromium)      | 🟢 with E7         | Extract to service if it hogs memory |
+| PDF rendering      | Reports                     | **Browser print-to-PDF** (decided 2026-08-16 — no Chromium in the image, always matches what the buyer sees). Playwright only when reports must be *stored* as `documents` rows | 🟢 live | Stored/emailed PDFs |
 | Feature flags      | Gradual rollout             | DB table + helper → Unleash           | 🟡 with E0 (table) | Team > 2 or A/B needs                |
 | Product analytics  | Funnels, usage              | PostHog/Plausible (SaaS or self-host) | ⚪                 | Post-MVP1 growth work                |
 | Company enrichment | Auto-fill supplier data     | OpenCorporates & co.                  | ⚪                 | Import pipeline v2                   |
@@ -262,6 +262,10 @@ flowchart LR
 - ~~Cloud provider for Stage 2~~ — **decided 2026-08-04: none.** Local VM
   deployment behind Cloudflare Tunnel at every stage; scaling is additional
   local hardware (see §3 Stage 2)
-- Web-search API for the research agent (Tavily / Brave / SerpAPI)
+- ~~Web-search API for the research agent~~ — **decided 2026-08-16: Claude's
+  server-side `web_search` tool.** Measured on identical requests: haiku-4-5 at
+  3 searches ≈ $0.06/request, opus-5 at 6 ≈ $0.20, sonnet-5 at 6 ≈ $0.21 (no
+  saving over opus — it used 2.5× the output tokens). Model tier and search
+  count are configured in `.env`; the tier registry lives in `ai/models.ts`
 - Email provider (Resend vs SMTP relay)
 - Error-tracking tool (Sentry self-hosted vs SaaS) — can wait, logs first

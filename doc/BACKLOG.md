@@ -116,12 +116,12 @@ transactions…) requires login. Logged-in users see the personal dashboard on `
 
 | Table                     | Key fields                                                                                                                                                                                                           | Notes                     |
 | ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------- |
-| `suppliers`               | name, legal_name, country_code, website (uq-ish), description, employee_range, **provenance** `imported\|ai_researched\|osi_verified`, **verification_status** `unverified\|pending\|verified\|rejected`, source_ref | Provenance is first-class |
+| `supplier` *(built)*      | name, descriptor, country_code, website, description, **provenance** `imported\|ai_researched\|osi_verified`, **verification_status** `unverified\|pending\|verified\|rejected`, confidence_score, risk_level, source_ref, **dedup_key (uq)**, **discovered_by_request_id** | Provenance is first-class. `legal_name` / `employee_range` and the satellite tables are still unbuilt |
 | `supplier_capabilities`   | supplier_id, category, label, details jsonb                                                                                                                                                                          | What they can make        |
 | `supplier_certifications` | supplier_id, code (ISO9001, CE, ATEX…), valid_until, verified                                                                                                                                                        |                           |
 | `supplier_contacts`       | supplier_id, name, email, phone, role                                                                                                                                                                                | Used by ops for outreach  |
 | `import_runs`             | source, status, stats jsonb, triggered_by                                                                                                                                                                            | Batch import tracking     |
-| `research_runs`           | request_id, status, queries jsonb, results_count                                                                                                                                                                     | AI web-research tracking  |
+| `research_run` *(built)*  | request_id, status `running\|succeeded\|failed`, queries jsonb, candidates_found, suppliers_added, error, completed_at                                                                                               | One row per research pass |
 
 ### Matching & facilitation
 
@@ -199,16 +199,18 @@ transactions…) requires login. Logged-in users see the personal dashboard on `
 
 - [x] Supplier schema core (provenance, verification_status, confidence, risk — platform-global) — satellites (capabilities, certifications, contacts) still pending
 - [ ] CSV/JSON import pipeline v1 + `import_runs` (admin-triggered) — seed script stands in for now
-- [ ] **Job: AI research agent** — web search per request criteria → LLM extraction → candidate `suppliers` (provenance `ai_researched`, `research_runs` tracked)
-- [ ] Dedup / entity resolution v1 (normalize name + country + website; merge tool in admin)
-- [x] Supplier directory UI wiring (list) — real data with match counts; detail page + filters pending
+- [x] **Job: AI research agent** (2026-08-16) — real web search per request, results persisted as `ai_researched` suppliers, `research_run` rows for the audit trail. Runs in the `searching` stage behind `AI_RESEARCH` (default **on**). Gateway: `src/server/ai/research.ts`; orchestration + persistence: `src/server/research.ts`
+- [x] **Attachment reading** (2026-08-16) — buyer uploads are opened, not just stored: text/CSV decoded directly, PDF and images read by the model. Criteria parsed out of them with the same intake regexes, and the content feeds the search brief (`src/server/attachments.ts`)
+- [x] Dedup / entity resolution v1 — normalized `name|COUNTRY` key on `supplier.dedup_key` with a **unique index**, so a repeat search cannot re-add a known company (`src/lib/supplier-key.ts`). **Merge tool in admin still pending**
+- [x] Supplier directory UI wiring (list) — real data with match counts, plus a link back to the request whose research found each company (workspace-gated). Detail page + filters still pending
 - [ ] Country risk reference table (seed data)
 
 ### E5 — Matching & scoring
 
 - [ ] **Define the 32 compatibility criteria** (product workshop — weights per category)
-- [ ] Matching query: request criteria × supplier capabilities × sourcing_rules → candidate set — **v0 heuristic lives in `src/server/matching.ts`** (deterministic, replace when this lands)
-- [ ] Compatibility score: weighted per-criterion, store breakdown jsonb
+- [x] **Matching v1 — criteria-aware** (2026-08-16). v0 never read the criteria at all (confidence + verification + risk + a hash jitter), so a supplier that genuinely matched could rank below one that did not. v1 scores each criterion against the supplier's own text: `10 base + 55×coverage + 20×confidence/100 + verification(12/5/0/−25) − risk(0/4/10)`, required criteria weighted ×2, ties broken deterministically. `sourcing_rules` still unused (E11)
+- [x] Compatibility score: weighted per-criterion, **breakdown persisted in `match.score_breakdown` jsonb** — which criteria matched, which were unverifiable, how each modifier landed
+- [ ] **Numeric criteria are scored as `unverifiable`, not as misses** — pressure/flow/quantity/lead_time cannot be checked against a one-line supplier description, so they are excluded from the denominator rather than penalising every supplier equally. They become checkable once `supplier_capabilities` / `supplier_certifications` exist
 - [ ] Confidence score: provenance + profile completeness + verification
 - [ ] Risk level: country risk + data flags (v1 heuristic)
 - [x] Top-5 persistence in `match` + ranking; "N fournisseurs analysés" is real (matches.created event)
@@ -225,9 +227,9 @@ transactions…) requires login. Logged-in users see the personal dashboard on `
 
 ### E7 — Report generation
 
-- [ ] Report data assembly (request, criteria, top-5, scores, recommendation)
-- [ ] PDF rendering (bilingual, OSI branding) → stored as `documents` kind `report`
-- [ ] "Voir le rapport" button wiring + download
+- [x] Report data assembly (2026-08-16) — `/demandes/$id/rapport`: the need in the buyer's own words, criteria applied, ranked suppliers with scores/risk, and a methodology section citing the research pass
+- [x] "Voir le rapport" button wiring + download — the button now opens the report; **Télécharger en PDF** uses the browser's own print-to-PDF (print stylesheet in `src/styles.css`, chrome hidden via `print:hidden`)
+- [ ] **Server-rendered PDF stored as a `documents` row** — needs the `documents` table (unbuilt) and Playwright/Chromium in the image. The route is the seam that feeds it; browser print covers the need until then
 
 ### E8 — Transactions (tracking only)
 
@@ -282,6 +284,6 @@ _Engager_, OSI ops sees it in the queue, buyer sees "connected", downloads the P
 
 - The 32 criteria list (E5 task — needs a product session)
 - External data sources & licensing for imports (E4)
-- Web-search provider for the research agent (Brave/Tavily/SerpAPI…)
+- ~~Web-search provider for the research agent~~ — **decided 2026-08-16: none needed.** Claude's server-side `web_search` tool runs the search inside the existing API call, so there is no second vendor, key or bill. It is called only from `src/server/ai/research.ts`, so a Tavily/Brave adapter can replace it without touching domain code (INFRA principle 4)
 - Email provider choice (Resend vs SMTP)
 - When to put a reverse proxy + TLS in front of prod (before first external user)

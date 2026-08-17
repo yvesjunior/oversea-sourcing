@@ -9,3 +9,11 @@
 export function chatEnabled(): boolean {
   return process.env["AI_CHAT"] === "true";
 }
+
+/** AI_RESEARCH=true makes "Recherche mondiale" literal (E4): the worker runs a
+ *  real web search per request and enriches the supplier pool. Default OFF —
+ *  it spends money per request (searches + tokens), so it is opt-in like the
+ *  chat. When off the pipeline keeps its simulated search stage. */
+export function researchEnabled(): boolean {
+  return process.env["AI_RESEARCH"] === "true";
+}
