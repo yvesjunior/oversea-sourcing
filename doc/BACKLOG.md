@@ -202,9 +202,18 @@ and `/documents` render showcase constants and are disabled in the nav.
       is a footgun), assign plans to workspaces, `updated_by` trail
 - [ ] **Billing provider** (Stripe or equivalent) — plans work without it; the
       provider columns stay null until it lands
+- [x] **New workspaces land on Free** (2026-08-17) — the seeding migration only
+      covered workspaces that existed when it ran, so every account created
+      afterwards had no subscription, fell through to the env fallback, and got an
+      **unlimited** daily quota. Now assigned in better-auth's user-create hook, so
+      it covers social sign-up too
 - [ ] **Free-tier integrity** — signup creates a personal workspace, so one person
       with several emails gets several free allowances. Rate limits and
       disposable-domain blocks slow this; only **email verification** fixes it
+- [ ] **Google sign-in** — fully wired in code; needs only `GOOGLE_CLIENT_ID` /
+      `GOOGLE_CLIENT_SECRET` and a Google Cloud OAuth client. Note the email
+      signup guards (honeypot, disposable domains, plus-addressing) do **not**
+      apply to the social route, and account linking is on better-auth's default
 - [ ] AI chat as a plan feature — postponed until the chat is exercised
 
 ### E11 — Settings

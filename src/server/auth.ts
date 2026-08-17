@@ -125,6 +125,25 @@ export const auth = betterAuth({
             role: "owner",
             createdAt: new Date(),
           });
+          // Put the new workspace on Free. Without this the workspace has no
+          // subscription, resolvePlan falls back to the env defaults, and the
+          // daily quota is silently UNLIMITED — the migration only seeded
+          // subscriptions for workspaces that existed when it ran.
+          // Applies to every signup route, social included.
+          const freePlan = await db.query.plan.findFirst({
+            where: eq(schema.plan.code, "free"),
+          });
+          if (freePlan) {
+            await db
+              .insert(schema.subscription)
+              .values({
+                id: crypto.randomUUID(),
+                organizationId: orgId,
+                planId: freePlan.id,
+                status: "active",
+              })
+              .onConflictDoNothing({ target: schema.subscription.organizationId });
+          }
         },
       },
     },
