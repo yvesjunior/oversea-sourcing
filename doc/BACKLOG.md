@@ -30,6 +30,51 @@ need, gets a real Top-N (researched + imported suppliers, scored), clicks
 *Engager*, OSI ops sees it in the queue, the buyer sees "connected", and
 downloads the PDF report.
 
+## Where we actually are (2026-08-17)
+
+**The core loop works end to end on production.** A buyer describes a need, the
+platform parses criteria (from the text *and* from any attached spec sheet),
+searches the web for real manufacturers, stores them in the shared pool, ranks
+them against the criteria, and produces a printable report. Daily quotas and
+plans are enforced.
+
+**18 tables exist.** Missing entirely: `engagement`, `transaction`, `document`,
+`notification`, `sourcing_rules`, `audit_log`, `import_run`, and the supplier
+satellites (capabilities, certifications, contacts).
+
+**Pages that are still placeholders** (16–20 lines each, no data behind them):
+`/interne/finance`, `/interne/imports`, `/interne/verification`. `/transactions`
+and `/documents` render showcase constants and are disabled in the nav.
+`/interne/facilitation` lists dossiers but has no engagement queue.
+
+### The gap to MVP1, in dependency order
+
+| # | What | Why it blocks |
+| - | ---- | ------------- |
+| 1 | **E6 facilitation** — `engagement` + `engagement_events`, "Engager" on a Top-N supplier, ops queue | This is *the OSI moment* in the product story. Without it the platform finds suppliers and then stops; nothing connects a buyer to one |
+| 2 | **E10 supplier verification** — the `unverified → pending → verified` workflow behind a real screen | The matcher already pays +12 for `verified` and the research agent creates everything as `unverified`, so today that lever is dead weight — no supplier can ever earn it |
+| 3 | **E4 import pipeline + merge tool** | Half the hybrid strategy. Research alone grows the pool one request at a time, and dedup has no human review path for near-misses |
+| 4 | **E1 email verification** | The only real fix for free-tier abuse: signup provisions a workspace, so one person with several addresses gets several free allowances |
+| 5 | **E5 the 32 criteria** | Needs a product workshop, not code. The weighted v1 scorer stands in and is honest about what it cannot check |
+
+### Known deviations and debts
+
+- ⚠️ **Research runs inline in the pipeline job**, not on its own `research` queue
+  as the architecture requires. It is platform hotspot #1 — move it before load
+  arrives, not after
+- ⚠️ **Rate-limit counters are in-memory** — they do not add up once the web tier
+  is replicated; Redis is the swap
+- ⚠️ **`storage.deleteFile` is never called** — deleting a request removes its
+  `file` rows but leaves the bytes on the uploads volume
+- ⚠️ **No test suite at all** — no test script, no test files. Every check in this
+  repo is a typecheck, a lint, or a manual run
+- ⚠️ **Supplier verification has no state machine**, unlike requests: any code can
+  set any status
+- ⚠️ `.docx` / `.xlsx` attachments are accepted at upload but cannot be read
+- ⚠️ `/transactions` and `/analyses`' showcase constants still live in
+  `src/data/osi.ts` (analytics is now DB-backed; transactions is not)
+
+
 ## Epics → tasks
 
 ### E0 — Dev foundations

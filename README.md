@@ -11,7 +11,13 @@ Live at **[osi-solutions.com](https://osi-solutions.com)** · TanStack Start
 
 > This README is the single reference for the project: what it is, how it works,
 > how to run it, and why it is built this way. **[`doc/BACKLOG.md`](doc/BACKLOG.md)
-> is the companion** — it tracks what is done, in progress, and still open.
+> is the companion** — current state, what is done, and what is left to reach MVP1.
+>
+> **Working today:** the full request loop — criteria (typed *and* from attached
+> spec sheets) → real web research → shared supplier pool → criteria-aware
+> ranking → printable report, with per-workspace plans and daily quotas.
+> **Not built:** facilitation (engagements), transactions, documents,
+> notifications, and the supplier import pipeline.
 
 Built with [Lovable](https://lovable.dev)
 ([editor](https://lovable.dev/projects/a2274c53-10c7-432f-8ad5-d1aeff813df3));
