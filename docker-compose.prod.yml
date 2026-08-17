@@ -15,6 +15,13 @@ services:
       - .env
     environment:
       - NODE_ENV=production
+      # The VM has no IPv6 route, but DNS returns AAAA for Google, Anthropic and
+      # most large hosts. Node's happy-eyeballs then races both families and the
+      # v6 attempt can hang until the socket times out instead of failing fast —
+      # which surfaced as Google sign-in "failing silently" (the server-to-server
+      # token exchange timing out with ETIMEDOUT inside better-auth). Preferring
+      # A records removes the dead path. Drop this if the VM ever gets real IPv6.
+      - NODE_OPTIONS=--dns-result-order=ipv4first
       - PORT=3000
     ports:
       # Host 3010 → container 3000. Override with WEB_PORT=<port> if needed.
@@ -40,6 +47,13 @@ services:
       - .env
     environment:
       - NODE_ENV=production
+      # The VM has no IPv6 route, but DNS returns AAAA for Google, Anthropic and
+      # most large hosts. Node's happy-eyeballs then races both families and the
+      # v6 attempt can hang until the socket times out instead of failing fast —
+      # which surfaced as Google sign-in "failing silently" (the server-to-server
+      # token exchange timing out with ETIMEDOUT inside better-auth). Preferring
+      # A records removes the dead path. Drop this if the VM ever gets real IPv6.
+      - NODE_OPTIONS=--dns-result-order=ipv4first
     volumes:
       # The worker reads buyer attachments during research (E4) — without this
       # mount every file lookup is an ENOENT, since only `web` writes uploads.

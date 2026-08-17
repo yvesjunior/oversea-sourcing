@@ -411,6 +411,15 @@ Optional components (MinIO, Redis, Meilisearch, Uptime-Kuma, Dozzle, ClamAV,
 Adminer) are **profile-gated** in `docker-compose.addons.yml` — nothing starts
 unless asked: `./scripts/addons.sh [--remote] <profile>`.
 
+> **The prod containers force IPv4 DNS resolution** (`NODE_OPTIONS=--dns-result-order=ipv4first`).
+> The VM has no IPv6 route, but DNS returns AAAA records for Google, Anthropic
+> and most large hosts; Node's happy-eyeballs races both families and the dead v6
+> attempt can hang until the socket times out rather than failing fast. That is
+> what made Google sign-in "fail silently" on 2026-08-17 — the server-to-server
+> token exchange timed out inside better-auth with no user-visible error. It
+> applies to `web` **and** `worker`, since the worker's Claude and web-search
+> calls are exposed to the same hang. Remove it if the VM ever gets real IPv6.
+
 ### Security baseline
 
 - ✅ TLS + ingress via Cloudflare Tunnel; Postgres not exposed on host ports in prod

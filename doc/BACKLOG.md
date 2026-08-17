@@ -59,6 +59,13 @@ and `/documents` render showcase constants and are disabled in the nav.
 
 ### Known deviations and debts
 
+- ✅ **Fixed 2026-08-17: IPv6 black hole broke Google sign-in.** The VM has no
+  IPv6 route while DNS returns AAAA for Google; Node raced both families and the
+  v6 attempt hung until timeout, so better-auth's token exchange failed with
+  `ETIMEDOUT` and no user-visible error. Both prod containers now prefer A
+  records. Worth remembering as a class of bug: *outbound* egress can be broken
+  for one address family while everything looks healthy from outside
+
 - ⚠️ **Research runs inline in the pipeline job**, not on its own `research` queue
   as the architecture requires. It is platform hotspot #1 — move it before load
   arrives, not after
