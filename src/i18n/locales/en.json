@@ -15,7 +15,8 @@
     "verification": "Supplier verification",
     "imports": "Imports",
     "finance": "Finance",
-    "soon": "Coming soon"
+    "soon": "Coming soon",
+    "plans": "Plans"
   },
   "user": {
     "role": "Administrator"
@@ -77,7 +78,8 @@
     "seeAll": "See all",
     "visionTitle": "Design driven by our vision",
     "tabAll": "Global view",
-    "tabMine": "My data"
+    "tabMine": "My data",
+    "quotaReached": "You have reached the {{plan}} plan limit of {{limit}} request(s) per day. Your text is kept — try again from {{when}}."
   },
   "stats": {
     "activeRequests": "Active requests",
@@ -363,5 +365,21 @@
     "completed": "Report finalised",
     "noCriteria": "No structured criteria were extracted.",
     "noResults": "No supplier was shortlisted for this request."
+  },
+  "plans": {
+    "title": "Plans & subscriptions",
+    "subtitle": "Limits are editable here — changes apply immediately, no redeploy.",
+    "requestsPerDay": "Requests / day",
+    "suppliersReturned": "Suppliers returned",
+    "modelTier": "AI model",
+    "workspacesOn": "{{count}} workspace(s) on this plan",
+    "save": "Save",
+    "costEstimate": "≈ ${{cost}} / day per workspace · ≈ ${{month}} / month",
+    "costUnlimited": "Unlimited — no cost ceiling",
+    "lastChangedBy": "Changed by {{name}}",
+    "workspacesTitle": "Workspaces",
+    "workspace": "Workspace",
+    "usedToday": "Used (24 h)",
+    "plan": "Plan"
   }
 }

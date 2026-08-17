@@ -259,6 +259,62 @@ export const supplier = pgTable(
   (table) => [uniqueIndex("supplier_dedup_key_uq").on(table.dedupKey)],
 );
 
+// ── Plans & subscriptions ────────────────────────────────────────────────────
+// Limits live in rows, not in code or env: changing what the free tier gets is
+// an UPDATE from the manager screen, not a deploy. The env values remain the
+// fallback for a workspace with no subscription, so dev works with no rows.
+
+export const MODEL_TIERS = ["cheap", "balanced", "best"] as const;
+export type ModelTier = (typeof MODEL_TIERS)[number];
+
+export const plan = pgTable(
+  "plan",
+  {
+    id: text("id").primaryKey(),
+    /** Stable identifier used in code (`free`, `pro`, `business`, `internal`). */
+    code: text("code").notNull(),
+    name: text("name").notNull(),
+    /** Requests per rolling 24h. **0 means unlimited** — so the internal plan
+     *  needs no special case, and an accidental 0 reads as "no cap" rather than
+     *  silently locking every buyer out. */
+    requestsPerDay: integer("requests_per_day").notNull().default(1),
+    /** Overrides SUPPLIERS_RETURNED for workspaces on this plan. */
+    suppliersReturned: integer("suppliers_returned").notNull().default(5),
+    /** Overrides ANTHROPIC_MODEL. Drives both quality and cost per request. */
+    modelTier: text("model_tier").$type<ModelTier>().notNull().default("cheap"),
+    /** Display order on the manager screen. */
+    position: integer("position").notNull().default(0),
+    /** Who last changed the limits — the cheap stand-in for an audit log. */
+    updatedBy: text("updated_by").references(() => user.id, { onDelete: "set null" }),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex("plan_code_uq").on(table.code)],
+);
+
+export const SUBSCRIPTION_STATUSES = ["active", "past_due", "cancelled"] as const;
+export type SubscriptionStatus = (typeof SUBSCRIPTION_STATUSES)[number];
+
+export const subscription = pgTable(
+  "subscription",
+  {
+    id: text("id").primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    planId: text("plan_id")
+      .notNull()
+      .references(() => plan.id, { onDelete: "restrict" }),
+    status: text("status").$type<SubscriptionStatus>().notNull().default("active"),
+    /** Null while billing does not exist — plans work before Stripe does. */
+    currentPeriodEnd: timestamp("current_period_end"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  // One subscription per workspace: "which plan am I on" must have one answer.
+  (table) => [uniqueIndex("subscription_org_uq").on(table.organizationId)],
+);
+
 // ── Research runs (E4) — one row per AI web-research pass over a request ─────
 
 export const RESEARCH_RUN_STATUSES = ["running", "succeeded", "failed"] as const;

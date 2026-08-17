@@ -14,6 +14,7 @@
 | **E0** Dev foundations | Postgres, Drizzle, pg-boss, seed | ✅ done |
 | **E1** Auth & users | better-auth, signup, guards, **abuse controls** | 🟡 email verification + 2FA open |
 | **E2** Workspaces & tenancy | Roles, invitations, team UI | 🔴 invitations + team UI not started |
+| **E12** Plans & quotas | Per-workspace limits, manager UI | 🟡 billing provider open |
 | **E3** Request core loop | Pipeline, criteria, attachments, dossier | ✅ done |
 | **E4** Supplier data | **Web research**, dedup, directory | 🟡 import pipeline + merge tool open |
 | **E5** Matching & scoring | Criteria-aware v1 + breakdown | 🟡 the "32 criteria" + comparison view open |
@@ -142,6 +143,24 @@ downloads the PDF report.
 - [ ] Supplier management: search, edit, **verification workflow** (`unverified → pending → verified`), merge duplicates
 - [ ] Import runs: trigger, monitor, error report
 - [ ] Ops dashboard: counts (open engagements, pending verifications, active requests)
+
+### E12 — Plans & quotas
+
+- [x] **`plan` / `subscription` tables** (2026-08-16) — limits are rows, editable
+      at runtime; seeded in a migration since prod never runs `db:seed`
+- [x] **Daily request quota** — enforced in `createRequestFn` before the insert,
+      counted over a rolling 24h window from `request` rows (no counter column)
+- [x] **Per-plan overrides** — `suppliers_returned` and `model_tier` come from the
+      plan, falling back to the env values when a workspace has no subscription
+- [x] **Manager screen** `/interne/plans` — edit limits with validation and a live
+      cost estimate (requests/day is a cost commitment; a form that hides the money
+      is a footgun), assign plans to workspaces, `updated_by` trail
+- [ ] **Billing provider** (Stripe or equivalent) — plans work without it; the
+      provider columns stay null until it lands
+- [ ] **Free-tier integrity** — signup creates a personal workspace, so one person
+      with several emails gets several free allowances. Rate limits and
+      disposable-domain blocks slow this; only **email verification** fixes it
+- [ ] AI chat as a plan feature — postponed until the chat is exercised
 
 ### E11 — Settings
 

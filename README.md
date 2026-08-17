@@ -49,6 +49,41 @@ Consequences, all first-class rather than afterthoughts:
 - **Dedup / entity resolution** is a core subsystem — a unique index on a
   normalized `name|COUNTRY` key, so a repeat search cannot re-add a known company
 
+### Plans & quotas
+
+Limits live in **`plan` rows, not in code or env** — changing what the Free tier
+gets is an `UPDATE` from `/interne/plans`, live on the next request, no deploy.
+
+| | Free | Pro | Business | Internal |
+|---|---|---|---|---|
+| Requests / day | **1** | 10 | 50 | **0 = unlimited** |
+| Suppliers returned | 5 | 10 | 20 | 10 |
+| Model tier | `cheap` | `best` | `best` | `best` |
+
+`0` means unlimited so the internal plan needs no special case, and an accidental
+`0` reads as "no cap" rather than silently locking every buyer out. A workspace
+with **no** subscription falls back to the env values, so dev works with an empty
+`plan` table.
+
+Quota is enforced in `createRequestFn` — the single choke point every request
+passes through, including the post-login auto-create — **before** the insert, so
+a refusal leaves no half-created dossier and the buyer keeps their typed text. It
+counts `request` rows in a **rolling 24h window** rather than a counter column:
+always accurate, nothing to reconcile, and no "two requests at 23:59" hole that a
+calendar reset leaves. The allowance returns when the *oldest* request in the
+window ages out.
+
+Plan rows are seeded in a **migration**, not the seed script — prod runs
+migrations on every deploy and never runs `db:seed`.
+
+> Staff and demo workspaces are moved to `internal` by that migration. With
+> `SHOW_TEST_LOGIN=true` and public credentials, `buyer@osi.dev` on the free tier
+> would mean one stranger burns the day's allowance and the demo is dead.
+
+**Billing is not wired.** Plans and enforcement work without a payment provider;
+`subscription.current_period_end` and the provider columns stay null until Stripe
+(or equivalent) lands.
+
 ### Roles
 
 **Workspace roles** (buyer companies): `owner` · `admin` · `buyer` · `viewer`.

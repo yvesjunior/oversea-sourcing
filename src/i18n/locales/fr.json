@@ -15,7 +15,8 @@
     "verification": "Vérification fournisseurs",
     "imports": "Imports",
     "finance": "Finance",
-    "soon": "Bientôt disponible"
+    "soon": "Bientôt disponible",
+    "plans": "Forfaits"
   },
   "user": {
     "role": "Administrateur"
@@ -77,7 +78,8 @@
     "seeAll": "Voir tout",
     "visionTitle": "Design axé sur notre vision",
     "tabAll": "Vue globale",
-    "tabMine": "Mes données"
+    "tabMine": "Mes données",
+    "quotaReached": "Vous avez atteint la limite de {{limit}} demande(s) par jour du forfait {{plan}}. Votre saisie est conservée — réessayez à partir du {{when}}."
   },
   "stats": {
     "activeRequests": "Demandes actives",
@@ -363,5 +365,21 @@
     "completed": "Rapport finalisé",
     "noCriteria": "Aucun critère structuré n’a été extrait.",
     "noResults": "Aucun fournisseur n’a été retenu pour cette demande."
+  },
+  "plans": {
+    "title": "Forfaits & abonnements",
+    "subtitle": "Les limites sont modifiables ici — la mise à jour est immédiate, sans redéploiement.",
+    "requestsPerDay": "Demandes / jour",
+    "suppliersReturned": "Fournisseurs retournés",
+    "modelTier": "Modèle IA",
+    "workspacesOn": "{{count}} espace(s) sur ce forfait",
+    "save": "Enregistrer",
+    "costEstimate": "≈ {{cost}} $ / jour par espace · ≈ {{month}} $ / mois",
+    "costUnlimited": "Illimité — aucun plafond de coût",
+    "lastChangedBy": "Modifié par {{name}}",
+    "workspacesTitle": "Espaces de travail",
+    "workspace": "Espace",
+    "usedToday": "Utilisées (24 h)",
+    "plan": "Forfait"
   }
 }

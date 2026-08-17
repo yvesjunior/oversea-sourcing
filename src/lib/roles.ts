@@ -11,6 +11,8 @@ export const PLATFORM_FEATURES = {
   finance: ["owner", "accountant"],
   // Spend analytics is an employee surface — hidden from buyers (2026-08-05).
   analytics: ["owner", "manager", "accountant"],
+  // Plans & subscriptions: limits are edited here, so it is ops, not finance.
+  plans: ["owner", "manager"],
 } as const satisfies Record<string, readonly PlatformRole[]>;
 
 export type PlatformFeature = keyof typeof PLATFORM_FEATURES;

@@ -22,17 +22,19 @@ const DRAFT_KEY = "osi-draft-besoin";
 type HeroUser = { name: string } | null;
 
 export function HeroPrompt({ user }: { user: HeroUser }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const [besoin, setBesoin] = useState("");
   const [files, setFiles] = useState<File[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [quotaError, setQuotaError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const loggedIn = user !== null;
   const prenom = user?.name?.split(" ")[0];
 
   const submitNeed = async (text: string, attachments: File[]) => {
     if (!text.trim() || submitting) return;
+    setQuotaError(null);
     setSubmitting(true);
     try {
       const hasFiles = attachments.length > 0;
@@ -41,7 +43,26 @@ export function HeroPrompt({ user }: { user: HeroUser }) {
       const created = await createRequestFn({
         data: { description: text, attachmentsPending: hasFiles },
       });
-      if (!created) {
+      if (!created.ok) {
+        if (created.reason === "quota_exceeded") {
+          // Keep the typed need on screen: the buyer hit a wall, they did not
+          // make a mistake, and retyping it tomorrow is a punishment.
+          setQuotaError(
+            t("home.quotaReached", {
+              limit: created.limit,
+              plan: created.planName,
+              when: created.resetAt
+                ? new Date(created.resetAt).toLocaleString(i18n.language, {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    day: "numeric",
+                    month: "long",
+                  })
+                : "",
+            }),
+          );
+          return;
+        }
         // Session evaporated — fall back to the auth gate.
         window.localStorage.setItem(DRAFT_KEY, text);
         void navigate({ to: "/login", search: { redirect: "/" } });
@@ -213,6 +234,14 @@ export function HeroPrompt({ user }: { user: HeroUser }) {
           </div>
         </form>
 
+        {quotaError && (
+          <p
+            role="status"
+            className="mt-3 rounded-lg bg-secondary px-3 py-2 text-xs text-foreground"
+          >
+            {quotaError}
+          </p>
+        )}
         {!loggedIn && <p className="mt-3 text-xs text-muted-foreground">{t("auth.gateHint")}</p>}
       </div>
     </section>

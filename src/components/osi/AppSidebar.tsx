@@ -7,6 +7,7 @@ import {
   Inbox,
   LogIn,
   LogOut,
+  CreditCard,
   Settings,
   ShieldCheck,
   Repeat,
@@ -71,6 +72,8 @@ const itemsInterne: {
   },
   { key: "imports", url: "/interne/imports", icone: Import, disabledForRoles: ["manager"] },
   { key: "finance", url: "/interne/finance", icone: Wallet, disabledForRoles: ["manager"] },
+  // Real screen, not a placeholder — so it stays live for managers.
+  { key: "plans", url: "/interne/plans", icone: CreditCard },
 ];
 
 function initialsOf(name: string): string {

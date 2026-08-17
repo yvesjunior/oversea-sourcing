@@ -165,6 +165,20 @@ export type RequestDetail = RequestSummary & {
   aiChatEnabled: boolean;
 };
 
+/** Outcome of a create attempt. A refusal is data, not an exception: the UI has
+ *  to tell the buyer *why* — expired session vs daily allowance used up. */
+export type CreateRequestResult =
+  | { ok: true; id: string }
+  | { ok: false; reason: "unauthenticated" }
+  | {
+      ok: false;
+      reason: "quota_exceeded";
+      limit: number;
+      planName: string;
+      /** ISO timestamp when the allowance returns (rolling window). */
+      resetAt: string | null;
+    };
+
 /** Create a request from the hero prompt: draft → received, criteria parsed
  *  synchronously at intake (no AI stage), then straight to supplier search. */
 export const createRequestFn = createServerFn({ method: "POST" })
@@ -177,7 +191,7 @@ export const createRequestFn = createServerFn({ method: "POST" })
       attachmentsPending: z.boolean().optional(),
     }),
   )
-  .handler(async ({ data }): Promise<{ id: string } | null> => {
+  .handler(async ({ data }): Promise<CreateRequestResult> => {
     const [{ auth }, { getRequest }, { db }, { sql }, schema] = await Promise.all([
       import("@/server/auth"),
       import("@tanstack/react-start/server"),
@@ -187,7 +201,21 @@ export const createRequestFn = createServerFn({ method: "POST" })
     ]);
     const session = await auth.api.getSession({ headers: getRequest().headers });
     const workspaceId = session?.session.activeOrganizationId;
-    if (!session || !workspaceId) return null;
+    if (!session || !workspaceId) return { ok: false, reason: "unauthenticated" };
+
+    // Quota is checked BEFORE the insert: a refused request must not leave a
+    // half-created dossier behind, and the buyer keeps their typed text.
+    const { checkRequestQuota } = await import("@/server/plan");
+    const quota = await checkRequestQuota(workspaceId);
+    if (!quota.allowed) {
+      return {
+        ok: false,
+        reason: "quota_exceeded",
+        limit: quota.limit,
+        planName: quota.planName,
+        resetAt: quota.resetAt?.toISOString() ?? null,
+      };
+    }
 
     const seq = await db.execute(sql`select nextval('request_id_seq')::text as id`);
     const id = String((seq.rows[0] as { id: string }).id);
@@ -244,7 +272,7 @@ export const createRequestFn = createServerFn({ method: "POST" })
       }
     }
 
-    return { id };
+    return { ok: true, id };
   });
 
 /** Start the pipeline for a request whose attachments have finished uploading.
