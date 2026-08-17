@@ -1,6 +1,6 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # Optional infrastructure add-ons — ALL gated behind compose profiles.
-# Nothing in this file starts by default. See doc/INFRA.md §8 for the catalog,
+# Nothing in this file starts by default. See README §6 Infrastructure for the catalog,
 # statuses and enable-triggers.
 #
 # Enable a component alongside the main stack, e.g.:
@@ -97,7 +97,7 @@ services:
     volumes:
       - osi-clamav-data:/var/lib/clamav
 
-  # ── stubs (need config decided at enable time — see doc/INFRA.md) ───────────
+  # ── stubs (need config decided at enable time — see README §4 Architecture) ───────────
   # pgbouncer:   profiles: ["dbtools"]   — add when web replicas exhaust PG connections
   # glitchtip:   profiles: ["errors"]    — error tracking (needs its own PG db + secret)
   # langfuse:    profiles: ["llmops"]    — LLM tracing (needs its own PG db + secret)

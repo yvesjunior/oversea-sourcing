@@ -1,6 +1,8 @@
 import { betterAuth } from "better-auth";
+import { APIError, createAuthMiddleware } from "better-auth/api";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { organization } from "better-auth/plugins";
+import { checkSignupPayload } from "@/lib/signup-guard";
 import { eq } from "drizzle-orm";
 import { db } from "@/database";
 import * as schema from "@/database/schema";
@@ -53,6 +55,34 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
     minPasswordLength: 8,
+  },
+  // Enabled explicitly: better-auth disables rate limiting in development by
+  // default, which is exactly where we would fail to notice it not working.
+  // Storage is in-memory — fine for one container; INFRA §8 flags Redis as the
+  // swap when the web tier is replicated, since per-process counters do not add up.
+  rateLimit: {
+    enabled: true,
+    window: 60,
+    max: 60,
+    customRules: {
+      // Account creation is the expensive one: every signup makes a workspace,
+      // and any account can spend API budget once AI_RESEARCH is on.
+      "/sign-up/email": { window: 3600, max: 3 },
+      "/sign-in/email": { window: 300, max: 10 },
+      "/forget-password": { window: 3600, max: 3 },
+    },
+  },
+  hooks: {
+    before: createAuthMiddleware(async (ctx) => {
+      if (ctx.path !== "/sign-up/email") return;
+      const rejection = checkSignupPayload(ctx.body);
+      if (rejection) {
+        // Logged with the real reason, answered with a generic one — the client
+        // must not learn which check it tripped.
+        console.warn(`signup rejected (${rejection.reason})`);
+        throw new APIError("BAD_REQUEST", { message: rejection.message });
+      }
+    }),
   },
   ...(isGoogleEnabled
     ? {

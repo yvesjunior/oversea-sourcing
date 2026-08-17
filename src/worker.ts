@@ -1,5 +1,5 @@
-// Background worker — separate process, same image (doc/INFRA.md: one image,
-// three processes: web, worker, migrate). Run with `npx tsx src/worker.ts`.
+// Background worker — separate process, same image (README §4 — one image, three
+// processes: web, worker, migrate). Run with `npx tsx src/worker.ts`.
 //
 // One job: the request pipeline (received → searching → validating →
 // report_ready). Criteria are parsed synchronously at intake (createRequestFn)

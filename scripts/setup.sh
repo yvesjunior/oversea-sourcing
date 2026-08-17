@@ -18,7 +18,7 @@ if [ ! -f .env ]; then
   cat > .env <<'EOF'
 # ── OSI local secrets — gitignored. ──────────────────────────────────────────
 # Single gitignored .env — config AND secrets. Template: .env.example
-# Fill values in as the matching component gets enabled (see doc/INFRA.md §8).
+# Fill values in as the matching component gets enabled (see README §6 Infrastructure).
 
 # Add-ons (docker-compose.addons.yml)
 # MINIO_ROOT_PASSWORD=

@@ -1,4 +1,4 @@
-// Background job queue (pg-boss, lives in Postgres — doc/INFRA.md §2).
+// Background job queue (pg-boss, lives in Postgres — README §4 Architecture).
 // Server-only: the web process enqueues here; src/worker.ts consumes.
 
 import { PgBoss } from "pg-boss";

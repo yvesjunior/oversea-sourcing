@@ -2,7 +2,7 @@
 // the platform-global supplier pool, and records what happened.
 //
 // This is the "enriches the database as a byproduct" half of the hybrid
-// supplier strategy (doc/PLAN.md): every request that runs research grows the
+// supplier strategy (README §1): every request that runs research grows the
 // dataset, so repeat searches in the same category get cheaper over time.
 //
 // Deliberately failure-tolerant: research is an enrichment step, not a

@@ -1,5 +1,5 @@
-// Model registry for the AI gateway (doc/INFRA.md §4: "model tiering in the
-// gateway — cheap model for extraction, strong model for research/reports").
+// Model registry for the AI gateway (README §4 — "model tiering in the gateway:
+// cheap model for extraction, strong model for research").
 //
 // One place that knows, per model: which web-search tool it can use, what it
 // costs, and what we measured. Without this the tool variant was a regex guess

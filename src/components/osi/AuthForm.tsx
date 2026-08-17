@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { HONEYPOT_FIELD } from "@/lib/signup-guard";
 import { authClient } from "@/lib/auth-client";
 
 function GoogleIcon() {
@@ -52,6 +53,9 @@ export function AuthForm({
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  // Honeypot: hidden from people, irresistible to form-filling bots. Server
+  // rejects any signup that arrives with it set (src/server/signup-guard.ts).
+  const [honeypot, setHoneypot] = useState("");
   const [pending, setPending] = useState(false);
   const target = safeRedirect(redirect);
 
@@ -68,7 +72,9 @@ export function AuthForm({
               password,
               name,
               locale: i18n.language,
-            });
+              // Passed through to the server hook, not stored on the user.
+              [HONEYPOT_FIELD]: honeypot,
+            } as Parameters<typeof authClient.signUp.email>[0]);
       if (result.error) {
         const code = result.error.code ?? "";
         setError(
@@ -133,6 +139,23 @@ export function AuthForm({
       </div>
 
       <form onSubmit={onSubmit} className="mt-8 space-y-4">
+        {mode === "signup" && (
+          // Not `display:none` — some bots skip hidden inputs. Kept in the
+          // layout but visually removed, off the tab order, and hidden from
+          // assistive tech so no person can reach or read it.
+          <div aria-hidden="true" className="absolute left-[-9999px] h-0 w-0 overflow-hidden">
+            <label htmlFor="company-website">Company website</label>
+            <input
+              id="company-website"
+              name={HONEYPOT_FIELD}
+              type="text"
+              tabIndex={-1}
+              autoComplete="off"
+              value={honeypot}
+              onChange={(e) => setHoneypot(e.target.value)}
+            />
+          </div>
+        )}
         {mode === "signup" && (
           <div className="space-y-1.5">
             <Label htmlFor="name">{t("auth.name")}</Label>

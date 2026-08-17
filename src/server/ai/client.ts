@@ -1,5 +1,5 @@
 // AI gateway core — the ONLY module allowed to construct the Anthropic client
-// (doc/INFRA.md §2: retries, model tiering and cost controls all live here).
+// (README §4 — retries, model tiering and cost controls all live here).
 // Server-only: reach this exclusively through dynamic imports or the worker.
 
 import Anthropic from "@anthropic-ai/sdk";
@@ -12,7 +12,7 @@ export const RESEARCH_MODEL = resolveResearchModel(process.env["ANTHROPIC_MODEL"
 /** Reasoning model id — supplier research (E4), chat. */
 export const MODEL = RESEARCH_MODEL.id;
 
-/** Model tiering (doc/INFRA.md §4): turning prose into rows does not need the
+/** Model tiering (README §4 Architecture): turning prose into rows does not need the
  *  strong model. Override with ANTHROPIC_EXTRACTION_MODEL. */
 export const EXTRACTION_MODEL = process.env["ANTHROPIC_EXTRACTION_MODEL"] ?? "claude-haiku-4-5";
 

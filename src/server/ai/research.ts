@@ -1,13 +1,13 @@
 // Supplier research agent (E4) — "Recherche mondiale", literally.
 //
 // This module is the ONLY place in the codebase that performs a web search
-// (doc/INFRA.md §2: the AI gateway owns every Claude call; principle 4: every
+// (README §4 Architecture the AI gateway owns every Claude call; principle 4: every
 // provider sits behind a thin adapter). Search runs server-side inside the
 // Claude API via the `web_search` tool, so there is no second vendor and no
 // second key — swapping in Tavily/Brave later means rewriting `searchPhase`
 // and nothing else.
 //
-// Two phases on purpose (doc/INFRA.md §4: "model tiering — cheap model for
+// Two phases on purpose (README §4 Architecture "model tiering — cheap model for
 // extraction, strong model for research"):
 //   A. the strong model searches and reads, producing prose findings
 //   B. a cheap model turns those findings into rows
@@ -197,7 +197,7 @@ async function searchPhase(ctx: ResearchContext): Promise<{ findings: string; qu
       }
     }
 
-    // This is platform hotspot #1 (doc/INFRA.md §4) — log enough to tell a
+    // This is platform hotspot #1 (README §4 Architecture) — log enough to tell a
     // rate limit from a truncation from a model that just went quiet, and
     // enough to see the bill move when someone switches tier.
     const cost = estimateCost(RESEARCH_MODEL, {

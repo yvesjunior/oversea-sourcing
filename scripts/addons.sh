@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # Enable/disable optional infrastructure add-ons (docker-compose.addons.yml).
-# All add-ons are profile-gated and OFF by default — see doc/INFRA.md §8.
+# All add-ons are profile-gated and OFF by default — see README §6 Infrastructure
 #
 # Profiles: storage · cache · search · dbtools · monitoring · av
 #

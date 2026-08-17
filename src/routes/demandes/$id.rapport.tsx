@@ -2,7 +2,7 @@
 //
 // PDF export is the browser's own print-to-PDF rather than a server-rendered
 // file: it needs no Chromium in the container, it is always in sync with what
-// the buyer sees, and it works today. doc/INFRA.md still lists Playwright for
+// the buyer sees, and it works today. README §4 Architecture still lists Playwright for
 // when reports must be *stored* as `documents` rows (that table does not exist
 // yet) — this route is the seam that gets replaced then, not thrown away.
 

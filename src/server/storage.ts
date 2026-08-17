@@ -1,5 +1,5 @@
 // File storage adapter (E3) — local-disk implementation behind an S3-shaped
-// seam (doc/INFRA.md §2: "never write to local disk directly" from domain code;
+// seam (README §4 — domain code never writes to local disk directly;
 // swap this module's internals for R2/S3/MinIO without touching callers).
 
 import { createReadStream } from "node:fs";

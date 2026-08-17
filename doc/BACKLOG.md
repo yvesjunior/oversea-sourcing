@@ -1,159 +1,35 @@
-# OSI — MVP1 Technical Backlog
+# OSI — Backlog
 
-> Companion to [PLAN.md](PLAN.md). Data model + epics → tasks. Living document.
+> **What is done, in progress, and still open.** Everything else — what the
+> product is, how a request flows, the data model, architecture, infrastructure
+> and configuration — lives in [the README](../README.md), which is the single
+> reference for the project.
+>
+> Living document. **Updated in the same commit as every prod push.**
 
-## Architecture (decided)
+## Status at a glance
 
-Monolith on the existing TanStack Start app (Nitro server = API host), deployed as
-the standalone Node container we already ship.
+| Epic | Scope | State |
+| --- | --- | --- |
+| **E0** Dev foundations | Postgres, Drizzle, pg-boss, seed | ✅ done |
+| **E1** Auth & users | better-auth, signup, guards, **abuse controls** | 🟡 email verification + 2FA open |
+| **E2** Workspaces & tenancy | Roles, invitations, team UI | 🔴 invitations + team UI not started |
+| **E3** Request core loop | Pipeline, criteria, attachments, dossier | ✅ done |
+| **E4** Supplier data | **Web research**, dedup, directory | 🟡 import pipeline + merge tool open |
+| **E5** Matching & scoring | Criteria-aware v1 + breakdown | 🟡 the "32 criteria" + comparison view open |
+| **E6** Facilitation | Engagements — *the OSI moment* | 🔴 not started (no tables) |
+| **E7** Reports | Printable report + PDF export | 🟡 stored `documents` rows open |
+| **E8** Transactions | Milestones, tracking | 🔴 not started (no tables) |
+| **E9** Notifications | In-app + email | 🔴 not started |
+| **E10** Admin surfaces | Verification, imports, ops queue | 🔴 placeholders only |
+| **E11** Settings | Profile, sourcing rules | 🔴 not started |
 
-| Concern          | Choice                                                                        |
-| ---------------- | ----------------------------------------------------------------------------- |
-| Database         | **PostgreSQL 16** (compose service, named volume)                             |
-| ORM / migrations | **Drizzle** + drizzle-kit                                                     |
-| Background jobs  | **pg-boss** (queue lives in Postgres — no Redis to operate)                   |
-| Auth             | **better-auth** (TS-native, Drizzle adapter) — email/password + sessions      |
-| Validation       | **zod** on every API boundary                                                 |
-| AI               | **Claude API** via the `src/server/ai/` gateway — reserved for **supplier research (E4)**, report drafting (E7) and the flag-gated chat (`AI_CHAT`, default off). The pre-search prompt analysis was removed (2026-08-05): criteria are parsed synchronously at intake (`src/server/parse-criteria.ts`, zero tokens), guided by the hero prompt's info helper |
-| File storage     | Local Docker volume for MVP1, S3-compatible interface from day one            |
-| Email            | SMTP provider (Resend or similar), templates FR/EN                            |
+**MVP1 = E0–E7 + E10.** Definition of done: a real buyer signs up, submits a real
+need, gets a real Top-N (researched + imported suppliers, scored), clicks
+*Engager*, OSI ops sees it in the queue, the buyer sees "connected", and
+downloads the PDF report.
 
-**Tenancy rule:** every buyer-facing query is workspace-scoped. **Exception by design:
-`suppliers` and their satellite tables are platform-global** — the supplier dataset is
-OSI's shared asset, enriched by every request. Requests, engagements, transactions,
-documents are tenant-scoped.
-
----
-
-## 1 · Data model
-
-```mermaid
-erDiagram
-    users ||--o{ memberships : has
-    workspaces ||--o{ memberships : has
-    workspaces ||--o{ requests : owns
-    users ||--o{ requests : creates
-    requests ||--o{ request_criteria : has
-    requests ||--o{ request_messages : chat
-    requests ||--o{ matches : ranked
-    suppliers ||--o{ matches : candidate
-    suppliers ||--o{ supplier_capabilities : has
-    suppliers ||--o{ supplier_certifications : has
-    suppliers ||--o{ supplier_contacts : has
-    matches ||--o| engagements : selected
-    engagements ||--o{ engagement_events : timeline
-    engagements ||--o| transactions : becomes
-    transactions ||--o{ transaction_milestones : tracks
-    workspaces ||--o{ documents : owns
-    requests ||--o{ research_runs : triggers
-```
-
-### Identity & tenancy
-
-| Table                    | Key fields                                                                                            | Notes                                                                                                                                                                                                                                  |
-| ------------------------ | ----------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `users`                  | email (uq), name, locale `fr\|en`, `platform_role` `user\|owner\|manager\|accountant`, email_verified | `platform_role` = OSI **employee** roles (gates the admin backoffice): `owner` (full control) · `manager` (ops: facilitation, supplier verification) · `accountant` (finance: transactions, payments). `user` = regular buyer, default |
-| `workspaces`             | name, slug (uq)                                                                                       | The company account                                                                                                                                                                                                                    |
-| `memberships`            | workspace_id, user_id, role `owner\|admin\|buyer\|viewer`                                             | uq(workspace, user)                                                                                                                                                                                                                    |
-| `invitations`            | workspace_id, email, role, token, invited_by, expires_at, accepted_at                                 |                                                                                                                                                                                                                                        |
-| `sessions` / auth tables |                                                                                                       | Managed by better-auth                                                                                                                                                                                                                 |
-
-**Workspace roles** (buyer companies): `owner` (everything + delete workspace) · `admin`
-(members, settings) · `buyer` (create requests, select suppliers, engagements) · `viewer`
-(read-only).
-
-**Platform roles** (OSI employees, decided 2026-08-04): `owner` (full platform control) ·
-`manager` (ops — facilitation queue, supplier verification, imports) · `accountant`
-(finance — transactions and payment oversight). Stored on `users.platform_role`;
-regular buyers keep the default `user`.
-
-**One dashboard for everyone (decided 2026-08-04):** there is **no separate admin
-backoffice app**. Every user gets the same shell/dashboard; features are added or
-removed based on role. Employee features (facilitation queue, supplier verification,
-imports, finance) appear as extra role-gated navigation sections in the shared
-dashboard. Feature→role mapping lives in `src/lib/roles.ts`:
-facilitation/verification/imports → `owner|manager` · finance → `owner|accountant`.
-
-**Per-user dashboard (decided 2026-08-04):** after login every user lands on _their own_
-dashboard — greeting, stats, "Vos dossiers récents" and activity feed scoped to **them**
-(their requests + their engagements). Workspace-wide visibility follows the role
-(owner/admin see all workspace requests; buyer manages their own; viewer reads all).
-Signup creates a personal workspace, so solo users are fully isolated by construction.
-
-**Data visibility across workspaces (decided 2026-08-04):** buyers see **their own
-workspace only**. Employees see the buyers' data _plus_ their own, except what their
-role forbids: `owner`/`manager` see **all** sourcing dossiers platform-wide;
-`accountant` is **forbidden** from buyers' sourcing dossiers — their cross-workspace
-domain is finance (transactions, E8). Policy centralized in `src/lib/roles.ts`
-(`canSeeAllRequests`).
-
-**Nav gating (2026-08-16):** entries whose feature has no data behind it are
-rendered **disabled** — greyed, `aria-disabled`, and emitted as a `<span>` rather
-than a styled link so they cannot be reached by keyboard or middle-click — instead
-of being hidden or linking to an empty page. Current state: Transactions and
-Documents disabled for everyone (E8 / E3+); Paramètres disabled for `user` and
-`manager` (owner/accountant keep it); the whole Interne section disabled for
-`manager` while those ops surfaces are placeholders. Config: `items` /
-`itemsInterne` in `src/components/osi/AppSidebar.tsx`.
-
-**Employee view pattern (implemented 2026-08-04):** every data surface for
-`owner`/`manager` splits into **"Vue globale"** (all buyers' data, workspace badges) and
-**"Mes données"** (their own) via the shared `EmployeeTabs` component — on the home
-dashboard (stats + dossiers récents move together), `/demandes` (real data both tabs),
-`/fournisseurs`, `/transactions`, `/documents` (showcase/placeholder under Vue globale,
-truthful empty state under Mes données until E4/E8), and `/interne/facilitation`.
-Buyers and `accountant` never see the tabs — own workspace only.
-
-**Public landing / auth gate (decided 2026-08-04):** the default page (`/`) requires
-**no login** — anonymous visitors see the hero prompt and value props and can type their
-need. Clicking **“Lancer l’analyse IA” is the auth gate**: it redirects to login/signup,
-the typed draft (+ attachments intent) is preserved across the redirect, and the request
-is created automatically right after auth. Every other app route (demandes, fournisseurs,
-transactions…) requires login. Logged-in users see the personal dashboard on `/`.
-
-### Requests (demandes)
-
-| Table                 | Key fields                                                                                                                                            | Notes                                                                                                    |
-| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| `requests`            | workspace_id, created_by, title, description_raw, status, locale, launched_at, completed_at                                                           | status: `draft → received → analyzing → searching → validating → report_ready` (+ `closed`, `cancelled`) |
-| `request_criteria`    | request_id, category `material\|flow\|pressure\|certification\|quantity\|lead_time\|other`, label, value, unit, required, source `ai\|user`, position | AI-extracted, user-editable                                                                              |
-| `request_messages`    | request_id, role `user\|assistant`, content                                                                                                           | The per-request AI chat                                                                                  |
-| `files`               | workspace_id, storage_key, filename, mime, size, uploaded_by                                                                                          | Generic file store                                                                                       |
-| `request_attachments` | request_id, file_id                                                                                                                                   |                                                                                                          |
-
-### Suppliers (platform-global)
-
-| Table                     | Key fields                                                                                                                                                                                                           | Notes                     |
-| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------- |
-| `supplier` *(built)*      | name, descriptor, country_code, website, description, **provenance** `imported\|ai_researched\|osi_verified`, **verification_status** `unverified\|pending\|verified\|rejected`, confidence_score, risk_level, source_ref, **dedup_key (uq)**, **discovered_by_request_id** | Provenance is first-class. `legal_name` / `employee_range` and the satellite tables are still unbuilt |
-| `supplier_capabilities`   | supplier_id, category, label, details jsonb                                                                                                                                                                          | What they can make        |
-| `supplier_certifications` | supplier_id, code (ISO9001, CE, ATEX…), valid_until, verified                                                                                                                                                        |                           |
-| `supplier_contacts`       | supplier_id, name, email, phone, role                                                                                                                                                                                | Used by ops for outreach  |
-| `import_runs`             | source, status, stats jsonb, triggered_by                                                                                                                                                                            | Batch import tracking     |
-| `research_run` *(built)*  | request_id, status `running\|succeeded\|failed`, queries jsonb, candidates_found, suppliers_added, error, completed_at                                                                                               | One row per research pass |
-
-### Matching & facilitation
-
-| Table               | Key fields                                                                                                                                                                                              | Notes                                                   |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
-| `matches`           | request_id, supplier_id, rank, compatibility_score, confidence_score, risk_level `low\|medium\|high`, **score_breakdown jsonb**, status `candidate\|presented\|selected\|rejected`                      | uq(request, supplier); breakdown = per-criterion detail |
-| `engagements`       | request_id, match_id, workspace_id, supplier_id, requested_by, status `requested → ops_review → contacting_supplier → supplier_responded → connected` (+ `declined`, `abandoned`), assigned_ops_user_id | **The facilitation moment**                             |
-| `engagement_events` | engagement_id, type, message, actor_user_id                                                                                                                                                             | Timeline shown to buyer & ops                           |
-
-### Execution & misc
-
-| Table                    | Key fields                                                                                                                                                                   | Notes                  |
-| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------- |
-| `transactions`           | workspace_id, engagement_id, reference, supplier_id, amount, currency, incoterm, status, expected_delivery_date                                                              |                        |
-| `transaction_milestones` | transaction_id, type `order_confirmed\|payment\|manufacturing\|inspection\|shipping\|customs\|delivered`, status `pending\|in_progress\|done`, progress %, occurred_at, note | Manual updates in MVP1 |
-| `documents`              | workspace_id, file_id, kind `contract\|certificate\|inspection_report\|customs\|invoice\|report\|other`, request_id?, transaction_id?, supplier_id?                          |                        |
-| `notifications`          | user_id, workspace_id, type, payload jsonb, read_at                                                                                                                          | In-app bell            |
-| `sourcing_rules`         | workspace_id, preferred_regions[], banned_countries[], required_certifications[], max_lead_time_days                                                                         | Applied by the matcher |
-| `audit_log`              | workspace_id?, actor_user_id, action, entity_type, entity_id, meta jsonb                                                                                                     |                        |
-
----
-
-## 2 · Epics → tasks
+## Epics → tasks
 
 ### E0 — Dev foundations
 
@@ -176,7 +52,14 @@ transactions…) requires login. Logged-in users see the personal dashboard on `
       login/signup → auto-create the request and resume the flow (no retyping)
 - [ ] User profile: name, locale (persist language server-side, sync with the existing toggle)
 - [ ] `platform_role` on users; guard helper `requireStaff()`
-- [ ] Rate limiting on auth endpoints
+- [x] **Signup abuse controls** (2026-08-16) — before this, 12 consecutive POSTs
+      to `/api/auth/sign-up/email` from one IP all returned 200, and every account
+      creates a workspace that can spend API budget. Now: per-IP rate limits
+      (3 signups/hour, 10 logins/5 min, 3 password resets/hour), a honeypot field,
+      and rejection of disposable domains and plus-addressing. All rejections
+      return one generic message so a script cannot learn which check it tripped
+      (`src/lib/signup-guard.ts`). **In-memory storage — needs Redis before the
+      web tier is replicated**
 - [x] Quick-login facilitator on /login (Buyer/Manager/Accountant/Owner) — always in dev builds, elsewhere via runtime `SHOW_TEST_LOGIN=true` (on during the test phase; off before real users)
 - [x] Shell session from router context (no stale "Se connecter" after sign-in/out)
 
@@ -275,7 +158,7 @@ transactions…) requires login. Logged-in users see the personal dashboard on `
 
 ---
 
-## 3 · Suggested execution order
+## Suggested execution order
 
 ```
 E0 → E1 → E2         (foundations: ~the "login and persist" milestone)
@@ -289,7 +172,7 @@ E8, E9, E11          (execution & comfort)
 need, gets a real Top 5 (imported + AI-researched suppliers, scored), clicks
 _Engager_, OSI ops sees it in the queue, buyer sees "connected", downloads the PDF report.
 
-## 4 · Open items
+## Open items
 
 - The 32 criteria list (E5 task — needs a product session)
 - External data sources & licensing for imports (E4)
