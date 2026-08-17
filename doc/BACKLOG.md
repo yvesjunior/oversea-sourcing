@@ -62,6 +62,12 @@ and `/documents` render showcase constants and are disabled in the nav.
 - ⚠️ **Research runs inline in the pipeline job**, not on its own `research` queue
   as the architecture requires. It is platform hotspot #1 — move it before load
   arrives, not after
+- ⚠️ **The daily quota races** — check-then-act, reproduced at 2 rows against a
+  limit of 1 when two creates arrive together. Needs an advisory lock on the
+  workspace id around check-and-insert. **The most concrete defect on prod**
+- ⚠️ **Nothing rate-limits request creation or uploads** — only `/api/auth/*` is
+  covered. The plan quota bounds volume per day, not rate, so a Business
+  workspace can fire 50 requests in one second
 - ⚠️ **Rate-limit counters are in-memory** — they do not add up once the web tier
   is replicated; Redis is the swap
 - ⚠️ **`storage.deleteFile` is never called** — deleting a request removes its
@@ -210,10 +216,13 @@ and `/documents` render showcase constants and are disabled in the nav.
 - [ ] **Free-tier integrity** — signup creates a personal workspace, so one person
       with several emails gets several free allowances. Rate limits and
       disposable-domain blocks slow this; only **email verification** fixes it
-- [ ] **Google sign-in** — fully wired in code; needs only `GOOGLE_CLIENT_ID` /
-      `GOOGLE_CLIENT_SECRET` and a Google Cloud OAuth client. Note the email
-      signup guards (honeypot, disposable domains, plus-addressing) do **not**
-      apply to the social route, and account linking is on better-auth's default
+- [x] **Google sign-in — live on prod** (2026-08-17), verified by a real signup
+      that arrived with `email_verified = true`, a provisioned workspace and the
+      Free plan. **Production only**: the credentials are deliberately absent in
+      dev, where the button would fail with `redirect_uri_mismatch`. The email
+      signup guards do **not** apply to the social route, and account linking is
+      left on better-auth's default (an email/password user clicking Google with
+      the same address will likely be refused rather than linked — undecided)
 - [ ] AI chat as a plan feature — postponed until the chat is exercised
 
 ### E11 — Settings

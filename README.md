@@ -90,6 +90,41 @@ migrations on every deploy and never runs `db:seed`.
 `subscription.current_period_end` and the provider columns stay null until Stripe
 (or equivalent) lands.
 
+### Sign-in
+
+Email/password plus **Google — production only** (decided 2026-08-17). The code
+is always present; the button appears when `GOOGLE_CLIENT_ID` and
+`GOOGLE_CLIENT_SECRET` are both set, so dev simply leaves them out. Putting them
+in dev would render a button that fails with `redirect_uri_mismatch` unless
+`localhost` were also registered, and a broken affordance is worse than none.
+
+The redirect URI Google must have registered is derived from `BETTER_AUTH_URL`:
+
+```
+https://osi-solutions.com/api/auth/callback/google
+```
+
+Exact string — scheme, host, path, no trailing slash. A mismatch is the single
+most common failure. Scopes are `email profile openid` (non-sensitive, so no
+Google review), and the consent screen must be **Published**, not left in
+*Testing*, or only listed test users can sign in.
+
+Google accounts arrive with `email_verified = true`; email/password accounts do
+not, because email verification is not built. Note the signup guards (honeypot,
+disposable domains, plus-addressing) only run on `/sign-up/email` — the social
+route bypasses them, which is defensible since Google has verified the address.
+
+**Platform roles are granted in the database, never at signup.** `platformRole`
+is declared `input: false`, so a signup payload cannot request it — otherwise
+anyone could register as platform owner:
+
+```sql
+UPDATE "user" SET platform_role = 'owner' WHERE email = '…';
+```
+
+The change takes effect on the next sign-in, since the role is read from the
+session established at login.
+
 ### Roles
 
 **Workspace roles** (buyer companies): `owner` · `admin` · `buyer` · `viewer`.
@@ -386,6 +421,14 @@ unless asked: `./scripts/addons.sh [--remote] <profile>`.
 - ✅ Nightly `pg_dump`; restore drills via `scripts/restore.sh`
 - ⚠️ Rate-limit storage is **in-memory** — per-process counters do not add up once
   the web tier is replicated; Redis is the swap
+- ⚠️ **Only `/api/auth/*` is rate limited.** TanStack server functions
+  (`/_serverFn/*`) and `/api/upload` have no limit of their own: the plan quota
+  bounds how many requests a workspace may make per day, not how fast, so a
+  Business workspace can fire all 50 at once
+- ⚠️ **The daily quota races.** It is check-then-act: two requests arriving in the
+  same instant both read the count, both pass, and both insert — reproduced at
+  2 rows against a limit of 1. Fix is an advisory lock on the workspace id around
+  check-and-insert
 - ⬜ Email verification (needs a provider), 2FA, error tracking
 
 ---
