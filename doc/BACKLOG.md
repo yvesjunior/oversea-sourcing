@@ -297,6 +297,27 @@ and `/documents` render showcase constants and are disabled in the nav.
       left on better-auth's default (an email/password user clicking Google with
       the same address will likely be refused rather than linked — undecided)
 - [ ] AI chat as a plan feature — postponed until the chat is exercised
+- [ ] **Subscription flow for buyers** (requested 2026-08-20) — a "Plan de
+      subscription" surface where a workspace can see its current plan and
+      upgrade/downgrade. Today plans are assigned only by staff from
+      `/interne/plans`; buyers have no self-service view. Depends on the billing
+      provider for paid upgrades, but a read-only "your plan & usage" panel can
+      ship before payments
+- [ ] **Enterprise plan** (requested 2026-08-20) — a tier above Business,
+      possibly with a managerial view: several members in one workspace, an
+      owner/admin who sees the team's requests and usage. First plan whose value
+      is *seats + oversight* rather than just higher limits — depends on E2
+      (invitations + team UI), which is why it doesn't exist yet
+- [ ] **Per-user quota on the Free plan** (requested 2026-08-20) — today the
+      quota counts `request` rows per *workspace*. That is the right unit for
+      paid team plans, but on Free it should bind per *user* so that limits
+      follow the person. Mostly equivalent today (signup = personal workspace,
+      one member) but it closes the gap once invitations (E2) let several users
+      share a workspace — and it is the right base for the Enterprise
+      distinction above: Free limits the user, Enterprise pools the team.
+      Implementation seam: `createRequestFn` already knows the caller; count on
+      `request.created_by` instead of `organization_id` when the plan says so
+      (add a `quota_scope` column to `plan`: `workspace` | `user`)
 
 ### E11 — Settings
 
