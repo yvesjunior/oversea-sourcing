@@ -30,6 +30,66 @@ need, gets a real Top-N (researched + imported suppliers, scored), clicks
 *Engager*, OSI ops sees it in the queue, the buyer sees "connected", and
 downloads the PDF report.
 
+## Resume here (last session: 2026-08-17)
+
+**Production is live and healthy at [osi-solutions.com](https://osi-solutions.com), commit `db41b78`.**
+Dev and prod are in sync; nothing is uncommitted except three unrelated PNG
+deletions at the repo root.
+
+### Start working
+
+```sh
+./scripts/dev.sh -d                 # dev stack → http://localhost:3010
+./scripts/db.sh -c "select …"       # dev database (add `prod` for the VM)
+./scripts/logs.sh dev worker        # watch the research pipeline
+./scripts/deploy.sh                 # ship main to the VM
+```
+
+Quality gates are `npx tsc --noEmit` and `npx eslint src/` — both clean as of
+this commit. There is no test suite (see debts).
+
+### Things that will bite you
+
+- **`.env` is gitignored on every host.** A fresh clone needs
+  `cp .env.example .env` plus a real `ANTHROPIC_API_KEY`. Prod's copy is only on
+  the VM — backups there are `~/osi-env-backup-*`.
+- **`POSTGRES_PASSWORD` only applies when the volume is first initialised.**
+  Changing it later does not change the database's password; it just breaks
+  `DATABASE_URL`, and drizzle-kit reports that as a bare `exit 1` with no message.
+  This cost a failed deploy on 2026-08-16.
+- **`BETTER_AUTH_URL` must be the public origin in prod**, or every login fails
+  with `INVALID_ORIGIN`.
+- **Prod containers pin IPv4 DNS.** Do not remove `--dns-result-order=ipv4first`
+  unless the VM gains a working IPv6 route.
+- **Dev has no Google credentials on purpose** — the button would render and then
+  fail. Google is prod-only.
+
+### Live data (do not assume it is disposable)
+
+Production has **real accounts**: `yves@overseaimportexports.com` (platform
+`owner`, signed up via Google, on the Free plan) and `renaud819@gmail.com`
+(buyer, Free). The four `@osi.dev` demo accounts are on the `internal` plan.
+`SHOW_TEST_LOGIN=true` is still on, so those demo credentials are publicly
+usable — **turn it off before real launch**.
+
+### Unverified at the end of the session
+
+Google sign-in was fixed (IPv4 pin) and the token endpoint now answers in 155 ms
+from inside the container, but **a human has not yet completed a Google login
+since the fix**. First thing worth confirming.
+
+### What shipped on 2026-08-16/17
+
+| Commit | What |
+| ------ | ---- |
+| `b53f7fc` | E4 web research, attachment reading, E5 criteria-aware matching, E7 report + PDF, single `.env` |
+| `ae1b2c2` | Real analytics aggregates, role-aware nav gating |
+| `e25fcbb` | Signup abuse controls; PLAN.md + INFRA.md absorbed into the README |
+| `6d7263d` | Plans, subscriptions, daily quotas, manager screen |
+| `b69a671` | Fix: new workspaces had no subscription → unlimited quota |
+| `db41b78` | Fix: IPv6 black hole broke Google sign-in |
+
+
 ## Where we actually are (2026-08-17)
 
 **The core loop works end to end on production.** A buyer describes a need, the
@@ -84,8 +144,9 @@ and `/documents` render showcase constants and are disabled in the nav.
 - ⚠️ **Supplier verification has no state machine**, unlike requests: any code can
   set any status
 - ⚠️ `.docx` / `.xlsx` attachments are accepted at upload but cannot be read
-- ⚠️ `/transactions` and `/analyses`' showcase constants still live in
-  `src/data/osi.ts` (analytics is now DB-backed; transactions is not)
+- ⚠️ `/transactions` still renders showcase constants from `src/data/osi.ts`
+  (`etapesTransaction`). Analytics is DB-backed now, so `kpisAnalyses`,
+  `repartition`, `categories` and `tendance` in that file are **dead code**
 
 
 ## Epics → tasks
