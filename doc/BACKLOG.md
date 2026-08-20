@@ -66,17 +66,22 @@ this commit. There is no test suite (see debts).
 
 ### Live data (do not assume it is disposable)
 
-Production has **real accounts**: `yves@overseaimportexports.com` (platform
-`owner`, signed up via Google, on the Free plan) and `renaud819@gmail.com`
-(buyer, Free). The four `@osi.dev` demo accounts are on the `internal` plan.
-`SHOW_TEST_LOGIN=true` is still on, so those demo credentials are publicly
-usable — **turn it off before real launch**.
+Production has **real accounts** — six as of 2026-08-20:
+`yves@overseaimportexports.com` (platform `owner`, via Google, Free plan),
+`renaud819@gmail.com`, `yves1bat@gmail.com`, `alexhockeydureau14@gmail.com`,
+`joey.saulnier@gmail.com` and `ericlab6@gmail.com` (buyers, Free). The four
+`@osi.dev` demo accounts are on the `internal` plan.
+`SHOW_TEST_LOGIN` was **turned off on prod on 2026-08-20** (VM `.env`, web
+container recreated) — the quick-login panel is no longer public. The demo
+accounts still exist and their passwords are unchanged, so they remain
+sign-in-able by anyone who knows the credentials; rotate or disable them if
+that matters.
 
 ### Unverified at the end of the session
 
-Google sign-in was fixed (IPv4 pin) and the token endpoint now answers in 155 ms
-from inside the container, but **a human has not yet completed a Google login
-since the fix**. First thing worth confirming.
+~~Google sign-in was fixed (IPv4 pin) but no human had completed a login since.~~
+**Confirmed 2026-08-20:** five real Google signups landed on 2026-08-17/19, all
+with `email_verified = true`, a provisioned workspace and the Free plan.
 
 ### What shipped on 2026-08-16/17
 
