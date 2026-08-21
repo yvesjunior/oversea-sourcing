@@ -297,6 +297,13 @@ and `/documents` render showcase constants and are disabled in the nav.
       left on better-auth's default (an email/password user clicking Google with
       the same address will likely be refused rather than linked — undecided)
 - [ ] AI chat as a plan feature — postponed until the chat is exercised
+- [ ] **Staff workspaces land on Free** — the user-create hook assigns Free to
+      every new workspace, and granting `platform_role` later (SQL) does not
+      touch the plan, so a staff member's personal workspace stays quota-bound.
+      Bitten 2026-08-20: the platform owner's own workspace was on Free (1/day)
+      until moved to `internal` by hand. Either auto-move workspaces to
+      `internal` when a platform role is granted, or exempt employees in
+      `checkRequestQuota`
 - [ ] **Subscription flow for buyers** (requested 2026-08-20) — a "Plan de
       subscription" surface where a workspace can see its current plan and
       upgrade/downgrade. Today plans are assigned only by staff from
