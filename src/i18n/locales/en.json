@@ -79,6 +79,7 @@
     "visionTitle": "Design driven by our vision",
     "tabAll": "Global view",
     "tabMine": "My data",
+    "quotaReachedTitle": "Daily limit reached",
     "quotaReached": "You have reached the {{plan}} plan limit of {{limit}} request(s) per day. Your text is kept — try again from {{when}}."
   },
   "stats": {

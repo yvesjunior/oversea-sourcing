@@ -273,7 +273,10 @@ and `/documents` render showcase constants and are disabled in the nav.
 - [x] **`plan` / `subscription` tables** (2026-08-16) — limits are rows, editable
       at runtime; seeded in a migration since prod never runs `db:seed`
 - [x] **Daily request quota** — enforced in `createRequestFn` before the insert,
-      counted over a rolling 24h window from `request` rows (no counter column)
+      counted over a rolling 24h window from `request` rows (no counter column).
+      The refusal is surfaced as a prominent warning alert on the hero prompt
+      (amber border, icon, title — was a quiet grey line; flagged too subtle
+      2026-08-20), typed text still preserved
 - [x] **Per-plan overrides** — `suppliers_returned` and `model_tier` come from the
       plan, falling back to the env values when a workspace has no subscription
 - [x] **Manager screen** `/interne/plans` — edit limits with validation and a live

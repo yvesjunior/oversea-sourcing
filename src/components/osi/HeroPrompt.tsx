@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { Info, Loader2, Mic, Paperclip, Sparkles, X } from "lucide-react";
+import { Info, Loader2, Mic, Paperclip, Sparkles, TriangleAlert, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import globe from "@/assets/globe.jpg";
 import { Button } from "@/components/ui/button";
@@ -235,12 +235,16 @@ export function HeroPrompt({ user }: { user: HeroUser }) {
         </form>
 
         {quotaError && (
-          <p
-            role="status"
-            className="mt-3 rounded-lg bg-secondary px-3 py-2 text-xs text-foreground"
+          <div
+            role="alert"
+            className="mt-3 flex items-start gap-3 rounded-lg border-2 border-warning bg-warning/10 px-4 py-3 shadow-md animate-in fade-in slide-in-from-top-2 duration-300"
           >
-            {quotaError}
-          </p>
+            <TriangleAlert className="mt-0.5 size-5 shrink-0 animate-pulse text-warning" />
+            <div>
+              <p className="text-sm font-semibold text-foreground">{t("home.quotaReachedTitle")}</p>
+              <p className="mt-0.5 text-sm text-muted-foreground">{quotaError}</p>
+            </div>
+          </div>
         )}
         {!loggedIn && <p className="mt-3 text-xs text-muted-foreground">{t("auth.gateHint")}</p>}
       </div>

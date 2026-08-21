@@ -79,6 +79,7 @@
     "visionTitle": "Design axé sur notre vision",
     "tabAll": "Vue globale",
     "tabMine": "Mes données",
+    "quotaReachedTitle": "Limite quotidienne atteinte",
     "quotaReached": "Vous avez atteint la limite de {{limit}} demande(s) par jour du forfait {{plan}}. Votre saisie est conservée — réessayez à partir du {{when}}."
   },
   "stats": {
