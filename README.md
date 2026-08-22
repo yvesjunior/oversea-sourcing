@@ -55,6 +55,42 @@ Consequences, all first-class rather than afterthoughts:
 - **Dedup / entity resolution** is a core subsystem — a unique index on a
   normalized `name|COUNTRY` key, so a repeat search cannot re-add a known company
 
+#### Data sources & sourcing preferences
+
+> **Status: PROPOSAL — awaiting validation (2026-08-22).** Extends the hybrid
+> strategy above; gives the long-planned `sourcing_rules` table its concrete
+> contents.
+
+**Data sources are a platform-level catalogue, curated by the platform
+owner.** Each source is a row (`data_source`): a type — `global_web` (the AI
+web research that runs today), `country_registry` (a national trade-registry
+database or API), `import` (B2B directory / customs data files) — an optional
+`country_code` (null = worldwide), and an enabled flag. The platform owner
+turns sources on and off from an internal screen (`/interne/sources`, E10
+sibling); a disabled source is never consulted for anyone. Suppliers keep a
+`source_ref` to the source that found them — provenance already exists, this
+makes it precise.
+
+**Each account chooses how to source, in Settings.** A workspace's sourcing
+preferences (`sourcing_rules`, one row per workspace) say:
+
+- **Which sources to use** — a subset of the platform-enabled catalogue
+  (default: all of them). A buyer who only trusts registry data can switch the
+  open web off for their own searches; this never removes anything from the
+  shared pool.
+- **Supplier country origin** — where suppliers may come from:
+  - `global` — all countries (default, today's behavior)
+  - a **country list** — e.g. "China, Vietnam, India" for a buyer with a
+    regional strategy, or a single country for **local sourcing**
+
+**Who consumes the preference:** the research agent scopes its web queries and
+registry lookups to the preferred countries; the matcher excludes pool
+suppliers whose `country_code` falls outside the preference (an excluded
+supplier is filtered, not down-scored — a hard preference is a filter). The
+preference applies at *request time* from the requesting workspace's settings;
+the shared pool itself stays global — preferences shape what each tenant
+*sees*, never what the platform *stores*.
+
 ### Plans & quotas
 
 Limits live in **`plan` rows, not in code or env** — changing what the Free tier
@@ -315,6 +351,10 @@ Every account — individual and enterprise — gets a **Paramètres** surface w
   lands (the upgrade CTA is "Contactez-nous" for now); becomes self-service
   with Stripe. This is the buyer-facing counterpart of the staff screen
   `/interne/plans` — same data, no editing.
+- **Préférences de sourcing** — which data sources this workspace's searches
+  use and where suppliers may come from (global / country list / local) — see
+  *Data sources & sourcing preferences* above. Editable by `owner`/`admin`;
+  applied to every request the workspace launches.
 
 The panel is scoped to the **active workspace**: switch workspace, see that
 workspace's plan. Visible to every member; plan *changes* stay owner-only

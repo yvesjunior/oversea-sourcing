@@ -242,6 +242,12 @@ and `/documents` render showcase constants and are disabled in the nav.
 - [x] Dedup / entity resolution v1 — normalized `name|COUNTRY` key on `supplier.dedup_key` with a **unique index**, so a repeat search cannot re-add a known company (`src/lib/supplier-key.ts`). **Merge tool in admin still pending**
 - [x] Supplier directory UI wiring (list) — real data with match counts, plus a link back to the request whose research found each company (workspace-gated). Detail page + filters still pending
 - [ ] Country risk reference table (seed data)
+- [ ] **`data_source` catalogue** (proposal 2026-08-22, README → data sources &
+      sourcing preferences) — platform-curated source rows (`global_web` ·
+      `country_registry` · `import`, optional country, enabled flag) +
+      `/interne/sources` admin screen (platform owner). Research agent and
+      import pipeline consult only enabled sources; `supplier.source_ref`
+      points at the source that found each company
 
 ### E5 — Matching & scoring
 
@@ -360,7 +366,11 @@ and `/documents` render showcase constants and are disabled in the nav.
 - [ ] **Utilisateurs view** (enterprise, owner/admin-gated) — members + roles,
       invite/create, change rights, remove, pending invitations (README →
       account model UC-10; the surface for the E2 flows)
-- [ ] Sourcing rules UI → consumed by matcher (E5)
+- [ ] **Sourcing preferences UI** (`sourcing_rules`, proposal 2026-08-22) —
+      per-workspace: which platform data sources to use (subset of the enabled
+      catalogue) and supplier country origin (global / country list / local).
+      Editable by workspace owner/admin; consumed by the research agent (scopes
+      queries) and the matcher (hard filter, not a down-score) — E4/E5
 - [ ] Notification preferences
 
 ### Cross-cutting (throughout)
