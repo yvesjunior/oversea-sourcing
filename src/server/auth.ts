@@ -3,6 +3,7 @@ import { APIError, createAuthMiddleware } from "better-auth/api";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { organization } from "better-auth/plugins";
 import { checkSignupPayload } from "@/lib/signup-guard";
+import { secondaryStorage } from "@/server/kv";
 import { eq } from "drizzle-orm";
 import { db } from "@/database";
 import * as schema from "@/database/schema";
@@ -56,12 +57,16 @@ export const auth = betterAuth({
     enabled: true,
     minPasswordLength: 8,
   },
+  // With REDIS_URL set (the `cache` addon), counters live in Redis and add up
+  // across web replicas; sessions stay in Postgres regardless — Redis is
+  // disposable cache here, never state (fail-open wrappers in server/kv.ts).
+  ...(secondaryStorage ? { secondaryStorage, session: { storeSessionInDatabase: true } } : {}),
   // Enabled explicitly: better-auth disables rate limiting in development by
   // default, which is exactly where we would fail to notice it not working.
-  // Storage is in-memory — fine for one container; INFRA §8 flags Redis as the
-  // swap when the web tier is replicated, since per-process counters do not add up.
+  // Without REDIS_URL storage is in-memory — fine for exactly one web container.
   rateLimit: {
     enabled: true,
+    ...(secondaryStorage ? { storage: "secondary-storage" as const } : {}),
     window: 60,
     max: 60,
     customRules: {

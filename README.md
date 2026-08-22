@@ -779,6 +779,7 @@ defaults from `docker-compose.dev.yml`, so a fresh clone needs only
 | `ANTHROPIC_MODEL`    | `cheap`    | Tier (`cheap`/`balanced`/`best`) or a raw model id — registry in `ai/models.ts`        |
 | `SUPPLIERS_RETURNED` | `5`        | Suppliers shown per dossier. **Search count and candidate caps derive from it**       |
 | `SHOW_TEST_LOGIN`    | `true`     | One-click demo login on `/login`. **Set false before real users** — creds are public  |
+| `REDIS_URL`          | *(unset)*  | Auth rate-limit counters in Redis (`cache` addon: `redis://redis:6379`) — shared across web replicas; unset = in-memory. **Fail-open**: a dead Redis degrades to unlimited, never to broken logins |
 
 Measured 2026-08-16 on identical requests: `cheap` (haiku-4-5, 3 searches) ≈
 **$0.06** · `best` (opus-5, 6 searches) ≈ **$0.20** · `balanced` (sonnet-5, 6) ≈
@@ -941,8 +942,11 @@ unless asked: `./scripts/addons.sh [--remote] <profile>`.
   ([`src/lib/signup-guard.ts`](src/lib/signup-guard.ts)). Real client IP resolved
   from `cf-connecting-ip` behind the tunnel
 - ✅ Nightly `pg_dump`; restore drills via `scripts/restore.sh`
-- ⚠️ Rate-limit storage is **in-memory** — per-process counters do not add up once
-  the web tier is replicated; Redis is the swap
+- ✅ **Rate-limit storage is Redis-ready** (2026-08-22) — set `REDIS_URL` and
+  enable the `cache` addon and better-auth's counters are shared across
+  replicas (`src/server/kv.ts`, fail-open; sessions stay in Postgres). Unset,
+  it falls back to in-memory — fine for exactly one web container, which is
+  what prod runs today
 - ⚠️ **Only `/api/auth/*` is rate limited.** TanStack server functions
   (`/_serverFn/*`) and `/api/upload` have no limit of their own: the plan quota
   bounds how many requests a workspace may make per day, not how fast, so a

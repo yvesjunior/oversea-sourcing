@@ -171,8 +171,11 @@ and `/documents` render showcase constants and are disabled in the nav.
 - ⚠️ **Nothing rate-limits request creation or uploads** — only `/api/auth/*` is
   covered. The plan quota bounds volume per day, not rate, so a Business
   workspace can fire 50 requests in one second
-- ⚠️ **Rate-limit counters are in-memory** — they do not add up once the web tier
-  is replicated; Redis is the swap
+- ✅ **Fixed 2026-08-22: rate-limit counters are Redis-ready** — `REDIS_URL` +
+  the `cache` addon put better-auth's counters in Redis (fail-open wrappers in
+  `src/server/kv.ts`; sessions pinned to Postgres). Verified in dev: 429 after
+  the limit with the counter key in Redis; Redis killed mid-run → 401s, not
+  500s. Not yet enabled on prod (single web container doesn't need it)
 - ⚠️ **`storage.deleteFile` is never called** — deleting a request removes its
   `file` rows but leaves the bytes on the uploads volume
 - ⚠️ **No test suite at all** — no test script, no test files. Every check in this
