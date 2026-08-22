@@ -207,9 +207,9 @@ and `/documents` render showcase constants and are disabled in the nav.
 
 > The SaaS account model (Individual vs Enterprise, invitations, rights,
 > managerial view) is specified in the README under **"Account model —
-> Individual & Enterprise (SaaS)"** — status: proposal awaiting validation
-> (2026-08-22). Once validated, its use cases refine the tasks below and the
-> Enterprise items in E12.
+> Individual & Enterprise (SaaS)"** — **validated 2026-08-22**; its use cases
+> and decisions are the specification for the tasks below and the Enterprise
+> items in E12 (only Q4, enterprise pricing, remains open).
 
 - [ ] Workspace CRUD (create at signup, rename)
 - [ ] Memberships + role checks: `requireRole(workspace, 'buyer')` helpers
@@ -242,7 +242,12 @@ and `/documents` render showcase constants and are disabled in the nav.
 - [x] Dedup / entity resolution v1 — normalized `name|COUNTRY` key on `supplier.dedup_key` with a **unique index**, so a repeat search cannot re-add a known company (`src/lib/supplier-key.ts`). **Merge tool in admin still pending**
 - [x] Supplier directory UI wiring (list) — real data with match counts, plus a link back to the request whose research found each company (workspace-gated). Detail page + filters still pending
 - [ ] Country risk reference table (seed data)
-- [ ] **`data_source` catalogue** (proposal 2026-08-22, README → data sources &
+- [ ] **Supplier cache — coverage check before research** (validated
+      2026-08-22, README → supplier cache) — score the pool against the request
+      first; pool-only / top-up / full-research paths, `research_run.fingerprint`,
+      `supplier.last_researched_at` (90-day freshness), report says which path
+      ran, pool-only costs the same quota unit
+- [ ] **`data_source` catalogue** (validated 2026-08-22, README → data sources &
       sourcing preferences) — platform-curated source rows (`global_web` ·
       `country_registry` · `import`, optional country, enabled flag) +
       `/interne/sources` admin screen (platform owner). Research agent and
@@ -259,6 +264,10 @@ and `/documents` render showcase constants and are disabled in the nav.
 - [ ] Risk level: country risk + data flags (v1 heuristic)
 - [x] Top-5 persistence in `match` + ranking; "N fournisseurs analysés" is real (matches.created event)
 - [ ] Comparison view wiring ("Comparer" side-by-side)
+- [ ] **Band + tier ordering** (validated 2026-08-22, README → visibility
+      tiers) — 5-point score bands; within a band Recommandé > Vérifié > none;
+      Recommandé adds zero score points (Vérifié keeps its +12); band and tier
+      recorded in `score_breakdown`; one-line disclosure in the report
 
 ### E6 — Facilitation (engagements) · the OSI moment
 
@@ -294,6 +303,13 @@ and `/documents` render showcase constants and are disabled in the nav.
 - [ ] Supplier management: search, edit, **verification workflow** (`unverified → pending → verified`), merge duplicates
 - [ ] Import runs: trigger, monitor, error report
 - [ ] Ops dashboard: counts (open engagements, pending verifications, active requests)
+- [ ] **`supplier_partner` table + `/interne/partenaires`** (validated
+      2026-08-22, README → visibility tiers) — grant/renew/suspend Recommandé
+      (`paid` or `granted`, time-boxed, `granted_by` trail); requires Vérifié;
+      read-time expiry. **The seam for the future supplier-side space** —
+      `claimed_by_user_id`, supplier logins and partner dashboards attach here
+- [ ] Supplier badges in dossier + report UI — none / ✓ Vérifié / ★ Recommandé
+      (absence of a badge stays neutral — no "unverified" mention)
 
 ### E12 — Plans & quotas
 
@@ -366,7 +382,7 @@ and `/documents` render showcase constants and are disabled in the nav.
 - [ ] **Utilisateurs view** (enterprise, owner/admin-gated) — members + roles,
       invite/create, change rights, remove, pending invitations (README →
       account model UC-10; the surface for the E2 flows)
-- [ ] **Sourcing preferences UI** (`sourcing_rules`, proposal 2026-08-22) —
+- [ ] **Sourcing preferences UI** (`sourcing_rules`, validated 2026-08-22) —
       per-workspace: which platform data sources to use (subset of the enabled
       catalogue) and supplier country origin (global / country list / local).
       Editable by workspace owner/admin; consumed by the research agent (scopes

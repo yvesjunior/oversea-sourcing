@@ -57,7 +57,7 @@ Consequences, all first-class rather than afterthoughts:
 
 #### Data sources & sourcing preferences
 
-> **Status: PROPOSAL — awaiting validation (2026-08-22).** Extends the hybrid
+> **Status: VALIDATED 2026-08-22 — to implement.** Extends the hybrid
 > strategy above; gives the long-planned `sourcing_rules` table its concrete
 > contents.
 
@@ -90,6 +90,87 @@ supplier is filtered, not down-scored — a hard preference is a filter). The
 preference applies at *request time* from the requesting workspace's settings;
 the shared pool itself stays global — preferences shape what each tenant
 *sees*, never what the platform *stores*.
+
+#### Supplier cache — research reuse
+
+> **Status: VALIDATED 2026-08-22 — to implement.** Formalizes "the DB is the
+> cache": research becomes a fallback, not a reflex.
+
+When a request enters `searching`, the pipeline first scores the **existing
+pool** against the request's criteria (within the workspace's country scope)
+and picks one of three paths:
+
+| Path | Condition | What runs |
+|---|---|---|
+| **Pool-only** | ≥ N fresh candidates above a score threshold | No AI research — matched from the pool, cost ≈ $0 |
+| **Top-up** | Coverage thin or stale | Reduced research (1–2 searches) targeting the gaps |
+| **Full research** | Poor coverage | Today's behavior |
+
+N = the plan's `suppliers_returned` × 2, so ranking keeps choices.
+
+- **Similarity fingerprint** — each `research_run` stores a normalized
+  fingerprint (product category + key criteria + country scope). A new request
+  matching a recent successful run's fingerprint is strong evidence the pool is
+  warm, however the need was worded.
+- **Freshness** — `supplier.last_researched_at`, touched whenever research
+  re-encounters the company (a dedup hit proves it still exists). Entries older
+  than **90 days** don't count toward coverage; they still match, but a top-up
+  refreshes the category.
+- **Honesty in the report** — the methodology section states which path ran:
+  "matched from OSI's pool" vs "web research conducted on {date}". A pool
+  answer is a feature, not a secret. Events: `research.skipped_cache`,
+  `research.topped_up`.
+- **Quota** — a pool-only request costs the same quota unit (decided): the
+  buyer pays for the result, not the method; the saving is platform margin.
+
+#### Visibility tiers & ranking — Vérifié / Recommandé
+
+> **Status: VALIDATED 2026-08-22 — to implement.** The commercial tier, and
+> the ground floor of the future supplier-side space.
+
+Three buyer-facing tiers on top of `verification_status`:
+
+| Tier | Badge | Granted by | Meaning |
+|---|---|---|---|
+| *(none)* | **nothing** — no badge, no "unverified" mention | default | In the pool, matched normally; absence of a badge is neutral |
+| **Vérifié** | ✓ Vérifié | OSI staff (E10 verification workflow) | OSI checked the company exists and is what it claims |
+| **Recommandé** | ★ Recommandé | **platform owner** — paid *or* discretionary (both allowed, case by case) | A partner OSI puts forward — the commercial tier |
+
+**Recommandé is a partnership, not a verification status** — its own satellite
+table, deliberately, because this is where the future supplier-side space
+attaches (claimed profiles, supplier logins, partner dashboards — a
+`claimed_by_user_id` lands here later, not in `supplier`):
+
+```
+supplier_partner
+  supplier_id   (uq → supplier)
+  status        active | expired | suspended
+  source        paid | granted
+  granted_by    → user (platform owner)
+  starts_at / ends_at        -- time-boxed, renewable
+  notes
+```
+
+Rules (all decided):
+
+- **Recommandé requires Vérifié.** OSI cannot put its name behind an unchecked
+  company — payment is the trigger, verification is the gate.
+- **Expiry is read-time** — `ends_at` passes and the tier silently drops to
+  Vérifié; no cron.
+- **Ranking: relevance first, tier breaks ties.** "Equal ground" = same
+  **5-point band** of compatibility score. Ordering: band (desc) → tier within
+  the band (Recommandé > Vérifié > none) → exact score → deterministic
+  tiebreak. A recommended supplier that matches poorly never outranks a nobody
+  that matches well.
+- **Recommandé adds zero score points.** Vérifié keeps its existing +12 (real
+  evidence); paid visibility must not masquerade as computed compatibility.
+  `score_breakdown` records band and tier, so every ranking stays explainable.
+- **Disclosure** — the report methodology carries one line: *"Les partenaires
+  Recommandés sont mis en avant à pertinence égale."* The badge plus this line
+  keeps the ranking story honest (and aligns with P2B-style transparency rules
+  if Recommandé is ever sold in the EU).
+- Owner surface: **`/interne/partenaires`** — grant, renew, suspend, with the
+  `granted_by` trail.
 
 ### Plans & quotas
 
@@ -185,10 +266,11 @@ linking to an empty page.
 
 ### Account model — Individual & Enterprise (SaaS)
 
-> **Status: PROPOSAL — awaiting validation (2026-08-22).** Nothing here is
-> built beyond what is explicitly marked as existing. Once validated, the use
-> cases become the E2/E12 implementation checklist in
-> [doc/BACKLOG.md](doc/BACKLOG.md).
+> **Status: VALIDATED 2026-08-22 — to implement.** Nothing here is built
+> beyond what is explicitly marked as existing. The use cases are the E2/E12
+> implementation checklist in [doc/BACKLOG.md](doc/BACKLOG.md); the decisions
+> at the end of this section are settled (only Q4, enterprise pricing, stays
+> open as a business call).
 
 #### The idea in one paragraph
 
@@ -396,28 +478,22 @@ null until Stripe lands. Nothing in UC-1…UC-10 depends on billing.
 invite-by-link (owner copies an invitation URL and sends it themselves) as an
 interim: same tables, no email.
 
-#### Open questions to validate
+#### Decisions (validated 2026-08-22)
 
-- **Q1 — Do enterprise members keep a personal workspace?** Proposal says yes
-  (it already exists for anyone who signed up individually). Alternative: users
-  created via UC-4 get *no* personal workspace — they live only in the
-  enterprise. **Proposed default: UC-4 users get no personal workspace;
-  self-signup users keep theirs.**
-- **Q2 — Can one user belong to several enterprises?** The schema allows it.
-  Proposed default: allow, it costs nothing; the switcher handles it.
-- **Q3 — What plan does a fresh enterprise workspace get before billing
-  exists?** Proposed: `business` limits, assigned manually by OSI staff from
-  `/interne/plans` after a sales conversation — no self-service enterprise
-  creation until billing lands. This also answers "who can create an enterprise
-  workspace today": staff-assisted only, behind a "Contactez-nous".
-- **Q4 — Enterprise pricing model** — per-seat or flat + pooled quota. Pure
-  business decision; schema is agnostic (`plan` rows).
-- **Q5 — Do invitations bypass signup guards?** Proposed: no bypass of
-  disposable-domain/plus-addressing; invitations are not an abuse hole.
-- **Q6 — Viewer scope** — "requests shared with the workspace": is every team
-  request visible to viewers, or per-request sharing? Proposed v1: all team
-  requests are visible to every member ≥ viewer; per-request confidentiality is
-  a later refinement if a client asks.
+- **Q1 — Personal workspaces:** users created by an enterprise owner (UC-4)
+  get **no** personal workspace — they live only in the enterprise. Self-signup
+  users keep the personal workspace they already have.
+- **Q2 — Multi-enterprise membership: allowed.** The schema supports it; the
+  workspace switcher handles it.
+- **Q3 — Enterprise creation before billing: staff-assisted only**, behind a
+  "Contactez-nous" — `business` limits assigned from `/interne/plans` after a
+  sales conversation. No self-service until Stripe lands.
+- **Q4 — Enterprise pricing** (per-seat vs flat): still a business call; the
+  schema is agnostic (`plan` rows). The only question left open.
+- **Q5 — Invitations do *not* bypass signup guards** — no disposable-domain or
+  plus-addressing exemption.
+- **Q6 — Viewer scope v1: all team requests** are visible to every member
+  ≥ viewer; per-request confidentiality is a later refinement if a client asks.
 
 ---
 
@@ -643,8 +719,9 @@ erDiagram
 | `file` / `request_attachment` | organization-scoped file store; bytes behind `src/server/storage.ts`                                                            |
 
 **Not yet built:** `engagement`, `transaction`, `document`, `notification`,
-`sourcing_rules`, `audit_log`, `import_run`, and the supplier satellites
-(capabilities, certifications, contacts).
+`sourcing_rules`, `audit_log`, `import_run`, `data_source`, and the supplier
+satellites (capabilities, certifications, contacts, **`supplier_partner`** —
+the Recommandé tier and the seam for the future supplier-side space).
 
 ---
 
