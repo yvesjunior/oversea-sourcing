@@ -37,6 +37,22 @@ Dev and prod are in sync; nothing is uncommitted except three unrelated PNG
 deletions at the repo root. Real users are arriving through Google sign-in —
 four organic signups in the week to 2026-08-21.
 
+**2026-08-22 was a design day, not a code day.** The SaaS platform design was
+specified and validated end to end — it all lives in the README: the account
+model (Individual/Enterprise, three populations, rights matrix, UC-1…11,
+decisions Q1–Q6 settled except Q4 pricing), and the sourcing engine
+(data-source catalogue → independent pull-only connectors → workspace
+activation → **store-first flow with a quality fallback** → per-source
+stores/bans → manual admin refresh → Vérifié/Recommandé tiers → banded
+ranking). Two items deliberately stay open: **cross-source search order +
+fallback thresholds** (DISCUSS task in E4) and **enterprise pricing** (Q4).
+An architecture review page (current vs target, build order) was published as
+a Claude artifact for validation.
+
+**Suggested next code steps (Phase A):** refactor `global_web` behind the
+connector contract + the store-first coverage check — and take the
+**quota-race advisory lock** along for the ride.
+
 ### Start working
 
 ```sh
