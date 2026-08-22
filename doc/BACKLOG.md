@@ -30,11 +30,12 @@ need, gets a real Top-N (researched + imported suppliers, scored), clicks
 *Engager*, OSI ops sees it in the queue, the buyer sees "connected", and
 downloads the PDF report.
 
-## Resume here (last session: 2026-08-17)
+## Resume here (last session: 2026-08-22)
 
-**Production is live and healthy at [osi-solutions.com](https://osi-solutions.com), commit `db41b78`.**
+**Production is live and healthy at [osi-solutions.com](https://osi-solutions.com), commit `d4f93a2`.**
 Dev and prod are in sync; nothing is uncommitted except three unrelated PNG
-deletions at the repo root.
+deletions at the repo root. Real users are arriving through Google sign-in —
+four organic signups in the week to 2026-08-21.
 
 ### Start working
 
@@ -99,8 +100,17 @@ with `email_verified = true`, a provisioned workspace and the Free plan.
 | `b69a671` | Fix: new workspaces had no subscription → unlimited quota |
 | `db41b78` | Fix: IPv6 black hole broke Google sign-in |
 
+### What happened on 2026-08-20/22 (ops + one feature)
 
-## Where we actually are (2026-08-17)
+| Change | How |
+| ------ | ---- |
+| Quick-login panel off on prod | `SHOW_TEST_LOGIN=false` in the VM `.env`, web recreated — no deploy |
+| Platform owner's workspace → `internal` plan | SQL on prod; staff-lands-on-Free gap recorded in E12 |
+| Daily-quota refusal made a prominent warning alert | `d4f93a2`, deployed 2026-08-20 |
+| Demo accounts deleted from prod (dev-only now) | SQL on prod after a backup; suppliers they discovered kept |
+
+
+## Where we actually are (2026-08-22)
 
 **The core loop works end to end on production.** A buyer describes a need, the
 platform parses criteria (from the text *and* from any attached spec sheet),
