@@ -161,30 +161,41 @@ interface SupplierSourceConnector {
 ```
 request enters `searching`
   1. Resolve effective sources: platform-enabled ∩ workspace-activated
-  2. Coverage check PER SOURCE — does the pool already hold enough fresh,
-     non-banned candidates from these sources, in the country scope,
-     matching the criteria?          (the cache design, made source-aware)
-  3. Each source with insufficient coverage → invoke its connector
-     (fan-out, per-connector timeout, independent failure)
-  4. Persist: normalize → dedup → provenance → per-source outcomes
-  5. Match & rank from the pool, WITHIN the source + country scope
+  2. STORE-FIRST — match from each source's own store (its
+     supplier_source memberships): fresh, non-banned, in country scope
+  3. Live-collection fallback — ONLY when the store's answer is
+     insufficient: too few candidates, match too low, or confidence too
+     low — and only for sources that HAVE a live collector.
+     Today that is global_web alone (AI web search); registry and
+     import sources are store-only, refreshed by manual admin trigger
+  4. Persist what a fallback collected: normalize → dedup → provenance
+  5. Match & rank from the stores, WITHIN the source + country scope
 ```
 
+- **Every source answers from its store first — `global_web` included**
+  (decided 2026-08-22). The AI search goes to the internet only when its own
+  store comes up short; a registry source never goes anywhere at request time
+  — its store is whatever the last admin refresh collected.
+- **The fallback triggers on quality, not just quantity:** too few candidates
+  *or* compatibility scores too low *or* confidence too low. Local stored data
+  always gets the first chance; the internet is for finding *new* suppliers,
+  not re-finding known ones.
+- **Cross-source search order** (is there a priority sequence between sources,
+  or do all stores answer in parallel?) — deliberately left open, to discuss
+  at implementation with the thresholds.
 - A workspace that activated only the Canadian registry never calls the AI
-  search at all. A workspace with everything active fans out in parallel.
+  search at all.
 - **Source scope is a hard filter at match time**, exactly like country
   origin: a pool supplier known only from a non-activated source does not
   appear for that workspace — preferences shape what a tenant *sees*, never
   what the platform *stores*.
-- "The pool is warm" now means "warm *for the sources this workspace
-  activated*".
 
 ##### Per-source collections & bans
 
 **One supplier entity, N source memberships** (decided 2026-08-22). The same
 company will legitimately be found by several sources (registry + Alibaba +
-web). Global dedup stays untouched; each source keeps its own collection —
-its "cache" — as membership rows:
+web). Global dedup stays untouched; each source keeps its own **store** — the
+supplier list it answers requests from — as membership rows:
 
 ```
 supplier_source
@@ -217,9 +228,15 @@ caller** (the request pipeline being the first). From `/interne/sources`,
 staff trigger **"Mettre à jour"** on one source, with an optional scope
 (category, country) so a refresh is targeted. The run executes that one
 connector, upserts `supplier_source` memberships and refreshes
-`last_seen_at` — an admin refresh literally re-warms the cache. Audited as
+`last_seen_at` — an admin refresh literally re-warms the store. Audited as
 **`source_run`** rows (source, trigger `request | admin`, who, counts,
 errors) — this absorbs the previously planned `import_run`.
+
+**Manual trigger is the only store update for now** (decided 2026-08-22) —
+for store-only sources (registries, imports), staff refreshes are how their
+supplier lists grow. Scheduled refreshes can come later; when they do, the
+scheduler is just a third caller of the same connector — nothing else
+changes.
 
 ##### Connector roadmap (integrate while going)
 
@@ -236,7 +253,10 @@ Each connector is coded independently and plugged in when ready — one module
 #### Supplier cache — research reuse
 
 > **Status: VALIDATED 2026-08-22 — to implement.** Formalizes "the DB is the
-> cache": research becomes a fallback, not a reflex.
+> cache": research becomes a fallback, not a reflex. Refined the same day by
+> the store-first rule above: the coverage check runs per source against that
+> source's store, and "insufficient" means too few candidates, match too low,
+> **or confidence too low**.
 
 When a request enters `searching`, the pipeline first scores the **existing
 pool** against the request's criteria (within the workspace's country scope)

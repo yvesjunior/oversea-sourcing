@@ -280,9 +280,13 @@ and `/documents` render showcase constants and are disabled in the nav.
 - [ ] **DISCUSS at implementation: the request flow across sources** — the
       validated working draft (README → the request flow across sources):
       effective sources = platform-enabled ∩ workspace-activated (requests
-      never specify a source), per-source coverage check, fan-out only where
-      coverage is insufficient, source scope as a hard match-time filter.
-      Refine stage ordering, thresholds and failure UX before coding
+      never specify a source), **store-first for every source (global_web
+      included)**, live-collection fallback only on insufficient store answer
+      (too few candidates / match too low / confidence too low — thresholds
+      TBD) and only for sources with a live collector (today: global_web),
+      source scope as a hard match-time filter. **Also decide: cross-source
+      search order — priority sequence vs all stores in parallel.** Refine
+      thresholds and failure UX before coding
 
 ### E5 — Matching & scoring
 
