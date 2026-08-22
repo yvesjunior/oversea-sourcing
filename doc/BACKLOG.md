@@ -236,7 +236,9 @@ and `/documents` render showcase constants and are disabled in the nav.
 ### E4 — Supplier data platform
 
 - [x] Supplier schema core (provenance, verification_status, confidence, risk — platform-global) — satellites (capabilities, certifications, contacts) still pending
-- [ ] CSV/JSON import pipeline v1 + `import_runs` (admin-triggered) — seed script stands in for now
+- [ ] CSV/JSON import pipeline v1 — now an `import`-type **connector**; its
+      audit rows are `source_run` (which absorbed the planned `import_runs`).
+      Seed script stands in for now
 - [x] **Job: AI research agent** (2026-08-16) — real web search per request, results persisted as `ai_researched` suppliers, `research_run` rows for the audit trail. Runs in the `searching` stage behind `AI_RESEARCH` (default **on**). Gateway: `src/server/ai/research.ts`; orchestration + persistence: `src/server/research.ts`
 - [x] **Attachment reading** (2026-08-16) — buyer uploads are opened, not just stored: text/CSV decoded directly, PDF and images read by the model. Criteria parsed out of them with the same intake regexes, and the content feeds the search brief (`src/server/attachments.ts`)
 - [x] Dedup / entity resolution v1 — normalized `name|COUNTRY` key on `supplier.dedup_key` with a **unique index**, so a repeat search cannot re-add a known company (`src/lib/supplier-key.ts`). **Merge tool in admin still pending**
@@ -261,7 +263,26 @@ and `/documents` render showcase constants and are disabled in the nav.
       `research_run`. Dedup/provenance/confidence applied by the platform core
       after collection, never inside a connector. **First step: refactor the
       existing AI web research behind the interface as connector #1
-      (`global_web`)** — adding any later source is one module + one row
+      (`global_web`)** — adding any later source is one module + one row.
+      Roadmap: `global_web` → first registry (`registry-ca`) → `alibaba`
+      (**ToS/licensing gate before coding**) → `registry-us` → per demand
+- [ ] **`supplier_source` memberships + bans** (validated 2026-08-22, README →
+      per-source collections & bans) — one supplier entity, N source
+      memberships (uq pair, per-source payload, first/last_seen); per-source
+      ban (`status=banned`) and global ban (`supplier.banned_at/by/reason`),
+      **both sticky across re-collection** via the dedup key; staff-only with
+      a trail, managed from the source's collection view
+- [ ] **`source_run` audit + "Mettre à jour" trigger** (validated 2026-08-22)
+      — staff refresh one source on demand from `/interne/sources` with an
+      optional category/country scope; upserts memberships, re-warms
+      `last_seen_at`; rows record source, trigger `request|admin`, who,
+      counts, errors
+- [ ] **DISCUSS at implementation: the request flow across sources** — the
+      validated working draft (README → the request flow across sources):
+      effective sources = platform-enabled ∩ workspace-activated (requests
+      never specify a source), per-source coverage check, fan-out only where
+      coverage is insufficient, source scope as a hard match-time filter.
+      Refine stage ordering, thresholds and failure UX before coding
 
 ### E5 — Matching & scoring
 
@@ -392,10 +413,12 @@ and `/documents` render showcase constants and are disabled in the nav.
       invite/create, change rights, remove, pending invitations (README →
       account model UC-10; the surface for the E2 flows)
 - [ ] **Sourcing preferences UI** (`sourcing_rules`, validated 2026-08-22) —
-      per-workspace: which platform data sources to use (subset of the enabled
-      catalogue) and supplier country origin (global / country list / local).
-      Editable by workspace owner/admin; consumed by the research agent (scopes
-      queries) and the matcher (hard filter, not a down-score) — E4/E5
+      per-workspace: **activate** available data sources once (requests never
+      specify a source afterwards — effective set = platform-enabled ∩
+      workspace-activated) and supplier country origin (global / country list
+      / local). Editable by workspace owner/admin; consumed by the pipeline
+      (which connectors run) and the matcher (hard filter, not a down-score)
+      — E4/E5
 - [ ] Notification preferences
 
 ### Cross-cutting (throughout)

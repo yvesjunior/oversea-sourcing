@@ -71,17 +71,23 @@ sibling); a disabled source is never consulted for anyone. Suppliers keep a
 `source_ref` to the source that found them — provenance already exists, this
 makes it precise.
 
-**Each account chooses how to source, in Settings.** A workspace's sourcing
-preferences (`sourcing_rules`, one row per workspace) say:
+**Each account activates its sources once, in Settings — requests never
+specify a source** (decided 2026-08-22). A workspace's sourcing preferences
+(`sourcing_rules`, one row per workspace) say:
 
-- **Which sources to use** — a subset of the platform-enabled catalogue
-  (default: all of them). A buyer who only trusts registry data can switch the
-  open web off for their own searches; this never removes anything from the
-  shared pool.
+- **Activated sources** — the workspace switches on any of the
+  platform-enabled catalogue (default: all of them). From then on **every
+  request simply uses the activated set** — there is no per-request source
+  picker; the choice is already made. A buyer who only trusts registry data
+  deactivates the open web once; this never removes anything from the shared
+  pool.
 - **Supplier country origin** — where suppliers may come from:
   - `global` — all countries (default, today's behavior)
   - a **country list** — e.g. "China, Vietnam, India" for a buyer with a
     regional strategy, or a single country for **local sourcing**
+
+Effective sources for any request =
+**platform-enabled ∩ workspace-activated** — two layers, no third.
 
 **Who consumes the preference:** the research agent scopes its web queries and
 registry lookups to the preferred countries; the matcher excludes pool
@@ -145,6 +151,87 @@ interface SupplierSourceConnector {
   refactored behind this interface, proving the contract on day one. This is
   the same seam the INFRA principles already promised: a Tavily/Brave adapter,
   or any national registry, slots in without touching domain code.
+
+##### The request flow across sources
+
+> **Status: VALIDATED 2026-08-22 as the working draft** — refine at
+> implementation time (kept as a discussion TODO in the backlog). AI web
+> search is no longer the automatic path; it is one connector among peers.
+
+```
+request enters `searching`
+  1. Resolve effective sources: platform-enabled ∩ workspace-activated
+  2. Coverage check PER SOURCE — does the pool already hold enough fresh,
+     non-banned candidates from these sources, in the country scope,
+     matching the criteria?          (the cache design, made source-aware)
+  3. Each source with insufficient coverage → invoke its connector
+     (fan-out, per-connector timeout, independent failure)
+  4. Persist: normalize → dedup → provenance → per-source outcomes
+  5. Match & rank from the pool, WITHIN the source + country scope
+```
+
+- A workspace that activated only the Canadian registry never calls the AI
+  search at all. A workspace with everything active fans out in parallel.
+- **Source scope is a hard filter at match time**, exactly like country
+  origin: a pool supplier known only from a non-activated source does not
+  appear for that workspace — preferences shape what a tenant *sees*, never
+  what the platform *stores*.
+- "The pool is warm" now means "warm *for the sources this workspace
+  activated*".
+
+##### Per-source collections & bans
+
+**One supplier entity, N source memberships** (decided 2026-08-22). The same
+company will legitimately be found by several sources (registry + Alibaba +
+web). Global dedup stays untouched; each source keeps its own collection —
+its "cache" — as membership rows:
+
+```
+supplier_source
+  supplier_id     → supplier
+  data_source_id  → data_source        (unique on the pair)
+  status          active | banned
+  first_seen_at / last_seen_at
+  payload         jsonb                -- what THIS source said about the company
+```
+
+A source's collection is browsable in `/interne/sources` (count, freshness,
+health). `supplier.source_ref` stays as "first discoverer".
+
+**Bans, at two levels — both survive re-collection** (the dedup key lands new
+encounters on the existing row, so the flag sticks; a banned supplier can
+never be resurrected by a fresh crawl):
+
+| Level | Where | Meaning |
+|---|---|---|
+| Per-source | `supplier_source.status = banned` | This source's data for this company is ignored; the company can still surface via other sources (junk Alibaba listing, fine registry record) |
+| Global | `supplier.banned_at/by/reason` | Never matched, never shown, for anyone (fraud, sanctions) |
+
+Bans are staff actions (owner/manager) with a who/when/why trail, managed from
+the source's collection view.
+
+##### Admin-triggered source updates
+
+Connectors stay pull-only; **platform management is the second legitimate
+caller** (the request pipeline being the first). From `/interne/sources`,
+staff trigger **"Mettre à jour"** on one source, with an optional scope
+(category, country) so a refresh is targeted. The run executes that one
+connector, upserts `supplier_source` memberships and refreshes
+`last_seen_at` — an admin refresh literally re-warms the cache. Audited as
+**`source_run`** rows (source, trigger `request | admin`, who, counts,
+errors) — this absorbs the previously planned `import_run`.
+
+##### Connector roadmap (integrate while going)
+
+Each connector is coded independently and plugged in when ready — one module
++ one `data_source` row, nothing else changes:
+
+| # | Connector | Note |
+|---|---|---|
+| 1 | `global_web` | Refactor of the existing AI research — proves the contract |
+| 2 | First registry (e.g. `registry-ca`) | Proves a structured-API connector + per-source cache |
+| 3 | `alibaba` | ⚠️ **ToS/licensing gate before coding** — marketplace access must be cleared legally first |
+| 4 | `registry-us`, then per demand | — |
 
 #### Supplier cache — research reuse
 
@@ -774,9 +861,11 @@ erDiagram
 | `file` / `request_attachment` | organization-scoped file store; bytes behind `src/server/storage.ts`                                                            |
 
 **Not yet built:** `engagement`, `transaction`, `document`, `notification`,
-`sourcing_rules`, `audit_log`, `import_run`, `data_source`, and the supplier
-satellites (capabilities, certifications, contacts, **`supplier_partner`** —
-the Recommandé tier and the seam for the future supplier-side space).
+`sourcing_rules`, `audit_log`, `data_source`, `source_run` (absorbs the
+formerly planned `import_run`), and the supplier satellites (capabilities,
+certifications, contacts, **`supplier_source`** — per-source memberships and
+bans, **`supplier_partner`** — the Recommandé tier and the seam for the future
+supplier-side space).
 
 ---
 
