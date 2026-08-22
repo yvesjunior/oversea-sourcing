@@ -66,16 +66,21 @@ this commit. There is no test suite (see debts).
 
 ### Live data (do not assume it is disposable)
 
-Production has **real accounts** — six as of 2026-08-20:
-`yves@overseaimportexports.com` (platform `owner`, via Google, Free plan),
-`renaud819@gmail.com`, `yves1bat@gmail.com`, `alexhockeydureau14@gmail.com`,
-`joey.saulnier@gmail.com` and `ericlab6@gmail.com` (buyers, Free). The four
-`@osi.dev` demo accounts are on the `internal` plan.
-`SHOW_TEST_LOGIN` was **turned off on prod on 2026-08-20** (VM `.env`, web
-container recreated) — the quick-login panel is no longer public. The demo
-accounts still exist and their passwords are unchanged, so they remain
-sign-in-able by anyone who knows the credentials; rotate or disable them if
-that matters.
+Production holds **only real accounts** — seven as of 2026-08-22:
+`yves@overseaimportexports.com` (platform `owner`, via Google, `internal` plan
+since 2026-08-20), plus six buyers on Free: `renaud819@gmail.com`,
+`yves1bat@gmail.com`, `alexhockeydureau14@gmail.com`, `joey.saulnier@gmail.com`,
+`ericlab6@gmail.com`, `marisemercure@gmail.com`.
+
+The four `@osi.dev` demo accounts were **deleted from prod on 2026-08-22**
+(users + their workspaces; a backup was taken first). Their password is public
+in this repo, they sat on the unlimited `internal` plan, and one was a full
+platform owner — hiding the quick-login panel (`SHOW_TEST_LOGIN=false`,
+2026-08-20) still left them reachable by plain email/password. The 29 suppliers
+their requests had discovered stay in the pool (`discovered_by_request_id` is
+`SET NULL` — the supplier pool is a platform asset). **Demo accounts are
+dev-only from now on**: prod never runs `db:seed`, so they cannot come back on
+their own.
 
 ### Unverified at the end of the session
 
