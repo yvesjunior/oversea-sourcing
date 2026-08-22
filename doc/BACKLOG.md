@@ -185,6 +185,239 @@ and `/documents` render showcase constants and are disabled in the nav.
   `repartition`, `categories` and `tendance` in that file are **dead code**
 
 
+## Implementation plan — the validated design (2026-08-22)
+
+> The README holds the **what and why** (account model, sourcing engine —
+> everything marked VALIDATED). This section holds the **how**: tasks precise
+> enough to execute in a fresh session with no other context. IDs (A1…, B1…,
+> C1…) are referenced from the epic lists below. Work top-to-bottom inside a
+> phase; phases can interleave with MVP1 (E6/E10) work.
+
+### Phase A — sourcing engine core (connector contract + store-first)
+
+**Goal:** every request answers store-first; live AI search becomes connector
+#1 behind one contract; the quota race dies on the way.
+
+- [ ] **A1 · Schema migration — sourcing tables.** Edit
+      `src/database/schema.ts`, then `npm run db:generate`. New tables:
+      - `data_source`: `id`, `code` (uq, e.g. `global_web`), `name`, `type`
+        (`global_web | country_registry | import`), `country_code` (null =
+        worldwide), `enabled` bool default false, `config` jsonb,
+        `created_at/updated_at`
+      - `supplier_source`: `id`, `supplier_id` FK, `data_source_id` FK,
+        **uq(supplier_id, data_source_id)**, `status` (`active | banned`)
+        default active, `first_seen_at`, `last_seen_at`, `payload` jsonb,
+        `banned_by` FK user null, `banned_reason` null
+      - `source_run`: `id`, `data_source_id` FK, `trigger`
+        (`request | admin`), `request_id` FK null, `triggered_by` FK user
+        null, `status` (`running | succeeded | failed`), `scope` jsonb
+        (category/country), `candidates_found`, `suppliers_added`,
+        `memberships_upserted`, `error`, timestamps
+      - `sourcing_rules`: `id`, `organization_id` FK **uq**, `activated_source_ids`
+        text[] null (**null = all enabled**), `country_mode`
+        (`global | list`), `country_codes` text[] null, `updated_by`,
+        timestamps
+      - Columns on existing tables: `supplier.last_researched_at` timestamp
+        null, `supplier.banned_at/banned_by/banned_reason` null,
+        `research_run.fingerprint` text null + index
+      - **Seed in the migration** (prod never runs `db:seed`): one
+        `data_source` row `code='global_web'`, enabled=true
+      - **Backfill**: insert `supplier_source` memberships for every existing
+        supplier → global_web (they all came from AI research);
+        `last_researched_at` = supplier.`created_at`
+      *Accept:* `npm run db:migrate` clean on a prod-dump restore; existing
+      requests/matches untouched.
+
+- [ ] **A2 · Connector contract.** New `src/server/sources/types.ts`:
+      `SearchBrief` (criteria rows, countryCodes | null, wanted count, locale,
+      request text digest), `SupplierCandidate` (name, countryCode, website?,
+      descriptor?, description?, evidence?, raw payload), and
+      `SupplierSourceConnector` (`meta {code, type, countryCode?, name}`,
+      `collect(brief): Promise<SupplierCandidate[]>`). New
+      `src/server/sources/registry.ts`: map `data_source.code → connector`,
+      `getConnector(code)` returning undefined for store-only/missing codes
+      (never throw). **No connector imports anything from `src/server/ai/`
+      except its own implementation needs; the core never imports a connector
+      directly — only via the registry.**
+      *Accept:* `npx tsc --noEmit` clean; registry returns the global_web
+      connector by code.
+
+- [ ] **A3 · Refactor `global_web` behind the contract.** New
+      `src/server/sources/global-web/index.ts` wrapping the existing agent
+      (`researchSuppliers()` in `src/server/ai/research.ts:248` stays where it
+      is — the connector adapts its input/output to the contract).
+      Persistence (dedup via `supplierDedupKey()` in
+      `src/lib/supplier-key.ts`, provenance, confidence) stays in
+      `src/server/research.ts` — **moves out of reach of connectors**. Every
+      collection (request-triggered or admin) writes a `source_run` row and
+      upserts `supplier_source` (`last_seen_at = now()`, also touch
+      `supplier.last_researched_at`).
+      *Accept:* a dev request produces identical suppliers/matches as before
+      the refactor, plus `source_run` + membership rows.
+
+- [ ] **A4 · Store-first flow in the pipeline.** In
+      `runResearchForRequest()` (`src/server/research.ts:126`):
+      1. Resolve effective sources: enabled `data_source` ∩ workspace's
+         `sourcing_rules.activated_source_ids` (null = all enabled)
+      2. Store-first: candidates = suppliers with an `active` membership in an
+         effective source, not globally banned, `last_researched_at` ≤ 90
+         days, `country_code` within `sourcing_rules` scope; score them with
+         `scoreSupplier()` (`src/server/matching.ts:140`)
+      3. Fallback per source **only if** the store answer is insufficient —
+         fewer than `TOP_N × 2` candidates **or** top scores below a
+         compatibility floor **or** confidence below a floor (thresholds in
+         `src/server/sourcing-config.ts`, env-overridable — exact numbers are
+         the A8 discussion) — and only for sources with a registered connector
+      4. Persist fallback results (A3 path), then `createMatchesForRequest()`
+         **filtered to effective sources + country scope (hard filters)**
+      5. `request_event` types: `research.store_hit`, `research.topped_up`,
+         `research.full_search`; report methodology renders which path ran
+      *Accept:* second identical request in a category skips the web
+      (`research.store_hit`, $0 AI cost, report says pool); a workspace with
+      `global_web` deactivated never calls Claude for research.
+
+- [ ] **A5 · Quota advisory lock** (kills the documented race). In
+      `createRequestFn` (`src/lib/requests-fns.ts:184`): wrap quota check +
+      insert in one transaction opening with
+      `SELECT pg_advisory_xact_lock(hashtext('request-quota:' || workspaceId))`.
+      *Accept:* two parallel creates against limit 1 → exactly 1 row
+      (reproduce with `Promise.all` of two calls in a dev script).
+
+- [ ] **A6 · Report path disclosure.** `/demandes/$id/rapport` methodology
+      section reads the `research.*` events and states: store / top-up / full
+      search + which sources were consulted. FR/EN keys in
+      `src/i18n/locales/`.
+
+- [ ] **A7 · Connector unit tests — the first tests in the repo.** Add
+      `vitest` (dev-only), `npm test` script. Cover: contract conformance for
+      global_web (mock the agent), store-first decision matrix (warm / thin /
+      stale / low-confidence), dedup-preserves-ban, advisory-lock race (A5
+      repro as a test).
+      *Accept:* `npm test` green in CI-less local run; wired into the quality
+      gates listed in "Start working".
+
+- [ ] **A8 · DISCUSS before coding A4 thresholds:** exact numbers for "too
+      few / match too low / confidence too low", and cross-source order
+      (parallel vs priority). Decision recorded in the README flow section.
+
+### Phase B — accounts & team (E2 + settings surfaces)
+
+**Goal:** Enterprise workspaces are real: members, rights, switcher, settings.
+
+- [ ] **B1 · `requireRole` backbone.** `src/server/workspace-guard.ts`:
+      `requireMember(userId, workspaceId, minRole)` with rank
+      `viewer < buyer < admin < owner` (roles in `member.role`,
+      `src/database/schema.ts:88`). Audit **every mutating server fn** in
+      `src/lib/*-fns.ts` to call it (requests: ≥ buyer; criteria edits:
+      ≥ buyer; plan/rename/delete: owner). Viewer gets read-only: nav renders
+      "Lancer la recherche" disabled (same disabled-not-hidden rule).
+      *Accept:* a viewer session cannot create a request via direct server-fn
+      call (not just hidden UI).
+
+- [ ] **B2 · Workspace switcher.** better-auth organization plugin's active-
+      organization session state; switcher UI in the top bar (only when the
+      user has > 1 membership). Every workspace-scoped query already keys on
+      the active workspace id — verify each `src/lib/*-fns.ts` reads it from
+      session, never from client input.
+      *Accept:* switching re-scopes dashboard/requests/stats with no leakage.
+
+- [ ] **B3 · Invitations.** Server fns create/accept/decline/revoke on the
+      existing `invitation` table (`src/database/schema.ts:411`), 7-day
+      expiry, role payload. **Interim without email provider:** creating an
+      invitation returns a copyable link (`/invitation/$id?token=…`); the
+      owner sends it themselves. Signup via invitation link still passes
+      `signup-guard` (decided Q5). Auto-attach on login for existing accounts
+      (match verified email).
+      *Accept:* full loop in dev: invite → link → signup → member row with
+      invited role; revoked/expired links refuse politely (FR/EN).
+
+- [ ] **B4 · Create-member-directly (UC-4).** Owner/admin creates
+      name+email; account created passwordless via better-auth admin API with
+      a set-password token (reuse reset-password mechanics, 48h). **No
+      personal workspace for these users (decided Q1).** Blocked on the email
+      provider for sending; interim: show the set-password link once to the
+      creator.
+
+- [ ] **B5 · Paramètres surfaces.** Route `/parametres` with panels:
+      **Profil** (name, locale server-persisted — closes the E11 item),
+      **Abonnement** (read-only: plan name, limits, live usage vs rolling
+      24h quota — reuse `checkRequestQuota()` internals from
+      `src/server/plan.ts`; upgrade CTA = "Contactez-nous"),
+      **Préférences de sourcing** (edit `sourcing_rules`: activate sources
+      from the enabled catalogue, country mode global/list — owner/admin
+      only), **Utilisateurs** (enterprise only, owner/admin only: member list
+      + roles, invite (B3), create (B4), change role, remove; pending
+      invitations with revoke/copy-link). Nav entry gated per role.
+
+- [ ] **B6 · Managerial view.** "Mon équipe" tab beside Utilisateurs:
+      per-member request counts + list links, usage vs pooled quota in the
+      current window. Reuses `EmployeeTabs` pattern.
+
+- [ ] **B7 · Ownership transfer.** Owner-only server fn: transfer to another
+      member, previous owner → admin, confirm dialog. Exactly-one-owner
+      invariant enforced in the fn.
+
+- [ ] **B8 · Enterprise plan + per-user quota scope.** Migration: `plan` row
+      `enterprise` (requests/day 100?, suppliers 20, `best`) **and**
+      `plan.quota_scope` (`workspace | user`, default workspace; Free flips to
+      `user`). `checkRequestQuota()` counts on `request.created_by` when
+      scope = user. Optional per-member ceiling column deferred until a
+      client asks.
+      *Accept:* two members of one Free-plan workspace each get their own
+      allowance; a Business workspace still pools.
+
+- [ ] **B9 · GATE — email provider decision** (Resend vs SMTP). Unblocks
+      real email for B3/B4, email verification (E1) and notifications (E9).
+      One decision, record in README §9.
+
+### Phase C — collections, admin & the commercial tier
+
+**Goal:** staff runs the source catalogue; Recommandé exists and ranks fairly.
+
+- [ ] **C1 · `/interne/sources`** (platform owner/manager,
+      `PLATFORM_FEATURES` gets a `sources` entry in `src/lib/roles.ts`):
+      catalogue list (enable/disable), per-source store browser (memberships,
+      freshness, counts), **"Mettre à jour"** (scoped category/country →
+      runs the connector → `source_run` trigger=admin), per-source ban/unban
+      with reason, global supplier ban. Health column from last `source_run`
+      outcomes.
+
+- [ ] **C2 · First registry connector** (`registry-ca`). Investigation task
+      first: which Canadian registry API (Corporations Canada / provincial
+      registries), auth, rate limits, licensing — write findings to README §9
+      before coding. Then: connector module + `data_source` row, store-only
+      (no request-time fallback).
+
+- [ ] **C3 · `supplier_partner` + `/interne/partenaires`.** Migration per
+      README schema (status, source `paid|granted`, granted_by, starts/ends,
+      notes; uq supplier_id). Grant requires `verification_status='verified'`
+      (enforced in the fn). Screen: grant/renew/suspend with trail. Read-time
+      expiry (`ends_at > now()` in the matcher query, no cron).
+
+- [ ] **C4 · Banded ranking + badges.** In `createMatchesForRequest()`
+      (`src/server/matching.ts:195`): order by 5-point band → tier
+      (Recommandé > Vérifié > none) → exact score → existing deterministic
+      tiebreak; tier + band recorded in `score_breakdown`. **Zero score
+      points for Recommandé.** UI: badge components (nothing / ✓ Vérifié /
+      ★ Recommandé) on dossier top-N, supplier directory, report; report
+      methodology gains the disclosure line (FR/EN).
+      *Accept:* fixture test — two suppliers same band, partner ranks first;
+      partner in a lower band stays below.
+
+- [ ] **C5 · GATE — Alibaba ToS/licensing check** before any `alibaba`
+      connector code. Legal reading, record verdict in README §9.
+
+### Sequencing & dependencies
+
+```
+A1 → A2 → A3 → A4 (A8 discussion feeds A4 thresholds)
+A5, A6, A7 ride along inside Phase A
+B1 → B2 → B3/B5 → B6/B7 · B4 + real email need B9 · B8 anytime after B1
+C1 needs A1-A3 · C2 needs C1 · C3/C4 independent of C1-C2 · C5 gates alibaba
+MVP1 (E6 facilitation, E10 verification) interleaves freely — verification
+feeds C3/C4 value (Recommandé requires Vérifié)
+```
+
 ## Epics → tasks
 
 ### E0 — Dev foundations
