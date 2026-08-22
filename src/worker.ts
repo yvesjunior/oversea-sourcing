@@ -1,27 +1,38 @@
 // Background worker — separate process, same image (README §4 — one image, three
 // processes: web, worker, migrate). Run with `npx tsx src/worker.ts`.
 //
-// One job: the request pipeline (received → searching → validating →
-// report_ready). Criteria are parsed synchronously at intake (createRequestFn)
-// — the pre-search AI analysis stage was removed 2026-08-05. A recovery sweep
-// re-adopts requests stranded mid-pipeline (worker crash, lost enqueue,
-// seeded mid-states).
+// Two queues (validated 2026-08-22): `pipeline` (orchestration, matching, the
+// recovery sweep) and `research` (source collection — slow, expensive,
+// rate-limited by the Claude API). WORKER_QUEUES selects what this process
+// consumes (default: both, so one container still runs everything). Scaling
+// out = a second container with WORKER_QUEUES=research and this one set to
+// pipeline — replicas are the scaling knob for the one hotspot.
+//
+// Store-first (validated 2026-08-22): the pipeline checks whether the sources'
+// stores already answer the request; research is enqueued only when they
+// don't. A warm category costs ≈ $0 and never touches the research queue.
 
 import { PgBoss } from "pg-boss";
 import { and, eq, inArray, lt } from "drizzle-orm";
 import { db } from "@/database";
 import * as schema from "@/database/schema";
 import type { RequestStatus } from "@/database/schema";
-import { QUEUES, type PipelineJob } from "@/server/queue";
-import { transitionRequest } from "@/server/requests";
+import { QUEUES, type PipelineJob, type ResearchJob } from "@/server/queue";
+import { recordEvent, transitionRequest } from "@/server/requests";
 import { createMatchesForRequest } from "@/server/matching";
 import { researchEnabled } from "@/server/ai/flags";
-import { runResearchForRequest } from "@/server/research";
+import { evaluateStoreCoverage, runResearchForRequest } from "@/server/research";
 
 const STAGE_MS = 8_000;
 const SWEEP_INTERVAL_MS = 60_000;
 /** A request untouched this long in an in-flight state is considered stranded. */
 const STRANDED_AFTER_MS = 2 * 60_000;
+
+/** Which queues THIS process consumes — the container-split knob. */
+const SERVED_QUEUES = (process.env["WORKER_QUEUES"] ?? "pipeline,research")
+  .split(",")
+  .map((q) => q.trim())
+  .filter((q): q is keyof typeof QUEUES => q in QUEUES);
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -33,9 +44,11 @@ async function loadRequest(requestId: string) {
   return row;
 }
 
+type Enqueue = (queue: string, data: object) => Promise<void>;
+
 /** Resume-capable pipeline: picks the request up wherever it rests.
  *  ("analyzing" = legacy pre-removal pause state, still moved forward.) */
-async function handlePipeline({ requestId }: PipelineJob): Promise<void> {
+async function handlePipeline({ requestId }: PipelineJob, enqueue: Enqueue): Promise<void> {
   const request = await loadRequest(requestId);
   const orgId = request.organizationId;
   let status: RequestStatus = request.status;
@@ -49,15 +62,40 @@ async function handlePipeline({ requestId }: PipelineJob): Promise<void> {
       where: eq(schema.match.requestId, requestId),
     });
     if (!existing) {
-      // E4: with AI_RESEARCH on, this is a real global web search that also
-      // grows the supplier pool. Off, the stage is paced by a sleep so the UI
-      // still has four visible steps.
+      const coverage = await evaluateStoreCoverage(requestId, orgId);
       if (researchEnabled()) {
-        await runResearchForRequest(requestId, orgId);
+        const priorRun = await db.query.researchRun.findFirst({
+          where: eq(schema.researchRun.requestId, requestId),
+        });
+        if (!priorRun && !coverage.sufficient) {
+          // Store answer insufficient → hand off to the research queue and
+          // stop; the research worker re-enqueues the pipeline when done.
+          // (A stranded-window sweep re-enqueues the pipeline, not research —
+          // runResearchForRequest's own guard keeps duplicates cheap.)
+          console.log(
+            `pipeline: ${requestId} store insufficient (${coverage.qualifying} qualifying of ${coverage.poolSize}) — enqueueing research`,
+          );
+          await enqueue(QUEUES.research, { requestId } satisfies ResearchJob);
+          return;
+        }
+        if (!priorRun && coverage.sufficient) {
+          // The store answers — no collection, no tokens, no research queue.
+          await recordEvent(requestId, orgId, "research.store_hit", {
+            qualifying: coverage.qualifying,
+            pool: coverage.poolSize,
+          });
+          console.log(
+            `pipeline: ${requestId} store hit — ${coverage.qualifying} qualifying candidates, no research needed`,
+          );
+        }
       } else {
         await sleep(STAGE_MS);
       }
-      const analyzed = await createMatchesForRequest(requestId, orgId);
+      // Re-resolve eligibility AFTER any research so new suppliers are in scope.
+      const scoped = await evaluateStoreCoverage(requestId, orgId);
+      const analyzed = await createMatchesForRequest(requestId, orgId, {
+        eligibleSupplierIds: scoped.eligibleIds,
+      });
       console.log(`pipeline: ${requestId} matched top suppliers from a pool of ${analyzed}`);
     }
     await transitionRequest(requestId, orgId, "searching", "validating");
@@ -73,9 +111,17 @@ async function handlePipeline({ requestId }: PipelineJob): Promise<void> {
   }
 }
 
+/** Research jobs collect from the effective sources, then hand back to the
+ *  pipeline queue to match and finish. Idempotent via research_run. */
+async function handleResearch({ requestId }: ResearchJob, enqueue: Enqueue): Promise<void> {
+  const request = await loadRequest(requestId);
+  await runResearchForRequest(requestId, request.organizationId);
+  await enqueue(QUEUES.pipeline, { requestId } satisfies PipelineJob);
+}
+
 /** Re-enqueue requests stranded in an in-flight state (crash recovery). The
  *  legacy "analyzing" pause is NOT swept — those wait for a manual launch. */
-async function sweepStranded(enqueue: (requestId: string) => Promise<void>): Promise<void> {
+async function sweepStranded(enqueue: Enqueue): Promise<void> {
   const cutoff = new Date(Date.now() - STRANDED_AFTER_MS);
   const stranded = await db.query.request.findMany({
     where: and(
@@ -85,7 +131,7 @@ async function sweepStranded(enqueue: (requestId: string) => Promise<void>): Pro
   });
   for (const request of stranded) {
     console.log(`sweep: re-adopting ${request.id} (stranded in ${request.status})`);
-    await enqueue(request.id);
+    await enqueue(QUEUES.pipeline, { requestId: request.id } satisfies PipelineJob);
   }
 }
 
@@ -93,40 +139,60 @@ async function main() {
   const boss = new PgBoss(process.env["DATABASE_URL"] ?? "postgres://osi:osi@localhost:5432/osi");
   boss.on("error", (error) => console.error("pg-boss error:", error));
   await boss.start();
-  await boss.createQueue(QUEUES.pipeline);
+  for (const name of Object.values(QUEUES)) await boss.createQueue(name);
 
-  const enqueue = async (requestId: string) => {
-    await boss.send(QUEUES.pipeline, { requestId } satisfies PipelineJob);
+  const enqueue: Enqueue = async (queue, data) => {
+    await boss.send(queue, data);
   };
 
   // pg-boss v10+ hands each handler an ARRAY of jobs (batch size 1 by default).
   // Log failures ourselves before rethrowing — pg-boss stores the error on the
   // job (state: failed) but never writes it to stdout.
-  await boss.work<PipelineJob>(QUEUES.pipeline, async (jobs) => {
-    for (const job of jobs) {
-      console.log(`pipeline: job ${job.id}`, job.data);
-      try {
-        await handlePipeline(job.data);
-      } catch (error) {
-        console.error(`pipeline: job ${job.id} FAILED —`, error);
-        throw error; // rethrow so pg-boss retries
+  if (SERVED_QUEUES.includes("pipeline")) {
+    await boss.work<PipelineJob>(QUEUES.pipeline, async (jobs) => {
+      for (const job of jobs) {
+        console.log(`pipeline: job ${job.id}`, job.data);
+        try {
+          await handlePipeline(job.data, enqueue);
+        } catch (error) {
+          console.error(`pipeline: job ${job.id} FAILED —`, error);
+          throw error; // rethrow so pg-boss retries
+        }
       }
-    }
-  });
+    });
+  }
+  if (SERVED_QUEUES.includes("research")) {
+    await boss.work<ResearchJob>(QUEUES.research, async (jobs) => {
+      for (const job of jobs) {
+        console.log(`research: job ${job.id}`, job.data);
+        try {
+          await handleResearch(job.data, enqueue);
+        } catch (error) {
+          console.error(`research: job ${job.id} FAILED —`, error);
+          throw error;
+        }
+      }
+    });
+  }
 
   // Crash recovery: on boot and on an interval, re-adopt stranded requests.
-  await sweepStranded(enqueue).catch((error) => console.error("sweep failed:", error));
-  const sweepTimer = setInterval(() => {
-    void sweepStranded(enqueue).catch((error) => console.error("sweep failed:", error));
-  }, SWEEP_INTERVAL_MS);
+  // Only the pipeline worker sweeps — two sweepers would double-enqueue.
+  let sweepTimer: ReturnType<typeof setInterval> | null = null;
+  if (SERVED_QUEUES.includes("pipeline")) {
+    await sweepStranded(enqueue).catch((error) => console.error("sweep failed:", error));
+    sweepTimer = setInterval(() => {
+      void sweepStranded(enqueue).catch((error) => console.error("sweep failed:", error));
+    }, SWEEP_INTERVAL_MS);
+  }
 
   console.log(
-    `worker: listening on ${QUEUES.pipeline} (intake parsing is synchronous; sweep every ${SWEEP_INTERVAL_MS / 1000}s)`,
+    `worker: listening on [${SERVED_QUEUES.join(", ")}]` +
+      (sweepTimer ? ` (sweep every ${SWEEP_INTERVAL_MS / 1000}s)` : " (no sweep — research-only)"),
   );
 
   const shutdown = async (signal: string) => {
     console.log(`worker: ${signal} received, stopping…`);
-    clearInterval(sweepTimer);
+    if (sweepTimer) clearInterval(sweepTimer);
     await boss.stop();
     process.exit(0);
   };

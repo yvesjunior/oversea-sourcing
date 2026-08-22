@@ -49,9 +49,17 @@ fallback thresholds** (DISCUSS task in E4) and **enterprise pricing** (Q4).
 An architecture review page (current vs target, build order) was published as
 a Claude artifact for validation.
 
-**Suggested next code steps (Phase A):** refactor `global_web` behind the
-connector contract + the store-first coverage check — and take the
-**quota-race advisory lock** along for the ride.
+**Phase A landed the same day (A1–A6 done, dev-verified, not yet deployed):**
+sourcing tables migrated (`data_source`, `supplier_source`, `source_run`,
+`sourcing_rules` + supplier ban/freshness columns, `research_run.fingerprint`),
+connector contract + `global_web` as connector #1, **store-first flow on a
+dedicated `research` queue** (`WORKER_QUEUES` + `worker-research` compose
+service behind the `scale` profile), quota advisory lock, store-hit disclosure
+in the report. Verified end to end in dev: cold request → research queue → 6
+new suppliers with memberships + `source_run` audit; warm request →
+`research.store_hit` (14 qualifying of 19), zero AI cost. **Still open in
+Phase A: A7 (vitest + connector tests) and A8 (threshold numbers + cross-source
+order discussion).** Redis-backed rate limiting also shipped (`deccfd1`).
 
 ### Start working
 
@@ -134,9 +142,10 @@ searches the web for real manufacturers, stores them in the shared pool, ranks
 them against the criteria, and produces a printable report. Daily quotas and
 plans are enforced.
 
-**18 tables exist.** Missing entirely: `engagement`, `transaction`, `document`,
-`notification`, `sourcing_rules`, `audit_log`, `import_run`, and the supplier
-satellites (capabilities, certifications, contacts).
+**22 tables exist** (the sourcing-engine four landed 2026-08-22). Missing
+entirely: `engagement`, `transaction`, `document`, `notification`, `audit_log`,
+and the supplier satellites (capabilities, certifications, contacts,
+`supplier_partner`).
 
 **Pages that are still placeholders** (16–20 lines each, no data behind them):
 `/interne/finance`, `/interne/imports`, `/interne/verification`. `/transactions`
@@ -162,12 +171,12 @@ and `/documents` render showcase constants and are disabled in the nav.
   records. Worth remembering as a class of bug: *outbound* egress can be broken
   for one address family while everything looks healthy from outside
 
-- ⚠️ **Research runs inline in the pipeline job**, not on its own `research` queue
-  as the architecture requires. It is platform hotspot #1 — move it before load
-  arrives, not after
-- ⚠️ **The daily quota races** — check-then-act, reproduced at 2 rows against a
-  limit of 1 when two creates arrive together. Needs an advisory lock on the
-  workspace id around check-and-insert. **The most concrete defect on prod**
+- ✅ **Fixed 2026-08-22: research runs on its own `research` queue**, behind
+  the connector contract, store-first. `WORKER_QUEUES` + the `scale` compose
+  profile turn the split into a dedicated container when load arrives
+- ✅ **Fixed 2026-08-22: the daily quota race** — check + insert now run under
+  `pg_advisory_xact_lock` on the workspace id in `createRequestFn`, so two
+  simultaneous creates serialize instead of both passing
 - ⚠️ **Nothing rate-limits request creation or uploads** — only `/api/auth/*` is
   covered. The plan quota bounds volume per day, not rate, so a Business
   workspace can fire 50 requests in one second
@@ -201,7 +210,7 @@ and `/documents` render showcase constants and are disabled in the nav.
 **Goal:** every request answers store-first; live AI search becomes connector
 #1 behind one contract; the quota race dies on the way.
 
-- [ ] **A1 · Schema migration — sourcing tables.** Edit
+- [x] **A1 · Schema migration — sourcing tables.** Edit
       `src/database/schema.ts`, then `npm run db:generate`. New tables:
       - `data_source`: `id`, `code` (uq, e.g. `global_web`), `name`, `type`
         (`global_web | country_registry | import`), `country_code` (null =
@@ -231,7 +240,7 @@ and `/documents` render showcase constants and are disabled in the nav.
       *Accept:* `npm run db:migrate` clean on a prod-dump restore; existing
       requests/matches untouched.
 
-- [ ] **A2 · Connector contract.** New `src/server/sources/types.ts`:
+- [x] **A2 · Connector contract.** New `src/server/sources/types.ts`:
       `SearchBrief` (criteria rows, countryCodes | null, wanted count, locale,
       request text digest), `SupplierCandidate` (name, countryCode, website?,
       descriptor?, description?, evidence?, raw payload), and
@@ -245,7 +254,7 @@ and `/documents` render showcase constants and are disabled in the nav.
       *Accept:* `npx tsc --noEmit` clean; registry returns the global_web
       connector by code.
 
-- [ ] **A3 · Refactor `global_web` behind the contract.** New
+- [x] **A3 · Refactor `global_web` behind the contract.** New
       `src/server/sources/global-web/index.ts` wrapping the existing agent
       (`researchSuppliers()` in `src/server/ai/research.ts:248` stays where it
       is — the connector adapts its input/output to the contract).
@@ -258,7 +267,7 @@ and `/documents` render showcase constants and are disabled in the nav.
       *Accept:* a dev request produces identical suppliers/matches as before
       the refactor, plus `source_run` + membership rows.
 
-- [ ] **A4 · Store-first flow in the pipeline.** In
+- [x] **A4 · Store-first flow in the pipeline.** In
       `runResearchForRequest()` (`src/server/research.ts:126`):
       1. Resolve effective sources: enabled `data_source` ∩ workspace's
          `sourcing_rules.activated_source_ids` (null = all enabled)
@@ -279,14 +288,14 @@ and `/documents` render showcase constants and are disabled in the nav.
       (`research.store_hit`, $0 AI cost, report says pool); a workspace with
       `global_web` deactivated never calls Claude for research.
 
-- [ ] **A5 · Quota advisory lock** (kills the documented race). In
+- [x] **A5 · Quota advisory lock** (kills the documented race). In
       `createRequestFn` (`src/lib/requests-fns.ts:184`): wrap quota check +
       insert in one transaction opening with
       `SELECT pg_advisory_xact_lock(hashtext('request-quota:' || workspaceId))`.
       *Accept:* two parallel creates against limit 1 → exactly 1 row
       (reproduce with `Promise.all` of two calls in a dev script).
 
-- [ ] **A6 · Report path disclosure.** `/demandes/$id/rapport` methodology
+- [x] **A6 · Report path disclosure.** `/demandes/$id/rapport` methodology
       section reads the `research.*` events and states: store / top-up / full
       search + which sources were consulted. FR/EN keys in
       `src/i18n/locales/`.

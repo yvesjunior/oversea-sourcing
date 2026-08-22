@@ -46,6 +46,7 @@ function Rapport() {
     iso ? format(new Date(iso), "d MMMM yyyy · HH:mm", { locale: dateLocale }) : "—";
 
   const researchEvent = demande.events.find((e) => e.type === "research.completed");
+  const storeHitEvent = demande.events.find((e) => e.type === "research.store_hit");
   const criteriaFromFile = demande.events.find((e) => e.type === "criteria.fromAttachment");
 
   return (
@@ -204,6 +205,7 @@ function Rapport() {
           </h2>
           <ul className="mt-3 space-y-1 text-xs text-muted-foreground">
             {researchEvent && <li>{t("events.research_completed", researchEvent.params)}</li>}
+            {storeHitEvent && <li>{t("events.research_store_hit", storeHitEvent.params)}</li>}
             {demande.suppliersAnalyzed !== null && (
               <li>{t("detail.analyzed", { count: demande.suppliersAnalyzed })}</li>
             )}

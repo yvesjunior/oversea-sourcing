@@ -254,9 +254,119 @@ export const supplier = pgTable(
      *  what actually stops the research agent re-adding a company we already
      *  know — application-side checks race, this doesn't. */
     dedupKey: text("dedup_key"),
+    /** Touched whenever any collection re-encounters this company (a dedup hit
+     *  proves it still exists). Store-first coverage counts entries fresher
+     *  than STORE_FRESH_DAYS; older ones still match but trigger a top-up. */
+    lastResearchedAt: timestamp("last_researched_at"),
+    /** Global ban — never matched, never shown, for anyone (fraud, sanctions).
+     *  Sticky across re-collection: the dedup key lands new encounters on this
+     *  row, so a banned supplier cannot be resurrected by a fresh crawl. */
+    bannedAt: timestamp("banned_at"),
+    bannedBy: text("banned_by").references(() => user.id, { onDelete: "set null" }),
+    bannedReason: text("banned_reason"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (table) => [uniqueIndex("supplier_dedup_key_uq").on(table.dedupKey)],
+);
+
+// ── Data sources (validated 2026-08-22) — the platform-curated catalogue ─────
+// Each source is an independent pull-only connector (src/server/sources/);
+// requests never specify a source — effective set = enabled ∩ workspace-activated.
+
+export const DATA_SOURCE_TYPES = ["global_web", "country_registry", "import"] as const;
+export type DataSourceType = (typeof DATA_SOURCE_TYPES)[number];
+
+export const dataSource = pgTable(
+  "data_source",
+  {
+    id: text("id").primaryKey(),
+    /** Stable identifier used by the connector registry (`global_web`, `registry-ca`…). */
+    code: text("code").notNull(),
+    name: text("name").notNull(),
+    type: text("type").$type<DataSourceType>().notNull(),
+    /** Null = worldwide (global_web); set for national registries. */
+    countryCode: text("country_code"),
+    /** A disabled source is never consulted, for anyone. */
+    enabled: boolean("enabled").notNull().default(false),
+    config: jsonb("config").$type<Record<string, unknown>>(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex("data_source_code_uq").on(table.code)],
+);
+
+/** One supplier entity, N source memberships — each source's STORE is its
+ *  membership rows. Per-source ban ignores THIS source's data for the company
+ *  while other sources can still surface it; also sticky across re-collection. */
+export const supplierSource = pgTable(
+  "supplier_source",
+  {
+    id: text("id").primaryKey(),
+    supplierId: text("supplier_id")
+      .notNull()
+      .references(() => supplier.id, { onDelete: "cascade" }),
+    dataSourceId: text("data_source_id")
+      .notNull()
+      .references(() => dataSource.id, { onDelete: "cascade" }),
+    status: text("status").$type<"active" | "banned">().notNull().default("active"),
+    firstSeenAt: timestamp("first_seen_at").notNull().defaultNow(),
+    lastSeenAt: timestamp("last_seen_at").notNull().defaultNow(),
+    /** What THIS source said about the company (raw connector payload). */
+    payload: jsonb("payload").$type<Record<string, unknown>>(),
+    bannedBy: text("banned_by").references(() => user.id, { onDelete: "set null" }),
+    bannedReason: text("banned_reason"),
+  },
+  (table) => [
+    uniqueIndex("supplier_source_pair_uq").on(table.supplierId, table.dataSourceId),
+    index("supplier_source_source_idx").on(table.dataSourceId),
+  ],
+);
+
+/** Audit of every collection — request-triggered fallback or admin
+ *  "Mettre à jour". Absorbs the formerly planned `import_run`. */
+export const sourceRun = pgTable(
+  "source_run",
+  {
+    id: text("id").primaryKey(),
+    dataSourceId: text("data_source_id")
+      .notNull()
+      .references(() => dataSource.id, { onDelete: "cascade" }),
+    trigger: text("trigger").$type<"request" | "admin">().notNull(),
+    requestId: text("request_id").references(() => request.id, { onDelete: "set null" }),
+    triggeredBy: text("triggered_by").references(() => user.id, { onDelete: "set null" }),
+    status: text("status").$type<"running" | "succeeded" | "failed">().notNull().default("running"),
+    /** Optional admin-refresh scope (category, country). */
+    scope: jsonb("scope").$type<Record<string, unknown>>(),
+    candidatesFound: integer("candidates_found").notNull().default(0),
+    suppliersAdded: integer("suppliers_added").notNull().default(0),
+    membershipsUpserted: integer("memberships_upserted").notNull().default(0),
+    error: text("error"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    completedAt: timestamp("completed_at"),
+  },
+  (table) => [index("source_run_source_idx").on(table.dataSourceId)],
+);
+
+/** Per-workspace sourcing preferences (validated 2026-08-22): activate sources
+ *  once in Settings — requests never specify a source. No row = defaults
+ *  (all enabled sources, global origin). */
+export const sourcingRules = pgTable(
+  "sourcing_rules",
+  {
+    id: text("id").primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    /** Null = all platform-enabled sources (the default). */
+    activatedSourceIds: jsonb("activated_source_ids").$type<string[]>(),
+    countryMode: text("country_mode").$type<"global" | "list">().notNull().default("global"),
+    /** Only read when countryMode = list. */
+    countryCodes: jsonb("country_codes").$type<string[]>(),
+    updatedBy: text("updated_by").references(() => user.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex("sourcing_rules_org_uq").on(table.organizationId)],
 );
 
 // ── Plans & subscriptions ────────────────────────────────────────────────────
@@ -328,6 +438,10 @@ export const researchRun = pgTable(
       .notNull()
       .references(() => request.id, { onDelete: "cascade" }),
     status: text("status").$type<ResearchRunStatus>().notNull().default("running"),
+    /** Normalized digest of what was searched (category + criteria + country
+     *  scope) — a matching fingerprint on a recent run is evidence the store is
+     *  warm for this need, however it was worded. */
+    fingerprint: text("fingerprint"),
     /** The search queries the agent actually ran — the audit trail for a result. */
     queries: jsonb("queries").$type<string[]>(),
     /** Companies the agent proposed, before dedup. */

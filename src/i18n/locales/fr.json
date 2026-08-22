@@ -222,6 +222,7 @@
     "research_started": "Recherche mondiale en cours",
     "research_completed": "{{found}} fournisseurs trouvés sur le web · {{added}} ajoutés à la base",
     "research_failed": "Recherche web indisponible — analyse de la base existante",
+    "research_store_hit": "Réponse depuis la base fournisseurs d'OSI ({{qualifying}} candidats qualifiés sur {{pool}}) — aucune nouvelle recherche web nécessaire",
     "attachment_added": "{{count}} pièce(s) jointe(s) ajoutée(s)",
     "matches_created": "Top {{count}} sélectionné sur {{analyzed}} fournisseurs analysés",
     "criteria_fromAttachment": "{{count}} critère(s) extrait(s) des pièces jointes"

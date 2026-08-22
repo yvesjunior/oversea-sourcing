@@ -54,9 +54,39 @@ services:
       # token exchange timing out with ETIMEDOUT inside better-auth). Preferring
       # A records removes the dead path. Drop this if the VM ever gets real IPv6.
       - NODE_OPTIONS=--dns-result-order=ipv4first
+      # Which queues this worker consumes (default: both). To scale research
+      # out, set WORKER_QUEUES=pipeline in .env and enable the worker-research
+      # service below: docker compose --profile scale up -d
+      - WORKER_QUEUES=${WORKER_QUEUES:-pipeline,research}
     volumes:
       # The worker reads buyer attachments during research (E4) — without this
       # mount every file lookup is an ENOENT, since only `web` writes uploads.
+      - osi-uploads:/data/uploads
+    depends_on:
+      database:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
+  # Dedicated research worker — the scaling knob for platform hotspot #1
+  # (validated 2026-08-22). OFF by default (profile `scale`); when enabling it,
+  # set WORKER_QUEUES=pipeline in .env so the main worker stops competing:
+  #   WORKER_QUEUES=pipeline docker compose -f docker-compose.prod.yml --profile scale up -d
+  worker-research:
+    profiles: ["scale"]
+    build:
+      context: .
+      dockerfile: infra/Docker/web.Dockerfile
+      target: build
+    command: npx tsx src/worker.ts
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=production
+      - NODE_OPTIONS=--dns-result-order=ipv4first
+      - WORKER_QUEUES=research
+    volumes:
       - osi-uploads:/data/uploads
     depends_on:
       database:

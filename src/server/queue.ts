@@ -1,13 +1,22 @@
 // Background job queue (pg-boss, lives in Postgres — README §4 Architecture).
 // Server-only: the web process enqueues here; src/worker.ts consumes.
+//
+// Two queues (validated 2026-08-22): `pipeline` is fast orchestration and
+// matching; `research` is the slow, expensive collection work — isolated so a
+// research burst can never starve status transitions. One worker consumes both
+// by default; scaling out = a second worker container with WORKER_QUEUES=research
+// (see src/worker.ts). All enqueues go through this seam — swapping pg-boss for
+// a broker later touches this file, not domain code.
 
 import { PgBoss } from "pg-boss";
 
 export const QUEUES = {
   pipeline: "request.pipeline",
+  research: "request.research",
 } as const;
 
 export type PipelineJob = { requestId: string };
+export type ResearchJob = { requestId: string };
 
 let boss: PgBoss | null = null;
 let started: Promise<PgBoss> | null = null;
@@ -30,4 +39,8 @@ async function send(queue: string, data: object): Promise<void> {
 
 export async function enqueuePipeline(requestId: string): Promise<void> {
   await send(QUEUES.pipeline, { requestId } satisfies PipelineJob);
+}
+
+export async function enqueueResearch(requestId: string): Promise<void> {
+  await send(QUEUES.research, { requestId } satisfies ResearchJob);
 }

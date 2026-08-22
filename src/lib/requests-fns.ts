@@ -203,36 +203,50 @@ export const createRequestFn = createServerFn({ method: "POST" })
     const workspaceId = session?.session.activeOrganizationId;
     if (!session || !workspaceId) return { ok: false, reason: "unauthenticated" };
 
-    // Quota is checked BEFORE the insert: a refused request must not leave a
-    // half-created dossier behind, and the buyer keeps their typed text.
+    // Quota check + insert under a per-workspace advisory lock: the check is
+    // check-then-act, and without the lock two requests arriving together both
+    // read the same count, both pass, and both insert (reproduced at 2 rows
+    // against a limit of 1 — the "quota race" debt, fixed 2026-08-22). The
+    // xact lock serializes creators of ONE workspace and releases on commit;
+    // other workspaces are untouched.
     const { checkRequestQuota } = await import("@/server/plan");
-    const quota = await checkRequestQuota(workspaceId);
-    if (!quota.allowed) {
-      return {
-        ok: false,
-        reason: "quota_exceeded",
-        limit: quota.limit,
-        planName: quota.planName,
-        resetAt: quota.resetAt?.toISOString() ?? null,
-      };
-    }
-
-    const seq = await db.execute(sql`select nextval('request_id_seq')::text as id`);
-    const id = String((seq.rows[0] as { id: string }).id);
-
     const firstLine = data.description.split("\n").find((line) => line.trim()) ?? "";
-    const title = firstLine.trim().slice(0, 80) || `#${id}`;
     const locale = session.user.locale ?? "fr";
 
-    await db.insert(schema.request).values({
-      id,
-      organizationId: workspaceId,
-      createdBy: session.user.id,
-      title,
-      descriptionRaw: data.description,
-      status: "draft",
-      locale,
-    });
+    const outcome = await db.transaction(
+      async (tx): Promise<{ id: string } | Extract<CreateRequestResult, { ok: false }>> => {
+        await tx.execute(
+          sql`select pg_advisory_xact_lock(hashtext(${"request-quota:" + workspaceId}))`,
+        );
+        // Counted after the lock: any concurrent creator for this workspace has
+        // either committed (visible to the count) or is queued behind the lock.
+        const quota = await checkRequestQuota(workspaceId);
+        if (!quota.allowed) {
+          return {
+            ok: false,
+            reason: "quota_exceeded",
+            limit: quota.limit,
+            planName: quota.planName,
+            resetAt: quota.resetAt?.toISOString() ?? null,
+          };
+        }
+
+        const seq = await tx.execute(sql`select nextval('request_id_seq')::text as id`);
+        const id = String((seq.rows[0] as { id: string }).id);
+        await tx.insert(schema.request).values({
+          id,
+          organizationId: workspaceId,
+          createdBy: session.user.id,
+          title: firstLine.trim().slice(0, 80) || `#${id}`,
+          descriptionRaw: data.description,
+          status: "draft",
+          locale,
+        });
+        return { id };
+      },
+    );
+    if ("ok" in outcome) return outcome;
+    const id = outcome.id;
 
     const { recordEvent, transitionRequest } = await import("@/server/requests");
     await recordEvent(id, workspaceId, "request.created");

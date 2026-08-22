@@ -96,6 +96,9 @@ export type ResearchContext = {
   criteria: Array<{ category: string; label: string; value: string; unit: string | null }>;
   /** Text pulled out of the buyer's attachments (spec sheets, drawings). */
   attachmentText?: string;
+  /** Workspace sourcing preference — restrict the search to these countries
+   *  (ISO 3166-1 alpha-2). Undefined/null = worldwide, today's behavior. */
+  countryCodes?: string[] | null;
 };
 
 export type ResearchResult = {
@@ -123,6 +126,13 @@ function brief(ctx: ResearchContext): string {
       "specifications — prefer them over the free-text description where they",
       "disagree):",
       ctx.attachmentText.trim(),
+    );
+  }
+  if (ctx.countryCodes && ctx.countryCodes.length > 0) {
+    lines.push(
+      "",
+      `HARD CONSTRAINT — the buyer only accepts suppliers based in: ${ctx.countryCodes.join(", ")}.`,
+      "Do not propose companies from any other country.",
     );
   }
   return lines.join("\n");

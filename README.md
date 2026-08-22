@@ -57,9 +57,14 @@ Consequences, all first-class rather than afterthoughts:
 
 #### Data sources & sourcing preferences
 
-> **Status: VALIDATED 2026-08-22 — to implement.** Extends the hybrid
-> strategy above; gives the long-planned `sourcing_rules` table its concrete
-> contents.
+> **Status: 🟡 CORE IMPLEMENTED 2026-08-22.** The engine is live: connector
+> contract + registry (`src/server/sources/`), `global_web` as connector #1,
+> per-source stores (`supplier_source`), `source_run` audit, the store-first
+> request flow on its own `research` queue, and country-scope plumbing end to
+> end. **Not yet built:** the `/interne/sources` admin screen (enable/refresh/
+> ban surfaces — the columns exist), the Paramètres sourcing-preferences UI
+> (`sourcing_rules` is read by the pipeline but nothing writes it yet), and
+> every connector beyond `global_web`.
 
 **Data sources are a platform-level catalogue, curated by the platform
 owner.** Each source is a row (`data_source`): a type — `global_web` (the AI
@@ -252,11 +257,13 @@ Each connector is coded independently and plugged in when ready — one module
 
 #### Supplier cache — research reuse
 
-> **Status: VALIDATED 2026-08-22 — to implement.** Formalizes "the DB is the
-> cache": research becomes a fallback, not a reflex. Refined the same day by
-> the store-first rule above: the coverage check runs per source against that
-> source's store, and "insufficient" means too few candidates, match too low,
-> **or confidence too low**.
+> **Status: ✅ IMPLEMENTED 2026-08-22 (v1).** The coverage check runs in the
+> pipeline before any research is enqueued (`evaluateStoreCoverage` in
+> `src/server/research.ts`); "insufficient" means too few candidates, match
+> too low, **or confidence too low** — thresholds in `sourcing-config.ts`,
+> env-overridable (`STORE_MIN_CANDIDATES/_SCORE/_CONFIDENCE`, `STORE_FRESH_DAYS`).
+> Verified in dev: a warm category answered with `research.store_hit`
+> (14 qualifying of 19), zero AI cost, and the report says so.
 
 When a request enters `searching`, the pipeline first scores the **existing
 pool** against the request's criteria (within the workspace's country scope)
@@ -678,9 +685,15 @@ activity feeds and dashboard stats are **pure read-models of the DB**.
    *(removed 2026-08-05)*; an ℹ️ helper on the prompt guides buyers to structured
    input instead. With attachments, the pipeline is held until the upload
    finishes, then released.
-2. **Research** (worker, `searching`) — reads any attachments, runs a **real web
-   search**, and inserts newly-found companies as `ai_researched` suppliers,
-   deduped on `supplier.dedup_key`.
+2. **Research** (worker, `searching`) — **store-first (2026-08-22):** the
+   pipeline scores each source's own store against the criteria; when the
+   answer is sufficient the request is served from the pool
+   (`research.store_hit`, ≈ $0). Otherwise it hands off to the dedicated
+   **`research` queue**, whose worker reads any attachments, runs the
+   connectors (today: `global_web`'s real web search), and inserts new
+   companies as `ai_researched` suppliers — deduped on `supplier.dedup_key`,
+   membership upserted in `supplier_source`, audited in `source_run` — then
+   re-enqueues the pipeline to match and finish.
 3. **Match** — scores the pool against the request's criteria and persists a
    ranked Top-N in `match`, with the per-criterion reasoning in `score_breakdown`.
 4. **Report** — `/demandes/$id/rapport` renders the need, criteria, ranked
@@ -780,6 +793,8 @@ defaults from `docker-compose.dev.yml`, so a fresh clone needs only
 | `SUPPLIERS_RETURNED` | `5`        | Suppliers shown per dossier. **Search count and candidate caps derive from it**       |
 | `SHOW_TEST_LOGIN`    | `true`     | One-click demo login on `/login`. **Set false before real users** — creds are public  |
 | `REDIS_URL`          | *(unset)*  | Auth rate-limit counters in Redis (`cache` addon: `redis://redis:6379`) — shared across web replicas; unset = in-memory. **Fail-open**: a dead Redis degrades to unlimited, never to broken logins |
+| `WORKER_QUEUES`      | `pipeline,research` | Which queues a worker process consumes. Scale-out: set `pipeline` here and start the `worker-research` service (`--profile scale`) |
+| `STORE_MIN_CANDIDATES` | `2 × SUPPLIERS_RETURNED` | Qualifying store candidates needed to skip live research (store-first). Also `STORE_MIN_SCORE` (40), `STORE_MIN_CONFIDENCE` (30), `STORE_FRESH_DAYS` (90) |
 
 Measured 2026-08-16 on identical requests: `cheap` (haiku-4-5, 3 searches) ≈
 **$0.06** · `best` (opus-5, 6 searches) ≈ **$0.20** · `balanced` (sonnet-5, 6) ≈
@@ -833,7 +848,7 @@ change, not a refactor.
 | Web/SSR + API     | Node container (Nitro)                     | Stateless → replicate behind the proxy                       |
 | Workers           | Separate container, same image             | Scale replicas; per-queue concurrency                        |
 | AI gateway        | `src/server/ai/` — sole owner of Claude calls, retries, cost metering, model tiering | Own service if several apps consume it |
-| **Research agent** | ⚠️ **Inline in the pipeline job** — the plan calls for its own `research` queue from day one. Known deviation; move it before load, not after | Dedicated queue + worker pool |
+| **Research agent** | ✅ **Own `research` queue (2026-08-22)** behind the connector contract (`src/server/sources/`) — deviation resolved. One worker consumes both queues by default; `WORKER_QUEUES` + the `scale` compose profile split it into a dedicated container | Worker replicas per queue |
 | Database          | Postgres container + named volume          | pgbouncer → dedicated local DB VM (no managed cloud PG)      |
 | File storage      | Local volume, S3-shaped adapter            | Same code → MinIO / R2 / S3                                  |
 | Search            | Postgres FTS + trigram                     | Meilisearch when the directory outgrows SQL                  |
@@ -842,7 +857,7 @@ change, not a refactor.
 
 | # | Hotspot                | Symptom                                   | Lever (designed in)                                             |
 | - | ---------------------- | ----------------------------------------- | ---------------------------------------------------------------- |
-| 1 | **AI research**        | Requests stuck in `searching`; rate limits | Own queue + concurrency; worker replicas; **the DB is the cache** |
+| 1 | **AI research**        | Requests stuck in `searching`; rate limits | ✅ Own queue + store-first cache (built 2026-08-22); worker replicas via the `scale` profile |
 | 2 | **Claude cost/limits** | Bill spikes, 429s                          | Model tiering, budget guards, prompt caching                     |
 | 3 | **Postgres**           | Slow matching, connection exhaustion       | Indexes on every `workspace_id` (day one); pgbouncer            |
 | 4 | **SSR under traffic**  | Slow TTFB                                  | Replicate web containers (stateless by rule)                     |
@@ -878,15 +893,17 @@ erDiagram
 | `request_event`      | request_id, organization_id, type (`status.*`, `research.*`, `criteria.*`), message (JSON params)                                        |
 | `supplier`           | name, descriptor, country_code, website, description, **provenance**, **verification_status**, confidence_score, risk_level, source_ref, **`dedup_key` (uq)**, **`discovered_by_request_id`** |
 | `match`              | request_id, supplier_id, rank, compatibility_score, confidence_score, risk_level, status, **`score_breakdown` jsonb** — uq(request, supplier) |
-| `research_run`       | request_id, status `running\|succeeded\|failed`, queries jsonb, candidates_found, suppliers_added, error                                  |
+| `research_run`       | request_id, status `running\|succeeded\|failed`, **fingerprint**, queries jsonb, candidates_found, suppliers_added, error                 |
 | `file` / `request_attachment` | organization-scoped file store; bytes behind `src/server/storage.ts`                                                            |
+| `data_source`        | ✅ 2026-08-22 — the platform source catalogue: code (uq), type `global_web\|country_registry\|import`, country, **enabled** |
+| `supplier_source`    | ✅ 2026-08-22 — per-source stores: uq(supplier, source), status `active\|banned`, first/last_seen, payload |
+| `source_run`         | ✅ 2026-08-22 — audit of every collection: trigger `request\|admin`, counts, error (absorbs the planned `import_run`) |
+| `sourcing_rules`     | ✅ 2026-08-22 (table; read by the pipeline) — activated sources + country origin per workspace. **No UI writes it yet** |
 
 **Not yet built:** `engagement`, `transaction`, `document`, `notification`,
-`sourcing_rules`, `audit_log`, `data_source`, `source_run` (absorbs the
-formerly planned `import_run`), and the supplier satellites (capabilities,
-certifications, contacts, **`supplier_source`** — per-source memberships and
-bans, **`supplier_partner`** — the Recommandé tier and the seam for the future
-supplier-side space).
+`audit_log`, and the supplier satellites (capabilities, certifications,
+contacts, **`supplier_partner`** — the Recommandé tier and the seam for the
+future supplier-side space).
 
 ---
 

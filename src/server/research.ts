@@ -1,13 +1,19 @@
-// Research orchestration (E4) — turns the AI gateway's candidates into rows in
-// the platform-global supplier pool, and records what happened.
+// Research orchestration (E4) — the platform core around the source connectors.
 //
-// This is the "enriches the database as a byproduct" half of the hybrid
-// supplier strategy (README §1): every request that runs research grows the
-// dataset, so repeat searches in the same category get cheaper over time.
+// Store-first (validated 2026-08-22): every source answers from its own store
+// (supplier_source memberships); live collection is the FALLBACK, invoked only
+// when the store's answer is insufficient — too few candidates, match too low,
+// or confidence too low — and only for sources that have a registered
+// connector (today: global_web). evaluateStoreCoverage() is that decision;
+// the pipeline worker calls it before ever enqueueing research.
+//
+// This module — never a connector — owns persistence: dedup (the unique index
+// on supplier.dedup_key), provenance, confidence clamping, memberships and the
+// source_run audit. A connector only turns a brief into candidates.
 //
 // Deliberately failure-tolerant: research is an enrichment step, not a
-// precondition. If the API is down, the key is missing, or the model returns
-// nothing usable, the pipeline still ranks whatever pool already exists.
+// precondition. One broken source degrades that source's contribution; the
+// pipeline still ranks whatever the stores already hold.
 
 import { and, asc, eq, inArray } from "drizzle-orm";
 import { db } from "@/database";
@@ -16,7 +22,17 @@ import { supplierDedupKey } from "@/lib/supplier-key";
 import { recordEvent } from "@/server/requests";
 import { readAttachmentsText } from "@/server/attachments";
 import { parseCriteria } from "@/server/parse-criteria";
-import { researchSuppliers, type SupplierCandidate } from "@/server/ai/research";
+import { scoreSupplier } from "@/server/matching";
+import {
+  STORE_FRESH_DAYS,
+  STORE_MIN_CANDIDATES,
+  STORE_MIN_CONFIDENCE,
+  STORE_MIN_SCORE,
+  RESEARCH_CANDIDATE_CAP,
+} from "@/server/sourcing-config";
+import { getConnector } from "@/server/sources/registry";
+import { eligibleSuppliers, resolveScope, type EffectiveScope } from "@/server/sources/scope";
+import type { SearchBrief, SourceCandidate } from "@/server/sources/types";
 
 export type ResearchOutcome = {
   found: number;
@@ -37,7 +53,7 @@ function clampConfidence(raw: number): number {
   return Math.max(10, Math.min(AI_CONFIDENCE_CEILING, Math.round(percent)));
 }
 
-function cleanWebsite(raw: string | null): string | null {
+function cleanWebsite(raw: string | null | undefined): string | null {
   if (!raw) return null;
   const trimmed = raw.trim();
   if (!trimmed) return null;
@@ -45,7 +61,7 @@ function cleanWebsite(raw: string | null): string | null {
 }
 
 /** Candidate → insert values, or null when it isn't identifiable enough to keep. */
-function toSupplierRow(candidate: SupplierCandidate, discoveredByRequestId: string) {
+function toSupplierRow(candidate: SourceCandidate, discoveredByRequestId: string | null) {
   const name = candidate.name.trim();
   const country = candidate.countryCode.trim().toUpperCase();
   const dedupKey = supplierDedupKey(name, country);
@@ -65,6 +81,137 @@ function toSupplierRow(candidate: SupplierCandidate, discoveredByRequestId: stri
     sourceRef: candidate.sourceUrl?.trim() || null,
     dedupKey,
     discoveredByRequestId,
+    lastResearchedAt: new Date(),
+  };
+}
+
+/**
+ * Persist one source's candidates: dedup into the shared pool, then upsert
+ * this source's store membership for every company encountered — a dedup hit
+ * still refreshes `last_seen_at` and `last_researched_at`, because seeing the
+ * company again is evidence it still exists. A banned membership is never
+ * resurrected (the upsert only touches `active` rows), and a globally banned
+ * supplier stays banned — the flag lives on the row the dedup key points to.
+ */
+async function persistFromSource(
+  candidates: SourceCandidate[],
+  requestId: string | null,
+  dataSourceId: string,
+): Promise<{ found: number; added: number; memberships: number }> {
+  // Dedup within the batch first (a source can repeat itself across queries),
+  // then let the unique index settle it against everything already stored.
+  const rows = new Map<
+    string,
+    { row: NonNullable<ReturnType<typeof toSupplierRow>>; raw: Record<string, unknown> | undefined }
+  >();
+  for (const candidate of candidates) {
+    const row = toSupplierRow(candidate, requestId);
+    if (row && !rows.has(row.dedupKey)) rows.set(row.dedupKey, { row, raw: candidate.raw });
+  }
+
+  let added = 0;
+  let memberships = 0;
+  for (const { row, raw } of rows.values()) {
+    const inserted = await db
+      .insert(schema.supplier)
+      .values(row)
+      .onConflictDoNothing({ target: schema.supplier.dedupKey })
+      .returning({ id: schema.supplier.id });
+
+    let supplierId = inserted[0]?.id;
+    if (supplierId) {
+      added++;
+    } else {
+      const existing = await db.query.supplier.findFirst({
+        where: eq(schema.supplier.dedupKey, row.dedupKey),
+        columns: { id: true },
+      });
+      if (!existing) continue; // raced with a delete — nothing to attach to
+      supplierId = existing.id;
+      await db
+        .update(schema.supplier)
+        .set({ lastResearchedAt: new Date() })
+        .where(eq(schema.supplier.id, supplierId));
+    }
+
+    await db
+      .insert(schema.supplierSource)
+      .values({
+        id: crypto.randomUUID(),
+        supplierId,
+        dataSourceId,
+        status: "active",
+        payload: raw ?? null,
+      })
+      .onConflictDoUpdate({
+        target: [schema.supplierSource.supplierId, schema.supplierSource.dataSourceId],
+        set: { lastSeenAt: new Date() },
+        // Never resurrect a per-source ban: the refresh only touches active rows.
+        setWhere: eq(schema.supplierSource.status, "active"),
+      });
+    memberships++;
+  }
+  return { found: candidates.length, added, memberships };
+}
+
+/** Normalized digest of what a request is asking for — same need, same
+ *  fingerprint, however it was worded. Stored on research_run. */
+export function requestFingerprint(
+  criteria: Array<{ category: string; value: string }>,
+  countryCodes: string[] | null,
+): string {
+  const parts = criteria
+    .map((c) => `${c.category}:${c.value.trim().toLowerCase()}`)
+    .sort()
+    .join("|");
+  const scope = countryCodes ? [...countryCodes].sort().join(",") : "global";
+  return `${scope}::${parts}`;
+}
+
+export type StoreCoverage = {
+  /** Store answer is good enough — skip live collection entirely. */
+  sufficient: boolean;
+  /** Candidates that passed the freshness + score + confidence bars. */
+  qualifying: number;
+  /** Eligible pool size within scope (any freshness). */
+  poolSize: number;
+  /** Supplier ids the matcher may rank for this workspace (hard filter). */
+  eligibleIds: string[];
+  scope: EffectiveScope;
+};
+
+/**
+ * The store-first decision (validated 2026-08-22): score the eligible pool
+ * against the request's criteria and decide whether live collection is needed.
+ * "Insufficient" means too few candidates, match too low, or confidence too
+ * low — thresholds in sourcing-config (A8 draft numbers, env-overridable).
+ */
+export async function evaluateStoreCoverage(
+  requestId: string,
+  organizationId: string,
+): Promise<StoreCoverage> {
+  const scope = await resolveScope(organizationId);
+  const [pool, criteria] = await Promise.all([
+    eligibleSuppliers(scope),
+    db.query.requestCriterion.findMany({
+      where: eq(schema.requestCriterion.requestId, requestId),
+      orderBy: [asc(schema.requestCriterion.position)],
+    }),
+  ]);
+
+  const freshCutoff = new Date(Date.now() - STORE_FRESH_DAYS * 24 * 60 * 60 * 1000);
+  const qualifying = pool.filter((supplier) => {
+    if (!supplier.lastResearchedAt || supplier.lastResearchedAt < freshCutoff) return false;
+    if (supplier.confidenceScore < STORE_MIN_CONFIDENCE) return false;
+    return scoreSupplier(supplier, criteria).total >= STORE_MIN_SCORE;
+  }).length;
+
+  return {
+    sufficient: qualifying >= STORE_MIN_CANDIDATES,
+    qualifying,
+    poolSize: pool.length,
+    eligibleIds: pool.map((s) => s.id),
+    scope,
   };
 }
 
@@ -116,7 +263,9 @@ async function addCriteriaFromAttachments(
 }
 
 /**
- * Run one research pass for a request: search, dedup, persist, record.
+ * Run one collection pass for a request across its effective sources: for each
+ * source with a registered connector, collect → persist → audit (source_run).
+ * Sources fail independently — one broken connector never breaks the request.
  *
  * Idempotent by design — a request that already has a run is skipped. The
  * worker's recovery sweep re-adopts anything sitting in `searching` for more
@@ -169,7 +318,13 @@ export async function runResearchForRequest(
       orderBy: [asc(schema.requestCriterion.position)],
     });
 
-    const { candidates, queries } = await researchSuppliers({
+    const scope = await resolveScope(organizationId);
+    await db
+      .update(schema.researchRun)
+      .set({ fingerprint: requestFingerprint(criteria, scope.countryCodes) })
+      .where(eq(schema.researchRun.id, runId));
+
+    const brief: SearchBrief = {
       title: request.title,
       descriptionRaw: request.descriptionRaw,
       locale: request.locale,
@@ -180,45 +335,69 @@ export async function runResearchForRequest(
         unit: c.unit,
       })),
       attachmentText: attachments.text,
-    });
+      countryCodes: scope.countryCodes,
+      wanted: RESEARCH_CANDIDATE_CAP,
+    };
 
-    // Dedup within the batch first (the model repeats itself across queries),
-    // then let the unique index settle it against everything already stored.
-    const rows = new Map<string, NonNullable<ReturnType<typeof toSupplierRow>>>();
-    for (const candidate of candidates) {
-      const row = toSupplierRow(candidate, requestId);
-      if (row && !rows.has(row.dedupKey)) rows.set(row.dedupKey, row);
-    }
-
+    let found = 0;
     let added = 0;
-    for (const row of rows.values()) {
-      const inserted = await db
-        .insert(schema.supplier)
-        .values(row)
-        .onConflictDoNothing({ target: schema.supplier.dedupKey })
-        .returning({ id: schema.supplier.id });
-      if (inserted.length > 0) added++;
+    const allQueries: string[] = [];
+    for (const source of scope.sources) {
+      const connector = getConnector(source.code);
+      // Store-only source (registries, imports): its store IS its answer —
+      // nothing to collect at request time.
+      if (!connector) continue;
+
+      const sourceRunId = crypto.randomUUID();
+      await db.insert(schema.sourceRun).values({
+        id: sourceRunId,
+        dataSourceId: source.id,
+        trigger: "request",
+        requestId,
+      });
+      try {
+        const result = await connector.collect(brief);
+        const persisted = await persistFromSource(result.candidates, requestId, source.id);
+        found += persisted.found;
+        added += persisted.added;
+        allQueries.push(...result.queries);
+        await db
+          .update(schema.sourceRun)
+          .set({
+            status: "succeeded",
+            candidatesFound: persisted.found,
+            suppliersAdded: persisted.added,
+            membershipsUpserted: persisted.memberships,
+            completedAt: new Date(),
+          })
+          .where(eq(schema.sourceRun.id, sourceRunId));
+      } catch (error) {
+        // One broken source degrades its contribution, never the request.
+        const message = error instanceof Error ? error.message : String(error);
+        console.error(`research: ${requestId} source ${source.code} FAILED —`, error);
+        await db
+          .update(schema.sourceRun)
+          .set({ status: "failed", error: message.slice(0, 500), completedAt: new Date() })
+          .where(eq(schema.sourceRun.id, sourceRunId));
+      }
     }
 
     await db
       .update(schema.researchRun)
       .set({
         status: "succeeded",
-        queries,
-        candidatesFound: candidates.length,
+        queries: allQueries,
+        candidatesFound: found,
         suppliersAdded: added,
         completedAt: new Date(),
       })
       .where(eq(schema.researchRun.id, runId));
 
-    await recordEvent(requestId, organizationId, "research.completed", {
-      found: candidates.length,
-      added,
-    });
+    await recordEvent(requestId, organizationId, "research.completed", { found, added });
     console.log(
-      `research: ${requestId} — ${queries.length} searches, ${candidates.length} candidates, ${added} new suppliers`,
+      `research: ${requestId} — ${allQueries.length} queries across ${scope.sources.length} source(s), ${found} candidates, ${added} new suppliers`,
     );
-    return { found: candidates.length, added, skipped: null };
+    return { found, added, skipped: null };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     await db

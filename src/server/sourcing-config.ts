@@ -44,3 +44,27 @@ export const RESEARCH_CANDIDATE_CAP = Math.min(30, Math.max(12, SUPPLIERS_RETURN
  * two-minute stranded window and collect a duplicate pipeline job.
  */
 export const RESEARCH_SEARCHES = Math.min(6, Math.max(3, Math.ceil(SUPPLIERS_RETURNED / 2)));
+
+// ── Store-first thresholds (validated design 2026-08-22; exact numbers are ──
+// the A8 draft — env-overridable so tuning them is not a deploy).
+// A request answers from the sources' own stores when the store's answer is
+// GOOD ENOUGH; live collection (global_web's AI search) is the fallback for
+// too few candidates, match too low, or confidence too low.
+
+/** Store entries older than this don't count toward coverage (still matchable). */
+export const STORE_FRESH_DAYS = envInt("STORE_FRESH_DAYS", 90, 1, 365);
+
+/** A store candidate must score at least this (0-98 scale) to count. */
+export const STORE_MIN_SCORE = envInt("STORE_MIN_SCORE", 40, 1, 98);
+
+/** …and carry at least this confidence (0-100) to count. */
+export const STORE_MIN_CONFIDENCE = envInt("STORE_MIN_CONFIDENCE", 30, 0, 100);
+
+/** Qualifying candidates needed to skip live collection — headroom over the
+ *  Top-N so ranking still means choosing, not keeping whatever exists. */
+export const STORE_MIN_CANDIDATES = envInt(
+  "STORE_MIN_CANDIDATES",
+  Math.min(40, SUPPLIERS_RETURNED * 2),
+  1,
+  60,
+);

@@ -222,6 +222,7 @@
     "research_started": "Global web research running",
     "research_completed": "{{found}} suppliers found on the web · {{added}} added to the database",
     "research_failed": "Web research unavailable — ranking the existing database",
+    "research_store_hit": "Matched from OSI's supplier base ({{qualifying}} qualified candidates of {{pool}}) — no new web research was needed",
     "attachment_added": "{{count}} attachment(s) added",
     "matches_created": "Top {{count}} selected out of {{analyzed}} suppliers analyzed",
     "criteria_fromAttachment": "{{count}} criteria extracted from the attachments"

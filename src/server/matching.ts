@@ -195,14 +195,21 @@ export function scoreSupplier(supplier: SupplierRow, criteria: CriterionRow[]): 
 export async function createMatchesForRequest(
   requestId: string,
   organizationId: string,
-  options: { recordEvent?: boolean } = {},
+  options: { recordEvent?: boolean; eligibleSupplierIds?: string[] } = {},
 ): Promise<number> {
-  const [suppliers, criteria] = await Promise.all([
+  const [allSuppliers, criteria] = await Promise.all([
     db.query.supplier.findMany(),
     db.query.requestCriterion.findMany({
       where: eq(schema.requestCriterion.requestId, requestId),
     }),
   ]);
+  // Source + country scope is a HARD filter (validated 2026-08-22): a supplier
+  // outside the workspace's activated sources or country preference is
+  // excluded, not down-scored. Globally banned suppliers never rank.
+  const eligible = options.eligibleSupplierIds ? new Set(options.eligibleSupplierIds) : null;
+  const suppliers = allSuppliers.filter(
+    (s) => !s.bannedAt && (eligible === null || eligible.has(s.id)),
+  );
   if (suppliers.length === 0) return 0;
 
   const ranked = suppliers
