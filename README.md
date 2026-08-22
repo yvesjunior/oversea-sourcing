@@ -91,6 +91,61 @@ preference applies at *request time* from the requesting workspace's settings;
 the shared pool itself stays global — preferences shape what each tenant
 *sees*, never what the platform *stores*.
 
+##### Every source is an independent connector module
+
+**Decided 2026-08-22.** Each data source is a self-contained module that does
+exactly one thing: *when asked*, collect from its own source and return
+candidates in the **one normalized format the platform understands**. The
+platform never knows how a source works inside; a source never knows what the
+platform does with its output.
+
+```
+src/server/sources/
+  types.ts            ← the contract every connector implements
+  registry.ts         ← data_source.code → connector module
+  global-web/         ← connector #1: today's AI web research, refactored in
+  registry-fr/        ← example: a French trade-registry API connector
+  import-csv/         ← example: file-based directory imports
+```
+
+The contract (conceptually):
+
+```ts
+interface SupplierSourceConnector {
+  /** Self-description — lets /interne/sources render any connector unseen. */
+  meta: { code: string; type: "global_web" | "country_registry" | "import";
+          countryCode?: string; name: string };
+  /** The only entry point. Pull-only: runs when called, never on its own. */
+  collect(brief: SearchBrief): Promise<SupplierCandidate[]>;
+}
+```
+
+- **`SearchBrief`** — what the request needs: criteria, country scope, how
+  many candidates are wanted. Same brief for every connector.
+- **`SupplierCandidate`** — the single normalized output shape: name,
+  `country_code`, website, description, evidence, plus the connector's raw
+  payload kept as `source_ref` detail. It is exactly what the persistence
+  layer already accepts from the research agent — dedup (`dedup_key`),
+  provenance and confidence are applied by the **platform core after**
+  collection, never inside a connector.
+- **Pull-only** — a connector runs only when the pipeline (or an admin-triggered
+  import) invokes it. No schedules, no background crawling inside connectors;
+  if periodic imports are ever wanted, the *scheduler* calls the connector —
+  the connector itself stays passive.
+- **Isolation** — connectors are invoked with a per-connector timeout and
+  fail independently: one broken registry API degrades that source's
+  contribution, never the request. Each failure is recorded on the
+  `research_run` (per-source outcome), so `/interne/sources` can show source
+  health from real usage.
+- **Adding a source = one module + one row.** Implement the interface, register
+  it, insert its `data_source` row. Nothing in the pipeline, matcher, or UI
+  changes. Conversely a `data_source` row whose connector is missing renders
+  as unavailable rather than crashing.
+- **The existing AI web research becomes connector #1** (`global_web`) —
+  refactored behind this interface, proving the contract on day one. This is
+  the same seam the INFRA principles already promised: a Tavily/Brave adapter,
+  or any national registry, slots in without touching domain code.
+
 #### Supplier cache — research reuse
 
 > **Status: VALIDATED 2026-08-22 — to implement.** Formalizes "the DB is the

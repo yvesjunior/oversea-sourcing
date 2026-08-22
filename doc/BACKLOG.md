@@ -253,6 +253,15 @@ and `/documents` render showcase constants and are disabled in the nav.
       `/interne/sources` admin screen (platform owner). Research agent and
       import pipeline consult only enabled sources; `supplier.source_ref`
       points at the source that found each company
+- [ ] **Source connector architecture** (validated 2026-08-22, README → every
+      source is an independent connector module) — `src/server/sources/`:
+      one contract (`collect(brief) → SupplierCandidate[]`, pull-only,
+      self-describing meta), a registry keyed by `data_source.code`,
+      per-connector timeout + independent failure recorded per source on
+      `research_run`. Dedup/provenance/confidence applied by the platform core
+      after collection, never inside a connector. **First step: refactor the
+      existing AI web research behind the interface as connector #1
+      (`global_web`)** — adding any later source is one module + one row
 
 ### E5 — Matching & scoring
 
