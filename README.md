@@ -306,10 +306,33 @@ their own dossiers, exactly as today; viewers see dossiers shared with the
 workspace but the "Lancer la recherche" affordance is disabled for them (same
 disabled-not-hidden nav rule the app already follows).
 
-##### UC-9 — Billing (deferred, unchanged)
+##### UC-9 — Settings & subscription (every account)
+Every account — individual and enterprise — gets a **Paramètres** surface with:
+
+- **Profil** — name, language (server-persisted; syncs the existing toggle)
+- **Abonnement** — the workspace's current plan, its limits, live usage
+  against the daily quota, and the upgrade path. Read-only until billing
+  lands (the upgrade CTA is "Contactez-nous" for now); becomes self-service
+  with Stripe. This is the buyer-facing counterpart of the staff screen
+  `/interne/plans` — same data, no editing.
+
+The panel is scoped to the **active workspace**: switch workspace, see that
+workspace's plan. Visible to every member; plan *changes* stay owner-only
+(rights matrix above).
+
+##### UC-10 — Enterprise user management view
+Enterprise workspaces additionally show a **Utilisateurs** section in
+Paramètres — visible to `owner`/`admin` only (disabled-not-hidden for others,
+per the nav rule). It is the operational home of UC-3…UC-6: members list with
+roles, invite by email, create an account directly, change rights, remove,
+pending invitations with revoke/resend. The managerial *analytics* (UC-8) can
+live as a tab of the same surface — "Utilisateurs" manages people,
+"Mon équipe" reads activity; one screen, two tabs.
+
+##### UC-11 — Billing (deferred, unchanged)
 One subscription per workspace — already the data model. Enterprise pricing is
 per-seat or flat (open question Q4); the `subscription` provider columns stay
-null until Stripe lands. Nothing in UC-1…UC-8 depends on billing.
+null until Stripe lands. Nothing in UC-1…UC-10 depends on billing.
 
 #### What it takes to build (delta over today)
 
@@ -322,6 +345,8 @@ null until Stripe lands. Nothing in UC-1…UC-8 depends on billing.
 | Invitation server fns (create/accept/decline/revoke) + team screen | ⬜ E2 |
 | Create-member-with-set-password-link flow | ⬜ needs the email provider (E9 dependency) |
 | Managerial view (members, usage, team requests) | ⬜ new surface, reads existing tables |
+| Paramètres: profile + **Abonnement** panel (plan, usage, upgrade CTA) | ⬜ E11/E12 — read-only version needs no billing |
+| Paramètres: **Utilisateurs** view (enterprise, owner/admin-gated) | ⬜ E2 — the home of invite/create/rights/remove |
 | Per-member ceiling within the pool (`quota_scope`) | ⬜ E12 refinement, small |
 | Enterprise plan row | ⬜ one migration (plans are rows) |
 | Ownership transfer | ⬜ small server fn + confirm UI |

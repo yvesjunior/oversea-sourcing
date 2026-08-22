@@ -353,6 +353,13 @@ and `/documents` render showcase constants and are disabled in the nav.
 ### E11 — Settings
 
 - [ ] Profile + language (server-persisted)
+- [ ] **Abonnement panel** — active workspace's plan, limits, live usage vs
+      quota, upgrade CTA ("Contactez-nous" until billing; self-service after
+      Stripe). Buyer-facing read-only mirror of `/interne/plans` (README →
+      account model UC-9)
+- [ ] **Utilisateurs view** (enterprise, owner/admin-gated) — members + roles,
+      invite/create, change rights, remove, pending invitations (README →
+      account model UC-10; the surface for the E2 flows)
 - [ ] Sourcing rules UI → consumed by matcher (E5)
 - [ ] Notification preferences
 
