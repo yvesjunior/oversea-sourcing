@@ -206,9 +206,10 @@ and `/documents` render showcase constants and are disabled in the nav.
 ### E2 — Workspaces, roles & tenancy
 
 > The SaaS account model (Individual vs Enterprise, invitations, rights,
-> managerial view) is specified in **[doc/ACCOUNTS.md](ACCOUNTS.md)** —
-> status: proposal awaiting validation (2026-08-22). Once validated, its use
-> cases refine the tasks below and the Enterprise items in E12.
+> managerial view) is specified in the README under **"Account model —
+> Individual & Enterprise (SaaS)"** — status: proposal awaiting validation
+> (2026-08-22). Once validated, its use cases refine the tasks below and the
+> Enterprise items in E12.
 
 - [ ] Workspace CRUD (create at signup, rename)
 - [ ] Memberships + role checks: `requireRole(workspace, 'buyer')` helpers
