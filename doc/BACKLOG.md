@@ -53,13 +53,26 @@ a Claude artifact for validation.
 sourcing tables migrated (`data_source`, `supplier_source`, `source_run`,
 `sourcing_rules` + supplier ban/freshness columns, `research_run.fingerprint`),
 connector contract + `global_web` as connector #1, **store-first flow on a
-dedicated `research` queue** (`WORKER_QUEUES` + `worker-research` compose
-service behind the `scale` profile), quota advisory lock, store-hit disclosure
-in the report. Verified end to end in dev: cold request → research queue → 6
-new suppliers with memberships + `source_run` audit; warm request →
-`research.store_hit` (14 qualifying of 19), zero AI cost. **Still open in
-Phase A: A7 (vitest + connector tests) and A8 (threshold numbers + cross-source
-order discussion).** Redis-backed rate limiting also shipped (`deccfd1`).
+dedicated `research` queue**, quota advisory lock, store-hit disclosure in the
+report. Verified end to end in dev: cold request → research queue → new
+suppliers with memberships + `source_run` audit; warm request →
+`research.store_hit`, zero AI cost. **Still open in Phase A: A7 (vitest +
+connector tests) and A8 (threshold numbers + cross-source order discussion).**
+Redis-backed rate limiting also shipped (`deccfd1`).
+
+**The full architecture now runs in dev AND is defined for prod (`0736f1e`):**
+six services, identical topology in both stacks — `web`, `worker` (pipeline +
+sweep), `worker-research` (collection, always-on — no more `scale` profile),
+`redis` (first-class, out of the addons; fail-open counters), `database`,
+one-shot `migrate`. Addons hold only ops tools now, attachable to either stack
+(`./scripts/addons.sh dev …`). Cross-container handoff verified live:
+`worker` → research queue → `worker-research` (collected under a transient
+API error, `source_run` audit) → back to `worker` for matching. README §4
+documents the containers, dev-vs-prod differences, and the interaction
+diagram — containers never call each other; Postgres is the only meeting
+point. **Prod still runs `d4f93a2`** — everything above ships whenever the
+deploy is requested (migration is additive; backfills prod's suppliers as
+`global_web` memberships automatically).
 
 ### Start working
 
@@ -132,6 +145,10 @@ with `email_verified = true`, a provisioned workspace and the Free plan.
 | Platform owner's workspace → `internal` plan | SQL on prod; staff-lands-on-Free gap recorded in E12 |
 | Daily-quota refusal made a prominent warning alert | `d4f93a2`, deployed 2026-08-20 |
 | Demo accounts deleted from prod (dev-only now) | SQL on prod after a backup; suppliers they discovered kept |
+| Redis-backed distributed rate limiting (fail-open) | `deccfd1` — dormant without `REDIS_URL`; **not deployed** |
+| Sourcing engine: connectors, store-first, research queue, quota lock | `6ad0232` — Phase A core; **not deployed** |
+| Full architecture in both stacks: worker-research + redis first-class | `0736f1e` + README interaction docs `3030065`; **not deployed** |
+| Footer heading: "Nos engagements" / "Our commitments to you" | `186ecd5` + `17615cd`; **not deployed** |
 
 
 ## Where we actually are (2026-08-22)
@@ -308,9 +325,13 @@ and `/documents` render showcase constants and are disabled in the nav.
       *Accept:* `npm test` green in CI-less local run; wired into the quality
       gates listed in "Start working".
 
-- [ ] **A8 · DISCUSS before coding A4 thresholds:** exact numbers for "too
-      few / match too low / confidence too low", and cross-source order
-      (parallel vs priority). Decision recorded in the README flow section.
+- [ ] **A8 · DISCUSS the thresholds (A4 shipped with draft defaults):** exact
+      numbers for "too few / match too low / confidence too low", and
+      cross-source order (parallel vs priority). Field observations from the
+      2026-08-22 dev runs: token matching is coarse both ways ("ISO 8573-1" ≈
+      "ISO 9001" → false store-hit; "inox" ≠ "inoxydable" → false research) —
+      criteria matching quality may matter more than the numbers. Decision
+      recorded in the README flow section.
 
 ### Phase B — accounts & team (E2 + settings surfaces)
 
@@ -505,49 +526,47 @@ feeds C3/C4 value (Recommandé requires Vérifié)
 - [x] Dedup / entity resolution v1 — normalized `name|COUNTRY` key on `supplier.dedup_key` with a **unique index**, so a repeat search cannot re-add a known company (`src/lib/supplier-key.ts`). **Merge tool in admin still pending**
 - [x] Supplier directory UI wiring (list) — real data with match counts, plus a link back to the request whose research found each company (workspace-gated). Detail page + filters still pending
 - [ ] Country risk reference table (seed data)
-- [ ] **Supplier cache — coverage check before research** (validated
-      2026-08-22, README → supplier cache) — score the pool against the request
-      first; pool-only / top-up / full-research paths, `research_run.fingerprint`,
+- [x] **Supplier cache — coverage check before research** (built 2026-08-22,
+      `6ad0232`) — `evaluateStoreCoverage` scores the eligible pool before any
+      research; store-hit / research paths, `research_run.fingerprint`,
       `supplier.last_researched_at` (90-day freshness), report says which path
-      ran, pool-only costs the same quota unit
-- [ ] **`data_source` catalogue** (validated 2026-08-22, README → data sources &
-      sourcing preferences) — platform-curated source rows (`global_web` ·
-      `country_registry` · `import`, optional country, enabled flag) +
-      `/interne/sources` admin screen (platform owner). Research agent and
-      import pipeline consult only enabled sources; `supplier.source_ref`
-      points at the source that found each company
-- [ ] **Source connector architecture** (validated 2026-08-22, README → every
-      source is an independent connector module) — `src/server/sources/`:
-      one contract (`collect(brief) → SupplierCandidate[]`, pull-only,
-      self-describing meta), a registry keyed by `data_source.code`,
-      per-connector timeout + independent failure recorded per source on
-      `research_run`. Dedup/provenance/confidence applied by the platform core
-      after collection, never inside a connector. **First step: refactor the
-      existing AI web research behind the interface as connector #1
-      (`global_web`)** — adding any later source is one module + one row.
-      Roadmap: `global_web` → first registry (`registry-ca`) → `alibaba`
-      (**ToS/licensing gate before coding**) → `registry-us` → per demand
-- [ ] **`supplier_source` memberships + bans** (validated 2026-08-22, README →
-      per-source collections & bans) — one supplier entity, N source
-      memberships (uq pair, per-source payload, first/last_seen); per-source
-      ban (`status=banned`) and global ban (`supplier.banned_at/by/reason`),
-      **both sticky across re-collection** via the dedup key; staff-only with
-      a trail, managed from the source's collection view
-- [ ] **`source_run` audit + "Mettre à jour" trigger** (validated 2026-08-22)
-      — staff refresh one source on demand from `/interne/sources` with an
-      optional category/country scope; upserts memberships, re-warms
-      `last_seen_at`; rows record source, trigger `request|admin`, who,
-      counts, errors
-- [ ] **DISCUSS at implementation: the request flow across sources** — the
-      validated working draft (README → the request flow across sources):
-      effective sources = platform-enabled ∩ workspace-activated (requests
-      never specify a source), **store-first for every source (global_web
-      included)**, live-collection fallback only on insufficient store answer
-      (too few candidates / match too low / confidence too low — thresholds
-      TBD) and only for sources with a live collector (today: global_web),
-      source scope as a hard match-time filter. **Also decide: cross-source
-      search order — priority sequence vs all stores in parallel.** Refine
-      thresholds and failure UX before coding
+      ran, store-only costs the same quota unit. Verified both paths in dev
+- [ ] **`data_source` catalogue** — 🟡 table + `global_web` row seeded and
+      **consulted by the pipeline** (built 2026-08-22); the
+      `/interne/sources` admin screen (enable/disable, per-source store
+      browser, health from `source_run`) is the remaining half → C1
+- [x] **Source connector architecture** (built 2026-08-22, `6ad0232`) —
+      `src/server/sources/`: one contract (`collect(brief) →
+      SourceCandidate[]`, pull-only, self-describing meta), registry keyed by
+      `data_source.code`, per-source isolated failure recorded on
+      `source_run`. Dedup/provenance/confidence applied by the platform core
+      after collection, never inside a connector. `global_web` refactored in
+      as connector #1 — adding any later source is one module + one row
+- [ ] **Next connectors** (roadmap): first registry (`registry-ca` —
+      investigate the API/licensing first, findings to README §9) → `alibaba`
+      (**ToS/licensing gate before coding**) → `registry-us` → per demand.
+      Store-only connectors also need C1's "Mettre à jour" trigger to be
+      useful
+- [ ] **`supplier_source` memberships + bans** — 🟡 schema + persistence built
+      2026-08-22 (uq pair, payload, first/last_seen, upserts on every
+      collection, bans sticky across re-collection via the dedup key; banned
+      memberships never resurrected, matcher skips global bans). **Remaining:
+      the staff ban/unban surfaces** with a who/when/why trail → C1
+- [ ] **`source_run` audit + "Mettre à jour" trigger** — 🟡 table built and
+      written on every request-triggered collection (2026-08-22: source,
+      trigger, counts, per-source errors). **Remaining: the admin-triggered
+      refresh** (`trigger=admin`, optional category/country scope, who) from
+      `/interne/sources` → C1
+- [ ] **DISCUSS: store-first thresholds + cross-source order (= A8)** — the
+      flow itself is **built** (2026-08-22) with draft defaults
+      (`STORE_MIN_CANDIDATES` = 2×Top-N, score ≥ 40, confidence ≥ 30, fresh
+      ≤ 90d; sources iterate sequentially). To settle with real usage:
+      the numbers, parallel-vs-priority across sources, and failure UX.
+      **Field observations to feed in:** the v1 token matcher makes the
+      decision coarse in both directions — "ISO 8573-1" matched "ISO 9001"
+      (compressor request store-hit off valve suppliers) while "inox" missed
+      "inoxydable" (forced research despite a warm pool). Tightening criteria
+      matching may matter more than tuning thresholds
 
 ### E5 — Matching & scoring
 
