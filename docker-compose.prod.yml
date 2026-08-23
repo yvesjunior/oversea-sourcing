@@ -23,6 +23,10 @@ services:
       # A records removes the dead path. Drop this if the VM ever gets real IPv6.
       - NODE_OPTIONS=--dns-result-order=ipv4first
       - PORT=3000
+      # First-class Redis (2026-08-22): distributed rate-limit counters. web
+      # has no hard dependency on it — kv.ts fails open, sessions stay in
+      # Postgres — so a dead Redis degrades rate limiting, never logins.
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
     ports:
       # Host 3010 → container 3000. Override with WEB_PORT=<port> if needed.
       - "${WEB_PORT:-3010}:3000"
@@ -54,10 +58,9 @@ services:
       # token exchange timing out with ETIMEDOUT inside better-auth). Preferring
       # A records removes the dead path. Drop this if the VM ever gets real IPv6.
       - NODE_OPTIONS=--dns-result-order=ipv4first
-      # Which queues this worker consumes (default: both). To scale research
-      # out, set WORKER_QUEUES=pipeline in .env and enable the worker-research
-      # service below: docker compose --profile scale up -d
-      - WORKER_QUEUES=${WORKER_QUEUES:-pipeline,research}
+      # Full architecture (2026-08-22): this worker owns the pipeline queue
+      # (orchestration, matching, sweep); worker-research owns collection.
+      - WORKER_QUEUES=${WORKER_QUEUES:-pipeline}
     volumes:
       # The worker reads buyer attachments during research (E4) — without this
       # mount every file lookup is an ENOENT, since only `web` writes uploads.
@@ -68,12 +71,10 @@ services:
       migrate:
         condition: service_completed_successfully
 
-  # Dedicated research worker — the scaling knob for platform hotspot #1
-  # (validated 2026-08-22). OFF by default (profile `scale`); when enabling it,
-  # set WORKER_QUEUES=pipeline in .env so the main worker stops competing:
-  #   WORKER_QUEUES=pipeline docker compose -f docker-compose.prod.yml --profile scale up -d
+  # Dedicated research worker — the collection hotspot isolated on its own
+  # queue (full architecture, 2026-08-22). Same image, WORKER_QUEUES=research;
+  # scaling research = replicas of THIS service, pipeline stays untouched.
   worker-research:
-    profiles: ["scale"]
     build:
       context: .
       dockerfile: infra/Docker/web.Dockerfile
@@ -126,6 +127,21 @@ services:
       timeout: 3s
       retries: 12
 
+  # First-class cache (2026-08-22): shared rate-limit counters. Disposable by
+  # design — state lives in Postgres; flushing Redis loses nothing but counters.
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes
+    restart: unless-stopped
+    volumes:
+      - osi-redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
 volumes:
   osi-db-data:
   osi-uploads:
+  osi-redis-data:

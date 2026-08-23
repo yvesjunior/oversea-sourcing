@@ -34,19 +34,8 @@ services:
       timeout: 5s
       retries: 3
 
-  # ── cache: Redis (cache + distributed rate limiting) ────────────────────────
-  redis:
-    profiles: ["cache"]
-    image: redis:7-alpine
-    command: redis-server --appendonly yes
-    restart: unless-stopped
-    volumes:
-      - osi-redis-data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
+  # (Redis was promoted to a first-class service in BOTH app stacks on
+  #  2026-08-22 — see docker-compose.{dev,prod}.yml. No longer an addon.)
 
   # ── search: Meilisearch (supplier directory search/faceting) ────────────────
   meilisearch:
@@ -104,7 +93,6 @@ services:
 
 volumes:
   osi-minio-data:
-  osi-redis-data:
   osi-meili-data:
   osi-uptime-data:
   osi-clamav-data:

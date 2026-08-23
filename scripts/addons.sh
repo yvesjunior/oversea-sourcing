@@ -7,8 +7,10 @@
 #
 # Usage:
 #   ./scripts/addons.sh storage monitoring          # enable locally (prod stack)
+#   ./scripts/addons.sh dev cache                   # enable against the DEV stack
 #   ./scripts/addons.sh --remote storage            # enable on the prod VM
 #   ./scripts/addons.sh --down                      # stop ALL addon containers (local)
+#   ./scripts/addons.sh dev --down                  # same, dev stack
 #   ./scripts/addons.sh --remote --down             # same, on the VM
 #
 # Secrets (e.g. MINIO_ROOT_PASSWORD) are read from .env on the target.
@@ -17,12 +19,16 @@ cd "$(dirname "$0")/.."
 
 DEPLOY_HOST="${DEPLOY_HOST:-yves@192.168.2.56}"
 DEPLOY_PATH="${DEPLOY_PATH:-/home/yves/workspace/apps/oversea-sourcing}"
-VALID_PROFILES="storage cache search dbtools monitoring av"
-ADDON_SERVICES="minio redis meilisearch adminer uptime-kuma dozzle clamav"
+VALID_PROFILES="storage search dbtools monitoring av"
+ADDON_SERVICES="minio meilisearch adminer uptime-kuma dozzle clamav"
 
+# Which app stack the addons attach to (same compose project → same network).
+# Dev/prod symmetry: anything enableable on the VM must be rehearsable in dev.
+STACK="prod"
 remote=0; down=0; profiles=()
 for arg in "$@"; do
   case "${arg}" in
+    dev | prod) STACK="${arg}" ;;
     --remote) remote=1 ;;
     --down)   down=1 ;;
     *)
@@ -40,7 +46,7 @@ fi
 # Build the compose command. --env-file .env lets compose interpolate the
 # secrets referenced in the addons file.
 build_cmd() {
-  local cmd="docker compose -f docker-compose.prod.yml -f docker-compose.addons.yml --env-file .env"
+  local cmd="docker compose -f docker-compose.${STACK}.yml -f docker-compose.addons.yml --env-file .env"
   if [ "${down}" = 1 ]; then
     # Down ONLY the addon services (never the web app). All profiles must be
     # active for compose to consider them.

@@ -20,6 +20,10 @@ services:
       - BETTER_AUTH_URL=${BETTER_AUTH_URL:-http://localhost:3010}
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
+      # First-class Redis (2026-08-22): distributed rate-limit counters, same
+      # topology as prod. Fail-open by design (src/server/kv.ts), so web has no
+      # hard dependency on it — a dead Redis degrades, never blocks login.
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
     ports:
       # Same host port as prod (3010). Vite binds 8080 inside the container
       # (Lovable sandbox config) — only the host mapping changes.
@@ -47,6 +51,9 @@ services:
     environment:
       - NODE_ENV=development
       - DATABASE_URL=postgres://osi:osi@database:5432/osi
+      # Full architecture (2026-08-22): this worker owns the pipeline queue
+      # (orchestration, matching, sweep); worker-research owns collection.
+      - WORKER_QUEUES=${WORKER_QUEUES:-pipeline}
     volumes:
       - ./:/app
       - /app/node_modules
@@ -58,6 +65,46 @@ services:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
+
+  # Dedicated research worker — the collection hotspot isolated on its own
+  # queue (full architecture, 2026-08-22). Same image, WORKER_QUEUES=research;
+  # scaling research = replicas of THIS service, pipeline stays untouched.
+  worker-research:
+    build:
+      context: .
+      dockerfile: infra/Docker/web.Dockerfile
+      target: deps
+    command: npx tsx watch src/worker.ts
+    working_dir: /app
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=development
+      - DATABASE_URL=postgres://osi:osi@database:5432/osi
+      - WORKER_QUEUES=research
+    volumes:
+      - ./:/app
+      - /app/node_modules
+      - osi-dev-uploads:/data/uploads
+    depends_on:
+      database:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
+  # First-class cache (2026-08-22): shared rate-limit counters — dev runs the
+  # same topology prod does. State stays in Postgres; Redis is disposable.
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes
+    restart: unless-stopped
+    volumes:
+      - osi-dev-redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
 
   # One-shot: applies Drizzle migrations on every `up`, then exits.
   migrate:
@@ -98,3 +145,4 @@ services:
 volumes:
   osi-dev-db-data:
   osi-dev-uploads:
+  osi-dev-redis-data:

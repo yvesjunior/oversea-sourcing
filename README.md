@@ -793,7 +793,7 @@ defaults from `docker-compose.dev.yml`, so a fresh clone needs only
 | `SUPPLIERS_RETURNED` | `5`        | Suppliers shown per dossier. **Search count and candidate caps derive from it**       |
 | `SHOW_TEST_LOGIN`    | `true`     | One-click demo login on `/login`. **Set false before real users** — creds are public  |
 | `REDIS_URL`          | *(unset)*  | Auth rate-limit counters in Redis (`cache` addon: `redis://redis:6379`) — shared across web replicas; unset = in-memory. **Fail-open**: a dead Redis degrades to unlimited, never to broken logins |
-| `WORKER_QUEUES`      | `pipeline,research` | Which queues a worker process consumes. Scale-out: set `pipeline` here and start the `worker-research` service (`--profile scale`) |
+| `WORKER_QUEUES`      | `pipeline` (worker) / `research` (worker-research) | Which queues a worker process consumes — set per service in the compose files; scaling research = replicas of `worker-research` |
 | `STORE_MIN_CANDIDATES` | `2 × SUPPLIERS_RETURNED` | Qualifying store candidates needed to skip live research (store-first). Also `STORE_MIN_SCORE` (40), `STORE_MIN_CONFIDENCE` (30), `STORE_FRESH_DAYS` (90) |
 
 Measured 2026-08-16 on identical requests: `cheap` (haiku-4-5, 3 searches) ≈
@@ -839,7 +839,12 @@ change, not a refactor.
 
 - Domain code never imports a vendor SDK directly — always through an adapter
 - Every job idempotent (safe to retry); every handler workspace-scoped
-- One image, three processes: `web`, `worker`, one-shot `migrate`
+- One image, four processes: `web`, `worker` (pipeline), `worker-research`
+  (collection), one-shot `migrate` — plus first-class `redis` (counters only,
+  disposable) and `database`. **Identical in dev and prod** (2026-08-22): the
+  full architecture runs locally, so every topology change is rehearsed before
+  it reaches the VM. Only ingress (cloudflared + traefik, shared VM infra,
+  not OSI's) has no dev counterpart — localhost needs no tunnel
 
 ### Module map and extraction seams
 
@@ -848,7 +853,7 @@ change, not a refactor.
 | Web/SSR + API     | Node container (Nitro)                     | Stateless → replicate behind the proxy                       |
 | Workers           | Separate container, same image             | Scale replicas; per-queue concurrency                        |
 | AI gateway        | `src/server/ai/` — sole owner of Claude calls, retries, cost metering, model tiering | Own service if several apps consume it |
-| **Research agent** | ✅ **Own `research` queue (2026-08-22)** behind the connector contract (`src/server/sources/`) — deviation resolved. One worker consumes both queues by default; `WORKER_QUEUES` + the `scale` compose profile split it into a dedicated container | Worker replicas per queue |
+| **Research agent** | ✅ **Own `research` queue + own `worker-research` container (2026-08-22)** behind the connector contract (`src/server/sources/`) — deviation resolved, running in dev and prod alike | Replicas of `worker-research` |
 | Database          | Postgres container + named volume          | pgbouncer → dedicated local DB VM (no managed cloud PG)      |
 | File storage      | Local volume, S3-shaped adapter            | Same code → MinIO / R2 / S3                                  |
 | Search            | Postgres FTS + trigram                     | Meilisearch when the directory outgrows SQL                  |
@@ -919,12 +924,15 @@ flowchart LR
     subgraph VM [prod VM · no public IP]
         CF -. tunnel .-> T[cloudflared]
         T --> W1[web · Node SSR/API]
-        W1 --> PG[(Postgres 16)]
-        WK[worker · pg-boss] --> PG
+        W1 --> PG[(Postgres 16 · queues)]
+        W1 --> RD[(Redis · counters)]
+        WK[worker · pipeline] --> PG
+        WR[worker-research · collection] --> PG
         W1 --> UP[(uploads volume)]
         WK --> UP
+        WR --> UP
     end
-    WK -.-> CL[Claude API + web search]
+    WR -.-> CL[Claude API + web search]
 ```
 
 **Decisions that shape this** — all deliberate, all reversible on a signal:
@@ -938,7 +946,7 @@ flowchart LR
 - **Not Kubernetes.** If orchestration is ever needed, Docker Swarm across local
   VMs — compose files translate almost as-is.
 
-Optional components (MinIO, Redis, Meilisearch, Uptime-Kuma, Dozzle, ClamAV,
+Optional components (MinIO, Meilisearch, Uptime-Kuma, Dozzle, ClamAV,
 Adminer) are **profile-gated** in `docker-compose.addons.yml` — nothing starts
 unless asked: `./scripts/addons.sh [--remote] <profile>`.
 
@@ -959,11 +967,11 @@ unless asked: `./scripts/addons.sh [--remote] <profile>`.
   ([`src/lib/signup-guard.ts`](src/lib/signup-guard.ts)). Real client IP resolved
   from `cf-connecting-ip` behind the tunnel
 - ✅ Nightly `pg_dump`; restore drills via `scripts/restore.sh`
-- ✅ **Rate-limit storage is Redis-ready** (2026-08-22) — set `REDIS_URL` and
-  enable the `cache` addon and better-auth's counters are shared across
-  replicas (`src/server/kv.ts`, fail-open; sessions stay in Postgres). Unset,
-  it falls back to in-memory — fine for exactly one web container, which is
-  what prod runs today
+- ✅ **Rate-limit counters live in Redis** (2026-08-22) — `redis` is a
+  first-class service in both stacks (`REDIS_URL` defaults to it in compose);
+  counters are shared across replicas (`src/server/kv.ts`, **fail-open**;
+  sessions stay in Postgres, so Redis is disposable). Without `REDIS_URL` the
+  code falls back to in-memory counters
 - ⚠️ **Only `/api/auth/*` is rate limited.** TanStack server functions
   (`/_serverFn/*`) and `/api/upload` have no limit of their own: the plan quota
   bounds how many requests a workspace may make per day, not how fast, so a
