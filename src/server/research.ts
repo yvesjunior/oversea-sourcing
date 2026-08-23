@@ -168,6 +168,28 @@ export function requestFingerprint(
   return `${scope}::${parts}`;
 }
 
+type SupplierRow = typeof schema.supplier.$inferSelect;
+type CriterionRow = typeof schema.requestCriterion.$inferSelect;
+
+/**
+ * Pure half of the store-first decision — how many of these suppliers qualify
+ * as a store answer for these criteria? A candidate must be fresh
+ * (≤ STORE_FRESH_DAYS), confident (≥ STORE_MIN_CONFIDENCE) and actually match
+ * (score ≥ STORE_MIN_SCORE). Exported for unit tests (A7).
+ */
+export function countQualifyingCandidates(
+  pool: SupplierRow[],
+  criteria: CriterionRow[],
+  now: Date = new Date(),
+): number {
+  const freshCutoff = new Date(now.getTime() - STORE_FRESH_DAYS * 24 * 60 * 60 * 1000);
+  return pool.filter((supplier) => {
+    if (!supplier.lastResearchedAt || supplier.lastResearchedAt < freshCutoff) return false;
+    if (supplier.confidenceScore < STORE_MIN_CONFIDENCE) return false;
+    return scoreSupplier(supplier, criteria).total >= STORE_MIN_SCORE;
+  }).length;
+}
+
 export type StoreCoverage = {
   /** Store answer is good enough — skip live collection entirely. */
   sufficient: boolean;
@@ -199,12 +221,7 @@ export async function evaluateStoreCoverage(
     }),
   ]);
 
-  const freshCutoff = new Date(Date.now() - STORE_FRESH_DAYS * 24 * 60 * 60 * 1000);
-  const qualifying = pool.filter((supplier) => {
-    if (!supplier.lastResearchedAt || supplier.lastResearchedAt < freshCutoff) return false;
-    if (supplier.confidenceScore < STORE_MIN_CONFIDENCE) return false;
-    return scoreSupplier(supplier, criteria).total >= STORE_MIN_SCORE;
-  }).length;
+  const qualifying = countQualifyingCandidates(pool, criteria);
 
   return {
     sufficient: qualifying >= STORE_MIN_CANDIDATES,

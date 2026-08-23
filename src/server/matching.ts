@@ -89,10 +89,19 @@ function normalize(input: string): string {
   return input.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 }
 
+/** Morphological variants that mean the same thing (A8 field evidence,
+ *  2026-08-22: "inox" failed to match "inoxydable" and forced a research pass
+ *  over a warm store). Applied to BOTH sides, so direction never matters. */
+const TOKEN_ALIASES: Record<string, string> = {
+  inoxydable: "inox",
+  stainless: "inox",
+};
+
 function tokens(input: string): string[] {
   return normalize(input)
     .split(/[^a-z0-9]+/)
-    .filter((token) => token.length >= 2 && !NOISE.has(token));
+    .filter((token) => token.length >= 2 && !NOISE.has(token))
+    .map((token) => TOKEN_ALIASES[token] ?? token);
 }
 
 export type CriterionScore = {
@@ -133,6 +142,13 @@ function searchableText(supplier: SupplierRow): string {
 function criterionMatches(supplierTokens: Set<string>, criterion: CriterionRow): boolean {
   const wanted = tokens(criterion.value);
   if (wanted.length === 0) return false;
+  // Tokens carrying a digit are the discriminating half of a spec: "ISO 9001"
+  // and "ISO 8573" differ only in the number, and a ratio that ignores it
+  // matches the wrong certification (A8 field evidence, 2026-08-22: a
+  // compressor request store-hit off valve suppliers through the shared
+  // "iso"). Every numeric token must hit; the 0.5 ratio covers the words.
+  const strong = wanted.filter((token) => /\d/.test(token));
+  if (strong.some((token) => !supplierTokens.has(token))) return false;
   const hits = wanted.filter((token) => supplierTokens.has(token)).length;
   return hits / wanted.length >= 0.5;
 }

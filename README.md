@@ -206,9 +206,15 @@ request enters `searching`
   *or* compatibility scores too low *or* confidence too low. Local stored data
   always gets the first chance; the internet is for finding *new* suppliers,
   not re-finding known ones.
-- **Cross-source search order** (is there a priority sequence between sources,
-  or do all stores answer in parallel?) — deliberately left open, to discuss
-  at implementation with the thresholds.
+- **A8 decisions (settled 2026-08-22):** thresholds keep their defaults
+  (2×Top-N candidates · score ≥ 40 · confidence ≥ 30 · fresh ≤ 90 days), all
+  env-tunable without a deploy. **Cross-source order: sequential, catalogue
+  order** — revisit parallel fan-out when a second live connector exists.
+  Failure UX: sources fail independently; a fully failed collection still
+  ranks the existing store. The field defects were fixed in the matcher
+  instead of the thresholds: **numeric tokens must match** ("ISO 9001" no
+  longer satisfies "ISO 8573-1") and **morphological aliases**
+  ("inox" ↔ "inoxydable") — both under unit test.
 - A workspace that activated only the Canadian registry never calls the AI
   search at all.
 - **Source scope is a hard filter at match time**, exactly like country

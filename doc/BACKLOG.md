@@ -83,8 +83,8 @@ deploy is requested (migration is additive; backfills prod's suppliers as
 ./scripts/deploy.sh                 # ship main to the VM
 ```
 
-Quality gates are `npx tsc --noEmit` and `npx eslint src/` — both clean as of
-this commit. There is no test suite (see debts).
+Quality gates are `npm test` (vitest, 22 unit tests since 2026-08-22),
+`npx tsc --noEmit` and `npx eslint src/` — all clean as of this commit.
 
 ### Things that will bite you
 
@@ -204,8 +204,10 @@ and `/documents` render showcase constants and are disabled in the nav.
   500s. Not yet enabled on prod (single web container doesn't need it)
 - ⚠️ **`storage.deleteFile` is never called** — deleting a request removes its
   `file` rows but leaves the bytes on the uploads volume
-- ⚠️ **No test suite at all** — no test script, no test files. Every check in this
-  repo is a typecheck, a lint, or a manual run
+- 🟡 **Test suite started 2026-08-22** (`npm test`, vitest, 22 unit tests:
+  matcher, store-first qualifier, connector contract, dedup key). Still
+  unit-only — DB-bound behavior (ban stickiness, quota lock) is verified
+  manually against the dev stack; no CI runs any of it automatically
 - ⚠️ **Supplier verification has no state machine**, unlike requests: any code can
   set any status
 - ⚠️ `.docx` / `.xlsx` attachments are accepted at upload but cannot be read
@@ -317,21 +319,26 @@ and `/documents` render showcase constants and are disabled in the nav.
       search + which sources were consulted. FR/EN keys in
       `src/i18n/locales/`.
 
-- [ ] **A7 · Connector unit tests — the first tests in the repo.** Add
-      `vitest` (dev-only), `npm test` script. Cover: contract conformance for
-      global_web (mock the agent), store-first decision matrix (warm / thin /
-      stale / low-confidence), dedup-preserves-ban, advisory-lock race (A5
-      repro as a test).
-      *Accept:* `npm test` green in CI-less local run; wired into the quality
-      gates listed in "Start working".
+- [x] **A7 · Unit tests — the first tests in the repo** (2026-08-22). vitest
+      + `npm test` (22 tests): global_web contract conformance (agent mocked),
+      the store-first decision matrix (warm / thin / stale / low-confidence /
+      low-match via the pure `countQualifyingCandidates`), the matcher's A8
+      fixes, dedup-key normalization, fingerprint stability. **Deliberately
+      unit-only:** ban stickiness and the advisory-lock race are DB-bound —
+      verified manually against the dev stack; integration tests come with CI
+      if CI ever comes. Gotcha for posterity: `beforeEach(() =>
+      mock.mockReset())` without braces returns the mock, which vitest calls
+      as a TEARDOWN hook — brace your hooks.
 
-- [ ] **A8 · DISCUSS the thresholds (A4 shipped with draft defaults):** exact
-      numbers for "too few / match too low / confidence too low", and
-      cross-source order (parallel vs priority). Field observations from the
-      2026-08-22 dev runs: token matching is coarse both ways ("ISO 8573-1" ≈
-      "ISO 9001" → false store-hit; "inox" ≠ "inoxydable" → false research) —
-      criteria matching quality may matter more than the numbers. Decision
-      recorded in the README flow section.
+- [x] **A8 · Thresholds settled** (2026-08-22, recorded in the README flow
+      section): defaults stand (2×Top-N · score ≥ 40 · confidence ≥ 30 ·
+      fresh ≤ 90d, env-tunable); cross-source order = sequential in catalogue
+      order until a second live connector justifies parallel fan-out; failure
+      UX = per-source isolation, failed collection still ranks the store.
+      The field defects were fixed in the **matcher**, not the thresholds:
+      numeric tokens must all match (ISO 9001 ≠ ISO 8573-1) + morphological
+      aliases (inox ↔ inoxydable). Verified live: the request wording that
+      previously forced research now store-hits (20 qualifying)
 
 ### Phase B — accounts & team (E2 + settings surfaces)
 
@@ -557,16 +564,11 @@ feeds C3/C4 value (Recommandé requires Vérifié)
       trigger, counts, per-source errors). **Remaining: the admin-triggered
       refresh** (`trigger=admin`, optional category/country scope, who) from
       `/interne/sources` → C1
-- [ ] **DISCUSS: store-first thresholds + cross-source order (= A8)** — the
-      flow itself is **built** (2026-08-22) with draft defaults
-      (`STORE_MIN_CANDIDATES` = 2×Top-N, score ≥ 40, confidence ≥ 30, fresh
-      ≤ 90d; sources iterate sequentially). To settle with real usage:
-      the numbers, parallel-vs-priority across sources, and failure UX.
-      **Field observations to feed in:** the v1 token matcher makes the
-      decision coarse in both directions — "ISO 8573-1" matched "ISO 9001"
-      (compressor request store-hit off valve suppliers) while "inox" missed
-      "inoxydable" (forced research despite a warm pool). Tightening criteria
-      matching may matter more than tuning thresholds
+- [x] **Store-first thresholds + cross-source order settled (= A8,
+      2026-08-22)** — see the Phase A entry above and the README flow section
+      for the decisions; the token-matching defects were fixed in the matcher
+      (numeric-token guard + aliases) rather than by moving thresholds.
+      Numbers stay env-tunable for re-tuning against real prod usage
 
 ### E5 — Matching & scoring
 
