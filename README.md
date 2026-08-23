@@ -829,11 +829,84 @@ change, not a refactor.
 | ------------ | ------------------------------------------------------------------- |
 | Web / API    | TanStack Start monolith (Nitro server *is* the API host)             |
 | Database     | PostgreSQL 16 + pgvector, Drizzle + drizzle-kit                     |
-| Jobs         | **pg-boss** — the queue lives in Postgres, no Redis to operate       |
+| Jobs         | **pg-boss** — the queues live in Postgres (`pipeline` + `research`)  |
+| Cache        | **Redis** — rate-limit counters only, fail-open, disposable          |
 | Auth         | **better-auth** + organization plugin (`organization` = workspace)   |
 | Validation   | **zod** on every server-fn boundary                                  |
 | AI           | Claude via the `src/server/ai/` gateway                              |
+| Sources      | Pull-only connectors behind one contract (`src/server/sources/`)     |
 | File storage | Local volume behind an S3-shaped adapter                             |
+
+### Containers — the same six in dev and prod
+
+| Container | Goal | Talks to |
+| --------- | ---- | -------- |
+| `web` | SSR pages + the whole API (server fns `/_serverFn/*`, `/api/*` upload/auth). Stateless — replicable | Postgres (rows + enqueue) · Redis (counters) · uploads volume |
+| `worker` | **Pipeline owner** (`WORKER_QUEUES=pipeline`): status machine, the store-first decision, matching & ranking, 60s recovery sweep | Postgres only |
+| `worker-research` | **Collection owner** (`WORKER_QUEUES=research`): runs the source connectors, persists candidates through the core (dedup, provenance, memberships, `source_run`), hands back to the pipeline. **The scaling knob** — more research capacity = replicas of this service | Postgres · Claude API · uploads volume (reads attachments) |
+| `redis` | Shared rate-limit counters. Fail-open (`src/server/kv.ts`): a dead Redis degrades limiting, never logins. All real state lives in Postgres, so Redis is disposable | — |
+| `database` | Postgres 16 + pgvector — **all state and both job queues**. The only meeting point between containers | — |
+| `migrate` | One-shot: applies Drizzle migrations on every `up`, then exits 0 (an `Exited (0)` here is success) | Postgres |
+
+**Dev vs prod — same topology, different skin:**
+
+| | dev (`docker-compose.dev.yml`) | prod (`docker-compose.prod.yml`) |
+|---|---|---|
+| Entry | `http://localhost:3010` directly | Cloudflare Tunnel → **cloudflared → traefik** (shared VM infra, ~10 apps — not OSI services) |
+| Image target | `deps` + source bind-mount, hot reload (`tsx watch`, Vite) | `runtime` (built), `restart: unless-stopped` |
+| DNS | normal | `--dns-result-order=ipv4first` on web + both workers (the VM has no IPv6 route) |
+| Volumes | `osi-dev-*` | `osi-*` |
+| Everything else | identical — services, queues, env defaults | identical |
+
+### How the containers interact
+
+**One rule carries the whole design: containers never call each other.**
+Postgres is the only meeting point — rows for state, pg-boss for work. That is
+why any service can restart, replicate, or move to another VM without another
+service noticing.
+
+```
+Browser ──HTTPS──▶ web
+                    │  server fn: validate (zod) → guard → quota (advisory
+                    │  lock) → INSERT request → enqueue pipeline job
+                    ▼
+                Postgres  ◀──────────────┐ ◀──────────────────┐
+                 rows + queues           │                     │
+                    │ pipeline queue     │ research queue      │
+                    ▼ (SKIP LOCKED)      │                     │
+                 worker ─────────────────┘                     │
+                  1. store-first: score the sources' stores    │
+                     · sufficient → research.store_hit, match, │
+                       finish (≈ $0, no research)              │
+                     · insufficient → enqueue research job ────┤
+                  4. matching & ranking (hard source/country   │
+                     filters), status → report_ready           │
+                                                               │
+                 worker-research ──────────────────────────────┘
+                  2. connectors collect (global_web → Claude
+                     web_search) — per-source timeout, isolated
+                     failure, source_run audit
+                  3. core persists: dedup → provenance →
+                     supplier_source memberships → re-enqueue
+                     the pipeline job
+
+ web ──INCR──▶ redis      (per-IP auth counters; fail-open)
+ web / workers ──▶ uploads volume   (web writes, research reads)
+```
+
+- **Handoffs are queue jobs, never RPC**: `web → pipeline`, `worker →
+  research`, `worker-research → pipeline`. Each hop is durable — a container
+  dying mid-step loses nothing; pg-boss retries, and the worker's sweep
+  re-adopts anything stranded > 2 min.
+- **Every job is idempotent** (`research_run` guards double collection,
+  matching is delete-then-insert), so retries and duplicate enqueues are
+  harmless by construction.
+- **The dashboards read, never compute**: every state change writes a
+  `request_event` row; timelines, stats and the report are pure read-models.
+- Verified 2026-08-22 in dev, both paths: warm store → `store_hit` at ≈ $0
+  entirely inside `worker`; cold store → the full three-hop round trip
+  (`worker` → `worker-research` → `worker`), +suppliers persisted with
+  memberships and audit.
 
 **Hard rules that make this work:**
 
