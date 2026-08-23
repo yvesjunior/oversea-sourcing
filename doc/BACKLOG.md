@@ -406,9 +406,12 @@ and `/documents` render showcase constants and are disabled in the nav.
       *Accept:* two members of one Free-plan workspace each get their own
       allowance; a Business workspace still pools.
 
-- [ ] **B9 · GATE — email provider decision** (Resend vs SMTP). Unblocks
-      real email for B3/B4, email verification (E1) and notifications (E9).
-      One decision, record in README §9.
+- [x] **B9 · GATE — email provider: SendGrid** (decided 2026-08-23, recorded
+      in README §9). Unblocks real email for B3/B4, email verification (E1)
+      and notifications (E9). Wiring task: `src/server/mail.ts` adapter
+      (vendor-SDK rule applies — nothing imports SendGrid directly),
+      `SENDGRID_API_KEY` in `.env` (prod only; dev logs sends), FR/EN
+      templates live with E9.
 
 ### Phase C — collections, admin & the commercial tier
 
@@ -735,5 +738,5 @@ _Engager_, OSI ops sees it in the queue, buyer sees "connected", downloads the P
 - The 32 criteria list (E5 task — needs a product session)
 - External data sources & licensing for imports (E4)
 - ~~Web-search provider for the research agent~~ — **decided 2026-08-16: none needed.** Claude's server-side `web_search` tool runs the search inside the existing API call, so there is no second vendor, key or bill. It is called only from `src/server/ai/research.ts`, so a Tavily/Brave adapter can replace it without touching domain code (INFRA principle 4)
-- Email provider choice (Resend vs SMTP)
+- ~~Email provider choice~~ — **decided 2026-08-23: SendGrid** (see B9)
 - When to put a reverse proxy + TLS in front of prod (before first external user)

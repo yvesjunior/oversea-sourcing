@@ -669,10 +669,12 @@ null until Stripe lands. Nothing in UC-1…UC-10 depends on billing.
 | Enterprise plan row | ⬜ one migration (plans are rows) |
 | Ownership transfer | ⬜ small server fn + confirm UI |
 
-**Hard dependency to call out:** UC-3 and UC-4 need an **email provider**
-(Resend vs SMTP — open decision since E9). Without it we can ship
-invite-by-link (owner copies an invitation URL and sends it themselves) as an
-interim: same tables, no email.
+**Hard dependency to call out:** UC-3 and UC-4 need an email provider —
+**decided 2026-08-23: SendGrid** (behind a `src/server/mail.ts` adapter like
+every other vendor, so the provider stays swappable; `SENDGRID_API_KEY` in
+`.env`, absent in dev where sends are logged instead). Until it's wired we can
+still ship invite-by-link (owner copies an invitation URL and sends it
+themselves) as an interim: same tables, no email.
 
 #### Decisions (validated 2026-08-22)
 
@@ -1120,7 +1122,8 @@ renders correctly without a translation entry.
 - **External supplier data sources & licensing** for the import pipeline
 - **The concrete "32 compatibility criteria"** — needs a product workshop; the
   weighted v1 scorer stands in
-- **Email provider** (Resend vs SMTP) — blocks email verification and invitations
+- ~~Email provider~~ — **decided 2026-08-23: SendGrid** (adapter-wrapped;
+  unblocks email verification E1, invitations B3/B4, notifications E9)
 - **Escrow / payment provider** (Phase 4)
 - **`src/web/`** — the frontend lives at `src/`; moving it risks breaking Lovable
   editor sync, so it is deferred
