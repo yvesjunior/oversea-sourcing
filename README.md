@@ -159,9 +159,30 @@ interface SupplierSourceConnector {
 
 ##### The request flow across sources
 
-> **Status: VALIDATED 2026-08-22 as the working draft** — refine at
-> implementation time (kept as a discussion TODO in the backlog). AI web
+> **Status: ✅ BUILT 2026-08-22** (thresholds are draft defaults — A8). AI web
 > search is no longer the automatic path; it is one connector among peers.
+> Each dashed region below is a container; every hop between them is a durable
+> pg-boss job, never a direct call.
+
+```mermaid
+flowchart TB
+    WEB["web · createRequestFn<br/>quota lock → insert → enqueue"]
+    subgraph WK ["worker — pipeline queue"]
+        CHK{"store-first coverage check<br/>each source's store vs the criteria"}
+        HIT["store hit<br/>no collection · ≈ $0"]
+        MISS["store insufficient<br/>too few · low match/confidence"]
+        MATCH["match & rank<br/>source + country hard filters"]
+    end
+    subgraph WR ["worker-research — research queue"]
+        COL["connectors collect<br/>global_web → Claude web_search"]
+        PER["core persists & re-enqueues<br/>dedup · memberships · source_run"]
+    end
+    REP["report_ready<br/>report says which path ran"]
+    WEB -->|pipeline job| CHK
+    CHK -->|sufficient| HIT --> MATCH
+    CHK -->|insufficient| MISS -->|research job| COL --> PER -->|pipeline job| MATCH
+    MATCH --> REP
+```
 
 ```
 request enters `searching`
