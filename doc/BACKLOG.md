@@ -13,8 +13,8 @@
 | --- | --- | --- |
 | **E0** Dev foundations | Postgres, Drizzle, pg-boss, seed | ✅ done |
 | **E1** Auth & users | better-auth, signup, guards, **abuse controls** | 🟡 email verification + 2FA open |
-| **E2** Workspaces & tenancy | Roles, invitations, team UI | 🔴 invitations + team UI not started |
-| **E12** Plans & quotas | Per-workspace limits, manager UI | 🟡 billing provider open |
+| **E2** Workspaces & tenancy | Roles, invitations, team UI | ✅ Phase B (2026-08-23) — audit-log task open |
+| **E12** Plans & quotas | Full ladder, seats, trial cap, Abonnements | 🟡 billing provider open |
 | **E3** Request core loop | Pipeline, criteria, attachments, dossier | ✅ done |
 | **E4** Supplier data | **Web research**, dedup, directory | 🟡 import pipeline + merge tool open |
 | **E5** Matching & scoring | Criteria-aware v1 + breakdown | 🟡 the "32 criteria" + comparison view open |
@@ -23,7 +23,7 @@
 | **E8** Transactions | Milestones, tracking | 🔴 not started (no tables) |
 | **E9** Notifications | In-app + email | 🔴 not started |
 | **E10** Admin surfaces | Verification, imports, ops queue | 🔴 placeholders only |
-| **E11** Settings | Profile, sourcing rules | 🔴 not started |
+| **E11** Settings | Profile, sourcing rules | 🟡 Paramètres live (B5); notification prefs open |
 
 **MVP1 = E0–E7 + E10.** Definition of done: a real buyer signs up, submits a real
 need, gets a real Top-N (researched + imported suppliers, scored), clicks
@@ -73,6 +73,20 @@ diagram — containers never call each other; Postgres is the only meeting
 point. **Prod still runs `d4f93a2`** — everything above ships whenever the
 deploy is requested (migration is additive; backfills prod's suppliers as
 `global_web` memberships automatically).
+
+**Phase B complete (2026-08-23, commits `f905439`…`1b93c19`, all dev-only):**
+the SaaS account model is real. B1 role enforcement on every mutating fn
+(membership re-read per call) · B2 workspace switcher · B5 Paramètres
+(Profil / Abonnement with usage bars / Préférences de sourcing writing
+`sourcing_rules` / Utilisateurs) · B8 plan ladder (audiences, Free trial
+1/day + 2 lifetime, seats, quota scope, Abonnements tabs — all owner-editable
+live) · B3/B4 invitations via the org plugin (seat caps in-flow, SendGrid
+adapter, public /invitation page, invited signups get no personal workspace)
+· B6 per-member usage · B7 atomic ownership transfer. Platform staff also got
+`/interne/utilisateurs` (user management, plan assignment moved there).
+Workspace roles simplified to owner | buyer | viewer. All verified live in
+dev; **prod still runs `d4f93a2`** — now 20+ commits behind, deploy on
+request (migrations 0008–0010 are additive).
 
 ### Start working
 
