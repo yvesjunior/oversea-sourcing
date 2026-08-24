@@ -344,15 +344,19 @@ and `/documents` render showcase constants and are disabled in the nav.
 
 **Goal:** Enterprise workspaces are real: members, rights, switcher, settings.
 
-- [ ] **B1 · `requireRole` backbone.** `src/server/workspace-guard.ts`:
+- [x] **B1 · `requireRole` backbone** (2026-08-23). `src/server/workspace-guard.ts`:
       `requireMember(userId, workspaceId, minRole)` with rank
       `viewer < buyer < owner` (owner/admin merged 2026-08-23; roles in `member.role`,
-      `src/database/schema.ts:88`). Audit **every mutating server fn** in
-      `src/lib/*-fns.ts` to call it (requests: ≥ buyer; criteria edits:
-      ≥ buyer; plan/rename/delete: owner). Viewer gets read-only: nav renders
-      "Lancer la recherche" disabled (same disabled-not-hidden rule).
-      *Accept:* a viewer session cannot create a request via direct server-fn
-      call (not just hidden UI).
+      `src/database/schema.ts`). Membership **re-read per call** — a demotion
+      or removal bites on the very next request, no session invalidation.
+      Guarded ≥ buyer: createRequestFn (returns `forbidden`, UI shows the
+      "Accès en lecture seule" alert), startRequestPipelineFn, launchSearchFn,
+      cancelRequestFn, all criteria mutations, chat, `/api/upload` (403).
+      Pure rank helper `src/lib/workspace-roles.ts` shared with future UI
+      gating, under unit test (legacy `admin` ranks like buyer). *Verified
+      live:* buyer demoted to viewer → create refused with the alert, zero
+      rows leaked, restore → works again. Owner-only checks land with their
+      surfaces (B5/B7 — no owner-gated mutation exists yet).
 
 - [ ] **B2 · Workspace switcher.** better-auth organization plugin's active-
       organization session state; switcher UI in the top bar (only when the

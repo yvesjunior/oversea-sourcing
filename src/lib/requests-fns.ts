@@ -170,6 +170,8 @@ export type RequestDetail = RequestSummary & {
 export type CreateRequestResult =
   | { ok: true; id: string }
   | { ok: false; reason: "unauthenticated" }
+  /** Authenticated but the workspace role forbids it (viewer — read-only). */
+  | { ok: false; reason: "forbidden" }
   | {
       ok: false;
       reason: "quota_exceeded";
@@ -202,6 +204,13 @@ export const createRequestFn = createServerFn({ method: "POST" })
     const session = await auth.api.getSession({ headers: getRequest().headers });
     const workspaceId = session?.session.activeOrganizationId;
     if (!session || !workspaceId) return { ok: false, reason: "unauthenticated" };
+
+    // B1: creating a request needs a working seat — membership re-read per
+    // call, so a demotion or removal bites immediately.
+    const { requireMember } = await import("@/server/workspace-guard");
+    if (!(await requireMember(session.user.id, workspaceId, "buyer"))) {
+      return { ok: false, reason: "forbidden" };
+    }
 
     // Quota check + insert under a per-workspace advisory lock: the check is
     // check-then-act, and without the lock two requests arriving together both
@@ -305,6 +314,9 @@ export const startRequestPipelineFn = createServerFn({ method: "POST" })
     const session = await auth.api.getSession({ headers: getRequest().headers });
     const workspaceId = session?.session.activeOrganizationId;
     if (!session || !workspaceId) return { ok: false };
+
+    const { requireMember } = await import("@/server/workspace-guard");
+    if (!(await requireMember(session.user.id, workspaceId, "buyer"))) return { ok: false };
 
     const row = await db.query.request.findFirst({ where: eq(schema.request.id, data.id) });
     if (!row || row.organizationId !== workspaceId || row.status !== "received") {
@@ -486,6 +498,9 @@ export const launchSearchFn = createServerFn({ method: "POST" })
     const workspaceId = session?.session.activeOrganizationId;
     if (!session || !workspaceId) return { ok: false };
 
+    const { requireMember } = await import("@/server/workspace-guard");
+    if (!(await requireMember(session.user.id, workspaceId, "buyer"))) return { ok: false };
+
     const row = await db.query.request.findFirst({
       where: eq(schema.request.id, data.id),
     });
@@ -525,6 +540,9 @@ export const cancelRequestFn = createServerFn({ method: "POST" })
     const session = await auth.api.getSession({ headers: getRequest().headers });
     const workspaceId = session?.session.activeOrganizationId;
     if (!session || !workspaceId) return { ok: false };
+
+    const { requireMember } = await import("@/server/workspace-guard");
+    if (!(await requireMember(session.user.id, workspaceId, "buyer"))) return { ok: false };
 
     const row = await db.query.request.findFirst({
       where: eq(schema.request.id, data.id),

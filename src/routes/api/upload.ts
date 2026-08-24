@@ -35,6 +35,12 @@ export const Route = createFileRoute("/api/upload")({
           return Response.json({ error: "unauthorized" }, { status: 401 });
         }
 
+        // B1: uploading attachments mutates the dossier — working seat only.
+        const { requireMember } = await import("@/server/workspace-guard");
+        if (!(await requireMember(session.user.id, workspaceId, "buyer"))) {
+          return Response.json({ error: "forbidden" }, { status: 403 });
+        }
+
         const form = await request.formData();
         const requestId = form.get("requestId");
         if (typeof requestId !== "string" || !requestId) {

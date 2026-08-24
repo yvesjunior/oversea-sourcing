@@ -22,6 +22,10 @@ export const postChatMessageFn = createServerFn({ method: "POST" })
     const workspaceId = session?.session.activeOrganizationId;
     if (!session || !workspaceId) return { ok: false };
 
+    // B1: chat mutates the dossier (messages + criteria) — working seat only.
+    const { requireMember } = await import("@/server/workspace-guard");
+    if (!(await requireMember(session.user.id, workspaceId, "buyer"))) return { ok: false };
+
     const request = await db.query.request.findFirst({
       where: eq(schema.request.id, data.requestId),
     });

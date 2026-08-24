@@ -80,6 +80,8 @@
     "tabAll": "Vue globale",
     "tabMine": "Mes données",
     "quotaReachedTitle": "Limite quotidienne atteinte",
+    "readOnlyRoleTitle": "Accès en lecture seule",
+    "readOnlyRole": "Votre rôle dans cet espace est en lecture seule — demandez un accès acheteur au propriétaire de l'espace pour lancer des recherches.",
     "quotaReached": "Vous avez atteint la limite de {{limit}} demande(s) par jour du forfait {{plan}}. Votre saisie est conservée — réessayez à partir du {{when}}."
   },
   "stats": {

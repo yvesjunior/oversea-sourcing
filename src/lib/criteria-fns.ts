@@ -26,6 +26,9 @@ async function requireOwnRequest(requestId: string) {
   const session = await auth.api.getSession({ headers: getRequest().headers });
   const workspaceId = session?.session.activeOrganizationId;
   if (!session || !workspaceId) return null;
+  // B1: editing criteria is working-seat work — viewers are read-only.
+  const { requireMember } = await import("@/server/workspace-guard");
+  if (!(await requireMember(session.user.id, workspaceId, "buyer"))) return null;
   const row = await db.query.request.findFirst({
     where: eq(schema.request.id, requestId),
   });

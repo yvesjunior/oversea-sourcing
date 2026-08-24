@@ -80,6 +80,8 @@
     "tabAll": "Global view",
     "tabMine": "My data",
     "quotaReachedTitle": "Daily limit reached",
+    "readOnlyRoleTitle": "Read-only access",
+    "readOnlyRole": "Your role in this workspace is read-only — ask the workspace owner for a buyer seat to launch requests.",
     "quotaReached": "You have reached the {{plan}} plan limit of {{limit}} request(s) per day. Your text is kept — try again from {{when}}."
   },
   "stats": {

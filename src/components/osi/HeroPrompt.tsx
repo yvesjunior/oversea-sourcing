@@ -27,14 +27,14 @@ export function HeroPrompt({ user }: { user: HeroUser }) {
   const [besoin, setBesoin] = useState("");
   const [files, setFiles] = useState<File[]>([]);
   const [submitting, setSubmitting] = useState(false);
-  const [quotaError, setQuotaError] = useState<string | null>(null);
+  const [blockedAlert, setBlockedAlert] = useState<{ title: string; message: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const loggedIn = user !== null;
   const prenom = user?.name?.split(" ")[0];
 
   const submitNeed = async (text: string, attachments: File[]) => {
     if (!text.trim() || submitting) return;
-    setQuotaError(null);
+    setBlockedAlert(null);
     setSubmitting(true);
     try {
       const hasFiles = attachments.length > 0;
@@ -47,8 +47,9 @@ export function HeroPrompt({ user }: { user: HeroUser }) {
         if (created.reason === "quota_exceeded") {
           // Keep the typed need on screen: the buyer hit a wall, they did not
           // make a mistake, and retyping it tomorrow is a punishment.
-          setQuotaError(
-            t("home.quotaReached", {
+          setBlockedAlert({
+            title: t("home.quotaReachedTitle"),
+            message: t("home.quotaReached", {
               limit: created.limit,
               plan: created.planName,
               when: created.resetAt
@@ -60,7 +61,16 @@ export function HeroPrompt({ user }: { user: HeroUser }) {
                   })
                 : "",
             }),
-          );
+          });
+          return;
+        }
+        if (created.reason === "forbidden") {
+          // Read-only seat (viewer) — same prominent alert, different message;
+          // redirecting to login would loop a perfectly authenticated user.
+          setBlockedAlert({
+            title: t("home.readOnlyRoleTitle"),
+            message: t("home.readOnlyRole"),
+          });
           return;
         }
         // Session evaporated — fall back to the auth gate.
@@ -234,15 +244,15 @@ export function HeroPrompt({ user }: { user: HeroUser }) {
           </div>
         </form>
 
-        {quotaError && (
+        {blockedAlert && (
           <div
             role="alert"
             className="mt-3 flex items-start gap-3 rounded-lg border-2 border-warning bg-warning/10 px-4 py-3 shadow-md animate-in fade-in slide-in-from-top-2 duration-300"
           >
             <TriangleAlert className="mt-0.5 size-5 shrink-0 animate-pulse text-warning" />
             <div>
-              <p className="text-sm font-semibold text-foreground">{t("home.quotaReachedTitle")}</p>
-              <p className="mt-0.5 text-sm text-muted-foreground">{quotaError}</p>
+              <p className="text-sm font-semibold text-foreground">{blockedAlert.title}</p>
+              <p className="mt-0.5 text-sm text-muted-foreground">{blockedAlert.message}</p>
             </div>
           </div>
         )}
