@@ -16,7 +16,7 @@
     "imports": "Imports",
     "finance": "Finance",
     "soon": "Coming soon",
-    "plans": "Plans"
+    "plans": "Subscriptions"
   },
   "user": {
     "role": "Administrator"
@@ -87,6 +87,8 @@
     "tabAll": "Global view",
     "tabMine": "My data",
     "quotaReachedTitle": "Daily limit reached",
+    "trialUsedTitle": "Free trial used",
+    "trialUsed": "You have used the {{limit}} requests included in the {{plan}} plan. Upgrade to a paid plan to keep sourcing — your text is kept.",
     "readOnlyRoleTitle": "Read-only access",
     "readOnlyRole": "Your role in this workspace is read-only — ask the workspace owner for a buyer seat to launch requests.",
     "quotaReached": "You have reached the {{plan}} plan limit of {{limit}} request(s) per day. Your text is kept — try again from {{when}}."
@@ -378,9 +380,17 @@
     "noResults": "No supplier was shortlisted for this request."
   },
   "plans": {
-    "title": "Plans & subscriptions",
+    "title": "Subscriptions",
     "subtitle": "Limits are editable here — changes apply immediately, no redeploy.",
+    "tabIndividual": "Individual",
+    "tabOrganization": "Organization",
+    "tabInternal": "Internal",
     "requestsPerDay": "Requests / day",
+    "maxRequestsTotal": "Total requests (0 = unlimited)",
+    "maxMembers": "Seats (0 = unlimited)",
+    "quotaScope": "Quota scope",
+    "scopeUser": "Per user",
+    "scopeWorkspace": "Per workspace (pooled)",
     "suppliersReturned": "Suppliers returned",
     "modelTier": "AI model",
     "workspacesOn": "{{count}} workspace(s) on this plan",

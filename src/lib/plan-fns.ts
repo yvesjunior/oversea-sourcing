@@ -5,11 +5,19 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { MODEL_TIERS, type ModelTier } from "@/database/schema";
 
+export type PlanAudience = "individual" | "organization" | "internal";
+
 export type PlanView = {
   id: string;
   code: string;
   name: string;
+  audience: PlanAudience;
   requestsPerDay: number;
+  /** Lifetime cap — 0 = unlimited (Free trial = 2). */
+  maxRequestsTotal: number;
+  /** Seats — 0 = unlimited/custom. */
+  maxMembers: number;
+  quotaScope: "workspace" | "user";
   suppliersReturned: number;
   modelTier: ModelTier;
   /** Workspaces currently on this plan. */
@@ -60,7 +68,11 @@ export const getPlanAdminFn = createServerFn({ method: "GET" }).handler(
           id: schema.plan.id,
           code: schema.plan.code,
           name: schema.plan.name,
+          audience: schema.plan.audience,
           requestsPerDay: schema.plan.requestsPerDay,
+          maxRequestsTotal: schema.plan.maxRequestsTotal,
+          maxMembers: schema.plan.maxMembers,
+          quotaScope: schema.plan.quotaScope,
           suppliersReturned: schema.plan.suppliersReturned,
           modelTier: schema.plan.modelTier,
           updatedAt: schema.plan.updatedAt,
@@ -118,6 +130,11 @@ export const updatePlanFn = createServerFn({ method: "POST" })
       id: z.string(),
       // 0 = unlimited; capped so a typo cannot commit thousands of requests/day.
       requestsPerDay: z.number().int().min(0).max(500),
+      // Lifetime trial cap — 0 = unlimited; bounded like the daily quota.
+      maxRequestsTotal: z.number().int().min(0).max(500),
+      // Seats — 0 = unlimited/custom; bounded so a typo cannot sell 10k seats.
+      maxMembers: z.number().int().min(0).max(500),
+      quotaScope: z.enum(["workspace", "user"]),
       suppliersReturned: z.number().int().min(1).max(20),
       modelTier: z.enum(MODEL_TIERS),
     }),
@@ -135,6 +152,9 @@ export const updatePlanFn = createServerFn({ method: "POST" })
       .update(schema.plan)
       .set({
         requestsPerDay: data.requestsPerDay,
+        maxRequestsTotal: data.maxRequestsTotal,
+        maxMembers: data.maxMembers,
+        quotaScope: data.quotaScope,
         suppliersReturned: data.suppliersReturned,
         modelTier: data.modelTier,
         // Cheap stand-in for an audit log: "who dropped the free tier to 0"

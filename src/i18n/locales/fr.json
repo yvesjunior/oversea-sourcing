@@ -16,7 +16,7 @@
     "imports": "Imports",
     "finance": "Finance",
     "soon": "Bientôt disponible",
-    "plans": "Forfaits"
+    "plans": "Abonnements"
   },
   "user": {
     "role": "Administrateur"
@@ -87,6 +87,8 @@
     "tabAll": "Vue globale",
     "tabMine": "Mes données",
     "quotaReachedTitle": "Limite quotidienne atteinte",
+    "trialUsedTitle": "Essai gratuit épuisé",
+    "trialUsed": "Vous avez utilisé les {{limit}} demandes incluses dans le forfait {{plan}}. Passez à un forfait payant pour continuer — votre saisie est conservée.",
     "readOnlyRoleTitle": "Accès en lecture seule",
     "readOnlyRole": "Votre rôle dans cet espace est en lecture seule — demandez un accès acheteur au propriétaire de l'espace pour lancer des recherches.",
     "quotaReached": "Vous avez atteint la limite de {{limit}} demande(s) par jour du forfait {{plan}}. Votre saisie est conservée — réessayez à partir du {{when}}."
@@ -378,9 +380,17 @@
     "noResults": "Aucun fournisseur n’a été retenu pour cette demande."
   },
   "plans": {
-    "title": "Forfaits & abonnements",
+    "title": "Abonnements",
     "subtitle": "Les limites sont modifiables ici — la mise à jour est immédiate, sans redéploiement.",
+    "tabIndividual": "Individuel",
+    "tabOrganization": "Organisation",
+    "tabInternal": "Interne",
     "requestsPerDay": "Demandes / jour",
+    "maxRequestsTotal": "Demandes totales (0 = illimité)",
+    "maxMembers": "Sièges (0 = illimité)",
+    "quotaScope": "Portée du quota",
+    "scopeUser": "Par utilisateur",
+    "scopeWorkspace": "Par espace (mutualisé)",
     "suppliersReturned": "Fournisseurs retournés",
     "modelTier": "Modèle IA",
     "workspacesOn": "{{count}} espace(s) sur ce forfait",

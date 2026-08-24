@@ -175,6 +175,8 @@ export type CreateRequestResult =
   | {
       ok: false;
       reason: "quota_exceeded";
+      /** daily = the window resets; lifetime = the trial is over, upgrade. */
+      refusal: "daily" | "lifetime";
       limit: number;
       planName: string;
       /** ISO timestamp when the allowance returns (rolling window). */
@@ -229,12 +231,13 @@ export const createRequestFn = createServerFn({ method: "POST" })
         );
         // Counted after the lock: any concurrent creator for this workspace has
         // either committed (visible to the count) or is queued behind the lock.
-        const quota = await checkRequestQuota(workspaceId);
+        const quota = await checkRequestQuota(workspaceId, session.user.id);
         if (!quota.allowed) {
           return {
             ok: false,
             reason: "quota_exceeded",
-            limit: quota.limit,
+            refusal: quota.refusal ?? "daily",
+            limit: quota.refusal === "lifetime" ? quota.limitTotal : quota.limit,
             planName: quota.planName,
             resetAt: quota.resetAt?.toISOString() ?? null,
           };

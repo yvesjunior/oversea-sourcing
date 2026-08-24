@@ -46,22 +46,30 @@ export function HeroPrompt({ user }: { user: HeroUser }) {
       if (!created.ok) {
         if (created.reason === "quota_exceeded") {
           // Keep the typed need on screen: the buyer hit a wall, they did not
-          // make a mistake, and retyping it tomorrow is a punishment.
-          setBlockedAlert({
-            title: t("home.quotaReachedTitle"),
-            message: t("home.quotaReached", {
-              limit: created.limit,
-              plan: created.planName,
-              when: created.resetAt
-                ? new Date(created.resetAt).toLocaleString(i18n.language, {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                    day: "numeric",
-                    month: "long",
-                  })
-                : "",
-            }),
-          });
+          // make a mistake, and retyping it tomorrow is a punishment. The two
+          // walls pitch different actions: daily resets, lifetime upgrades.
+          setBlockedAlert(
+            created.refusal === "lifetime"
+              ? {
+                  title: t("home.trialUsedTitle"),
+                  message: t("home.trialUsed", { limit: created.limit, plan: created.planName }),
+                }
+              : {
+                  title: t("home.quotaReachedTitle"),
+                  message: t("home.quotaReached", {
+                    limit: created.limit,
+                    plan: created.planName,
+                    when: created.resetAt
+                      ? new Date(created.resetAt).toLocaleString(i18n.language, {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                          day: "numeric",
+                          month: "long",
+                        })
+                      : "",
+                  }),
+                },
+          );
           return;
         }
         if (created.reason === "forbidden") {

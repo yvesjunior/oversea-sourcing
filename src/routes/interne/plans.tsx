@@ -4,15 +4,20 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { requirePlatformFeature } from "@/lib/auth-guard";
 import {
   assignPlanFn,
   getPlanAdminFn,
   updatePlanFn,
   type PlanAdminData,
+  type PlanAudience,
   type PlanView,
 } from "@/lib/plan-fns";
 import { MODEL_TIERS, type ModelTier } from "@/database/schema";
+
+/** Tab order on the Abonnements screen (decided 2026-08-23). */
+const AUDIENCES: PlanAudience[] = ["individual", "organization", "internal"];
 
 /** What one request costs at each tier — measured 2026-08-16, see the README.
  *  Shown next to the limits because "requests per day" is a cost commitment,
@@ -25,7 +30,7 @@ const COST_PER_REQUEST: Record<ModelTier, number> = {
 
 export const Route = createFileRoute("/interne/plans")({
   beforeLoad: ({ context }) => requirePlatformFeature(context.session, "plans"),
-  head: () => ({ meta: [{ title: "Forfaits | OSI" }] }),
+  head: () => ({ meta: [{ title: "Abonnements | OSI" }] }),
   loader: async (): Promise<PlanAdminData> => await getPlanAdminFn(),
   component: Plans,
 });
@@ -33,12 +38,18 @@ export const Route = createFileRoute("/interne/plans")({
 function PlanCard({ plan, onSaved }: { plan: PlanView; onSaved: () => void }) {
   const { t } = useTranslation();
   const [requestsPerDay, setRequestsPerDay] = useState(plan.requestsPerDay);
+  const [maxRequestsTotal, setMaxRequestsTotal] = useState(plan.maxRequestsTotal);
+  const [maxMembers, setMaxMembers] = useState(plan.maxMembers);
+  const [quotaScope, setQuotaScope] = useState<"workspace" | "user">(plan.quotaScope);
   const [suppliersReturned, setSuppliersReturned] = useState(plan.suppliersReturned);
   const [modelTier, setModelTier] = useState<ModelTier>(plan.modelTier);
   const [saving, setSaving] = useState(false);
 
   const dirty =
     requestsPerDay !== plan.requestsPerDay ||
+    maxRequestsTotal !== plan.maxRequestsTotal ||
+    maxMembers !== plan.maxMembers ||
+    quotaScope !== plan.quotaScope ||
     suppliersReturned !== plan.suppliersReturned ||
     modelTier !== plan.modelTier;
 
@@ -47,7 +58,17 @@ function PlanCard({ plan, onSaved }: { plan: PlanView; onSaved: () => void }) {
   const save = async () => {
     setSaving(true);
     try {
-      await updatePlanFn({ data: { id: plan.id, requestsPerDay, suppliersReturned, modelTier } });
+      await updatePlanFn({
+        data: {
+          id: plan.id,
+          requestsPerDay,
+          maxRequestsTotal,
+          maxMembers,
+          quotaScope,
+          suppliersReturned,
+          modelTier,
+        },
+      });
       onSaved();
     } finally {
       setSaving(false);
@@ -82,6 +103,48 @@ function PlanCard({ plan, onSaved }: { plan: PlanView; onSaved: () => void }) {
             onChange={(e) => setRequestsPerDay(Number(e.target.value))}
             className="h-8 text-right tabular-nums"
           />
+        </div>
+        <div className="grid grid-cols-[minmax(0,1fr)_88px] items-center gap-3">
+          <Label htmlFor={`tot-${plan.id}`} className="text-xs text-muted-foreground">
+            {t("plans.maxRequestsTotal")}
+          </Label>
+          <Input
+            id={`tot-${plan.id}`}
+            type="number"
+            min={0}
+            max={500}
+            value={maxRequestsTotal}
+            onChange={(e) => setMaxRequestsTotal(Number(e.target.value))}
+            className="h-8 text-right tabular-nums"
+          />
+        </div>
+        <div className="grid grid-cols-[minmax(0,1fr)_88px] items-center gap-3">
+          <Label htmlFor={`seats-${plan.id}`} className="text-xs text-muted-foreground">
+            {t("plans.maxMembers")}
+          </Label>
+          <Input
+            id={`seats-${plan.id}`}
+            type="number"
+            min={0}
+            max={500}
+            value={maxMembers}
+            onChange={(e) => setMaxMembers(Number(e.target.value))}
+            className="h-8 text-right tabular-nums"
+          />
+        </div>
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
+          <Label htmlFor={`scope-${plan.id}`} className="text-xs text-muted-foreground">
+            {t("plans.quotaScope")}
+          </Label>
+          <select
+            id={`scope-${plan.id}`}
+            value={quotaScope}
+            onChange={(e) => setQuotaScope(e.target.value as "workspace" | "user")}
+            className="h-8 rounded-md border border-input bg-background px-2 text-sm"
+          >
+            <option value="user">{t("plans.scopeUser")}</option>
+            <option value="workspace">{t("plans.scopeWorkspace")}</option>
+          </select>
         </div>
         <div className="grid grid-cols-[minmax(0,1fr)_88px] items-center gap-3">
           <Label htmlFor={`sup-${plan.id}`} className="text-xs text-muted-foreground">
@@ -151,11 +214,39 @@ function Plans() {
         <p className="mt-1 text-sm text-muted-foreground">{t("plans.subtitle")}</p>
       </header>
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {plans.map((plan) => (
-          <PlanCard key={plan.id} plan={plan} onSaved={refresh} />
+      {/* One tab per audience (decided 2026-08-23): Individuel / Organisation /
+          Interne — plan.audience drives both the tab and, later, which
+          workspaces a plan may be assigned to. */}
+      <Tabs defaultValue="individual">
+        <TabsList>
+          {AUDIENCES.map((audience) => (
+            <TabsTrigger
+              key={audience}
+              value={audience}
+              className="py-1 data-[state=active]:bg-gold-gradient data-[state=active]:text-gold-foreground data-[state=active]:shadow-gold"
+            >
+              {t(
+                audience === "individual"
+                  ? "plans.tabIndividual"
+                  : audience === "organization"
+                    ? "plans.tabOrganization"
+                    : "plans.tabInternal",
+              )}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+        {AUDIENCES.map((audience) => (
+          <TabsContent key={audience} value={audience} className="mt-3">
+            <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              {plans
+                .filter((plan) => plan.audience === audience)
+                .map((plan) => (
+                  <PlanCard key={plan.id} plan={plan} onSaved={refresh} />
+                ))}
+            </section>
+          </TabsContent>
         ))}
-      </section>
+      </Tabs>
 
       <section className="card-surface p-6">
         <h2 className="text-base font-semibold">{t("plans.workspacesTitle")}</h2>

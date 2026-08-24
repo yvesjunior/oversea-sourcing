@@ -406,33 +406,20 @@ and `/documents` render showcase constants and are disabled in the nav.
       member, previous owner → buyer, confirm dialog. Exactly-one-owner
       invariant enforced in the fn.
 
-- [ ] **B8 · Plan ladder: Enterprise row, quota scope, seats, lifetime trial
-      cap.** One migration, four plan columns/rows:
-      - `plan` row `enterprise` (requests/day 100 default, suppliers 20, `best`)
-      - `plan.quota_scope` (`workspace | user`, default workspace; Free/Pro =
-        `user`) — `checkRequestQuota()` counts on `request.created_by` when
-        scope = user
-      - **`plan.max_requests_total`** (decided 2026-08-23: **Free = 2, ever** —
-        after the second request the only path is a paid plan; 0 = unlimited
-        elsewhere). Enforced at the same choke point; distinct refusal reason
-        so the UI pitches the upgrade instead of "come back tomorrow"
-      - `plan.max_members` (seats; proposal: Free/Pro 1 — invite refused at the
-        cap, Business 5, Enterprise 0 = custom) — **pending validation**
-      - **Every new column is editable from the subscription-management
-        screen** (decided 2026-08-23: plans are parameterizable by the
-        platform owner — fields for `max_requests_total`, `max_members` and
-        `quota_scope`, same validation + `updated_by` trail; no limit ever
-        requires a deploy)
-      - **Screen design (decided 2026-08-23):** the internal nav entry becomes
-        **"Abonnements" (subscription management)** with tabs per audience —
-        **Individuel** (Free, Pro) · **Organisation** (Business, Enterprise) ·
-        **Interne** (staff plan). Driven by a new `plan.audience` column
-        (`individual | organization | internal`); the tab also filters which
-        workspaces a plan can be assigned to, so an individual workspace can
-        never be dropped onto an organization plan by mistake
-      *Accept:* a Free user's 3rd request ever is refused with the upgrade
-      message even a day later; two members of one Free workspace each get
-      their own counts; a Business workspace still pools.
+- [x] **B8 · Plan ladder built** (2026-08-23, one migration `0009`):
+      `plan.audience` (individual | organization | internal), **lifetime trial
+      cap** `max_requests_total` (Free = 2 — checked BEFORE the daily window;
+      distinct `lifetime` refusal, hero pitches the upgrade), `max_members`
+      (Free/Pro 1 · Business 5 · Enterprise 0 = custom — enforced at
+      invitation time when B3 lands), `quota_scope` (individual = per user,
+      organization = pooled; `checkRequestQuota(orgId, userId)` counts on
+      `created_by` for user scope). New `enterprise` row (100/day, 20, best).
+      **Abonnements screen**: nav renamed, tabs per audience, every new column
+      editable with validation + cost estimate + `updated_by`. *Verified
+      live:* Free workspace with prior requests → "Essai gratuit épuisé"
+      upgrade alert; both tabs render with correct values. Note: audience-
+      constrained assignment is UI-grouped only — hard enforcement waits for
+      the workspace-type decision (design revisit).
 
 - [x] **B9 · GATE — email provider: SendGrid** (decided 2026-08-23, recorded
       in README §9). Unblocks real email for B3/B4, email verification (E1)

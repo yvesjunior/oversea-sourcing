@@ -390,6 +390,23 @@ export const plan = pgTable(
      *  needs no special case, and an accidental 0 reads as "no cap" rather than
      *  silently locking every buyer out. */
     requestsPerDay: integer("requests_per_day").notNull().default(1),
+    /** Lifetime request cap (B8, decided 2026-08-23): Free is a trial — after
+     *  this many requests EVER, the only path is a paid plan. 0 = unlimited. */
+    maxRequestsTotal: integer("max_requests_total").notNull().default(0),
+    /** Seats: members a workspace on this plan may hold. Invitations are
+     *  refused at the cap (that's what makes Free/Pro solo BY PLAN, not by
+     *  missing UI). 0 = unlimited/custom. */
+    maxMembers: integer("max_members").notNull().default(0),
+    /** Who the daily/lifetime counters bind to: `user` (individual plans —
+     *  limits follow the person) or `workspace` (organization plans — the
+     *  team pools its allowance). */
+    quotaScope: text("quota_scope").$type<"workspace" | "user">().notNull().default("workspace"),
+    /** Which tab of the Abonnements screen this plan lives in, and which
+     *  workspaces it may be assigned to. */
+    audience: text("audience")
+      .$type<"individual" | "organization" | "internal">()
+      .notNull()
+      .default("individual"),
     /** Overrides SUPPLIERS_RETURNED for workspaces on this plan. */
     suppliersReturned: integer("suppliers_returned").notNull().default(5),
     /** Overrides ANTHROPIC_MODEL. Drives both quality and cost per request. */

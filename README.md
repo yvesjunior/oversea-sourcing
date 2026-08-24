@@ -373,32 +373,40 @@ Rules (all decided):
 Limits live in **`plan` rows, not in code or env** — changing what the Free tier
 gets is an `UPDATE` from `/interne/plans`, live on the next request, no deploy.
 
-| | Free | Pro | Business | Internal |
-|---|---|---|---|---|
-| Requests / day | **1** | 10 | 50 | **0 = unlimited** |
-| **Requests total (lifetime)** | **2 — then upgrade** | 0 = unlimited | 0 = unlimited | 0 = unlimited |
-| Suppliers returned | 5 | 10 | 20 | 10 |
-| Model tier | `cheap` | `best` | `best` | `best` |
+| | Free | Pro | Business | Enterprise | Internal |
+|---|---|---|---|---|---|
+| Audience | individual | individual | organization | organization | internal |
+| Requests / day | **1** | 10 | 50 | 100 | **0 = unlimited** |
+| **Requests total (lifetime)** | **2 — then upgrade** | ∞ | ∞ | ∞ | ∞ |
+| Seats (`max_members`) | 1 | 1 | 5 | 0 = custom | 0 |
+| Quota scope | per user | per user | pooled | pooled | pooled |
+| Suppliers returned | 5 | 10 | 20 | 20 | 10 |
+| Model tier | `cheap` | `best` | `best` | `best` | `best` |
 
 `0` means unlimited so the internal plan needs no special case, and an accidental
 `0` reads as "no cap" rather than silently locking every buyer out. A workspace
 with **no** subscription falls back to the env values, so dev works with an empty
 `plan` table.
 
-**Free is a trial** (decided 2026-08-23): 1 request per day AND **2 requests
+**Free is a trial** (✅ built 2026-08-23): 1 request per day AND **2 requests
 total, ever** — after the second, the only path is a paid plan. The lifetime
 cap is a plan column like everything else (`max_requests_total`, 0 =
-unlimited), enforced at the same choke point as the daily quota, and the
-refusal is distinct: the daily message says "come back at {time}", the
-lifetime one says "your free requests are used — upgrade". *(Not yet
-implemented — lands with B8.)*
+unlimited), checked **before** the daily window at the same choke point (an
+exhausted trial never comes back, so "try again at 14:00" would be a lie), and
+the refusal is distinct: daily says "come back at {time}", lifetime says "your
+free requests are used — upgrade".
 
-**Subscription management** (decided 2026-08-23): the platform owner's screen
-becomes **"Abonnements"** with one tab per audience — **Individuel** (Free,
-Pro; per-user quota, 1 seat) · **Organisation** (Business, Enterprise; pooled
-quota, seats) · **Interne** (staff). A `plan.audience` column drives the tabs
-and constrains assignment, so an individual workspace can never land on an
-organization plan by accident. *(Lands with B8.)*
+**Quota scope** (✅ built 2026-08-23): individual plans count the **user's**
+requests, organization plans pool the **workspace's** (`plan.quota_scope`).
+Seats (`max_members`) are stored per plan; invitations get refused at the cap
+when the invitation flow lands (B3).
+
+**Subscription management** (✅ built 2026-08-23): the platform owner's screen
+is **"Abonnements"** with one tab per audience — **Individuel** (Free, Pro) ·
+**Organisation** (Business, Enterprise) · **Interne** (staff), driven by
+`plan.audience`. Every column above is editable live with the cost estimate
+and `updated_by` trail; audience-constrained *assignment* hardening comes with
+the workspace-type revisit.
 
 Quota is enforced in `createRequestFn` — the single choke point every request
 passes through, including the post-login auto-create — **before** the insert, so

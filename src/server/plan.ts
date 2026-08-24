@@ -19,6 +19,13 @@ export type EffectivePlan = {
   code: string;
   name: string;
   requestsPerDay: number;
+  /** Lifetime cap (B8): 0 = unlimited; Free = 2 — the trial. */
+  maxRequestsTotal: number;
+  /** Seats: 0 = unlimited. Invitations are refused at the cap (B3). */
+  maxMembers: number;
+  /** Who the counters bind to: individual plans count per user, organization
+   *  plans pool per workspace. */
+  quotaScope: "workspace" | "user";
   suppliersReturned: number;
   modelTier: ModelTier;
   /** False when the workspace has no subscription and we used env defaults. */
@@ -31,6 +38,9 @@ function envFallback(): EffectivePlan {
     code: "default",
     name: "Default",
     requestsPerDay: UNLIMITED,
+    maxRequestsTotal: UNLIMITED,
+    maxMembers: UNLIMITED,
+    quotaScope: "workspace",
     suppliersReturned: SUPPLIERS_RETURNED,
     modelTier: (RESEARCH_MODEL.id.includes("haiku")
       ? "cheap"
@@ -47,6 +57,9 @@ export async function resolvePlan(organizationId: string): Promise<EffectivePlan
       code: schema.plan.code,
       name: schema.plan.name,
       requestsPerDay: schema.plan.requestsPerDay,
+      maxRequestsTotal: schema.plan.maxRequestsTotal,
+      maxMembers: schema.plan.maxMembers,
+      quotaScope: schema.plan.quotaScope,
       suppliersReturned: schema.plan.suppliersReturned,
       modelTier: schema.plan.modelTier,
       status: schema.subscription.status,
@@ -67,6 +80,9 @@ export async function resolvePlan(organizationId: string): Promise<EffectivePlan
       code: free.code,
       name: free.name,
       requestsPerDay: free.requestsPerDay,
+      maxRequestsTotal: free.maxRequestsTotal,
+      maxMembers: free.maxMembers,
+      quotaScope: free.quotaScope,
       suppliersReturned: free.suppliersReturned,
       modelTier: free.modelTier,
       fromSubscription: true,
@@ -77,6 +93,9 @@ export async function resolvePlan(organizationId: string): Promise<EffectivePlan
     code: found.code,
     name: found.name,
     requestsPerDay: found.requestsPerDay,
+    maxRequestsTotal: found.maxRequestsTotal,
+    maxMembers: found.maxMembers,
+    quotaScope: found.quotaScope,
     suppliersReturned: found.suppliersReturned,
     modelTier: found.modelTier,
     fromSubscription: true,
@@ -85,60 +104,88 @@ export async function resolvePlan(organizationId: string): Promise<EffectivePlan
 
 export type QuotaCheck = {
   allowed: boolean;
-  /** Requests already made in the window. */
+  /** Why a refusal refuses: the daily window resets; the lifetime cap only
+   *  ends with an upgrade — the UI pitches different actions for each. */
+  refusal: "daily" | "lifetime" | null;
+  /** Requests already made in the rolling 24h window. */
   used: number;
   /** 0 = unlimited. */
   limit: number;
+  /** Lifetime requests made / cap (0 = unlimited). */
+  usedTotal: number;
+  limitTotal: number;
   /** When the oldest request in the window ages out — null when unlimited. */
   resetAt: Date | null;
   planName: string;
 };
 
 /**
- * Has this workspace got a request left today?
+ * Has this caller got a request left?
  *
- * Counted from `request` rows in a rolling 24h window rather than a counter
- * column: always accurate, survives crashes, nothing to reconcile. A rolling
- * window also avoids the "two requests at 23:59" hole a calendar reset leaves,
- * and the "whose midnight?" support question that follows it.
+ * Two ceilings (B8, decided 2026-08-23): the rolling 24h window AND the
+ * lifetime cap (Free = 2 — the trial). Both bind to the plan's quota scope:
+ * individual plans count the USER's requests in this workspace, organization
+ * plans pool the whole WORKSPACE's.
+ *
+ * Counted from `request` rows rather than a counter column: always accurate,
+ * survives crashes, nothing to reconcile. A rolling window also avoids the
+ * "two requests at 23:59" hole a calendar reset leaves, and the "whose
+ * midnight?" support question that follows it.
  */
-export async function checkRequestQuota(organizationId: string): Promise<QuotaCheck> {
+export async function checkRequestQuota(
+  organizationId: string,
+  userId?: string,
+): Promise<QuotaCheck> {
   const plan = await resolvePlan(organizationId);
+
+  const scopeCondition =
+    plan.quotaScope === "user" && userId
+      ? and(eq(schema.request.organizationId, organizationId), eq(schema.request.createdBy, userId))
+      : eq(schema.request.organizationId, organizationId);
+
+  const base = {
+    used: 0,
+    limit: plan.requestsPerDay,
+    usedTotal: 0,
+    limitTotal: plan.maxRequestsTotal,
+    resetAt: null as Date | null,
+    planName: plan.name,
+  };
+
+  // Lifetime first: an exhausted trial never comes back, so the daily answer
+  // ("try again at 14:00") would be a lie.
+  if (plan.maxRequestsTotal !== UNLIMITED) {
+    const [totalRow] = await db
+      .select({ value: count() })
+      .from(schema.request)
+      .where(scopeCondition);
+    const usedTotal = totalRow?.value ?? 0;
+    base.usedTotal = usedTotal;
+    if (usedTotal >= plan.maxRequestsTotal) {
+      return { ...base, allowed: false, refusal: "lifetime" };
+    }
+  }
+
   if (plan.requestsPerDay === UNLIMITED) {
-    return { allowed: true, used: 0, limit: UNLIMITED, resetAt: null, planName: plan.name };
+    return { ...base, allowed: true, refusal: null, limit: UNLIMITED };
   }
 
   const windowStart = new Date(Date.now() - 24 * 60 * 60 * 1000);
-  const [row] = await db
-    .select({ value: count() })
-    .from(schema.request)
-    .where(
-      and(
-        eq(schema.request.organizationId, organizationId),
-        gte(schema.request.createdAt, windowStart),
-      ),
-    );
+  const windowCondition = and(scopeCondition, gte(schema.request.createdAt, windowStart));
+  const [row] = await db.select({ value: count() }).from(schema.request).where(windowCondition);
   const used = row?.value ?? 0;
+  base.used = used;
 
   // The allowance returns when the OLDEST request in the window ages out, not
   // at midnight — that is what a rolling window actually means.
-  let resetAt: Date | null = null;
   if (used >= plan.requestsPerDay) {
     const oldest = await db.query.request.findFirst({
-      where: and(
-        eq(schema.request.organizationId, organizationId),
-        gte(schema.request.createdAt, windowStart),
-      ),
+      where: windowCondition,
       orderBy: (fields, { asc }) => [asc(fields.createdAt)],
     });
-    if (oldest) resetAt = new Date(oldest.createdAt.getTime() + 24 * 60 * 60 * 1000);
+    if (oldest) base.resetAt = new Date(oldest.createdAt.getTime() + 24 * 60 * 60 * 1000);
+    return { ...base, allowed: false, refusal: "daily" };
   }
 
-  return {
-    allowed: used < plan.requestsPerDay,
-    used,
-    limit: plan.requestsPerDay,
-    resetAt,
-    planName: plan.name,
-  };
+  return { ...base, allowed: true, refusal: null };
 }
