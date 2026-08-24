@@ -88,6 +88,47 @@ Workspace roles simplified to owner | buyer | viewer. All verified live in
 dev; **prod still runs `d4f93a2`** — now 20+ commits behind, deploy on
 request (migrations 0008–0010 are additive).
 
+**E1 shipped 2026-08-23 (`6fec867`):** email verification (sendOnSignUp,
+auto sign-in, resend in Profil — **recorded, not enforced**) and password
+reset (`/mot-de-passe-oublie` → email → `/reinitialiser?token=`), both through
+the SendGrid adapter. Implementation facts in README → "Email verification &
+password reset".
+
+### Contracts a next session must NOT re-derive differently
+
+- **Quota**: two ceilings in `checkRequestQuota(orgId, userId)` — lifetime
+  checked BEFORE daily; refusal reasons `lifetime` (upgrade pitch) vs `daily`
+  (reset time); scope from `plan.quota_scope`; all under the per-workspace
+  advisory lock in `createRequestFn`.
+- **Roles**: workspace = `owner | buyer | viewer` (admin schema-valid, ranks
+  like buyer, never minted). Rank helper `src/lib/workspace-roles.ts`; every
+  mutating fn calls `requireMember` (membership re-read per call). One owner
+  per workspace — moved only by `transferOwnershipFn` (atomic swap → buyer).
+- **Plans are rows**: every limit (incl. `max_requests_total`,
+  `max_members`, `quota_scope`, `audience`) edits live on the Abonnements
+  screen; never hardcode a limit.
+- **Seats**: enforced inside the org-plugin flow (`organizationHooks` →
+  `assertSeatAvailable`) — invite counts pending, accept counts members.
+  Never enforce seats only in UI or in a wrapper fn.
+- **Invitations**: org-plugin endpoints + our hooks; invited roles
+  buyer|viewer only; public `/invitation/$id` (id = capability); invited
+  signups get NO personal workspace (user-create hook checks pending
+  invitations).
+- **Mail**: everything goes through `src/server/mail.ts` (fetch, no SDK).
+  Modes: no key → log; MAIL_SILENT=true → log; else send. Mail failures
+  return, never throw.
+- **Sourcing**: store-first before any collection; connectors are pull-only
+  modules behind `src/server/sources/types.ts`; dedup/provenance/confidence
+  applied ONLY in `src/server/research.ts`; source+country scope are hard
+  match-time filters; effective sources = enabled ∩ activated (null = all).
+- **Containers never call each other** — Postgres (rows + pg-boss) is the
+  only meeting point; worker owns `pipeline`+sweep, worker-research owns
+  `research`; Redis is disposable (fail-open, sessions stay in Postgres).
+- **Email verification is NOT enforced at login** — deliberate; flipping
+  `requireEmailVerification` is a product decision, not a cleanup.
+- **No prod deploys unless explicitly requested** — dev is the test ground;
+  main accumulates.
+
 ### Start working
 
 ```sh
