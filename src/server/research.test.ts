@@ -6,33 +6,29 @@
 import { describe, expect, it } from "vitest";
 import { countQualifyingCandidates, requestFingerprint } from "@/server/research";
 import type * as schema from "@/database/schema";
+import type { MatchCandidate } from "@/server/sources/scope";
 
-type SupplierRow = typeof schema.supplier.$inferSelect;
 type CriterionRow = typeof schema.requestCriterion.$inferSelect;
 
 const NOW = new Date("2026-08-22T12:00:00Z");
 const DAYS = 24 * 60 * 60 * 1000;
 
-function makeSupplier(overrides: Partial<SupplierRow> = {}): SupplierRow {
+function makeCandidate(overrides: Partial<MatchCandidate> = {}): MatchCandidate {
   return {
-    id: Math.random().toString(36).slice(2),
+    supplierId: null,
+    dedupKey: `vannes industrielles sa|FR#${Math.random().toString(36).slice(2)}`,
     name: "Vannes Industrielles SA",
     descriptor: null,
     countryCode: "FR",
     website: null,
+    sourceUrl: null,
     description: "Fabricant de vannes papillon en acier inoxydable 316L, certifié ISO 9001",
-    provenance: "ai_researched",
     verificationStatus: "unverified",
     confidenceScore: 60,
     riskLevel: "medium",
-    sourceRef: null,
-    discoveredByRequestId: null,
-    dedupKey: null,
-    lastResearchedAt: new Date(NOW.getTime() - 5 * DAYS),
-    bannedAt: null,
-    bannedBy: null,
-    bannedReason: null,
-    createdAt: new Date(NOW.getTime() - 5 * DAYS),
+    lastSeenAt: new Date(NOW.getTime() - 5 * DAYS),
+    sourceType: "global_web",
+    recordIds: [],
     ...overrides,
   };
 }
@@ -54,28 +50,26 @@ const CRITERIA: CriterionRow[] = [
 
 describe("countQualifyingCandidates — the store-first matrix", () => {
   it("counts a fresh, confident, matching supplier (warm store)", () => {
-    expect(countQualifyingCandidates([makeSupplier()], CRITERIA, NOW)).toBe(1);
+    expect(countQualifyingCandidates([makeCandidate()], CRITERIA, NOW)).toBe(1);
   });
 
   it("excludes stale entries (older than the freshness window)", () => {
-    const stale = makeSupplier({ lastResearchedAt: new Date(NOW.getTime() - 120 * DAYS) });
+    const stale = makeCandidate({ lastSeenAt: new Date(NOW.getTime() - 120 * DAYS) });
     expect(countQualifyingCandidates([stale], CRITERIA, NOW)).toBe(0);
   });
 
-  it("excludes never-researched entries", () => {
-    expect(
-      countQualifyingCandidates([makeSupplier({ lastResearchedAt: null })], CRITERIA, NOW),
-    ).toBe(0);
+  it("excludes never-seen entries", () => {
+    expect(countQualifyingCandidates([makeCandidate({ lastSeenAt: null })], CRITERIA, NOW)).toBe(0);
   });
 
   it("excludes low-confidence entries", () => {
-    expect(countQualifyingCandidates([makeSupplier({ confidenceScore: 10 })], CRITERIA, NOW)).toBe(
+    expect(countQualifyingCandidates([makeCandidate({ confidenceScore: 10 })], CRITERIA, NOW)).toBe(
       0,
     );
   });
 
   it("excludes low-match entries (wrong product entirely)", () => {
-    const wrong = makeSupplier({
+    const wrong = makeCandidate({
       name: "Textile Mills Ltd",
       description: "Cotton fabrics and garments",
       confidenceScore: 35,
@@ -84,7 +78,7 @@ describe("countQualifyingCandidates — the store-first matrix", () => {
   });
 
   it("a thin store stays below the sufficiency bar", () => {
-    const pool = [makeSupplier(), makeSupplier(), makeSupplier()];
+    const pool = [makeCandidate(), makeCandidate(), makeCandidate()];
     expect(countQualifyingCandidates(pool, CRITERIA, NOW)).toBe(3); // < 2×Top-N
   });
 });

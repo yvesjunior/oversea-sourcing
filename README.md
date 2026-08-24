@@ -59,7 +59,7 @@ Consequences, all first-class rather than afterthoughts:
 
 > **Status: ✅ IMPLEMENTED (core 2026-08-22 · surfaces 2026-08-23/24).** The
 > engine is live: connector contract + registry (`src/server/sources/`),
-> `global_web` as connector #1, per-source stores (`supplier_source`),
+> `global_web` as connector #1, per-source stores (`source_record`),
 > `source_run` audit, the store-first request flow on its own `research`
 > queue, country-scope plumbing end to end, the Paramètres
 > sourcing-preferences UI writing `sourcing_rules` (B5), and the
@@ -188,7 +188,7 @@ flowchart TB
 request enters `searching`
   1. Resolve effective sources: platform-enabled ∩ workspace-activated
   2. STORE-FIRST — match from each source's own store (its
-     supplier_source memberships): fresh, non-banned, in country scope
+     source_record candidates): fresh, non-banned, in country scope
   3. Live-collection fallback — ONLY when the store's answer is
      insufficient: too few candidates, match too low, or confidence too
      low — and only for sources that HAVE a live collector.
@@ -224,9 +224,8 @@ request enters `searching`
 
 ##### The two kinds of source, and the store→supplier promotion model
 
-> **Status: VALIDATED 2026-08-24 — kinds implemented, promotion TO BUILD
-> (Phase D in the backlog).** Decided in discussion; do not re-derive
-> differently.
+> **Status: ✅ BUILT 2026-08-24 (kinds + Phase D promotion, migrations
+> 0012/0013).** Decided in discussion; do not re-derive differently.
 
 **Every source is one of two kinds** — derivable from `data_source.type`
 (`src/lib/source-kind.ts`), deliberately not a schema column:
@@ -267,9 +266,12 @@ web). Global dedup stays untouched; each source keeps its own **store** — the
 supplier list it answers requests from — as membership rows:
 
 ```
-supplier_source
-  supplier_id     → supplier
-  data_source_id  → data_source        (unique on the pair)
+source_record                          (Phase D, 2026-08-24)
+  data_source_id  → data_source
+  dedup_key                            (unique on the pair — groups the same
+                                        company across sources)
+  supplier_id     → supplier | null    -- set at PROMOTION only
+  name / country / website / description / confidence / source_url
   status          active | banned
   first_seen_at / last_seen_at
   payload         jsonb                -- what THIS source said about the company
@@ -284,7 +286,7 @@ never be resurrected by a fresh crawl):
 
 | Level | Where | Meaning |
 |---|---|---|
-| Per-source | `supplier_source.status = banned` | This source's data for this company is ignored; the company can still surface via other sources (junk Alibaba listing, fine registry record) |
+| Per-source | `source_record.status = banned` | This source's data for this company is ignored; the company can still surface via other sources (junk Alibaba listing, fine registry record) |
 | Global | `supplier.banned_at/by/reason` | Never matched, never shown, for anyone (fraud, sanctions) |
 
 Bans are staff actions (owner/manager) with a who/when/why trail, managed from
@@ -308,7 +310,7 @@ Connectors stay pull-only; **platform management is the second legitimate
 caller** (the request pipeline being the first). From `/interne/sources`,
 staff trigger **"Mettre à jour"** on one source, with a scope
 (category, country) so a refresh is targeted. The run executes that one
-connector, upserts `supplier_source` memberships and refreshes
+connector, upserts `source_record` rows and refreshes
 `last_seen_at` — an admin refresh literally re-warms the store. Audited as
 **`source_run`** rows (source, trigger `request | admin`, who, counts,
 errors) — this absorbs the previously planned `import_run`.
@@ -833,12 +835,15 @@ activity feeds and dashboard stats are **pure read-models of the DB**.
    answer is sufficient the request is served from the pool
    (`research.store_hit`, ≈ $0). Otherwise it hands off to the dedicated
    **`research` queue**, whose worker reads any attachments, runs the
-   connectors (today: `global_web`'s real web search), and inserts new
-   companies as `ai_researched` suppliers — deduped on `supplier.dedup_key`,
-   membership upserted in `supplier_source`, audited in `source_run` — then
-   re-enqueues the pipeline to match and finish.
-3. **Match** — scores the pool against the request's criteria and persists a
-   ranked Top-N in `match`, with the per-criterion reasoning in `score_breakdown`.
+   connectors (today: `global_web`'s real web search), and saves what they
+   collect as **store records** (`source_record`, deduped per source on the
+   normalized key, audited in `source_run` — never suppliers, Phase D) —
+   then re-enqueues the pipeline to match and finish.
+3. **Match** — scores the workspace's logical candidates (promoted suppliers
+   + unpromoted record groups) against the criteria, **promotes the Top-N
+   that aren't suppliers yet** (`provenance` from the source type,
+   `discovered_by_request_id`), and persists the ranked Top-N in `match`
+   with the per-criterion reasoning in `score_breakdown`.
 4. **Report** — `/demandes/$id/rapport` renders the need, criteria, ranked
    suppliers and methodology, with PDF export via the browser's print pipeline.
 5. **Recovery sweep** — on boot and every 60 s the worker re-adopts requests
@@ -1030,7 +1035,7 @@ Browser ──HTTPS──▶ web
                      web_search) — per-source timeout, isolated
                      failure, source_run audit
                   3. core persists: dedup → provenance →
-                     supplier_source memberships → re-enqueue
+                     source_record rows → re-enqueue
                      the pipeline job
 
  web ──INCR──▶ redis      (per-IP auth counters; fail-open)
@@ -1117,7 +1122,7 @@ erDiagram
 | `research_run`       | request_id, status `running\|succeeded\|failed`, **fingerprint**, queries jsonb, candidates_found, suppliers_added, error                 |
 | `file` / `request_attachment` | organization-scoped file store; bytes behind `src/server/storage.ts`                                                            |
 | `data_source`        | ✅ 2026-08-22 — the platform source catalogue: code (uq), type `global_web\|country_registry\|import`, country, **enabled** |
-| `supplier_source`    | ✅ 2026-08-22 — per-source stores: uq(supplier, source), status `active\|banned`, first/last_seen, payload |
+| `source_record`      | ✅ 2026-08-24 (Phase D, replaced `supplier_source`) — per-source stores of raw candidates: uq(source, dedup_key), candidate fields, payload, `supplier_id` null until **promotion**, status `active\|banned` |
 | `source_run`         | ✅ 2026-08-22 — audit of every collection: trigger `request\|admin`, counts, error (absorbs the planned `import_run`) |
 | `sourcing_rules`     | ✅ 2026-08-22 — activated sources + country origin per workspace; written by Paramètres → Préférences de sourcing (B5) |
 

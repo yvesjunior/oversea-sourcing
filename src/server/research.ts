@@ -31,7 +31,12 @@ import {
   RESEARCH_CANDIDATE_CAP,
 } from "@/server/sourcing-config";
 import { getConnector } from "@/server/sources/registry";
-import { eligibleSuppliers, resolveScope, type EffectiveScope } from "@/server/sources/scope";
+import {
+  eligibleCandidates,
+  resolveScope,
+  type EffectiveScope,
+  type MatchCandidate,
+} from "@/server/sources/scope";
 import type { SearchBrief, SourceCandidate } from "@/server/sources/types";
 
 export type ResearchOutcome = {
@@ -60,8 +65,9 @@ function cleanWebsite(raw: string | null | undefined): string | null {
   return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
 }
 
-/** Candidate → insert values, or null when it isn't identifiable enough to keep. */
-function toSupplierRow(candidate: SourceCandidate, discoveredByRequestId: string | null) {
+/** Candidate → store-record insert values, or null when it isn't
+ *  identifiable enough to keep. */
+function toRecordRow(candidate: SourceCandidate, dataSourceId: string) {
   const name = candidate.name.trim();
   const country = candidate.countryCode.trim().toUpperCase();
   const dedupKey = supplierDedupKey(name, country);
@@ -69,86 +75,79 @@ function toSupplierRow(candidate: SourceCandidate, discoveredByRequestId: string
 
   return {
     id: crypto.randomUUID(),
+    dataSourceId,
+    dedupKey,
     name,
     descriptor: candidate.descriptor?.trim() || null,
     countryCode: country,
     website: cleanWebsite(candidate.website),
     description: candidate.description?.trim() || null,
-    provenance: "ai_researched" as const,
-    verificationStatus: "unverified" as const,
     confidenceScore: clampConfidence(candidate.confidence),
-    riskLevel: "medium" as const,
-    sourceRef: candidate.sourceUrl?.trim() || null,
-    dedupKey,
-    discoveredByRequestId,
-    lastResearchedAt: new Date(),
+    sourceUrl: candidate.sourceUrl?.trim() || null,
+    payload: candidate.raw ?? null,
   };
 }
 
 /**
- * Persist one source's candidates: dedup into the shared pool, then upsert
- * this source's store membership for every company encountered — a dedup hit
- * still refreshes `last_seen_at` and `last_researched_at`, because seeing the
- * company again is evidence it still exists. A banned membership is never
- * resurrected (the upsert only touches `active` rows), and a globally banned
- * supplier stays banned — the flag lives on the row the dedup key points to.
+ * Persist one source's collection into its STORE (Phase D): records only,
+ * never suppliers — a supplier row is created at promotion (Top-N ranking in
+ * the matcher). A re-encounter refreshes `last_seen_at` (evidence the company
+ * still exists) and, when the record is already promoted, the supplier's
+ * `last_researched_at` too. A banned record is never resurrected (the upsert
+ * only touches `active` rows) — sticky across re-collection by construction.
  */
 async function persistFromSource(
   candidates: SourceCandidate[],
-  requestId: string | null,
   dataSourceId: string,
 ): Promise<{ found: number; added: number; memberships: number }> {
   // Dedup within the batch first (a source can repeat itself across queries),
   // then let the unique index settle it against everything already stored.
-  const rows = new Map<
-    string,
-    { row: NonNullable<ReturnType<typeof toSupplierRow>>; raw: Record<string, unknown> | undefined }
-  >();
+  const rows = new Map<string, NonNullable<ReturnType<typeof toRecordRow>>>();
   for (const candidate of candidates) {
-    const row = toSupplierRow(candidate, requestId);
-    if (row && !rows.has(row.dedupKey)) rows.set(row.dedupKey, { row, raw: candidate.raw });
+    const row = toRecordRow(candidate, dataSourceId);
+    if (row && !rows.has(row.dedupKey)) rows.set(row.dedupKey, row);
   }
 
   let added = 0;
   let memberships = 0;
-  for (const { row, raw } of rows.values()) {
+  for (const row of rows.values()) {
     const inserted = await db
-      .insert(schema.supplier)
+      .insert(schema.sourceRecord)
       .values(row)
-      .onConflictDoNothing({ target: schema.supplier.dedupKey })
-      .returning({ id: schema.supplier.id });
+      .onConflictDoNothing({
+        target: [schema.sourceRecord.dataSourceId, schema.sourceRecord.dedupKey],
+      })
+      .returning({ id: schema.sourceRecord.id });
 
-    let supplierId = inserted[0]?.id;
-    if (supplierId) {
+    if (inserted[0]) {
       added++;
     } else {
-      const existing = await db.query.supplier.findFirst({
-        where: eq(schema.supplier.dedupKey, row.dedupKey),
-        columns: { id: true },
-      });
-      if (!existing) continue; // raced with a delete — nothing to attach to
-      supplierId = existing.id;
       await db
-        .update(schema.supplier)
-        .set({ lastResearchedAt: new Date() })
-        .where(eq(schema.supplier.id, supplierId));
-    }
-
-    await db
-      .insert(schema.supplierSource)
-      .values({
-        id: crypto.randomUUID(),
-        supplierId,
-        dataSourceId,
-        status: "active",
-        payload: raw ?? null,
-      })
-      .onConflictDoUpdate({
-        target: [schema.supplierSource.supplierId, schema.supplierSource.dataSourceId],
-        set: { lastSeenAt: new Date() },
-        // Never resurrect a per-source ban: the refresh only touches active rows.
-        setWhere: eq(schema.supplierSource.status, "active"),
+        .update(schema.sourceRecord)
+        .set({ lastSeenAt: new Date(), payload: row.payload })
+        .where(
+          and(
+            eq(schema.sourceRecord.dataSourceId, dataSourceId),
+            eq(schema.sourceRecord.dedupKey, row.dedupKey),
+            // Never resurrect a ban: the refresh only touches active rows.
+            eq(schema.sourceRecord.status, "active"),
+          ),
+        );
+      // Promoted already? Seeing the company again proves it still exists.
+      const existing = await db.query.sourceRecord.findFirst({
+        where: and(
+          eq(schema.sourceRecord.dataSourceId, dataSourceId),
+          eq(schema.sourceRecord.dedupKey, row.dedupKey),
+        ),
+        columns: { supplierId: true },
       });
+      if (existing?.supplierId) {
+        await db
+          .update(schema.supplier)
+          .set({ lastResearchedAt: new Date() })
+          .where(eq(schema.supplier.id, existing.supplierId));
+      }
+    }
     memberships++;
   }
   return { found: candidates.length, added, memberships };
@@ -168,25 +167,24 @@ export function requestFingerprint(
   return `${scope}::${parts}`;
 }
 
-type SupplierRow = typeof schema.supplier.$inferSelect;
 type CriterionRow = typeof schema.requestCriterion.$inferSelect;
 
 /**
- * Pure half of the store-first decision — how many of these suppliers qualify
- * as a store answer for these criteria? A candidate must be fresh
- * (≤ STORE_FRESH_DAYS), confident (≥ STORE_MIN_CONFIDENCE) and actually match
- * (score ≥ STORE_MIN_SCORE). Exported for unit tests (A7).
+ * Pure half of the store-first decision — how many of these candidates
+ * qualify as a store answer for these criteria? A candidate must be fresh
+ * (≤ STORE_FRESH_DAYS on `lastSeenAt`), confident (≥ STORE_MIN_CONFIDENCE)
+ * and actually match (score ≥ STORE_MIN_SCORE). Exported for unit tests (A7).
  */
 export function countQualifyingCandidates(
-  pool: SupplierRow[],
+  pool: MatchCandidate[],
   criteria: CriterionRow[],
   now: Date = new Date(),
 ): number {
   const freshCutoff = new Date(now.getTime() - STORE_FRESH_DAYS * 24 * 60 * 60 * 1000);
-  return pool.filter((supplier) => {
-    if (!supplier.lastResearchedAt || supplier.lastResearchedAt < freshCutoff) return false;
-    if (supplier.confidenceScore < STORE_MIN_CONFIDENCE) return false;
-    return scoreSupplier(supplier, criteria).total >= STORE_MIN_SCORE;
+  return pool.filter((candidate) => {
+    if (!candidate.lastSeenAt || candidate.lastSeenAt < freshCutoff) return false;
+    if (candidate.confidenceScore < STORE_MIN_CONFIDENCE) return false;
+    return scoreSupplier(candidate, criteria).total >= STORE_MIN_SCORE;
   }).length;
 }
 
@@ -197,16 +195,17 @@ export type StoreCoverage = {
   qualifying: number;
   /** Eligible pool size within scope (any freshness). */
   poolSize: number;
-  /** Supplier ids the matcher may rank for this workspace (hard filter). */
-  eligibleIds: string[];
+  /** The logical candidates the matcher may rank (hard scope filter applied). */
+  candidates: MatchCandidate[];
   scope: EffectiveScope;
 };
 
 /**
- * The store-first decision (validated 2026-08-22): score the eligible pool
- * against the request's criteria and decide whether live collection is needed.
- * "Insufficient" means too few candidates, match too low, or confidence too
- * low — thresholds in sourcing-config (A8 draft numbers, env-overridable).
+ * The store-first decision (validated 2026-08-22): score the eligible
+ * candidates against the request's criteria and decide whether live
+ * collection is needed. "Insufficient" means too few candidates, match too
+ * low, or confidence too low — thresholds in sourcing-config (A8 draft
+ * numbers, env-overridable).
  */
 export async function evaluateStoreCoverage(
   requestId: string,
@@ -214,7 +213,7 @@ export async function evaluateStoreCoverage(
 ): Promise<StoreCoverage> {
   const scope = await resolveScope(organizationId);
   const [pool, criteria] = await Promise.all([
-    eligibleSuppliers(scope),
+    eligibleCandidates(scope),
     db.query.requestCriterion.findMany({
       where: eq(schema.requestCriterion.requestId, requestId),
       orderBy: [asc(schema.requestCriterion.position)],
@@ -227,7 +226,7 @@ export async function evaluateStoreCoverage(
     sufficient: qualifying >= STORE_MIN_CANDIDATES,
     qualifying,
     poolSize: pool.length,
-    eligibleIds: pool.map((s) => s.id),
+    candidates: pool,
     scope,
   };
 }
@@ -374,7 +373,7 @@ export async function runResearchForRequest(
       });
       try {
         const result = await connector.collect(brief);
-        const persisted = await persistFromSource(result.candidates, requestId, source.id);
+        const persisted = await persistFromSource(result.candidates, source.id);
         found += persisted.found;
         added += persisted.added;
         allQueries.push(...result.queries);
@@ -482,7 +481,7 @@ export async function runAdminRefresh(sourceRunId: string): Promise<void> {
 
   try {
     const result = await connector.collect(brief);
-    const persisted = await persistFromSource(result.candidates, null, source.id);
+    const persisted = await persistFromSource(result.candidates, source.id);
     await db
       .update(schema.sourceRun)
       .set({

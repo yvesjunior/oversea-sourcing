@@ -1,9 +1,11 @@
-// Data-source administration (C1, staff surface) — the catalogue screen
-// `/interne/sources`: enable/disable sources, browse each source's store
-// (supplier_source memberships), trigger a scoped "Mettre à jour" collection,
-// and manage bans (per-source and global) with a who/when/why trail.
+// Data-source administration (C1 + Phase D, staff surface) — the catalogue
+// screen `/interne/sources`: enable/disable sources, browse each source's
+// store (raw `source_record` candidates, promoted or not), trigger the
+// full-pull "Mettre à jour" on static sources, manage bans (per-record and
+// global) with a who/when/why trail, and WIPE a store (Phase D: stores are
+// disposable — promoted suppliers, matches and requests are never touched).
 //
-// The refresh itself runs on the research queue (worker-research owns all
+// The refresh runs on the research queue (worker-research owns all
 // collection — web never calls Claude): the fn creates the source_run row so
 // the screen shows it as running immediately, then enqueues {sourceRunId}.
 
@@ -15,9 +17,10 @@ export type SourceRunView = {
   id: string;
   trigger: "request" | "admin";
   status: "running" | "succeeded" | "failed";
-  /** Refresh scope (category/country) for admin runs; null for request runs. */
-  category: string | null;
-  countryCode: string | null;
+  /** 'wipe' for store-wipe audit rows; null for collections. */
+  action: string | null;
+  /** Records deleted by a wipe (audit detail). */
+  deleted: number | null;
   requestId: string | null;
   triggeredByName: string | null;
   candidatesFound: number;
@@ -35,37 +38,38 @@ export type SourceCatalogueView = {
   type: DataSourceType;
   countryCode: string | null;
   enabled: boolean;
-  /** A registered connector can collect live; without one the source is
-   *  store-only and "Mettre à jour" has nothing to run. */
+  /** A registered connector can collect; without one the source is store-only. */
   hasConnector: boolean;
   storeActive: number;
   storeBanned: number;
-  /** Active memberships seen within STORE_FRESH_DAYS. */
+  /** Active records seen within STORE_FRESH_DAYS. */
   storeFresh: number;
+  /** Records promoted to suppliers (Phase D). */
+  storePromoted: number;
   runningRuns: number;
   lastRun: SourceRunView | null;
 };
 
-export type SourceMembershipView = {
-  membershipId: string;
-  supplierId: string;
+export type SourceRecordView = {
+  recordId: string;
+  /** Set when promoted — the supplier row this record feeds. */
+  supplierId: string | null;
   name: string;
   countryCode: string;
   website: string | null;
-  verificationStatus: string;
   confidenceScore: number;
   status: "active" | "banned";
   firstSeenAt: string;
   lastSeenAt: string;
   bannedByName: string | null;
   bannedReason: string | null;
-  /** Global ban on the supplier itself (never matched, for anyone). */
+  /** Global ban on the promoted supplier (never matched, for anyone). */
   globallyBanned: boolean;
   globalBanReason: string | null;
 };
 
 export type SourceDetailView = {
-  memberships: SourceMembershipView[];
+  records: SourceRecordView[];
   /** True when the store browser was capped — the tail exists but isn't shown. */
   truncated: boolean;
   runs: SourceRunView[];
@@ -104,8 +108,8 @@ function toRunView(row: RunRow): SourceRunView {
     id: row.id,
     trigger: row.trigger,
     status: row.status,
-    category: typeof scope["category"] === "string" ? scope["category"] : null,
-    countryCode: typeof scope["countryCode"] === "string" ? scope["countryCode"] : null,
+    action: typeof scope["action"] === "string" ? scope["action"] : null,
+    deleted: typeof scope["deleted"] === "number" ? scope["deleted"] : null,
     requestId: row.requestId,
     triggeredByName: row.triggeredByName,
     candidatesFound: row.candidatesFound,
@@ -136,13 +140,14 @@ export const getSourceAdminFn = createServerFn({ method: "GET" }).handler(
       db.query.dataSource.findMany({ orderBy: [schema.dataSource.createdAt] }),
       db
         .select({
-          dataSourceId: schema.supplierSource.dataSourceId,
-          active: sql<number>`count(*) filter (where ${schema.supplierSource.status} = 'active')::int`,
-          banned: sql<number>`count(*) filter (where ${schema.supplierSource.status} = 'banned')::int`,
-          fresh: sql<number>`count(*) filter (where ${schema.supplierSource.status} = 'active' and ${schema.supplierSource.lastSeenAt} >= ${freshCutoff})::int`,
+          dataSourceId: schema.sourceRecord.dataSourceId,
+          active: sql<number>`count(*) filter (where ${schema.sourceRecord.status} = 'active')::int`,
+          banned: sql<number>`count(*) filter (where ${schema.sourceRecord.status} = 'banned')::int`,
+          fresh: sql<number>`count(*) filter (where ${schema.sourceRecord.status} = 'active' and ${schema.sourceRecord.lastSeenAt} >= ${freshCutoff})::int`,
+          promoted: sql<number>`count(*) filter (where ${schema.sourceRecord.supplierId} is not null)::int`,
         })
-        .from(schema.supplierSource)
-        .groupBy(schema.supplierSource.dataSourceId),
+        .from(schema.sourceRecord)
+        .groupBy(schema.sourceRecord.dataSourceId),
       // Health comes from real usage: the latest run per source + running count.
       db
         .select({
@@ -190,6 +195,7 @@ export const getSourceAdminFn = createServerFn({ method: "GET" }).handler(
         storeActive: counts?.active ?? 0,
         storeBanned: counts?.banned ?? 0,
         storeFresh: counts?.fresh ?? 0,
+        storePromoted: counts?.promoted ?? 0,
         runningRuns: runningBySource.get(source.id) ?? 0,
         lastRun: lastRun ? toRunView(lastRun) : null,
       };
@@ -205,7 +211,7 @@ export const getSourceDetailFn = createServerFn({ method: "GET" })
   .inputValidator(z.object({ dataSourceId: z.string() }))
   .handler(async ({ data }): Promise<SourceDetailView> => {
     const session = await requireSourceAdmin();
-    if (!session) return { memberships: [], truncated: false, runs: [] };
+    if (!session) return { records: [], truncated: false, runs: [] };
 
     const [{ db }, { desc, eq }, schema] = await Promise.all([
       import("@/database"),
@@ -213,29 +219,28 @@ export const getSourceDetailFn = createServerFn({ method: "GET" })
       import("@/database/schema"),
     ]);
 
-    const [memberships, runs] = await Promise.all([
+    const [records, runs] = await Promise.all([
       db
         .select({
-          membershipId: schema.supplierSource.id,
-          supplierId: schema.supplier.id,
-          name: schema.supplier.name,
-          countryCode: schema.supplier.countryCode,
-          website: schema.supplier.website,
-          verificationStatus: schema.supplier.verificationStatus,
-          confidenceScore: schema.supplier.confidenceScore,
-          status: schema.supplierSource.status,
-          firstSeenAt: schema.supplierSource.firstSeenAt,
-          lastSeenAt: schema.supplierSource.lastSeenAt,
+          recordId: schema.sourceRecord.id,
+          supplierId: schema.sourceRecord.supplierId,
+          name: schema.sourceRecord.name,
+          countryCode: schema.sourceRecord.countryCode,
+          website: schema.sourceRecord.website,
+          confidenceScore: schema.sourceRecord.confidenceScore,
+          status: schema.sourceRecord.status,
+          firstSeenAt: schema.sourceRecord.firstSeenAt,
+          lastSeenAt: schema.sourceRecord.lastSeenAt,
           bannedByName: schema.user.name,
-          bannedReason: schema.supplierSource.bannedReason,
+          bannedReason: schema.sourceRecord.bannedReason,
           globalBannedAt: schema.supplier.bannedAt,
           globalBanReason: schema.supplier.bannedReason,
         })
-        .from(schema.supplierSource)
-        .innerJoin(schema.supplier, eq(schema.supplier.id, schema.supplierSource.supplierId))
-        .leftJoin(schema.user, eq(schema.user.id, schema.supplierSource.bannedBy))
-        .where(eq(schema.supplierSource.dataSourceId, data.dataSourceId))
-        .orderBy(desc(schema.supplierSource.lastSeenAt))
+        .from(schema.sourceRecord)
+        .leftJoin(schema.supplier, eq(schema.supplier.id, schema.sourceRecord.supplierId))
+        .leftJoin(schema.user, eq(schema.user.id, schema.sourceRecord.bannedBy))
+        .where(eq(schema.sourceRecord.dataSourceId, data.dataSourceId))
+        .orderBy(desc(schema.sourceRecord.lastSeenAt))
         .limit(STORE_BROWSER_LIMIT + 1),
       db
         .select({
@@ -260,15 +265,14 @@ export const getSourceDetailFn = createServerFn({ method: "GET" })
         .limit(20),
     ]);
 
-    const truncated = memberships.length > STORE_BROWSER_LIMIT;
+    const truncated = records.length > STORE_BROWSER_LIMIT;
     return {
-      memberships: memberships.slice(0, STORE_BROWSER_LIMIT).map((row) => ({
-        membershipId: row.membershipId,
+      records: records.slice(0, STORE_BROWSER_LIMIT).map((row) => ({
+        recordId: row.recordId,
         supplierId: row.supplierId,
         name: row.name,
         countryCode: row.countryCode,
         website: row.website,
-        verificationStatus: row.verificationStatus,
         confidenceScore: row.confidenceScore,
         status: row.status,
         firstSeenAt: row.firstSeenAt.toISOString(),
@@ -362,18 +366,51 @@ export const triggerSourceRefreshFn = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-/** Per-source ban/unban — this source's data for the company is ignored while
+/** WIPE a source's store (Phase D) — platform OWNER only, deliberately above
+ *  the manager-level feature gate: it deletes every record of the source.
+ *  Promoted suppliers, matches and requests are untouched by construction
+ *  (supplier rows stand alone; record links die with the records). Audited
+ *  as a source_run row (scope.action = 'wipe', scope.deleted = N). */
+export const wipeSourceStoreFn = createServerFn({ method: "POST" })
+  .inputValidator(z.object({ dataSourceId: z.string() }))
+  .handler(async ({ data }): Promise<{ ok: boolean; deleted?: number }> => {
+    const session = await requireSourceAdmin();
+    if (!session || session.user.platformRole !== "owner") return { ok: false };
+
+    const [{ db }, { eq }, schema] = await Promise.all([
+      import("@/database"),
+      import("drizzle-orm"),
+      import("@/database/schema"),
+    ]);
+    const deleted = await db
+      .delete(schema.sourceRecord)
+      .where(eq(schema.sourceRecord.dataSourceId, data.dataSourceId))
+      .returning({ id: schema.sourceRecord.id });
+
+    await db.insert(schema.sourceRun).values({
+      id: crypto.randomUUID(),
+      dataSourceId: data.dataSourceId,
+      trigger: "admin",
+      triggeredBy: session.user.id,
+      status: "succeeded",
+      scope: { action: "wipe", deleted: deleted.length },
+      completedAt: new Date(),
+    });
+    return { ok: true, deleted: deleted.length };
+  });
+
+/** Per-record ban/unban — this source's data for the company is ignored while
  *  other sources can still surface it. Sticky across re-collection (the
  *  upsert in research.ts only touches active rows). */
-export const setMembershipStatusFn = createServerFn({ method: "POST" })
+export const setRecordStatusFn = createServerFn({ method: "POST" })
   .inputValidator(
     z.discriminatedUnion("action", [
       z.object({
         action: z.literal("ban"),
-        membershipId: z.string(),
+        recordId: z.string(),
         reason: z.string().trim().min(3).max(300),
       }),
-      z.object({ action: z.literal("unban"), membershipId: z.string() }),
+      z.object({ action: z.literal("unban"), recordId: z.string() }),
     ]),
   )
   .handler(async ({ data }): Promise<{ ok: boolean }> => {
@@ -386,18 +423,19 @@ export const setMembershipStatusFn = createServerFn({ method: "POST" })
       import("@/database/schema"),
     ]);
     await db
-      .update(schema.supplierSource)
+      .update(schema.sourceRecord)
       .set(
         data.action === "ban"
           ? { status: "banned", bannedBy: session.user.id, bannedReason: data.reason }
           : { status: "active", bannedBy: null, bannedReason: null },
       )
-      .where(eq(schema.supplierSource.id, data.membershipId));
+      .where(eq(schema.sourceRecord.id, data.recordId));
     return { ok: true };
   });
 
 /** Global supplier ban — never matched, never shown, for anyone (fraud,
- *  sanctions). Sticky: the dedup key lands re-encounters on this row. */
+ *  sanctions). Sticky: the dedup key lands re-encounters on this row. Only
+ *  meaningful for promoted records (unpromoted ones have no supplier). */
 export const setSupplierBanFn = createServerFn({ method: "POST" })
   .inputValidator(
     z.discriminatedUnion("action", [

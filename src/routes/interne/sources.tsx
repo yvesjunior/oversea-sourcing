@@ -1,6 +1,7 @@
-// Data-source catalogue (C1, staff surface) — enable/disable sources, health
-// from real source_run outcomes, scoped "Mettre à jour" collections, and the
-// per-source store browser with bans (per-source and global).
+// Data-source catalogue (C1 + Phase D, staff surface) — enable/disable
+// sources, health from real source_run outcomes, full-pull "Mettre à jour"
+// on static sources, and the per-source store browser: raw candidate records
+// (promoted or not), bans (per-record and global), owner-only store wipe.
 
 import { useCallback, useEffect, useState } from "react";
 import { createFileRoute, useRouter } from "@tanstack/react-router";
@@ -14,10 +15,11 @@ import { isDynamicSource } from "@/lib/source-kind";
 import {
   getSourceAdminFn,
   getSourceDetailFn,
-  setMembershipStatusFn,
+  setRecordStatusFn,
   setSupplierBanFn,
   toggleSourceFn,
   triggerSourceRefreshFn,
+  wipeSourceStoreFn,
   type SourceCatalogueView,
   type SourceDetailView,
   type SourceRunView,
@@ -212,8 +214,11 @@ function RunsTable({ runs }: { runs: SourceRunView[] }) {
                   : t("sourcesAdmin.triggerRequest", { id: run.requestId ?? "?" })}
               </td>
               <td className="py-2 pr-4 text-xs text-muted-foreground">
-                {run.category ?? "—"}
-                {run.countryCode ? ` · ${run.countryCode}` : ""}
+                {run.action === "wipe"
+                  ? t("sourcesAdmin.wipeRun", { count: run.deleted ?? 0 })
+                  : run.trigger === "admin"
+                    ? t("sourcesAdmin.fullPull")
+                    : "—"}
               </td>
               <td className="py-2 pr-4">
                 <RunPill status={run.status} />
@@ -252,7 +257,7 @@ function StoreTable({ detail, onChanged }: { detail: SourceDetailView; onChanged
       year: "numeric",
     });
 
-  if (detail.memberships.length === 0) {
+  if (detail.records.length === 0) {
     return <p className="text-xs text-muted-foreground">{t("sourcesAdmin.emptyStore")}</p>;
   }
   return (
@@ -269,9 +274,9 @@ function StoreTable({ detail, onChanged }: { detail: SourceDetailView; onChanged
           </tr>
         </thead>
         <tbody>
-          {detail.memberships.map((m) => (
+          {detail.records.map((m) => (
             <tr
-              key={m.membershipId}
+              key={m.recordId}
               className={cn(
                 "border-b border-border/60",
                 (m.status === "banned" || m.globallyBanned) && "opacity-60",
@@ -280,6 +285,13 @@ function StoreTable({ detail, onChanged }: { detail: SourceDetailView; onChanged
               <td className="py-2.5 pr-4">
                 <p className="font-medium">
                   {m.name}
+                  {/* Promoted = a supplier row exists; a bare record is only a
+                      candidate and disappears with a store wipe. */}
+                  {m.supplierId && (
+                    <span className="ml-2 rounded-full bg-gold-gradient px-2 py-0.5 text-[10px] font-semibold text-gold-foreground">
+                      {t("sourcesAdmin.promoted")}
+                    </span>
+                  )}
                   {m.globallyBanned && (
                     <span
                       className="ml-2 rounded-full bg-destructive/15 px-2 py-0.5 text-[10px] font-semibold text-destructive"
@@ -327,35 +339,42 @@ function StoreTable({ detail, onChanged }: { detail: SourceDetailView; onChanged
                   banLabel={t("sourcesAdmin.ban")}
                   unbanLabel={t("sourcesAdmin.unban")}
                   onBan={async (reason) => {
-                    await setMembershipStatusFn({
-                      data: { action: "ban", membershipId: m.membershipId, reason },
+                    await setRecordStatusFn({
+                      data: { action: "ban", recordId: m.recordId, reason },
                     });
                     onChanged();
                   }}
                   onUnban={async () => {
-                    await setMembershipStatusFn({
-                      data: { action: "unban", membershipId: m.membershipId },
+                    await setRecordStatusFn({
+                      data: { action: "unban", recordId: m.recordId },
                     });
                     onChanged();
                   }}
                 />
               </td>
               <td className="py-2.5">
-                <BanControl
-                  banned={m.globallyBanned}
-                  banLabel={t("sourcesAdmin.banGlobal")}
-                  unbanLabel={t("sourcesAdmin.unbanGlobal")}
-                  onBan={async (reason) => {
-                    await setSupplierBanFn({
-                      data: { action: "ban", supplierId: m.supplierId, reason },
-                    });
-                    onChanged();
-                  }}
-                  onUnban={async () => {
-                    await setSupplierBanFn({ data: { action: "unban", supplierId: m.supplierId } });
-                    onChanged();
-                  }}
-                />
+                {/* Only promoted records have a supplier to ban globally. */}
+                {m.supplierId ? (
+                  <BanControl
+                    banned={m.globallyBanned}
+                    banLabel={t("sourcesAdmin.banGlobal")}
+                    unbanLabel={t("sourcesAdmin.unbanGlobal")}
+                    onBan={async (reason) => {
+                      await setSupplierBanFn({
+                        data: { action: "ban", supplierId: m.supplierId!, reason },
+                      });
+                      onChanged();
+                    }}
+                    onUnban={async () => {
+                      await setSupplierBanFn({
+                        data: { action: "unban", supplierId: m.supplierId! },
+                      });
+                      onChanged();
+                    }}
+                  />
+                ) : (
+                  <span className="text-xs text-muted-foreground">—</span>
+                )}
               </td>
             </tr>
           ))}
@@ -368,10 +387,69 @@ function StoreTable({ detail, onChanged }: { detail: SourceDetailView; onChanged
   );
 }
 
+/** Owner-only store wipe (Phase D) — two-step confirm; promoted suppliers,
+ *  matches and requests survive by construction. */
+function WipeButton({ source, onDone }: { source: SourceCatalogueView; onDone: () => void }) {
+  const { t } = useTranslation();
+  const [confirming, setConfirming] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  const wipe = async () => {
+    setBusy(true);
+    try {
+      await wipeSourceStoreFn({ data: { dataSourceId: source.id } });
+      setConfirming(false);
+      onDone();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (!confirming) {
+    return (
+      <Button
+        size="sm"
+        variant="outline"
+        className="h-7 px-2 text-xs text-destructive"
+        onClick={() => setConfirming(true)}
+      >
+        {t("sourcesAdmin.wipe")}
+      </Button>
+    );
+  }
+  return (
+    <span className="flex items-center gap-2">
+      <span className="text-xs text-destructive">
+        {t("sourcesAdmin.wipeConfirm", { count: source.storeActive + source.storeBanned })}
+      </span>
+      <Button
+        size="sm"
+        variant="destructive"
+        className="h-7 px-2 text-xs"
+        disabled={busy}
+        onClick={() => void wipe()}
+      >
+        {t("sourcesAdmin.confirm")}
+      </Button>
+      <Button
+        size="sm"
+        variant="ghost"
+        className="h-7 px-2 text-xs"
+        onClick={() => setConfirming(false)}
+      >
+        {t("sourcesAdmin.cancel")}
+      </Button>
+    </span>
+  );
+}
+
 function Sources() {
   const { t, i18n } = useTranslation();
   const router = useRouter();
+  const { session } = Route.useRouteContext();
   const sources = Route.useLoaderData();
+  const isPlatformOwner =
+    (session?.user as { platformRole?: string } | undefined)?.platformRole === "owner";
   const [selectedId, setSelectedId] = useState<string | null>(sources[0]?.id ?? null);
   const [detail, setDetail] = useState<SourceDetailView | null>(null);
 
@@ -508,11 +586,18 @@ function Sources() {
         <section className="card-surface space-y-5 p-6">
           <header className="flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-base font-bold">{selected.name}</h2>
-            <span className="text-xs text-muted-foreground">
-              {t("sourcesAdmin.storeCounts", {
-                active: selected.storeActive,
-                fresh: selected.storeFresh,
-              })}
+            <span className="flex items-center gap-3">
+              <span className="text-xs text-muted-foreground">
+                {t("sourcesAdmin.storeCounts", {
+                  active: selected.storeActive,
+                  fresh: selected.storeFresh,
+                })}
+                {" · "}
+                {t("sourcesAdmin.storePromoted", { count: selected.storePromoted })}
+              </span>
+              {isPlatformOwner && (selected.storeActive > 0 || selected.storeBanned > 0) && (
+                <WipeButton source={selected} onDone={refresh} />
+              )}
             </span>
           </header>
 

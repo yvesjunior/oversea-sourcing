@@ -91,10 +91,10 @@ async function handlePipeline({ requestId }: PipelineJob, enqueue: Enqueue): Pro
       } else {
         await sleep(STAGE_MS);
       }
-      // Re-resolve eligibility AFTER any research so new suppliers are in scope.
+      // Re-resolve eligibility AFTER any research so new records are in scope.
       const scoped = await evaluateStoreCoverage(requestId, orgId);
       const analyzed = await createMatchesForRequest(requestId, orgId, {
-        eligibleSupplierIds: scoped.eligibleIds,
+        candidates: scoped.candidates,
       });
       console.log(`pipeline: ${requestId} matched top suppliers from a pool of ${analyzed}`);
     }

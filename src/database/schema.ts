@@ -297,30 +297,49 @@ export const dataSource = pgTable(
   (table) => [uniqueIndex("data_source_code_uq").on(table.code)],
 );
 
-/** One supplier entity, N source memberships — each source's STORE is its
- *  membership rows. Per-source ban ignores THIS source's data for the company
- *  while other sources can still surface it; also sticky across re-collection. */
-export const supplierSource = pgTable(
-  "supplier_source",
+/** A source's STORE (Phase D, decided 2026-08-24): what a source collects is
+ *  kept here as raw records — CANDIDATES to become suppliers, not suppliers
+ *  yet. `supplier_id` is set only at PROMOTION (the record ranked into a
+ *  request's Top-N). Everything load-bearing (requests, matches, reports)
+ *  references promoted suppliers, so a store can be wiped at any time
+ *  without impacting the platform. Per-record ban ignores THIS source's data
+ *  for the company while other sources can still surface it; sticky across
+ *  re-collection (the upsert only touches active rows). */
+export const sourceRecord = pgTable(
+  "source_record",
   {
     id: text("id").primaryKey(),
-    supplierId: text("supplier_id")
-      .notNull()
-      .references(() => supplier.id, { onDelete: "cascade" }),
     dataSourceId: text("data_source_id")
       .notNull()
       .references(() => dataSource.id, { onDelete: "cascade" }),
+    /** Same normalized `name|COUNTRY` key as supplier.dedup_key — records of
+     *  the same company across sources group on it, and promotion lands on
+     *  the existing supplier row through the supplier unique index. */
+    dedupKey: text("dedup_key").notNull(),
+    /** Set at promotion; `set null` on supplier delete — the record then
+     *  simply becomes a candidate again. */
+    supplierId: text("supplier_id").references(() => supplier.id, { onDelete: "set null" }),
+    name: text("name").notNull(),
+    descriptor: text("descriptor"),
+    countryCode: text("country_code").notNull(),
+    website: text("website"),
+    description: text("description"),
+    /** 0-100, already clamped by the core (AI ceiling etc.). */
+    confidenceScore: integer("confidence_score").notNull().default(50),
+    /** Where this source saw the company (URL, registry entry…). */
+    sourceUrl: text("source_url"),
+    /** The connector's raw payload, verbatim. */
+    payload: jsonb("payload").$type<Record<string, unknown>>(),
     status: text("status").$type<"active" | "banned">().notNull().default("active"),
     firstSeenAt: timestamp("first_seen_at").notNull().defaultNow(),
     lastSeenAt: timestamp("last_seen_at").notNull().defaultNow(),
-    /** What THIS source said about the company (raw connector payload). */
-    payload: jsonb("payload").$type<Record<string, unknown>>(),
     bannedBy: text("banned_by").references(() => user.id, { onDelete: "set null" }),
     bannedReason: text("banned_reason"),
   },
   (table) => [
-    uniqueIndex("supplier_source_pair_uq").on(table.supplierId, table.dataSourceId),
-    index("supplier_source_source_idx").on(table.dataSourceId),
+    uniqueIndex("source_record_source_key_uq").on(table.dataSourceId, table.dedupKey),
+    index("source_record_source_idx").on(table.dataSourceId),
+    index("source_record_supplier_idx").on(table.supplierId),
   ],
 );
 

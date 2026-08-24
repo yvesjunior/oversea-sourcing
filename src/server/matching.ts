@@ -16,11 +16,12 @@
 // penalised equally for something none of them could ever prove, which is
 // noise dressed up as signal.
 
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { db } from "@/database";
 import * as schema from "@/database/schema";
 import { recordEvent } from "@/server/requests";
 import { SUPPLIERS_RETURNED } from "@/server/sourcing-config";
+import { eligibleCandidates, resolveScope, type MatchCandidate } from "@/server/sources/scope";
 
 /** How many suppliers reach the buyer — configured via SUPPLIERS_RETURNED. */
 export const TOP_N = SUPPLIERS_RETURNED;
@@ -125,10 +126,20 @@ export type ScoreBreakdown = {
 };
 
 type CriterionRow = typeof schema.requestCriterion.$inferSelect;
-type SupplierRow = typeof schema.supplier.$inferSelect;
+
+/** What the scorer actually reads — structural, so supplier rows AND
+ *  store-record candidates (Phase D) both qualify. */
+export type Scoreable = {
+  name: string;
+  descriptor: string | null;
+  description: string | null;
+  confidenceScore: number;
+  verificationStatus: schema.VerificationStatus;
+  riskLevel: schema.RiskLevel;
+};
 
 /** Everything we know about a supplier in words, for criterion matching. */
-function searchableText(supplier: SupplierRow): string {
+function searchableText(supplier: Scoreable): string {
   return [supplier.name, supplier.descriptor, supplier.description].filter(Boolean).join(" ");
 }
 
@@ -153,7 +164,7 @@ function criterionMatches(supplierTokens: Set<string>, criterion: CriterionRow):
   return hits / wanted.length >= 0.5;
 }
 
-export function scoreSupplier(supplier: SupplierRow, criteria: CriterionRow[]): ScoreBreakdown {
+export function scoreSupplier(supplier: Scoreable, criteria: CriterionRow[]): ScoreBreakdown {
   const supplierTokens = new Set(tokens(searchableText(supplier)));
 
   const scored: CriterionScore[] = criteria.map((criterion) => {
@@ -205,57 +216,108 @@ export function scoreSupplier(supplier: SupplierRow, criteria: CriterionRow[]): 
   };
 }
 
-/** Ranks the pool for a request, writes the Top-N (idempotent — delete then
- *  insert), stamps the headline score and records matches.created. Returns the
- *  pool size that was scored. */
+/**
+ * Ranks the workspace's logical candidates for a request, PROMOTES the Top-N
+ * that aren't suppliers yet (Phase D: a supplier row is created only when a
+ * record group actually surfaces for a buyer — the store stays disposable),
+ * writes the `match` rows (idempotent — delete then insert), stamps the
+ * headline score and records matches.created. Returns the pool size scored.
+ *
+ * Source + country scope is a HARD filter (validated 2026-08-22): candidates
+ * are built from the workspace's effective scope, exclusion not down-scoring.
+ */
 export async function createMatchesForRequest(
   requestId: string,
   organizationId: string,
-  options: { recordEvent?: boolean; eligibleSupplierIds?: string[] } = {},
+  options: { recordEvent?: boolean; candidates?: MatchCandidate[] } = {},
 ): Promise<number> {
-  const [allSuppliers, criteria] = await Promise.all([
-    db.query.supplier.findMany(),
+  const [candidates, criteria] = await Promise.all([
+    options.candidates ?? resolveScope(organizationId).then((scope) => eligibleCandidates(scope)),
     db.query.requestCriterion.findMany({
       where: eq(schema.requestCriterion.requestId, requestId),
     }),
   ]);
-  // Source + country scope is a HARD filter (validated 2026-08-22): a supplier
-  // outside the workspace's activated sources or country preference is
-  // excluded, not down-scored. Globally banned suppliers never rank.
-  const eligible = options.eligibleSupplierIds ? new Set(options.eligibleSupplierIds) : null;
-  const suppliers = allSuppliers.filter(
-    (s) => !s.bannedAt && (eligible === null || eligible.has(s.id)),
-  );
-  if (suppliers.length === 0) return 0;
+  if (candidates.length === 0) return 0;
 
-  const ranked = suppliers
-    .map((supplier) => ({ supplier, breakdown: scoreSupplier(supplier, criteria) }))
+  const ranked = candidates
+    .map((candidate) => ({ candidate, breakdown: scoreSupplier(candidate, criteria) }))
     .sort(
       (a, b) =>
         // Score first; then confidence, then name — deterministic without the
         // fake hash jitter v0 used to manufacture variety.
         b.breakdown.total - a.breakdown.total ||
-        b.supplier.confidenceScore - a.supplier.confidenceScore ||
-        a.supplier.name.localeCompare(b.supplier.name),
+        b.candidate.confidenceScore - a.candidate.confidenceScore ||
+        a.candidate.name.localeCompare(b.candidate.name),
     )
     .slice(0, TOP_N);
 
+  // Promotion: the ranked record groups become suppliers NOW — matches (and
+  // everything downstream) only ever reference supplier rows. The dedup
+  // unique index settles races; a re-run finds the existing row and promotes
+  // nothing new.
+  const supplierIds = new Map<string, string>(); // dedupKey → supplier id
+  for (const entry of ranked) {
+    const c = entry.candidate;
+    if (c.supplierId) {
+      supplierIds.set(c.dedupKey, c.supplierId);
+      continue;
+    }
+    const inserted = await db
+      .insert(schema.supplier)
+      .values({
+        id: crypto.randomUUID(),
+        name: c.name,
+        descriptor: c.descriptor,
+        countryCode: c.countryCode,
+        website: c.website,
+        description: c.description,
+        provenance:
+          c.sourceType === "global_web" ? ("ai_researched" as const) : ("imported" as const),
+        verificationStatus: "unverified" as const,
+        confidenceScore: c.confidenceScore,
+        riskLevel: "medium" as const,
+        sourceRef: c.sourceUrl,
+        dedupKey: c.dedupKey,
+        discoveredByRequestId: requestId,
+        lastResearchedAt: c.lastSeenAt ?? new Date(),
+      })
+      .onConflictDoNothing({ target: schema.supplier.dedupKey })
+      .returning({ id: schema.supplier.id });
+    let supplierId = inserted[0]?.id;
+    if (!supplierId) {
+      const existing = await db.query.supplier.findFirst({
+        where: eq(schema.supplier.dedupKey, c.dedupKey),
+        columns: { id: true },
+      });
+      if (!existing) continue; // raced with a delete — drop this candidate
+      supplierId = existing.id;
+    }
+    if (c.recordIds.length > 0) {
+      await db
+        .update(schema.sourceRecord)
+        .set({ supplierId })
+        .where(inArray(schema.sourceRecord.id, c.recordIds));
+    }
+    supplierIds.set(c.dedupKey, supplierId);
+  }
+  const placed = ranked.filter((entry) => supplierIds.has(entry.candidate.dedupKey));
+
   await db.delete(schema.match).where(eq(schema.match.requestId, requestId));
   await db.insert(schema.match).values(
-    ranked.map((entry, index) => ({
-      id: `${requestId}-match-${entry.supplier.id}`,
+    placed.map((entry, index) => ({
+      id: `${requestId}-match-${supplierIds.get(entry.candidate.dedupKey)!}`,
       requestId,
-      supplierId: entry.supplier.id,
+      supplierId: supplierIds.get(entry.candidate.dedupKey)!,
       rank: index + 1,
       compatibilityScore: entry.breakdown.total,
-      confidenceScore: entry.supplier.confidenceScore,
-      riskLevel: entry.supplier.riskLevel,
+      confidenceScore: entry.candidate.confidenceScore,
+      riskLevel: entry.candidate.riskLevel,
       status: "presented" as const,
       scoreBreakdown: entry.breakdown,
     })),
   );
 
-  const top = ranked[0];
+  const top = placed[0];
   await db
     .update(schema.request)
     .set({ compatibilityScore: top ? top.breakdown.total : null, updatedAt: new Date() })
@@ -263,9 +325,9 @@ export async function createMatchesForRequest(
 
   if (options.recordEvent !== false) {
     await recordEvent(requestId, organizationId, "matches.created", {
-      count: ranked.length,
-      analyzed: suppliers.length,
+      count: placed.length,
+      analyzed: candidates.length,
     });
   }
-  return suppliers.length;
+  return candidates.length;
 }
