@@ -303,45 +303,44 @@ export const toggleSourceFn = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-/** Trigger a scoped collection ("Mettre à jour"). Category is required — the
- *  only live connector is a web search, and an unscoped "refresh the internet"
- *  is not a thing; store-only sources are refused (nothing to run). A disabled
- *  source CAN be refreshed on purpose: warming a store before enabling it is a
- *  legitimate rollout move. */
+/** Trigger a full pull ("Mettre à jour") — STATIC sources only (settled
+ *  2026-08-24): the connector collects everything its source has; dedup makes
+ *  every trigger an idempotent, duplicate-free sync, so no scope is taken.
+ *  Dynamic sources (global_web) are refused — they are fed exclusively
+ *  through requests. Store-only sources are refused too (nothing to run).
+ *  A disabled source CAN be refreshed on purpose: warming a store before
+ *  enabling it is a legitimate rollout move. */
 export const triggerSourceRefreshFn = createServerFn({ method: "POST" })
-  .inputValidator(
-    z.object({
-      dataSourceId: z.string(),
-      category: z.string().trim().min(2).max(120),
-      countryCode: z
-        .string()
-        .trim()
-        .toUpperCase()
-        .regex(/^[A-Z]{2}$/)
-        .optional(),
-    }),
-  )
+  .inputValidator(z.object({ dataSourceId: z.string() }))
   .handler(async ({ data }): Promise<{ ok: boolean; error?: string }> => {
     const session = await requireSourceAdmin();
     if (!session) return { ok: false, error: "forbidden" };
 
-    const [{ db }, { and, eq }, schema, { getConnector }, { enqueueAdminRefresh }] =
-      await Promise.all([
-        import("@/database"),
-        import("drizzle-orm"),
-        import("@/database/schema"),
-        import("@/server/sources/registry"),
-        import("@/server/queue"),
-      ]);
+    const [
+      { db },
+      { and, eq },
+      schema,
+      { getConnector },
+      { enqueueAdminRefresh },
+      { isDynamicSource },
+    ] = await Promise.all([
+      import("@/database"),
+      import("drizzle-orm"),
+      import("@/database/schema"),
+      import("@/server/sources/registry"),
+      import("@/server/queue"),
+      import("@/lib/source-kind"),
+    ]);
 
     const source = await db.query.dataSource.findFirst({
       where: eq(schema.dataSource.id, data.dataSourceId),
     });
     if (!source) return { ok: false, error: "not_found" };
+    if (isDynamicSource(source.type)) return { ok: false, error: "dynamic_source" };
     if (!getConnector(source.code)) return { ok: false, error: "store_only" };
 
-    // One admin refresh at a time per source — a second click must not double
-    // the Claude spend while the first is still collecting.
+    // One admin pull at a time per source — a second click must not run two
+    // syncs over each other while the first is still collecting.
     const alreadyRunning = await db.query.sourceRun.findFirst({
       where: and(
         eq(schema.sourceRun.dataSourceId, source.id),
@@ -358,10 +357,6 @@ export const triggerSourceRefreshFn = createServerFn({ method: "POST" })
       trigger: "admin",
       triggeredBy: session.user.id,
       status: "running",
-      scope: {
-        category: data.category,
-        ...(data.countryCode ? { countryCode: data.countryCode } : {}),
-      },
     });
     await enqueueAdminRefresh(runId);
     return { ok: true };

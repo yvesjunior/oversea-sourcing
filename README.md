@@ -222,6 +222,43 @@ request enters `searching`
   appear for that workspace — preferences shape what a tenant *sees*, never
   what the platform *stores*.
 
+##### The two kinds of source, and the store→supplier promotion model
+
+> **Status: VALIDATED 2026-08-24 — kinds implemented, promotion TO BUILD
+> (Phase D in the backlog).** Decided in discussion; do not re-derive
+> differently.
+
+**Every source is one of two kinds** — derivable from `data_source.type`
+(`src/lib/source-kind.ts`), deliberately not a schema column:
+
+- **Dynamic** (`global_web`): the dataset does not exist until asked — a
+  request brief *generates* candidates. Fed **exclusively through requests**
+  via the store-first fallback; never admin-triggered. Its store is a cache
+  of past request-driven collections.
+- **Static** (`country_registry`, `import`): the dataset exists independently
+  of any request. **"Mettre à jour" = full pull** — the connector collects
+  everything its source has, the core saves it, and idempotence comes from
+  dedup, so every trigger is a complete, duplicate-free sync. No scope, no
+  parameters.
+
+**Stores are disposable; suppliers are promoted** (decided 2026-08-24):
+
+- What a source collects is **kept in its store as raw records — candidates
+  to become suppliers**, not suppliers yet.
+- A record is **promoted** to a `supplier` row only when the platform
+  actually uses it: it ranks into a request's Top-N (first trigger; staff
+  pick and verification join later with E10). Promotion dedups through the
+  same `dedup_key` unique index.
+- Consequence, and the reason for the design: **a store can be wiped at any
+  time without impacting the platform** — requests, matches, reports and
+  engagements reference promoted suppliers only. Wipe, re-pull, nothing
+  user-facing moves. The supplier pool becomes exactly "companies that have
+  surfaced for buyers", not a mirror of anyone's dataset.
+- Matching ranks **logical candidates**: store records deduped by
+  `dedup_key` across the workspace's effective sources, merged with
+  already-promoted suppliers. Unpromoted records are `unverified` by
+  definition.
+
 ##### Per-source collections & bans
 
 **One supplier entity, N source memberships** (decided 2026-08-22). The same
@@ -255,16 +292,17 @@ the source's collection view.
 
 ##### Admin-triggered source updates
 
-> **Status: ✅ BUILT 2026-08-24 (C1).** Facts a future session must not
-> re-derive differently: the server fn creates the `source_run` row
-> (`trigger=admin`, status `running`, scope, `triggered_by`) so the screen
-> shows it immediately, then enqueues `{sourceRunId}` on the **research
-> queue** — collection always runs in `worker-research`, never in web.
-> `runAdminRefresh()` (`src/server/research.ts`) persists through the exact
-> request path. Category is **required** (an unscoped "refresh the internet"
-> is not a thing for `global_web`); country defaults to the source's own.
-> One admin run at a time per source; a **disabled** source can still be
-> refreshed (warming a store before enabling it is a rollout move).
+> **Status: ✅ BUILT 2026-08-24 (C1; semantics settled same day).** Facts a
+> future session must not re-derive differently: the server fn creates the
+> `source_run` row (`trigger=admin`, status `running`, `triggered_by`) so
+> the screen shows it immediately, then enqueues `{sourceRunId}` on the
+> **research queue** — collection always runs in `worker-research`, never in
+> web. `runAdminRefresh()` (`src/server/research.ts`) persists through the
+> exact request path. **Static sources only, always a full pull, no scope**
+> (dynamic sources are refused — they are fed exclusively by requests; the
+> initial category-scoped variant was superseded the same day). One admin
+> run at a time per source; a **disabled** source can still be refreshed
+> (warming a store before enabling it is a rollout move).
 
 Connectors stay pull-only; **platform management is the second legitimate
 caller** (the request pipeline being the first). From `/interne/sources`,

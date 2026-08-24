@@ -428,23 +428,24 @@ export async function runResearchForRequest(
   }
 }
 
-/** The shape `/interne/sources` writes into `source_run.scope` (C1). */
-export type AdminRefreshScope = { category: string; countryCode?: string | null };
-
 /**
- * Admin "Mettre à jour" (C1) — the second legitimate caller of a connector,
- * after the request pipeline. The server fn already created the source_run row
- * (trigger=admin, status=running, scope) so the screen shows it immediately;
- * this — running on the research queue — does the collection and settles the
- * row. Persistence is the exact request path (dedup, memberships, freshness),
- * so an admin refresh literally re-warms the store.
+ * Admin "Mettre à jour" (C1, semantics settled 2026-08-24) — STATIC sources
+ * only, and always a FULL PULL: the connector collects everything its source
+ * has, the core saves it, and idempotence comes from dedup (the dedup_key
+ * unique index + the membership upsert), so every trigger is a complete,
+ * duplicate-free sync. Dynamic sources (global_web) are never admin-triggered
+ * — they are fed exclusively through requests via the store-first fallback.
+ *
+ * The server fn already created the source_run row (trigger=admin,
+ * status=running) so the screen shows it immediately; this — running on the
+ * research queue — does the collection and settles the row.
  */
 export async function runAdminRefresh(sourceRunId: string): Promise<void> {
   const run = await db.query.sourceRun.findFirst({
     where: eq(schema.sourceRun.id, sourceRunId),
   });
   if (!run) throw new Error(`source_run ${sourceRunId} not found`);
-  // Idempotence: a retried/duplicate job must not pay for the searches twice.
+  // Idempotence: a retried/duplicate job must not pay for the pull twice.
   if (run.status !== "running") {
     console.log(`refresh: ${sourceRunId} already ${run.status} — skipping`);
     return;
@@ -460,27 +461,23 @@ export async function runAdminRefresh(sourceRunId: string): Promise<void> {
       .where(eq(schema.sourceRun.id, sourceRunId));
   };
   if (!source) return fail("data_source introuvable");
+  const { isDynamicSource } = await import("@/lib/source-kind");
+  if (isDynamicSource(source.type)) {
+    return fail("source dynamique — alimentée par les demandes, jamais par déclenchement admin");
+  }
   const connector = getConnector(source.code);
   if (!connector) return fail("source sans connecteur (store-only)");
 
-  const scope = (run.scope ?? {}) as AdminRefreshScope;
-  const category = scope.category?.trim() ?? "";
-  if (!category) return fail("scope.category manquant");
-  // Country priority: the admin's explicit scope, else the source's own
-  // country (a national registry only ever collects at home), else worldwide.
-  const countryCode = scope.countryCode?.trim().toUpperCase() || source.countryCode || null;
-
+  // A full pull needs no scope — the brief is a formality static connectors
+  // ignore beyond the source's own country.
   const brief: SearchBrief = {
-    title: category,
-    descriptionRaw:
-      `Mise à jour du référentiel fournisseurs OSI : recenser des fabricants réels ` +
-      `dans la catégorie « ${category} ». Il ne s'agit pas d'une demande d'achat ` +
-      `précise — l'objectif est la couverture du secteur.`,
+    title: source.name,
+    descriptionRaw: `Synchronisation complète de la source ${source.code}.`,
     locale: "fr",
-    criteria: [{ category: "other", label: "Catégorie", value: category, unit: null }],
+    criteria: [],
     attachmentText: null,
-    countryCodes: countryCode ? [countryCode] : null,
-    wanted: RESEARCH_CANDIDATE_CAP,
+    countryCodes: source.countryCode ? [source.countryCode] : null,
+    wanted: Number.MAX_SAFE_INTEGER,
   };
 
   try {
@@ -497,8 +494,8 @@ export async function runAdminRefresh(sourceRunId: string): Promise<void> {
       })
       .where(eq(schema.sourceRun.id, sourceRunId));
     console.log(
-      `refresh: ${source.code} « ${category} » — ${result.queries.length} queries, ` +
-        `${persisted.found} candidates, ${persisted.added} new, ${persisted.memberships} memberships`,
+      `refresh: ${source.code} full pull — ${persisted.found} records, ` +
+        `${persisted.added} new, ${persisted.memberships} memberships`,
     );
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

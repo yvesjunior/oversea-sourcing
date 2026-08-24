@@ -114,11 +114,20 @@ per-source store browser, per-source + global bans with a who/when/why trail,
 and the admin "Mettre à jour" running on the research queue. Completes the
 three 🟡 E4 partials. Details in the Phase C entry below.
 
+**2026-08-24 design session — the sourcing model was settled** (README →
+"The two kinds of source, and the store→supplier promotion model"): dynamic
+vs static sources (implemented same day — admin refresh is now static-only
+full pull; `global_web` is request-fed only, its refresh form replaced by the
+dynamic-source note), and the **promotion model** (validated, NOT built —
+Phase D): stores hold raw candidate records, suppliers are created only at
+promotion, stores are wipeable without impacting the platform. C2
+investigation also done (registries = verification, not discovery — README §9).
+
 **Where to pick up next session:** ① the E6 flow discussion (unlocks MVP1),
-② backpressure pair (server-fn rate limits + queue-depth guard), ③ E10
-verification workflow, ④ C2 `registry-ca` investigation (C1 gave it its
-screen). Read "Contracts a next session must NOT re-derive differently"
-below before writing any code.
+② **Phase D** (the promotion refactor — validated, spec'd, waiting for go),
+③ backpressure pair (server-fn rate limits + queue-depth guard), ④ E10
+verification workflow. Read "Contracts a next session must NOT re-derive
+differently" below before writing any code.
 
 ### Contracts a next session must NOT re-derive differently
 
@@ -147,6 +156,15 @@ below before writing any code.
   modules behind `src/server/sources/types.ts`; dedup/provenance/confidence
   applied ONLY in `src/server/research.ts`; source+country scope are hard
   match-time filters; effective sources = enabled ∩ activated (null = all).
+- **Two source kinds** (2026-08-24, `src/lib/source-kind.ts`): dynamic
+  (`global_web`) is fed ONLY through requests — never admin-triggered;
+  static (`registry`/`import`) is admin-triggered as a FULL PULL, no scope —
+  dedup makes every trigger idempotent.
+- **Stores are disposable; suppliers are promoted** (2026-08-24, Phase D):
+  collected data = store records, candidates only; `supplier` rows are
+  created at promotion (Top-N ranking); wiping a store must never impact
+  requests/matches/reports. Until D lands the old direct-to-supplier path
+  remains — do not deepen the coupling.
 - **Containers never call each other** — Postgres (rows + pg-boss) is the
   only meeting point; worker owns `pipeline`+sweep, worker-research owns
   `research`; Redis is disposable (fail-open, sessions stay in Postgres).
@@ -578,6 +596,49 @@ and `/documents` render showcase constants and are disabled in the nav.
 
 - [ ] **C5 · GATE — Alibaba ToS/licensing check** before any `alibaba`
       connector code. Legal reading, record verdict in README §9.
+
+### Phase D — stores are disposable; suppliers are promoted
+
+**Design VALIDATED 2026-08-24 (README → "The two kinds of source, and the
+store→supplier promotion model") — TO BUILD on request.** Goal: what sources
+collect lives in per-source stores as raw records — *candidates* to become
+suppliers; a `supplier` row is created only at **promotion** (first trigger:
+ranking into a request's Top-N). The point: **a store can be wiped at any
+time without impacting the platform** — everything load-bearing references
+promoted suppliers only.
+
+- [ ] **D1 · Migration — `source_record`.** New table replacing
+      `supplier_source` as the store: `id`, `data_source_id` FK,
+      `dedup_key`, **uq(data_source_id, dedup_key)**, the candidate fields
+      (name, country_code, website, descriptor, description, confidence,
+      source_url), `payload` jsonb, `first_seen_at/last_seen_at`, `status
+      active|banned` + ban trail, **`supplier_id` FK null — set at
+      promotion**. Backfill: every existing `supplier_source` row becomes a
+      promoted record (supplier_id kept); then drop `supplier_source`.
+      *Accept:* migration clean on a dev restore; C1 counts unchanged.
+- [ ] **D2 · Collection writes records, never suppliers.**
+      `persistFromSource` upserts `source_record` only (dedup within source,
+      last_seen refresh, ban stickiness at record level). Applies to both
+      kinds — request-driven `global_web` collections land as records too.
+- [ ] **D3 · Matching over logical candidates + promotion at Top-N.**
+      Store-first coverage and ranking score records deduped by `dedup_key`
+      across effective sources, merged with already-promoted suppliers
+      (records without a supplier are `unverified` by definition;
+      `scoreSupplier` generalizes to the candidate shape). The ranked Top-N
+      is **promoted** (insert supplier via the dedup unique index, set
+      `source_record.supplier_id`) before `match` rows are written.
+      *Accept:* a request served from a cold static store promotes exactly
+      its Top-N; re-running promotes nothing new.
+- [ ] **D4 · Store wipe.** Owner-gated per-source wipe on `/interne/sources`
+      (confirm dialog): deletes the source's records; **promoted suppliers,
+      matches and requests are untouched** (their supplier rows stand alone).
+      Audited (who/when, count) — a `source_run`-style trail or event row.
+      *Accept:* wipe a warm store → existing dossiers/reports render
+      identically; next request re-collects.
+- [ ] **D5 · C1 screen follows.** Store browser lists records with a
+      "promu" indicator; counts split records vs promoted; wipe button.
+- [ ] **D6 · Tests.** Promotion idempotence, wipe safety (matches survive),
+      record-level ban stickiness, cross-source dedup_key merge.
 
 ### Sequencing & dependencies
 

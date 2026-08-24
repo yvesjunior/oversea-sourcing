@@ -7,10 +7,10 @@ import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { CountryTag } from "@/components/osi/CountryTag";
 import { requirePlatformFeature } from "@/lib/auth-guard";
+import { isDynamicSource } from "@/lib/source-kind";
 import {
   getSourceAdminFn,
   getSourceDetailFn,
@@ -143,10 +143,10 @@ function BanControl({
   );
 }
 
+/** Full pull for STATIC sources (settled 2026-08-24) — no scope: the
+ *  connector collects everything, dedup makes each trigger idempotent. */
 function RefreshForm({ source, onDone }: { source: SourceCatalogueView; onDone: () => void }) {
   const { t } = useTranslation();
-  const [category, setCategory] = useState("");
-  const [countryCode, setCountryCode] = useState(source.countryCode ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -154,18 +154,11 @@ function RefreshForm({ source, onDone }: { source: SourceCatalogueView; onDone: 
     setBusy(true);
     setError(null);
     try {
-      const result = await triggerSourceRefreshFn({
-        data: {
-          dataSourceId: source.id,
-          category: category.trim(),
-          ...(countryCode.trim() ? { countryCode: countryCode.trim().toUpperCase() } : {}),
-        },
-      });
+      const result = await triggerSourceRefreshFn({ data: { dataSourceId: source.id } });
       if (!result.ok) {
         setError(t(`sourcesAdmin.refreshError.${result.error ?? "unknown"}`));
         return;
       }
-      setCategory("");
       onDone();
     } finally {
       setBusy(false);
@@ -178,42 +171,11 @@ function RefreshForm({ source, onDone }: { source: SourceCatalogueView; onDone: 
     <div className="rounded-lg bg-secondary/60 p-3">
       <p className="text-xs font-semibold">{t("sourcesAdmin.refreshTitle")}</p>
       <p className="mt-0.5 text-[11px] text-muted-foreground">{t("sourcesAdmin.refreshHint")}</p>
-      <div className="mt-2 flex flex-wrap items-end gap-2">
-        <div>
-          <Label htmlFor="refresh-category" className="text-[11px] text-muted-foreground">
-            {t("sourcesAdmin.category")}
-          </Label>
-          <Input
-            id="refresh-category"
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-            placeholder={t("sourcesAdmin.categoryPlaceholder")}
-            className="mt-1 h-8 w-64 text-sm"
-          />
-        </div>
-        <div>
-          <Label htmlFor="refresh-country" className="text-[11px] text-muted-foreground">
-            {t("sourcesAdmin.country")}
-          </Label>
-          <Input
-            id="refresh-country"
-            value={countryCode}
-            onChange={(e) => setCountryCode(e.target.value)}
-            placeholder={t("sourcesAdmin.countryPlaceholder")}
-            maxLength={2}
-            className="mt-1 h-8 w-20 text-center text-sm uppercase"
-          />
-        </div>
-        <Button
-          size="sm"
-          disabled={busy || running || category.trim().length < 2}
-          onClick={() => void launch()}
-        >
+      <div className="mt-2">
+        <Button size="sm" disabled={busy || running} onClick={() => void launch()}>
           {running ? t("sourcesAdmin.refreshRunning") : t("sourcesAdmin.refresh")}
         </Button>
       </div>
-      {/* A collection is a Claude spend — say so before the click, not after. */}
-      <p className="mt-2 text-[10px] text-muted-foreground">{t("sourcesAdmin.refreshCost")}</p>
       {error && <p className="mt-1 text-xs text-destructive">{error}</p>}
     </div>
   );
@@ -554,7 +516,11 @@ function Sources() {
             </span>
           </header>
 
-          {selected.hasConnector ? (
+          {isDynamicSource(selected.type) ? (
+            <p className="rounded-lg bg-secondary/60 p-3 text-xs text-muted-foreground">
+              {t("sourcesAdmin.dynamicHint")}
+            </p>
+          ) : selected.hasConnector ? (
             <RefreshForm source={selected} onDone={refresh} />
           ) : (
             <p className="rounded-lg bg-secondary/60 p-3 text-xs text-muted-foreground">
