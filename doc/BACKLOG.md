@@ -33,12 +33,19 @@ downloads the PDF report.
 ## Resume here (last session: 2026-08-23/24)
 
 **Production is live and healthy at [osi-solutions.com](https://osi-solutions.com), commit `d4f93a2`.**
-**`main` is ~30 commits ahead of prod** — the sourcing engine, the six-service
-architecture, Redis, all of Phase B, E1 emails and E9 notifications are
-dev-verified and NOT deployed (per the standing no-unrequested-deploys rule;
-migrations 0008–0011 are additive). When the deploy is requested: backup
-first, add SENDGRID_API_KEY + MAIL_FROM to the VM `.env` (no MAIL_SILENT) or
-emails will only log, and recreate all containers so they pick the env up.
+**Deploy is PREPARED (2026-08-24) — one command away:**
+`BRANCH=release/2026-08-24 ./scripts/deploy.sh` (the release branch pins
+`174d175` so in-flight Phase D commits on main cannot sneak in). Already
+done: prod backup `backups/osi-20260824-004821.sql.gz` · migrations
+0008–0011 **rehearsed green on that dump** (global_web seeded, 51 suppliers
+backfilled with memberships+freshness, plan ladder correct, 7 users intact)
+· VM `.env` has SENDGRID_API_KEY + MAIL_FROM + MAIL_FROM_NAME appended (no
+MAIL_SILENT; prior `.env` backed up as `~/osi-env-backup-*`) · no Free user
+is at the lifetime trial cap (max 1 of 2), so nobody gets locked out.
+The deploy brings the six-service topology (worker-research, redis,
+migrate join web/worker/database — `up -d --build` creates them from the
+new compose). Post-deploy checks: `./scripts/status.sh`, a real signup →
+verification email actually sends, bell renders, `/interne/sources` loads.
 Real users keep arriving through Google sign-in (7 accounts as of 08-22).
 
 **2026-08-22 was a design day, not a code day.** The SaaS platform design was
