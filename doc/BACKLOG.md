@@ -418,6 +418,11 @@ and `/documents` render showcase constants and are disabled in the nav.
         so the UI pitches the upgrade instead of "come back tomorrow"
       - `plan.max_members` (seats; proposal: Free/Pro 1 — invite refused at the
         cap, Business 5, Enterprise 0 = custom) — **pending validation**
+      - **Every new column is editable from `/interne/plans`** (decided
+        2026-08-23: plans are parameterizable by the platform owner — the
+        manager screen gains fields for `max_requests_total`, `max_members`
+        and `quota_scope`, same validation + `updated_by` trail; no limit
+        ever requires a deploy)
       *Accept:* a Free user's 3rd request ever is refused with the upgrade
       message even a day later; two members of one Free workspace each get
       their own counts; a Business workspace still pools.
