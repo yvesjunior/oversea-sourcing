@@ -195,6 +195,14 @@ export function AuthForm({
           {mode === "signup" && (
             <p className="text-xs text-muted-foreground">{t("auth.passwordHint")}</p>
           )}
+          {mode === "signin" && (
+            <Link
+              to="/mot-de-passe-oublie"
+              className="text-xs text-muted-foreground underline-offset-2 hover:text-gold hover:underline"
+            >
+              {t("auth.forgotPassword")}
+            </Link>
+          )}
         </div>
 
         {error && <p className="text-sm text-destructive">{error}</p>}

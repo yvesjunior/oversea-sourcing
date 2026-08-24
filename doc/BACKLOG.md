@@ -12,7 +12,7 @@
 | Epic | Scope | State |
 | --- | --- | --- |
 | **E0** Dev foundations | Postgres, Drizzle, pg-boss, seed | ✅ done |
-| **E1** Auth & users | better-auth, signup, guards, **abuse controls** | 🟡 email verification + 2FA open |
+| **E1** Auth & users | better-auth, signup, guards, verification, reset | 🟡 2FA open; verification not enforced (deliberate) |
 | **E2** Workspaces & tenancy | Roles, invitations, team UI | ✅ Phase B (2026-08-23) — audit-log task open |
 | **E12** Plans & quotas | Full ladder, seats, trial cap, Abonnements | 🟡 billing provider open |
 | **E3** Request core loop | Pipeline, criteria, attachments, dossier | ✅ done |
@@ -517,7 +517,16 @@ feeds C3/C4 value (Recommandé requires Vérifié)
 
 - [x] better-auth setup (email/password, argon2, httpOnly session cookie)
 - [x] Signup flow → creates user + personal workspace (owner)
-- [ ] Email verification + password reset (token + email)
+- [x] **Email verification + password reset** (E1, 2026-08-23 — full detail
+      in README → "Email verification & password reset"). better-auth
+      built-ins + the SendGrid adapter: `sendOnSignUp` verification with
+      auto sign-in, resend button in Paramètres → Profil, reset via
+      `/mot-de-passe-oublie` → email link → `/reinitialiser?token=`.
+      **Enforcement deliberately OFF** (`requireEmailVerification`) — prod
+      has real unverified users; flipping it on is a product decision.
+      No-enumeration on the forgot form. Verified end to end in dev
+      (MAIL_SILENT logs). **To send real mail in an env:** SENDGRID_API_KEY
+      set, MAIL_SILENT absent, MAIL_FROM verified in SendGrid
 - [x] Login/logout UI (new routes) — bilingual
 - [x] Route guards: `/` public (anonymous = hero + value props; logged-in = personal
       dashboard); all other app routes require auth

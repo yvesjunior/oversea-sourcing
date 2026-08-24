@@ -14,7 +14,9 @@ import { Route as AnalysesRouteImport } from './routes/analyses'
 import { Route as DocumentsRouteImport } from './routes/documents'
 import { Route as FournisseursRouteImport } from './routes/fournisseurs'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as MotDePasseOublieRouteImport } from './routes/mot-de-passe-oublie'
 import { Route as ParametresRouteImport } from './routes/parametres'
+import { Route as ReinitialiserRouteImport } from './routes/reinitialiser'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as TransactionsRouteImport } from './routes/transactions'
 import { Route as ApiUploadRouteImport } from './routes/api/upload'
@@ -56,9 +58,19 @@ const LoginRoute = LoginRouteImport.update({
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MotDePasseOublieRoute = MotDePasseOublieRouteImport.update({
+  id: '/mot-de-passe-oublie',
+  path: '/mot-de-passe-oublie',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ParametresRoute = ParametresRouteImport.update({
   id: '/parametres',
   path: '/parametres',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ReinitialiserRoute = ReinitialiserRouteImport.update({
+  id: '/reinitialiser',
+  path: '/reinitialiser',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SignupRoute = SignupRouteImport.update({
@@ -143,7 +155,9 @@ export interface FileRoutesByFullPath {
   '/documents': typeof DocumentsRoute
   '/fournisseurs': typeof FournisseursRoute
   '/login': typeof LoginRoute
+  '/mot-de-passe-oublie': typeof MotDePasseOublieRoute
   '/parametres': typeof ParametresRoute
+  '/reinitialiser': typeof ReinitialiserRoute
   '/signup': typeof SignupRoute
   '/transactions': typeof TransactionsRoute
   '/api/upload': typeof ApiUploadRoute
@@ -166,7 +180,9 @@ export interface FileRoutesByTo {
   '/documents': typeof DocumentsRoute
   '/fournisseurs': typeof FournisseursRoute
   '/login': typeof LoginRoute
+  '/mot-de-passe-oublie': typeof MotDePasseOublieRoute
   '/parametres': typeof ParametresRoute
+  '/reinitialiser': typeof ReinitialiserRoute
   '/signup': typeof SignupRoute
   '/transactions': typeof TransactionsRoute
   '/api/upload': typeof ApiUploadRoute
@@ -190,7 +206,9 @@ export interface FileRoutesById {
   '/documents': typeof DocumentsRoute
   '/fournisseurs': typeof FournisseursRoute
   '/login': typeof LoginRoute
+  '/mot-de-passe-oublie': typeof MotDePasseOublieRoute
   '/parametres': typeof ParametresRoute
+  '/reinitialiser': typeof ReinitialiserRoute
   '/signup': typeof SignupRoute
   '/transactions': typeof TransactionsRoute
   '/api/upload': typeof ApiUploadRoute
@@ -215,7 +233,9 @@ export interface FileRouteTypes {
     | '/documents'
     | '/fournisseurs'
     | '/login'
+    | '/mot-de-passe-oublie'
     | '/parametres'
+    | '/reinitialiser'
     | '/signup'
     | '/transactions'
     | '/api/upload'
@@ -238,7 +258,9 @@ export interface FileRouteTypes {
     | '/documents'
     | '/fournisseurs'
     | '/login'
+    | '/mot-de-passe-oublie'
     | '/parametres'
+    | '/reinitialiser'
     | '/signup'
     | '/transactions'
     | '/api/upload'
@@ -261,7 +283,9 @@ export interface FileRouteTypes {
     | '/documents'
     | '/fournisseurs'
     | '/login'
+    | '/mot-de-passe-oublie'
     | '/parametres'
+    | '/reinitialiser'
     | '/signup'
     | '/transactions'
     | '/api/upload'
@@ -285,7 +309,9 @@ export interface RootRouteChildren {
   DocumentsRoute: typeof DocumentsRoute
   FournisseursRoute: typeof FournisseursRoute
   LoginRoute: typeof LoginRoute
+  MotDePasseOublieRoute: typeof MotDePasseOublieRoute
   ParametresRoute: typeof ParametresRoute
+  ReinitialiserRoute: typeof ReinitialiserRoute
   SignupRoute: typeof SignupRoute
   TransactionsRoute: typeof TransactionsRoute
   ApiUploadRoute: typeof ApiUploadRoute
@@ -339,11 +365,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/mot-de-passe-oublie': {
+      id: '/mot-de-passe-oublie'
+      path: '/mot-de-passe-oublie'
+      fullPath: '/mot-de-passe-oublie'
+      preLoaderRoute: typeof MotDePasseOublieRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/parametres': {
       id: '/parametres'
       path: '/parametres'
       fullPath: '/parametres'
       preLoaderRoute: typeof ParametresRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reinitialiser': {
+      id: '/reinitialiser'
+      path: '/reinitialiser'
+      fullPath: '/reinitialiser'
+      preLoaderRoute: typeof ReinitialiserRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/signup': {
@@ -472,7 +512,9 @@ const rootRouteChildren: RootRouteChildren = {
   DocumentsRoute: DocumentsRoute,
   FournisseursRoute: FournisseursRoute,
   LoginRoute: LoginRoute,
+  MotDePasseOublieRoute: MotDePasseOublieRoute,
   ParametresRoute: ParametresRoute,
+  ReinitialiserRoute: ReinitialiserRoute,
   SignupRoute: SignupRoute,
   TransactionsRoute: TransactionsRoute,
   ApiUploadRoute: ApiUploadRoute,

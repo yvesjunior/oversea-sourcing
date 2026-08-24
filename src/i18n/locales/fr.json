@@ -70,7 +70,11 @@
     "copied": "Copié ✓",
     "revoke": "Révoquer",
     "seatLimit": "Plus de siège disponible sur ce forfait — passez à un forfait supérieur.",
-    "teamError": "L'action a échoué. Réessayez."
+    "teamError": "L'action a échoué. Réessayez.",
+    "emailVerified": "Adresse vérifiée",
+    "emailUnverified": "Adresse non vérifiée —",
+    "resendVerification": "renvoyer l'e-mail de confirmation",
+    "verifySent": "e-mail envoyé ✓"
   },
   "invitation": {
     "title": "Invitation — {{workspace}}",
@@ -125,7 +129,23 @@
     "errorExists": "Un compte existe déjà avec cet e-mail.",
     "errorGeneric": "Une erreur est survenue. Réessayez.",
     "errorRateLimit": "Trop de tentatives de connexion. Patientez quelques secondes puis réessayez.",
-    "gateHint": "Connectez-vous pour lancer la recherche — votre saisie est conservée."
+    "gateHint": "Connectez-vous pour lancer la recherche — votre saisie est conservée.",
+    "forgotPassword": "Mot de passe oublié ?"
+  },
+  "resetPwd": {
+    "forgotTitle": "Mot de passe oublié",
+    "forgotSubtitle": "Saisissez votre adresse e-mail — nous vous enverrons un lien de réinitialisation.",
+    "send": "Envoyer le lien",
+    "sent": "Si un compte existe pour {{email}}, un e-mail de réinitialisation vient d'être envoyé.",
+    "backToLogin": "Retour à la connexion",
+    "title": "Nouveau mot de passe",
+    "newPassword": "Nouveau mot de passe",
+    "confirmPassword": "Confirmez le mot de passe",
+    "mismatch": "Les deux mots de passe ne correspondent pas.",
+    "failed": "Le lien a expiré ou a déjà servi — demandez-en un nouveau.",
+    "invalidLink": "Ce lien de réinitialisation est invalide ou expiré.",
+    "requestAgain": "Demander un nouveau lien",
+    "submit": "Enregistrer le mot de passe"
   },
   "topbar": {
     "downloads": "Téléchargements",

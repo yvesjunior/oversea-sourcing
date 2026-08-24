@@ -7,7 +7,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
 export type SettingsData = {
-  profile: { name: string; email: string; locale: string };
+  profile: { name: string; email: string; locale: string; emailVerified: boolean };
   workspace: { id: string; name: string; role: string };
   subscription: {
     planCode: string;
@@ -124,7 +124,12 @@ export const getSettingsFn = createServerFn({ method: "GET" }).handler(
         : [];
 
     return {
-      profile: { name: user.name, email: user.email, locale: user.locale ?? "fr" },
+      profile: {
+        name: user.name,
+        email: user.email,
+        locale: user.locale ?? "fr",
+        emailVerified: user.emailVerified,
+      },
       workspace: { id: workspace.id, name: workspace.name, role: caller.role },
       subscription: {
         planCode: plan.code,

@@ -446,10 +446,51 @@ most common failure. Scopes are `email profile openid` (non-sensitive, so no
 Google review), and the consent screen must be **Published**, not left in
 *Testing*, or only listed test users can sign in.
 
-Google accounts arrive with `email_verified = true`; email/password accounts do
-not, because email verification is not built. Note the signup guards (honeypot,
-disposable domains, plus-addressing) only run on `/sign-up/email` — the social
-route bypasses them, which is defensible since Google has verified the address.
+Google accounts arrive with `email_verified = true`. Note the signup guards
+(honeypot, disposable domains, plus-addressing) only run on `/sign-up/email` —
+the social route bypasses them, which is defensible since Google has verified
+the address.
+
+#### Email verification & password reset (E1 — ✅ built 2026-08-23)
+
+Both flows are **better-auth built-ins configured in `src/server/auth.ts`**,
+delivering through the SendGrid adapter (`src/server/mail.ts`). Implementation
+facts a future session must not re-derive differently:
+
+- **Verification**: `emailVerification.sendOnSignUp: true` sends a localized
+  (by `user.locale`) email on every email/password signup. The link hits
+  better-auth's own `/api/auth/verify-email?token=…&callbackURL=/` — no custom
+  route; `autoSignInAfterVerification: true` signs the user in and lands them
+  on `/`. A **resend** lives in Paramètres → Profil (unverified users see
+  "renvoyer l'e-mail" → `authClient.sendVerificationEmail`).
+- **Verification is recorded, NOT enforced** — `requireEmailVerification`
+  stays off *deliberately*: prod has real unverified accounts (`renaud819@…`)
+  and locking them out would be a breaking change. Turning enforcement on is
+  a one-line product decision for later; do not flip it casually.
+- **Password reset**: login page carries "Mot de passe oublié ?" →
+  `/mot-de-passe-oublie` (public) → `authClient.requestPasswordReset({ email,
+  redirectTo: "/reinitialiser" })`. The page answers **the same whether the
+  account exists or not** (no email enumeration — keep it that way). The
+  email link goes through better-auth's `/api/auth/reset-password/:token`,
+  which redirects to `/reinitialiser?token=…` (or `?error=INVALID_TOKEN`);
+  that public page collects the new password (min 8, confirmed twice) and
+  calls `authClient.resetPassword({ newPassword, token })`. Reset tokens
+  expire in 1 hour (better-auth default).
+- **Rate limits** already cover the endpoints: `/sign-up/email` 3/h,
+  `/request-password-reset` falls under the global 60/min window plus the
+  legacy `/forget-password` rule; counters live in Redis when `REDIS_URL` is
+  set.
+- **Public paths**: `/mot-de-passe-oublie` and `/reinitialiser` are in
+  `PUBLIC_PATHS` (`src/lib/auth-guard.ts`) — everything else stays
+  default-deny.
+- **Mail delivery modes** (`src/server/mail.ts`): no `SENDGRID_API_KEY` →
+  logged to stdout; `MAIL_SILENT=true` → logged even with a key (dev default
+  today); otherwise real send via SendGrid v3 (plain fetch — no SDK, the
+  adapter is the vendor seam). Failures return `{ok:false}`, never throw:
+  a bounced email must not break a signup.
+- **Verified end to end in dev** (2026-08-23): signup → logged verification
+  email → link → `email_verified = true` + auto sign-in; forgot → logged
+  reset email → link → new password → fresh login with it returned 200.
 
 **Platform roles are granted in the database, never at signup.** `platformRole`
 is declared `input: false`, so a signup payload cannot request it — otherwise

@@ -70,7 +70,11 @@
     "copied": "Copied ✓",
     "revoke": "Revoke",
     "seatLimit": "No seat left on this plan — upgrade to add members.",
-    "teamError": "The action failed. Please try again."
+    "teamError": "The action failed. Please try again.",
+    "emailVerified": "Address verified",
+    "emailUnverified": "Address not verified —",
+    "resendVerification": "resend the confirmation email",
+    "verifySent": "email sent ✓"
   },
   "invitation": {
     "title": "Invitation — {{workspace}}",
@@ -125,7 +129,23 @@
     "errorExists": "An account already exists with this email.",
     "errorGeneric": "Something went wrong. Please try again.",
     "errorRateLimit": "Too many sign-in attempts. Wait a few seconds and try again.",
-    "gateHint": "Sign in to launch the search — your input is preserved."
+    "gateHint": "Sign in to launch the search — your input is preserved.",
+    "forgotPassword": "Forgot password?"
+  },
+  "resetPwd": {
+    "forgotTitle": "Forgot password",
+    "forgotSubtitle": "Enter your email address — we'll send you a reset link.",
+    "send": "Send the link",
+    "sent": "If an account exists for {{email}}, a reset email has just been sent.",
+    "backToLogin": "Back to sign in",
+    "title": "New password",
+    "newPassword": "New password",
+    "confirmPassword": "Confirm password",
+    "mismatch": "The two passwords do not match.",
+    "failed": "The link expired or was already used — request a new one.",
+    "invalidLink": "This reset link is invalid or expired.",
+    "requestAgain": "Request a new link",
+    "submit": "Save password"
   },
   "topbar": {
     "downloads": "Downloads",

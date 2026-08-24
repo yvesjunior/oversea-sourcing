@@ -57,6 +57,46 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
     minPasswordLength: 8,
+    // E1 (2026-08-23): password reset by email. The request endpoint answers
+    // the same whether the account exists or not (no enumeration), and
+    // /forget-password… — request-password-reset is rate limited below.
+    sendResetPassword: async ({ user, url }) => {
+      const { sendMail } = await import("@/server/mail");
+      const fr = (user as { locale?: string }).locale !== "en";
+      await sendMail({
+        to: user.email,
+        subject: fr ? "Réinitialisez votre mot de passe OSI" : "Reset your OSI password",
+        text: fr
+          ? `Réinitialisez votre mot de passe : ${url}\nCe lien expire dans 1 heure. Si vous n'avez rien demandé, ignorez cet e-mail.`
+          : `Reset your password: ${url}\nThis link expires in 1 hour. If you didn't request this, ignore this email.`,
+        html: fr
+          ? `<p>Réinitialisez votre mot de passe OSI :</p><p><a href="${url}">Choisir un nouveau mot de passe</a></p><p style="color:#888;font-size:12px">Ce lien expire dans 1 heure. Si vous n'avez rien demandé, ignorez cet e-mail.</p>`
+          : `<p>Reset your OSI password:</p><p><a href="${url}">Choose a new password</a></p><p style="color:#888;font-size:12px">This link expires in 1 hour. If you didn't request this, ignore this email.</p>`,
+      });
+    },
+  },
+  // E1 (2026-08-23): verification email on every email/password signup.
+  // DELIBERATELY NOT ENFORCED at login (requireEmailVerification stays off):
+  // prod has real unverified users, and locking them out would be a breaking
+  // change — enforcement is a future product decision, the flag is recorded.
+  // Google arrivals are verified by Google already (email_verified = true).
+  emailVerification: {
+    sendOnSignUp: true,
+    autoSignInAfterVerification: true,
+    sendVerificationEmail: async ({ user, url }) => {
+      const { sendMail } = await import("@/server/mail");
+      const fr = (user as { locale?: string }).locale !== "en";
+      await sendMail({
+        to: user.email,
+        subject: fr ? "Confirmez votre adresse e-mail — OSI" : "Confirm your email address — OSI",
+        text: fr
+          ? `Bienvenue sur OSI ! Confirmez votre adresse : ${url}`
+          : `Welcome to OSI! Confirm your address: ${url}`,
+        html: fr
+          ? `<p>Bienvenue sur OSI !</p><p><a href="${url}">Confirmer mon adresse e-mail</a></p>`
+          : `<p>Welcome to OSI!</p><p><a href="${url}">Confirm my email address</a></p>`,
+      });
+    },
   },
   // With REDIS_URL set (the `cache` addon), counters live in Redis and add up
   // across web replicas; sessions stay in Postgres regardless — Redis is

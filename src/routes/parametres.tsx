@@ -38,6 +38,7 @@ function ProfilPanel({ data, onSaved }: { data: NonNullable<SettingsData>; onSav
   const [name, setName] = useState(data.profile.name);
   const [locale, setLocale] = useState(data.profile.locale as "fr" | "en");
   const [saving, setSaving] = useState(false);
+  const [verifySent, setVerifySent] = useState(false);
   const dirty = name !== data.profile.name || locale !== data.profile.locale;
 
   const save = async () => {
@@ -66,6 +67,25 @@ function ProfilPanel({ data, onSaved }: { data: NonNullable<SettingsData>; onSav
       <div className="grid gap-1.5">
         <Label>{t("settings.email")}</Label>
         <Input value={data.profile.email} disabled className="text-muted-foreground" />
+        {data.profile.emailVerified ? (
+          <p className="text-xs text-gold">✓ {t("settings.emailVerified")}</p>
+        ) : (
+          <p className="text-xs text-muted-foreground">
+            {t("settings.emailUnverified")}{" "}
+            <button
+              type="button"
+              disabled={verifySent}
+              onClick={() => {
+                void authClient
+                  .sendVerificationEmail({ email: data.profile.email, callbackURL: "/" })
+                  .then(() => setVerifySent(true));
+              }}
+              className="text-gold underline-offset-2 hover:underline disabled:opacity-60"
+            >
+              {verifySent ? t("settings.verifySent") : t("settings.resendVerification")}
+            </button>
+          </p>
+        )}
       </div>
       <div className="grid gap-1.5">
         <Label htmlFor="profile-locale">{t("settings.language")}</Label>
