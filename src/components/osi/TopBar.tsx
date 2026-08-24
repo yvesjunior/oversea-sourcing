@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { Bell, Download, Globe, LogIn, Menu } from "lucide-react";
+import { Download, Globe, LogIn, Menu } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { STORAGE_KEY, resolveLanguage } from "@/i18n/config";
 import type { SessionData } from "@/lib/session-fns";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { AppSidebar } from "./AppSidebar";
+import { NotificationBell } from "./NotificationBell";
 import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
 
 export function TopBar({ session }: { session: SessionData }) {
@@ -51,13 +52,7 @@ export function TopBar({ session }: { session: SessionData }) {
           <Globe className="size-[18px]" />
           {current}
         </button>
-        <button
-          aria-label={t("topbar.notifications")}
-          className="relative transition-colors hover:text-foreground"
-        >
-          <Bell className="size-[18px]" />
-          <span className="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-gold" />
-        </button>
+        {session && <NotificationBell />}
         {!session && (
           <Link
             to="/login"

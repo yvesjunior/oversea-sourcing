@@ -21,7 +21,7 @@
 | **E6** Facilitation | Engagements — *the OSI moment* | 🔴 not started (no tables) |
 | **E7** Reports | Printable report + PDF export | 🟡 stored `documents` rows open |
 | **E8** Transactions | Milestones, tracking | 🔴 not started (no tables) |
-| **E9** Notifications | In-app + email | 🔴 not started |
+| **E9** Notifications | In-app + email | 🟡 bell + first emitters live; E6 templates + prefs open |
 | **E10** Admin surfaces | Verification, imports, ops queue | 🔴 placeholders only |
 | **E11** Settings | Profile, sourcing rules | 🟡 Paramètres live (B5); notification prefs open |
 
@@ -709,9 +709,23 @@ feeds C3/C4 value (Recommandé requires Vérifié)
 
 ### E9 — Notifications
 
-- [ ] `notifications` table + API (list, mark read)
-- [ ] Bell dropdown UI (badge exists — make it real)
-- [ ] Email sender + FR/EN templates (verification, invitation, engagement updates)
+- [x] **`notification` table + API** (2026-08-23) — one row per recipient;
+      `type` + `params` rendered client-side via i18n (same pattern as
+      request_event, so language switches re-render history), `link` for
+      navigation, `read_at`. `getNotificationsFn` (latest 20 + unread count),
+      `markNotificationsReadFn` (one or all). Emitter: `src/server/notify.ts`
+      — the ONE door; failure-tolerant (a notification must never break the
+      action that caused it); optional localized email through the mail
+      adapter
+- [x] **Bell made real** (2026-08-23) — `NotificationBell.tsx`: gold dot
+      only when unread > 0 (hardcoded dot removed), dropdown lists latest 20,
+      click marks read + navigates the link, "Tout marquer comme lu". Fetch
+      on mount + on open; no realtime until the product needs it
+- [x] Email sender + FR/EN templates — verification & reset (E1),
+      invitations (B3), **report-ready** (2026-08-23: in-app + email from the
+      worker on the report_ready transition). Engagement-update templates
+      wait for gated E6. First emitters wired: `report_ready` (worker) and
+      `invitation_accepted` (afterAcceptInvitation hook → inviter)
 
 ### E10 — Admin backoffice (`/admin`, staff-gated)
 

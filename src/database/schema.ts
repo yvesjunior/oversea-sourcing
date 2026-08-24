@@ -349,6 +349,33 @@ export const sourceRun = pgTable(
   (table) => [index("source_run_source_idx").on(table.dataSourceId)],
 );
 
+// ── Notifications (E9, 2026-08-23) — in-app inbox, one row per recipient ─────
+// Same i18n pattern as request_event: `type` + `params` are rendered
+// client-side with the user's language, so a notification created in FR reads
+// in EN after a language switch. `link` is where clicking it navigates.
+
+export const notification = pgTable(
+  "notification",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    /** Workspace context (null for account-level notices). */
+    organizationId: text("organization_id").references(() => organization.id, {
+      onDelete: "cascade",
+    }),
+    /** i18n key suffix — rendered as t(`notifications.${type}`, params). */
+    type: text("type").notNull(),
+    params: jsonb("params").$type<Record<string, string | number>>(),
+    /** In-app destination when clicked (e.g. /demandes/3021). */
+    link: text("link"),
+    readAt: timestamp("read_at"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => [index("notification_user_idx").on(table.userId, table.readAt)],
+);
+
 /** Per-workspace sourcing preferences (validated 2026-08-22): activate sources
  *  once in Settings — requests never specify a source. No row = defaults
  *  (all enabled sources, global origin). */

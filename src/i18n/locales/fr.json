@@ -502,5 +502,11 @@
     "workspace": "Espace",
     "usedToday": "Utilisées (24 h)",
     "plan": "Forfait"
+  },
+  "notifications": {
+    "report_ready": "Votre rapport #{{id}} est prêt",
+    "invitation_accepted": "{{name}} a rejoint votre espace {{workspace}}",
+    "empty": "Aucune notification",
+    "markAllRead": "Tout marquer comme lu"
   }
 }

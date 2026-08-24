@@ -104,6 +104,22 @@ async function handlePipeline({ requestId }: PipelineJob, enqueue: Enqueue): Pro
   }
   if (status === "validating") {
     await transitionRequest(requestId, orgId, "validating", "report_ready");
+    // E9: the buyer should not have to keep the tab open to learn the result.
+    const { notifyUser } = await import("@/server/notify");
+    const link = `/demandes/${requestId}`;
+    await notifyUser({
+      userId: request.createdBy,
+      organizationId: orgId,
+      type: "report_ready",
+      params: { id: requestId },
+      link,
+      email: {
+        subjectFr: `Votre rapport OSI #${requestId} est prêt`,
+        subjectEn: `Your OSI report #${requestId} is ready`,
+        bodyFr: `Votre recherche de fournisseurs est terminée — le rapport de la demande #${requestId} est disponible.\nConsultez-le : ${process.env["BETTER_AUTH_URL"] ?? "http://localhost:3010"}${link}`,
+        bodyEn: `Your supplier search is complete — the report for request #${requestId} is available.\nView it: ${process.env["BETTER_AUTH_URL"] ?? "http://localhost:3010"}${link}`,
+      },
+    });
     return;
   }
   if (status !== "report_ready") {

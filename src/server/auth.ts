@@ -188,6 +188,20 @@ export const auth = betterAuth({
           // a new workspace has 0 members and every plan allows at least 1.
           await assertSeatAvailable(member.organizationId, { countPending: false });
         },
+        // E9: tell the inviter their invitation landed.
+        afterAcceptInvitation: async ({ invitation, member, organization: org }) => {
+          const { notifyUser } = await import("@/server/notify");
+          const joiner = await db.query.user.findFirst({
+            where: eq(schema.user.id, member.userId),
+          });
+          await notifyUser({
+            userId: invitation.inviterId,
+            organizationId: org.id,
+            type: "invitation_accepted",
+            params: { name: joiner?.name ?? invitation.email, workspace: org.name },
+            link: "/parametres",
+          });
+        },
         // Role edits from the team screen: never touch the owner, never mint
         // one — ownership moves only through the transfer flow (B7).
         beforeUpdateMemberRole: async ({ member, newRole }) => {

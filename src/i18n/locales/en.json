@@ -502,5 +502,11 @@
     "workspace": "Workspace",
     "usedToday": "Used (24 h)",
     "plan": "Plan"
+  },
+  "notifications": {
+    "report_ready": "Your report #{{id}} is ready",
+    "invitation_accepted": "{{name}} joined your workspace {{workspace}}",
+    "empty": "No notifications",
+    "markAllRead": "Mark all as read"
   }
 }
