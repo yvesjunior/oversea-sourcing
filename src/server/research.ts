@@ -427,3 +427,82 @@ export async function runResearchForRequest(
     return { found: 0, added: 0, skipped: null };
   }
 }
+
+/** The shape `/interne/sources` writes into `source_run.scope` (C1). */
+export type AdminRefreshScope = { category: string; countryCode?: string | null };
+
+/**
+ * Admin "Mettre à jour" (C1) — the second legitimate caller of a connector,
+ * after the request pipeline. The server fn already created the source_run row
+ * (trigger=admin, status=running, scope) so the screen shows it immediately;
+ * this — running on the research queue — does the collection and settles the
+ * row. Persistence is the exact request path (dedup, memberships, freshness),
+ * so an admin refresh literally re-warms the store.
+ */
+export async function runAdminRefresh(sourceRunId: string): Promise<void> {
+  const run = await db.query.sourceRun.findFirst({
+    where: eq(schema.sourceRun.id, sourceRunId),
+  });
+  if (!run) throw new Error(`source_run ${sourceRunId} not found`);
+  // Idempotence: a retried/duplicate job must not pay for the searches twice.
+  if (run.status !== "running") {
+    console.log(`refresh: ${sourceRunId} already ${run.status} — skipping`);
+    return;
+  }
+
+  const source = await db.query.dataSource.findFirst({
+    where: eq(schema.dataSource.id, run.dataSourceId),
+  });
+  const fail = async (error: string) => {
+    await db
+      .update(schema.sourceRun)
+      .set({ status: "failed", error, completedAt: new Date() })
+      .where(eq(schema.sourceRun.id, sourceRunId));
+  };
+  if (!source) return fail("data_source introuvable");
+  const connector = getConnector(source.code);
+  if (!connector) return fail("source sans connecteur (store-only)");
+
+  const scope = (run.scope ?? {}) as AdminRefreshScope;
+  const category = scope.category?.trim() ?? "";
+  if (!category) return fail("scope.category manquant");
+  // Country priority: the admin's explicit scope, else the source's own
+  // country (a national registry only ever collects at home), else worldwide.
+  const countryCode = scope.countryCode?.trim().toUpperCase() || source.countryCode || null;
+
+  const brief: SearchBrief = {
+    title: category,
+    descriptionRaw:
+      `Mise à jour du référentiel fournisseurs OSI : recenser des fabricants réels ` +
+      `dans la catégorie « ${category} ». Il ne s'agit pas d'une demande d'achat ` +
+      `précise — l'objectif est la couverture du secteur.`,
+    locale: "fr",
+    criteria: [{ category: "other", label: "Catégorie", value: category, unit: null }],
+    attachmentText: null,
+    countryCodes: countryCode ? [countryCode] : null,
+    wanted: RESEARCH_CANDIDATE_CAP,
+  };
+
+  try {
+    const result = await connector.collect(brief);
+    const persisted = await persistFromSource(result.candidates, null, source.id);
+    await db
+      .update(schema.sourceRun)
+      .set({
+        status: "succeeded",
+        candidatesFound: persisted.found,
+        suppliersAdded: persisted.added,
+        membershipsUpserted: persisted.memberships,
+        completedAt: new Date(),
+      })
+      .where(eq(schema.sourceRun.id, sourceRunId));
+    console.log(
+      `refresh: ${source.code} « ${category} » — ${result.queries.length} queries, ` +
+        `${persisted.found} candidates, ${persisted.added} new, ${persisted.memberships} memberships`,
+    );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`refresh: ${source.code} FAILED —`, error);
+    await fail(message.slice(0, 500));
+  }
+}

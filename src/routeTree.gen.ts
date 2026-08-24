@@ -26,6 +26,7 @@ import { Route as InterneFacilitationRouteImport } from './routes/interne/facili
 import { Route as InterneFinanceRouteImport } from './routes/interne/finance'
 import { Route as InterneImportsRouteImport } from './routes/interne/imports'
 import { Route as InternePlansRouteImport } from './routes/interne/plans'
+import { Route as InterneSourcesRouteImport } from './routes/interne/sources'
 import { Route as InterneUtilisateursRouteImport } from './routes/interne/utilisateurs'
 import { Route as InterneVerificationRouteImport } from './routes/interne/verification'
 import { Route as InvitationIdRouteImport } from './routes/invitation.$id'
@@ -118,6 +119,11 @@ const InternePlansRoute = InternePlansRouteImport.update({
   path: '/interne/plans',
   getParentRoute: () => rootRouteImport,
 } as any)
+const InterneSourcesRoute = InterneSourcesRouteImport.update({
+  id: '/interne/sources',
+  path: '/interne/sources',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const InterneUtilisateursRoute = InterneUtilisateursRouteImport.update({
   id: '/interne/utilisateurs',
   path: '/interne/utilisateurs',
@@ -166,6 +172,7 @@ export interface FileRoutesByFullPath {
   '/interne/finance': typeof InterneFinanceRoute
   '/interne/imports': typeof InterneImportsRoute
   '/interne/plans': typeof InternePlansRoute
+  '/interne/sources': typeof InterneSourcesRoute
   '/interne/utilisateurs': typeof InterneUtilisateursRoute
   '/interne/verification': typeof InterneVerificationRoute
   '/invitation/$id': typeof InvitationIdRoute
@@ -191,6 +198,7 @@ export interface FileRoutesByTo {
   '/interne/finance': typeof InterneFinanceRoute
   '/interne/imports': typeof InterneImportsRoute
   '/interne/plans': typeof InternePlansRoute
+  '/interne/sources': typeof InterneSourcesRoute
   '/interne/utilisateurs': typeof InterneUtilisateursRoute
   '/interne/verification': typeof InterneVerificationRoute
   '/invitation/$id': typeof InvitationIdRoute
@@ -217,6 +225,7 @@ export interface FileRoutesById {
   '/interne/finance': typeof InterneFinanceRoute
   '/interne/imports': typeof InterneImportsRoute
   '/interne/plans': typeof InternePlansRoute
+  '/interne/sources': typeof InterneSourcesRoute
   '/interne/utilisateurs': typeof InterneUtilisateursRoute
   '/interne/verification': typeof InterneVerificationRoute
   '/invitation/$id': typeof InvitationIdRoute
@@ -244,6 +253,7 @@ export interface FileRouteTypes {
     | '/interne/finance'
     | '/interne/imports'
     | '/interne/plans'
+    | '/interne/sources'
     | '/interne/utilisateurs'
     | '/interne/verification'
     | '/invitation/$id'
@@ -269,6 +279,7 @@ export interface FileRouteTypes {
     | '/interne/finance'
     | '/interne/imports'
     | '/interne/plans'
+    | '/interne/sources'
     | '/interne/utilisateurs'
     | '/interne/verification'
     | '/invitation/$id'
@@ -294,6 +305,7 @@ export interface FileRouteTypes {
     | '/interne/finance'
     | '/interne/imports'
     | '/interne/plans'
+    | '/interne/sources'
     | '/interne/utilisateurs'
     | '/interne/verification'
     | '/invitation/$id'
@@ -320,6 +332,7 @@ export interface RootRouteChildren {
   InterneFinanceRoute: typeof InterneFinanceRoute
   InterneImportsRoute: typeof InterneImportsRoute
   InternePlansRoute: typeof InternePlansRoute
+  InterneSourcesRoute: typeof InterneSourcesRoute
   InterneUtilisateursRoute: typeof InterneUtilisateursRoute
   InterneVerificationRoute: typeof InterneVerificationRoute
   InvitationIdRoute: typeof InvitationIdRoute
@@ -449,6 +462,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof InternePlansRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/interne/sources': {
+      id: '/interne/sources'
+      path: '/interne/sources'
+      fullPath: '/interne/sources'
+      preLoaderRoute: typeof InterneSourcesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/interne/utilisateurs': {
       id: '/interne/utilisateurs'
       path: '/interne/utilisateurs'
@@ -523,6 +543,7 @@ const rootRouteChildren: RootRouteChildren = {
   InterneFinanceRoute: InterneFinanceRoute,
   InterneImportsRoute: InterneImportsRoute,
   InternePlansRoute: InternePlansRoute,
+  InterneSourcesRoute: InterneSourcesRoute,
   InterneUtilisateursRoute: InterneUtilisateursRoute,
   InterneVerificationRoute: InterneVerificationRoute,
   InvitationIdRoute: InvitationIdRoute,

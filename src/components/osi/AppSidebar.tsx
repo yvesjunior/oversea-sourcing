@@ -1,6 +1,7 @@
 import { Link, useRouter, useRouterState } from "@tanstack/react-router";
 import {
   BarChart3,
+  Database,
   FileText,
   Home,
   Import,
@@ -77,6 +78,8 @@ const itemsInterne: {
   { key: "plans", url: "/interne/plans", icone: CreditCard },
   // Platform user management: accounts, roles, plan assignment (2026-08-23).
   { key: "users", url: "/interne/utilisateurs", icone: UserCog },
+  // Data-source catalogue: enable/refresh/ban (C1).
+  { key: "sources", url: "/interne/sources", icone: Database },
 ];
 
 function initialsOf(name: string): string {

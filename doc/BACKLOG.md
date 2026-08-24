@@ -16,7 +16,7 @@
 | **E2** Workspaces & tenancy | Roles, invitations, team UI | ✅ Phase B (2026-08-23) — audit-log task open |
 | **E12** Plans & quotas | Full ladder, seats, trial cap, Abonnements | 🟡 billing provider open |
 | **E3** Request core loop | Pipeline, criteria, attachments, dossier | ✅ done |
-| **E4** Supplier data | **Web research**, dedup, directory | 🟡 import pipeline + merge tool open |
+| **E4** Supplier data | **Web research**, dedup, directory, sources admin | 🟡 import pipeline + merge tool open |
 | **E5** Matching & scoring | Criteria-aware v1 + breakdown | 🟡 the "32 criteria" + comparison view open |
 | **E6** Facilitation | Engagements — *the OSI moment* | 🔴 not started (no tables) |
 | **E7** Reports | Printable report + PDF export | 🟡 stored `documents` rows open |
@@ -108,11 +108,17 @@ engagement templates (gated with E6) and preferences (E11).
 flow is defined together — statuses, actors, what "connected" means. Open
 that discussion before touching E6.
 
+**C1 `/interne/sources` shipped 2026-08-24** (dev-only, like everything since
+`d4f93a2`): the data-source admin screen — catalogue with enable/disable,
+per-source store browser, per-source + global bans with a who/when/why trail,
+and the admin "Mettre à jour" running on the research queue. Completes the
+three 🟡 E4 partials. Details in the Phase C entry below.
+
 **Where to pick up next session:** ① the E6 flow discussion (unlocks MVP1),
-② C1 `/interne/sources` (pure execution — completes three 🟡 partials),
-③ backpressure pair (server-fn rate limits + queue-depth guard), ④ E10
-verification workflow. Read "Contracts a next session must NOT re-derive
-differently" below before writing any code.
+② backpressure pair (server-fn rate limits + queue-depth guard), ③ E10
+verification workflow, ④ C2 `registry-ca` investigation (C1 gave it its
+screen). Read "Contracts a next session must NOT re-derive differently"
+below before writing any code.
 
 ### Contracts a next session must NOT re-derive differently
 
@@ -176,6 +182,11 @@ Quality gates are `npm test` (vitest, 27 unit tests),
   unless the VM gains a working IPv6 route.
 - **Dev has no Google credentials on purpose** — the button would render and then
   fail. Google is prod-only.
+- **New i18n keys need a dev web-container restart.** `src/i18n/config.ts`
+  guards `init` with `i18n.isInitialized`, and the i18next singleton lives in
+  the long-running SSR process — vite re-runs the config on locale edits but
+  the guard skips re-init, so SSR renders raw keys (and every hydration fails)
+  until `docker restart` of the web container. Cost an hour on 2026-08-24.
 
 ### Live data (do not assume it is disposable)
 
@@ -519,13 +530,24 @@ and `/documents` render showcase constants and are disabled in the nav.
 
 **Goal:** staff runs the source catalogue; Recommandé exists and ranks fairly.
 
-- [ ] **C1 · `/interne/sources`** (platform owner/manager,
-      `PLATFORM_FEATURES` gets a `sources` entry in `src/lib/roles.ts`):
-      catalogue list (enable/disable), per-source store browser (memberships,
-      freshness, counts), **"Mettre à jour"** (scoped category/country →
-      runs the connector → `source_run` trigger=admin), per-source ban/unban
-      with reason, global supplier ban. Health column from last `source_run`
-      outcomes.
+- [x] **C1 · `/interne/sources`** (2026-08-24) — platform owner/manager
+      (`sources` feature in `src/lib/roles.ts`): catalogue list with
+      enable/disable switch, per-source store browser (memberships, freshness,
+      counts, capped at 200), **"Mettre à jour"** (category required + optional
+      country → `source_run` trigger=admin created by the fn, collection runs
+      on the **research queue** — web never calls Claude; one admin run at a
+      time per source), per-source ban/unban with mandatory reason + who/when
+      trail, global supplier ban/unban, health column from the last
+      `source_run` (5s polling while a run is live). Server fns in
+      `src/lib/source-admin-fns.ts`; `runAdminRefresh()` in
+      `src/server/research.ts` reuses the exact request-path persistence.
+      Store-only sources render the button-less explanation instead of the
+      form; a **disabled source can still be refreshed on purpose** (warming a
+      store before enabling it is a legitimate rollout move). *Verified live
+      in dev end to end:* admin refresh « vannes papillon inox sanitaires ·
+      DE » → worker-research collected → 1 candidate, 1 new supplier,
+      membership + audit row, screen live-updated; per-source ban → DB row
+      with reason + banned_by → unban; global ban/unban; enable toggle.
 
 - [ ] **C2 · First registry connector** (`registry-ca`). Investigation task
       first: which Canadian registry API (Corporations Canada / provincial
@@ -652,10 +674,10 @@ feeds C3/C4 value (Recommandé requires Vérifié)
       research; store-hit / research paths, `research_run.fingerprint`,
       `supplier.last_researched_at` (90-day freshness), report says which path
       ran, store-only costs the same quota unit. Verified both paths in dev
-- [ ] **`data_source` catalogue** — 🟡 table + `global_web` row seeded and
-      **consulted by the pipeline** (built 2026-08-22); the
-      `/interne/sources` admin screen (enable/disable, per-source store
-      browser, health from `source_run`) is the remaining half → C1
+- [x] **`data_source` catalogue** — table + `global_web` row seeded and
+      consulted by the pipeline (2026-08-22); the `/interne/sources` admin
+      screen (enable/disable, per-source store browser, health from
+      `source_run`) shipped 2026-08-24 → C1 done
 - [x] **Source connector architecture** (built 2026-08-22, `6ad0232`) —
       `src/server/sources/`: one contract (`collect(brief) →
       SourceCandidate[]`, pull-only, self-describing meta), registry keyed by
@@ -668,16 +690,17 @@ feeds C3/C4 value (Recommandé requires Vérifié)
       (**ToS/licensing gate before coding**) → `registry-us` → per demand.
       Store-only connectors also need C1's "Mettre à jour" trigger to be
       useful
-- [ ] **`supplier_source` memberships + bans** — 🟡 schema + persistence built
+- [x] **`supplier_source` memberships + bans** — schema + persistence built
       2026-08-22 (uq pair, payload, first/last_seen, upserts on every
       collection, bans sticky across re-collection via the dedup key; banned
-      memberships never resurrected, matcher skips global bans). **Remaining:
-      the staff ban/unban surfaces** with a who/when/why trail → C1
-- [ ] **`source_run` audit + "Mettre à jour" trigger** — 🟡 table built and
-      written on every request-triggered collection (2026-08-22: source,
-      trigger, counts, per-source errors). **Remaining: the admin-triggered
-      refresh** (`trigger=admin`, optional category/country scope, who) from
-      `/interne/sources` → C1
+      memberships never resurrected, matcher skips global bans). The staff
+      ban/unban surfaces (per-source + global, mandatory reason, who/when
+      trail) shipped 2026-08-24 in `/interne/sources` → C1 done
+- [x] **`source_run` audit + "Mettre à jour" trigger** — table built and
+      written on every request-triggered collection (2026-08-22); the
+      admin-triggered refresh (`trigger=admin`, category + optional country
+      scope, `triggered_by`, rides the research queue) shipped 2026-08-24
+      from `/interne/sources` → C1 done
 - [x] **Store-first thresholds + cross-source order settled (= A8,
       2026-08-22)** — see the Phase A entry above and the README flow section
       for the decisions; the token-matching defects were fixed in the matcher

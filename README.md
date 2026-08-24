@@ -17,7 +17,7 @@ Live at **[osi-solutions.com](https://osi-solutions.com)** · TanStack Start
 > spec sheets) → real web research → shared supplier pool → criteria-aware
 > ranking → printable report, with per-workspace plans and daily quotas.
 > **Not built:** facilitation (engagements), transactions, documents,
-> notifications, and the supplier import pipeline.
+> and the supplier import pipeline.
 
 Built with [Lovable](https://lovable.dev)
 ([editor](https://lovable.dev/projects/a2274c53-10c7-432f-8ad5-d1aeff813df3));
@@ -57,14 +57,14 @@ Consequences, all first-class rather than afterthoughts:
 
 #### Data sources & sourcing preferences
 
-> **Status: 🟡 CORE IMPLEMENTED 2026-08-22.** The engine is live: connector
-> contract + registry (`src/server/sources/`), `global_web` as connector #1,
-> per-source stores (`supplier_source`), `source_run` audit, the store-first
-> request flow on its own `research` queue, and country-scope plumbing end to
-> end. **Not yet built:** the `/interne/sources` admin screen (enable/refresh/
-> ban surfaces — the columns exist), the Paramètres sourcing-preferences UI
-> (`sourcing_rules` is read by the pipeline but nothing writes it yet), and
-> every connector beyond `global_web`.
+> **Status: ✅ IMPLEMENTED (core 2026-08-22 · surfaces 2026-08-23/24).** The
+> engine is live: connector contract + registry (`src/server/sources/`),
+> `global_web` as connector #1, per-source stores (`supplier_source`),
+> `source_run` audit, the store-first request flow on its own `research`
+> queue, country-scope plumbing end to end, the Paramètres
+> sourcing-preferences UI writing `sourcing_rules` (B5), and the
+> `/interne/sources` admin screen (enable/refresh/ban — C1). **Not yet
+> built:** every connector beyond `global_web`.
 
 **Data sources are a platform-level catalogue, curated by the platform
 owner.** Each source is a row (`data_source`): a type — `global_web` (the AI
@@ -255,9 +255,20 @@ the source's collection view.
 
 ##### Admin-triggered source updates
 
+> **Status: ✅ BUILT 2026-08-24 (C1).** Facts a future session must not
+> re-derive differently: the server fn creates the `source_run` row
+> (`trigger=admin`, status `running`, scope, `triggered_by`) so the screen
+> shows it immediately, then enqueues `{sourceRunId}` on the **research
+> queue** — collection always runs in `worker-research`, never in web.
+> `runAdminRefresh()` (`src/server/research.ts`) persists through the exact
+> request path. Category is **required** (an unscoped "refresh the internet"
+> is not a thing for `global_web`); country defaults to the source's own.
+> One admin run at a time per source; a **disabled** source can still be
+> refreshed (warming a store before enabling it is a rollout move).
+
 Connectors stay pull-only; **platform management is the second legitimate
 caller** (the request pipeline being the first). From `/interne/sources`,
-staff trigger **"Mettre à jour"** on one source, with an optional scope
+staff trigger **"Mettre à jour"** on one source, with a scope
 (category, country) so a refresh is targeted. The run executes that one
 connector, upserts `supplier_source` memberships and refreshes
 `last_seen_at` — an admin refresh literally re-warms the store. Audited as
@@ -1070,12 +1081,12 @@ erDiagram
 | `data_source`        | ✅ 2026-08-22 — the platform source catalogue: code (uq), type `global_web\|country_registry\|import`, country, **enabled** |
 | `supplier_source`    | ✅ 2026-08-22 — per-source stores: uq(supplier, source), status `active\|banned`, first/last_seen, payload |
 | `source_run`         | ✅ 2026-08-22 — audit of every collection: trigger `request\|admin`, counts, error (absorbs the planned `import_run`) |
-| `sourcing_rules`     | ✅ 2026-08-22 (table; read by the pipeline) — activated sources + country origin per workspace. **No UI writes it yet** |
+| `sourcing_rules`     | ✅ 2026-08-22 — activated sources + country origin per workspace; written by Paramètres → Préférences de sourcing (B5) |
 
-**Not yet built:** `engagement`, `transaction`, `document`, `notification`,
-`audit_log`, and the supplier satellites (capabilities, certifications,
-contacts, **`supplier_partner`** — the Recommandé tier and the seam for the
-future supplier-side space).
+**Not yet built:** `engagement`, `transaction`, `document`, `audit_log`, and
+the supplier satellites (capabilities, certifications, contacts,
+**`supplier_partner`** — the Recommandé tier and the seam for the future
+supplier-side space). `notification` exists since E9 (2026-08-23).
 
 ---
 

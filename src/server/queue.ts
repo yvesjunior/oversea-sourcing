@@ -17,6 +17,12 @@ export const QUEUES = {
 
 export type PipelineJob = { requestId: string };
 export type ResearchJob = { requestId: string };
+/** Admin "Mettre à jour" (C1): the source_run row is created by the server fn
+ *  BEFORE enqueueing — the screen shows it as running immediately, and the
+ *  worker owns only the collection. Rides the research queue on purpose: it is
+ *  the same slow, Claude-bound work, and worker-research owns all collection. */
+export type AdminRefreshJob = { sourceRunId: string };
+export type ResearchQueueJob = ResearchJob | AdminRefreshJob;
 
 let boss: PgBoss | null = null;
 let started: Promise<PgBoss> | null = null;
@@ -43,4 +49,8 @@ export async function enqueuePipeline(requestId: string): Promise<void> {
 
 export async function enqueueResearch(requestId: string): Promise<void> {
   await send(QUEUES.research, { requestId } satisfies ResearchJob);
+}
+
+export async function enqueueAdminRefresh(sourceRunId: string): Promise<void> {
+  await send(QUEUES.research, { sourceRunId } satisfies AdminRefreshJob);
 }

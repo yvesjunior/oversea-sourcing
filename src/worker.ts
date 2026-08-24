@@ -17,11 +17,11 @@ import { and, eq, inArray, lt } from "drizzle-orm";
 import { db } from "@/database";
 import * as schema from "@/database/schema";
 import type { RequestStatus } from "@/database/schema";
-import { QUEUES, type PipelineJob, type ResearchJob } from "@/server/queue";
+import { QUEUES, type PipelineJob, type ResearchJob, type ResearchQueueJob } from "@/server/queue";
 import { recordEvent, transitionRequest } from "@/server/requests";
 import { createMatchesForRequest } from "@/server/matching";
 import { researchEnabled } from "@/server/ai/flags";
-import { evaluateStoreCoverage, runResearchForRequest } from "@/server/research";
+import { evaluateStoreCoverage, runAdminRefresh, runResearchForRequest } from "@/server/research";
 
 const STAGE_MS = 8_000;
 const SWEEP_INTERVAL_MS = 60_000;
@@ -128,8 +128,15 @@ async function handlePipeline({ requestId }: PipelineJob, enqueue: Enqueue): Pro
 }
 
 /** Research jobs collect from the effective sources, then hand back to the
- *  pipeline queue to match and finish. Idempotent via research_run. */
-async function handleResearch({ requestId }: ResearchJob, enqueue: Enqueue): Promise<void> {
+ *  pipeline queue to match and finish. Idempotent via research_run. Admin
+ *  refreshes (C1) ride the same queue — same slow Claude-bound collection —
+ *  but settle their own source_run and hand off to no one. */
+async function handleResearch(job: ResearchQueueJob, enqueue: Enqueue): Promise<void> {
+  if ("sourceRunId" in job) {
+    await runAdminRefresh(job.sourceRunId);
+    return;
+  }
+  const { requestId } = job;
   const request = await loadRequest(requestId);
   await runResearchForRequest(requestId, request.organizationId);
   await enqueue(QUEUES.pipeline, { requestId } satisfies PipelineJob);
@@ -178,7 +185,7 @@ async function main() {
     });
   }
   if (SERVED_QUEUES.includes("research")) {
-    await boss.work<ResearchJob>(QUEUES.research, async (jobs) => {
+    await boss.work<ResearchQueueJob>(QUEUES.research, async (jobs) => {
       for (const job of jobs) {
         console.log(`research: job ${job.id}`, job.data);
         try {
