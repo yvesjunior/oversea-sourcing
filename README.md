@@ -393,6 +393,13 @@ refusal is distinct: the daily message says "come back at {time}", the
 lifetime one says "your free requests are used — upgrade". *(Not yet
 implemented — lands with B8.)*
 
+**Subscription management** (decided 2026-08-23): the platform owner's screen
+becomes **"Abonnements"** with one tab per audience — **Individuel** (Free,
+Pro; per-user quota, 1 seat) · **Organisation** (Business, Enterprise; pooled
+quota, seats) · **Interne** (staff). A `plan.audience` column drives the tabs
+and constrains assignment, so an individual workspace can never land on an
+organization plan by accident. *(Lands with B8.)*
+
 Quota is enforced in `createRequestFn` — the single choke point every request
 passes through, including the post-login auto-create — **before** the insert, so
 a refusal leaves no half-created dossier and the buyer keeps their typed text. It

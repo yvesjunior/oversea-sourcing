@@ -418,11 +418,18 @@ and `/documents` render showcase constants and are disabled in the nav.
         so the UI pitches the upgrade instead of "come back tomorrow"
       - `plan.max_members` (seats; proposal: Free/Pro 1 — invite refused at the
         cap, Business 5, Enterprise 0 = custom) — **pending validation**
-      - **Every new column is editable from `/interne/plans`** (decided
-        2026-08-23: plans are parameterizable by the platform owner — the
-        manager screen gains fields for `max_requests_total`, `max_members`
-        and `quota_scope`, same validation + `updated_by` trail; no limit
-        ever requires a deploy)
+      - **Every new column is editable from the subscription-management
+        screen** (decided 2026-08-23: plans are parameterizable by the
+        platform owner — fields for `max_requests_total`, `max_members` and
+        `quota_scope`, same validation + `updated_by` trail; no limit ever
+        requires a deploy)
+      - **Screen design (decided 2026-08-23):** the internal nav entry becomes
+        **"Abonnements" (subscription management)** with tabs per audience —
+        **Individuel** (Free, Pro) · **Organisation** (Business, Enterprise) ·
+        **Interne** (staff plan). Driven by a new `plan.audience` column
+        (`individual | organization | internal`); the tab also filters which
+        workspaces a plan can be assigned to, so an individual workspace can
+        never be dropped onto an organization plan by mistake
       *Accept:* a Free user's 3rd request ever is refused with the upgrade
       message even a day later; two members of one Free workspace each get
       their own counts; a Business workspace still pools.
