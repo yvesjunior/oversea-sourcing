@@ -44,9 +44,9 @@ const items: NavItem[] = [
   { key: "documents", url: "/documents", icone: FileText, disabled: true },
   // Employee-only (PLATFORM_FEATURES.analytics) — filtered per role below.
   { key: "analyses", url: "/analyses", icone: BarChart3, feature: "analytics" },
-  // Nothing on it is wired for buyers (E11), and managers do not administer
-  // the platform — owner and accountant keep it.
-  { key: "parametres", url: "/parametres", icone: Settings, disabledForRoles: ["user", "manager"] },
+  // Real since B5 (2026-08-23): profile, subscription view, sourcing
+  // preferences and (owner) the member list — live for every role.
+  { key: "parametres", url: "/parametres", icone: Settings },
 ];
 
 // Employee features — same dashboard, extra entries per platform role.

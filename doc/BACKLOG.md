@@ -388,15 +388,17 @@ and `/documents` render showcase constants and are disabled in the nav.
       provider for sending; interim: show the set-password link once to the
       creator.
 
-- [ ] **B5 · Paramètres surfaces.** Route `/parametres` with panels:
-      **Profil** (name, locale server-persisted — closes the E11 item),
-      **Abonnement** (read-only: plan name, limits, live usage vs rolling
-      24h quota — reuse `checkRequestQuota()` internals from
-      `src/server/plan.ts`; upgrade CTA = "Contactez-nous"),
-      **Préférences de sourcing** (edit `sourcing_rules`: activate sources
-      from the enabled catalogue, country mode global/list — owner      only), **Utilisateurs** (enterprise only, owner only: member list
-      + roles, invite (B3), create (B4), change role, remove; pending
-      invitations with revoke/copy-link). Nav entry gated per role.
+- [x] **B5 · Paramètres surfaces** (2026-08-23). `/parametres` live for every
+      role (sidebar un-gated), four tabs: **Profil** (name + language,
+      server-persisted, syncs the i18n toggle — closes the E11 item),
+      **Abonnement** (read-only: plan, usage bars for daily/lifetime/seats,
+      "Contactez-nous" CTA until billing), **Préférences de sourcing** (the UI
+      that finally WRITES `sourcing_rules`: activate sources, country origin
+      global/list — owner edits, others read; all-activated stores null so
+      future sources arrive activated), **Utilisateurs** (owner-gated tab,
+      disabled-not-hidden: member list + seat usage; invite/create arrive with
+      B3/B4). *Verified live:* rules row written (`list ["FR","DE"]`,
+      updated_by trail) and reset; Abonnement mirrors the internal plan.
 
 - [ ] **B6 · Managerial view.** "Mon équipe" tab beside Utilisateurs:
       per-member request counts + list links, usage vs pooled quota in the
@@ -714,7 +716,7 @@ feeds C3/C4 value (Recommandé requires Vérifié)
 
 ### E11 — Settings
 
-- [ ] Profile + language (server-persisted)
+- [x] Profile + language (server-persisted) — B5, 2026-08-23
 - [ ] **Abonnement panel** — active workspace's plan, limits, live usage vs
       quota, upgrade CTA ("Contactez-nous" until billing; self-service after
       Stripe). Buyer-facing read-only mirror of `/interne/plans` (README →
