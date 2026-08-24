@@ -32,21 +32,22 @@ downloads the PDF report.
 
 ## Resume here (last session: 2026-08-23/24)
 
-**Production is live and healthy at [osi-solutions.com](https://osi-solutions.com), commit `d4f93a2`.**
-**Deploy is PREPARED (2026-08-24) — one command away:**
-`BRANCH=release/2026-08-24 ./scripts/deploy.sh` (the release branch pins
-`174d175` so in-flight Phase D commits on main cannot sneak in). Already
-done: prod backup `backups/osi-20260824-004821.sql.gz` · migrations
-0008–0011 **rehearsed green on that dump** (global_web seeded, 51 suppliers
-backfilled with memberships+freshness, plan ladder correct, 7 users intact)
-· VM `.env` has SENDGRID_API_KEY + MAIL_FROM + MAIL_FROM_NAME appended (no
-MAIL_SILENT; prior `.env` backed up as `~/osi-env-backup-*`) · no Free user
-is at the lifetime trial cap (max 1 of 2), so nobody gets locked out.
-The deploy brings the six-service topology (worker-research, redis,
-migrate join web/worker/database — `up -d --build` creates them from the
-new compose). Post-deploy checks: `./scripts/status.sh`, a real signup →
-verification email actually sends, bell renders, `/interne/sources` loads.
-Real users keep arriving through Google sign-in (7 accounts as of 08-22).
+**Production is live and healthy at [osi-solutions.com](https://osi-solutions.com), commit `b187039` — DEPLOYED 2026-08-24, prod = main.**
+The full backlog since `d4f93a2` shipped in one go: the sourcing engine
+(Phase A), six-service topology (worker-research + redis first-class,
+one-shot migrate), all of Phase B (roles, switcher, invitations, Paramètres,
+plan ladder), E1 verification/reset emails, E9 notifications, C1
+`/interne/sources`, the two source kinds, and **Phase D** (source_record
+stores + promotion, migrations 0008–0013). Verified post-deploy: six
+containers up (redis healthy), public origin 200, **7 users · 63 suppliers ·
+35 matches intact, 63 records backfilled all-promoted** (prod had grown
+51→63 during the day — the backfill caught everything), plans ladder
+correct, SENDGRID_API_KEY + MAIL_FROM live in the containers (no
+MAIL_SILENT). Backups on hand: `backups/osi-20260824-004821.sql.gz` and
+`-192042` (taken minutes before the deploy). Rollback = `git checkout
+d4f93a2` + rebuild on the VM.
+**Still unverified on prod:** a real outbound email (needs a real signup or
+password reset — watch SendGrid the first time one fires).
 
 **2026-08-22 was a design day, not a code day.** The SaaS platform design was
 specified and validated end to end — it all lives in the README: the account
@@ -60,7 +61,7 @@ fallback thresholds** (DISCUSS task in E4) and **enterprise pricing** (Q4).
 An architecture review page (current vs target, build order) was published as
 a Claude artifact for validation.
 
-**Phase A landed the same day (A1–A6 done, dev-verified, not yet deployed):**
+**Phase A landed the same day (A1–A6 done, dev-verified; deployed 2026-08-24):**
 sourcing tables migrated (`data_source`, `supplier_source`, `source_run`,
 `sourcing_rules` + supplier ban/freshness columns, `research_run.fingerprint`),
 connector contract + `global_web` as connector #1, **store-first flow on a
@@ -81,9 +82,8 @@ one-shot `migrate`. Addons hold only ops tools now, attachable to either stack
 API error, `source_run` audit) → back to `worker` for matching. README §4
 documents the containers, dev-vs-prod differences, and the interaction
 diagram — containers never call each other; Postgres is the only meeting
-point. **Prod still runs `d4f93a2`** — everything above ships whenever the
-deploy is requested (migration is additive; backfills prod's suppliers as
-`global_web` memberships automatically).
+point. ~~Prod still runs `d4f93a2`~~ — **deployed 2026-08-24** (`b187039`);
+the migration backfilled prod's suppliers automatically as promised.
 
 **Phase B complete (2026-08-23, commits `f905439`…`1b93c19`, all dev-only):**
 the SaaS account model is real. B1 role enforcement on every mutating fn
@@ -96,8 +96,7 @@ adapter, public /invitation page, invited signups get no personal workspace)
 · B6 per-member usage · B7 atomic ownership transfer. Platform staff also got
 `/interne/utilisateurs` (user management, plan assignment moved there).
 Workspace roles simplified to owner | buyer | viewer. All verified live in
-dev; **prod still runs `d4f93a2`** — now 20+ commits behind, deploy on
-request (migrations 0008–0010 are additive).
+dev; **deployed to prod 2026-08-24** (`b187039`).
 
 **E1 shipped 2026-08-23 (`6fec867`):** email verification (sendOnSignUp,
 auto sign-in, resend in Profil — **recorded, not enforced**) and password
@@ -115,8 +114,7 @@ engagement templates (gated with E6) and preferences (E11).
 flow is defined together — statuses, actors, what "connected" means. Open
 that discussion before touching E6.
 
-**C1 `/interne/sources` shipped 2026-08-24** (dev-only, like everything since
-`d4f93a2`): the data-source admin screen — catalogue with enable/disable,
+**C1 `/interne/sources` shipped 2026-08-24** (deployed same day): the data-source admin screen — catalogue with enable/disable,
 per-source store browser, per-source + global bans with a who/when/why trail,
 and the admin "Mettre à jour" running on the research queue. Completes the
 three 🟡 E4 partials. Details in the Phase C entry below.
@@ -198,6 +196,12 @@ Quality gates are `npm test` (vitest, 27 unit tests),
 
 ### Things that will bite you
 
+- **`./scripts/db.sh prod` is NOT the VM.** It targets a prod-compose stack
+  on *this* host — and because both compose files share the project name, on
+  a machine running the dev stack it silently answers from the **dev**
+  database while claiming to be prod. Cost a false alarm on deploy day
+  (2026-08-24). For the VM: `ssh` + `docker compose exec database psql`,
+  or `./scripts/status.sh`.
 - **`.env` is gitignored on every host.** A fresh clone needs
   `cp .env.example .env` plus a real `ANTHROPIC_API_KEY`. Prod's copy is only on
   the VM — backups there are `~/osi-env-backup-*`.
@@ -260,10 +264,10 @@ with `email_verified = true`, a provisioned workspace and the Free plan.
 | Platform owner's workspace → `internal` plan | SQL on prod; staff-lands-on-Free gap recorded in E12 |
 | Daily-quota refusal made a prominent warning alert | `d4f93a2`, deployed 2026-08-20 |
 | Demo accounts deleted from prod (dev-only now) | SQL on prod after a backup; suppliers they discovered kept |
-| Redis-backed distributed rate limiting (fail-open) | `deccfd1` — dormant without `REDIS_URL`; **not deployed** |
-| Sourcing engine: connectors, store-first, research queue, quota lock | `6ad0232` — Phase A core; **not deployed** |
-| Full architecture in both stacks: worker-research + redis first-class | `0736f1e` + README interaction docs `3030065`; **not deployed** |
-| Footer heading: "Nos engagements" / "Our commitments to you" | `186ecd5` + `17615cd`; **not deployed** |
+| Redis-backed distributed rate limiting (fail-open) | `deccfd1` — deployed 2026-08-24 |
+| Sourcing engine: connectors, store-first, research queue, quota lock | `6ad0232` — Phase A core; deployed 2026-08-24 |
+| Full architecture in both stacks: worker-research + redis first-class | `0736f1e` + README interaction docs `3030065`; deployed 2026-08-24 |
+| Footer heading: "Nos engagements" / "Our commitments to you" | `186ecd5` + `17615cd`; deployed 2026-08-24 |
 
 
 ## Where we actually are (2026-08-22)
