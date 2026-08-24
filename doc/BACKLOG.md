@@ -406,14 +406,21 @@ and `/documents` render showcase constants and are disabled in the nav.
       member, previous owner → buyer, confirm dialog. Exactly-one-owner
       invariant enforced in the fn.
 
-- [ ] **B8 · Enterprise plan + per-user quota scope.** Migration: `plan` row
-      `enterprise` (requests/day 100?, suppliers 20, `best`) **and**
-      `plan.quota_scope` (`workspace | user`, default workspace; Free flips to
-      `user`). `checkRequestQuota()` counts on `request.created_by` when
-      scope = user. Optional per-member ceiling column deferred until a
-      client asks.
-      *Accept:* two members of one Free-plan workspace each get their own
-      allowance; a Business workspace still pools.
+- [ ] **B8 · Plan ladder: Enterprise row, quota scope, seats, lifetime trial
+      cap.** One migration, four plan columns/rows:
+      - `plan` row `enterprise` (requests/day 100 default, suppliers 20, `best`)
+      - `plan.quota_scope` (`workspace | user`, default workspace; Free/Pro =
+        `user`) — `checkRequestQuota()` counts on `request.created_by` when
+        scope = user
+      - **`plan.max_requests_total`** (decided 2026-08-23: **Free = 2, ever** —
+        after the second request the only path is a paid plan; 0 = unlimited
+        elsewhere). Enforced at the same choke point; distinct refusal reason
+        so the UI pitches the upgrade instead of "come back tomorrow"
+      - `plan.max_members` (seats; proposal: Free/Pro 1 — invite refused at the
+        cap, Business 5, Enterprise 0 = custom) — **pending validation**
+      *Accept:* a Free user's 3rd request ever is refused with the upgrade
+      message even a day later; two members of one Free workspace each get
+      their own counts; a Business workspace still pools.
 
 - [x] **B9 · GATE — email provider: SendGrid** (decided 2026-08-23, recorded
       in README §9). Unblocks real email for B3/B4, email verification (E1)

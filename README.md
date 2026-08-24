@@ -376,6 +376,7 @@ gets is an `UPDATE` from `/interne/plans`, live on the next request, no deploy.
 | | Free | Pro | Business | Internal |
 |---|---|---|---|---|
 | Requests / day | **1** | 10 | 50 | **0 = unlimited** |
+| **Requests total (lifetime)** | **2 — then upgrade** | 0 = unlimited | 0 = unlimited | 0 = unlimited |
 | Suppliers returned | 5 | 10 | 20 | 10 |
 | Model tier | `cheap` | `best` | `best` | `best` |
 
@@ -383,6 +384,14 @@ gets is an `UPDATE` from `/interne/plans`, live on the next request, no deploy.
 `0` reads as "no cap" rather than silently locking every buyer out. A workspace
 with **no** subscription falls back to the env values, so dev works with an empty
 `plan` table.
+
+**Free is a trial** (decided 2026-08-23): 1 request per day AND **2 requests
+total, ever** — after the second, the only path is a paid plan. The lifetime
+cap is a plan column like everything else (`max_requests_total`, 0 =
+unlimited), enforced at the same choke point as the daily quota, and the
+refusal is distinct: the daily message says "come back at {time}", the
+lifetime one says "your free requests are used — upgrade". *(Not yet
+implemented — lands with B8.)*
 
 Quota is enforced in `createRequestFn` — the single choke point every request
 passes through, including the post-login auto-create — **before** the insert, so
