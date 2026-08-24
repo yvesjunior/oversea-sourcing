@@ -30,12 +30,16 @@ need, gets a real Top-N (researched + imported suppliers, scored), clicks
 *Engager*, OSI ops sees it in the queue, the buyer sees "connected", and
 downloads the PDF report.
 
-## Resume here (last session: 2026-08-22)
+## Resume here (last session: 2026-08-23/24)
 
 **Production is live and healthy at [osi-solutions.com](https://osi-solutions.com), commit `d4f93a2`.**
-Dev and prod are in sync; nothing is uncommitted except three unrelated PNG
-deletions at the repo root. Real users are arriving through Google sign-in —
-four organic signups in the week to 2026-08-21.
+**`main` is ~30 commits ahead of prod** — the sourcing engine, the six-service
+architecture, Redis, all of Phase B, E1 emails and E9 notifications are
+dev-verified and NOT deployed (per the standing no-unrequested-deploys rule;
+migrations 0008–0011 are additive). When the deploy is requested: backup
+first, add SENDGRID_API_KEY + MAIL_FROM to the VM `.env` (no MAIL_SILENT) or
+emails will only log, and recreate all containers so they pick the env up.
+Real users keep arriving through Google sign-in (7 accounts as of 08-22).
 
 **2026-08-22 was a design day, not a code day.** The SaaS platform design was
 specified and validated end to end — it all lives in the README: the account
@@ -94,6 +98,22 @@ reset (`/mot-de-passe-oublie` → email → `/reinitialiser?token=`), both throu
 the SendGrid adapter. Implementation facts in README → "Email verification &
 password reset".
 
+**E9 core shipped 2026-08-24 (`91538fc`):** `notification` table (type+params
+i18n pattern), `notify.ts` single failure-tolerant emitter, real bell (dot
+only when unread, click = read + navigate). First emitters: `report_ready`
+(worker, in-app + email) and `invitation_accepted` (→ inviter). Open in E9:
+engagement templates (gated with E6) and preferences (E11).
+
+**E6 is GATED (user decision):** no facilitation implementation until the
+flow is defined together — statuses, actors, what "connected" means. Open
+that discussion before touching E6.
+
+**Where to pick up next session:** ① the E6 flow discussion (unlocks MVP1),
+② C1 `/interne/sources` (pure execution — completes three 🟡 partials),
+③ backpressure pair (server-fn rate limits + queue-depth guard), ④ E10
+verification workflow. Read "Contracts a next session must NOT re-derive
+differently" below before writing any code.
+
 ### Contracts a next session must NOT re-derive differently
 
 - **Quota**: two ceilings in `checkRequestQuota(orgId, userId)` — lifetime
@@ -138,7 +158,7 @@ password reset".
 ./scripts/deploy.sh                 # ship main to the VM
 ```
 
-Quality gates are `npm test` (vitest, 22 unit tests since 2026-08-22),
+Quality gates are `npm test` (vitest, 27 unit tests),
 `npx tsc --noEmit` and `npx eslint src/` — all clean as of this commit.
 
 ### Things that will bite you
