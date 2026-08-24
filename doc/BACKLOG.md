@@ -346,7 +346,7 @@ and `/documents` render showcase constants and are disabled in the nav.
 
 - [ ] **B1 · `requireRole` backbone.** `src/server/workspace-guard.ts`:
       `requireMember(userId, workspaceId, minRole)` with rank
-      `viewer < buyer < admin < owner` (roles in `member.role`,
+      `viewer < buyer < owner` (owner/admin merged 2026-08-23; roles in `member.role`,
       `src/database/schema.ts:88`). Audit **every mutating server fn** in
       `src/lib/*-fns.ts` to call it (requests: ≥ buyer; criteria edits:
       ≥ buyer; plan/rename/delete: owner). Viewer gets read-only: nav renders
@@ -371,7 +371,7 @@ and `/documents` render showcase constants and are disabled in the nav.
       *Accept:* full loop in dev: invite → link → signup → member row with
       invited role; revoked/expired links refuse politely (FR/EN).
 
-- [ ] **B4 · Create-member-directly (UC-4).** Owner/admin creates
+- [ ] **B4 · Create-member-directly (UC-4).** The owner creates
       name+email; account created passwordless via better-auth admin API with
       a set-password token (reuse reset-password mechanics, 48h). **No
       personal workspace for these users (decided Q1).** Blocked on the email
@@ -384,8 +384,7 @@ and `/documents` render showcase constants and are disabled in the nav.
       24h quota — reuse `checkRequestQuota()` internals from
       `src/server/plan.ts`; upgrade CTA = "Contactez-nous"),
       **Préférences de sourcing** (edit `sourcing_rules`: activate sources
-      from the enabled catalogue, country mode global/list — owner/admin
-      only), **Utilisateurs** (enterprise only, owner/admin only: member list
+      from the enabled catalogue, country mode global/list — owner      only), **Utilisateurs** (enterprise only, owner only: member list
       + roles, invite (B3), create (B4), change role, remove; pending
       invitations with revoke/copy-link). Nav entry gated per role.
 
@@ -394,7 +393,7 @@ and `/documents` render showcase constants and are disabled in the nav.
       current window. Reuses `EmployeeTabs` pattern.
 
 - [ ] **B7 · Ownership transfer.** Owner-only server fn: transfer to another
-      member, previous owner → admin, confirm dialog. Exactly-one-owner
+      member, previous owner → buyer, confirm dialog. Exactly-one-owner
       invariant enforced in the fn.
 
 - [ ] **B8 · Enterprise plan + per-user quota scope.** Migration: `plan` row
@@ -677,7 +676,7 @@ feeds C3/C4 value (Recommandé requires Vérifié)
       ship before payments
 - [ ] **Enterprise plan** (requested 2026-08-20) — a tier above Business,
       possibly with a managerial view: several members in one workspace, an
-      owner/admin who sees the team's requests and usage. First plan whose value
+      an owner who sees the team's requests and usage. First plan whose value
       is *seats + oversight* rather than just higher limits — depends on E2
       (invitations + team UI), which is why it doesn't exist yet
 - [ ] **Per-user quota on the Free plan** (requested 2026-08-20) — today the

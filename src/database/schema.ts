@@ -14,7 +14,9 @@ import {
 // ─────────────────────────────────────────────────────────────────────────────
 // Identity & tenancy — better-auth core tables + organization plugin.
 // "organization" IS the OSI workspace (see doc/BACKLOG.md). Members carry the
-// workspace role (buyer companies): owner | admin | buyer | viewer.
+// workspace role (buyer companies): owner | buyer | viewer — "admin" stays
+// schema-valid but unused (owner/admin merged 2026-08-23; owner manages
+// account AND team).
 // user.platformRole is for OSI *employees* (admin backoffice):
 //   user (default — not an employee) | owner | manager | accountant
 // ─────────────────────────────────────────────────────────────────────────────
@@ -93,7 +95,7 @@ export const member = pgTable("member", {
   userId: text("user_id")
     .notNull()
     .references(() => user.id, { onDelete: "cascade" }),
-  // owner | admin | buyer | viewer
+  // owner | buyer | viewer ("admin" schema-valid but unused since 2026-08-23)
   role: text("role").notNull().default("buyer"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });

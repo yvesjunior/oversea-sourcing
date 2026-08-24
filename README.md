@@ -440,7 +440,7 @@ session established at login.
 
 ### Roles
 
-**Workspace roles** (buyer companies): `owner` · `admin` · `buyer` · `viewer`.
+**Workspace roles** (buyer companies): `owner` · `buyer` · `viewer` (owner/admin merged 2026-08-23 — the owner manages account AND team).
 
 **Platform roles** (OSI employees, on `user.platform_role`): `owner` (full
 control) · `manager` (ops) · `accountant` (finance) · `user` (regular buyer,
@@ -480,7 +480,7 @@ activity and usage.
 
 **Why this is mostly wiring, not building:** the tenancy model was designed for
 this from day one. `organization` *is* the workspace, `member` already carries
-the four roles (`owner | admin | buyer | viewer`), the `invitation` table
+the roles (`owner | buyer | viewer`; `admin` schema-valid but unused), the `invitation` table
 already exists in the schema (better-auth organization plugin — never wired to
 any UI), and plans/quotas already attach to the workspace, not the user. What
 is missing is the surface: invitation flows, a team screen, role enforcement
@@ -496,7 +496,7 @@ Enterprise items added to **E12** on 2026-08-20.
 | **Customer — Enterprise** | regular `user`s sharing a company workspace | a purchasing team on Business/Enterprise | their `member.role` in the company workspace |
 
 The two axes never mix: `platform_role` is granted only in the database and
-gives OSI-internal powers; `member.role` is granted by a workspace owner/admin
+gives OSI-internal powers; `member.role` is granted by the workspace owner
 and gives powers **inside that workspace only**. A staff member who also buys
 would simply have both — like `yves@overseaimportexports.com` today (platform
 `owner` + owner of his own workspace).
@@ -506,10 +506,10 @@ would simply have both — like `yves@overseaimportexports.com` today (platform
 | | Individual | Enterprise |
 |---|---|---|
 | Workspace | Personal, created at signup | Company workspace, shared |
-| Members | Exactly 1 (the person) | Many; invited/created by owner or admin |
+| Members | Exactly 1 (the person) | Many; invited/created by the owner |
 | Who pays | The person (Free/Pro) | The company (Enterprise plan) |
 | Quota unit | **Per user** (= per workspace, since 1 member) | **Pooled per workspace**, with optional per-member ceilings |
-| Managerial view | — | Owner/admin see all team requests + usage |
+| Managerial view | — | The owner sees all team requests + usage |
 | Plans | Free · Pro | Business · Enterprise |
 
 An individual account is not a separate concept in the database — it is simply
@@ -517,25 +517,25 @@ a workspace with one member. Nothing about today's signup flow changes.
 
 #### Workspace roles and rights
 
-The four existing `member.role` values, given precise meanings:
+**Three roles** (decided 2026-08-23: `owner` and `admin` merged — the owner
+manages both the account and the team; no separate admin tier). The `admin`
+string remains schema-valid in `member.role` so reintroducing the tier later
+is non-breaking, but nothing grants it and guards rank it like `buyer`.
 
-| Right | `owner` | `admin` | `buyer` | `viewer` |
-|---|---|---|---|---|
-| Manage the account (plan, billing, rename, delete) | ✅ | — | — | — |
-| Invite / create members, assign roles | ✅ | ✅ | — | — |
-| Remove members, revoke invitations | ✅ | ✅ (not the owner) | — | — |
-| See all the team's requests & reports | ✅ | ✅ | — | — |
-| See team usage (quota consumption, per member) | ✅ | ✅ | — | — |
-| Create sourcing requests | ✅ | ✅ | ✅ | — |
-| See own requests & reports | ✅ | ✅ | ✅ | — |
-| See requests shared with the workspace | ✅ | ✅ | ✅ | ✅ |
+| Right | `owner` | `buyer` | `viewer` |
+|---|---|---|---|
+| Manage the account (plan, billing, rename, delete, transfer) | ✅ | — | — |
+| Invite / create members, assign roles, remove members | ✅ | — | — |
+| See all the team's requests, reports & usage (managerial view) | ✅ | — | — |
+| Create sourcing requests | ✅ | ✅ | — |
+| See own requests & reports | ✅ | ✅ | — |
+| See requests shared with the workspace | ✅ | ✅ | ✅ |
+| Edit sourcing preferences (sources, country origin) | ✅ | — | — |
 
 Rules that keep this simple:
 
 - **Exactly one `owner` per workspace.** Ownership transfers, it does not fork.
-  (Transfer is an owner-only action; the previous owner becomes `admin`.)
-- **`admin` is "manage the team", `owner` is "manage the account".** The single
-  right that separates them is money and account lifecycle.
+  (Transfer is an owner-only action; the previous owner becomes `buyer`.)
 - Roles are per-workspace: the same user can be `owner` of their personal
   workspace and `buyer` inside an enterprise.
 - Workspace roles are unrelated to `user.platform_role` (OSI staff). An
@@ -560,7 +560,7 @@ links, stats) with no leakage between the two; the workspace switcher shows
 both, with the active one marked.
 
 ##### UC-3 — Invite an existing or new user by email
-Owner/admin enters an email + role on the **Équipe** screen. An `invitation`
+The owner enters an email + role on the **Équipe** screen. An `invitation`
 row is created (`pending`, expires in 7 days).
 - Email already has an OSI account → they see the invitation at next login
   (and receive an email once E9 lands), accept or decline.
@@ -575,7 +575,7 @@ disposable-domain block only if we decide so — open question Q5, default: no
 bypass).
 
 ##### UC-4 — Owner creates a member account directly
-For companies that don't want a signup dance: owner/admin enters name + email,
+For companies that don't want a signup dance: the owner enters name + email,
 OSI creates the account **without a password** and emails a set-password link
 (same mechanics as password reset). Until the link is used the account cannot
 log in. No temporary passwords: they end up on sticky notes; a set-password
@@ -586,15 +586,15 @@ role, `email_verified = false` until the link is used; the link expires (48h)
 and can be re-sent.
 
 ##### UC-5 — Change a member's rights
-Owner/admin changes a member's role from the team screen. Effect is immediate
+The owner changes a member's role from the team screen. Effect is immediate
 on next request (server functions re-read membership per call — no session
 invalidation needed since role lives in `member`, not the session).
-Constraints: `admin` cannot touch the `owner` or promote anyone **to** owner;
-demoting yourself below `admin` is confirmed with a warning if you are the last
-admin besides the owner.
+Constraints: only the owner assigns roles, no one can be promoted **to**
+owner this way (that is ownership transfer, UC-6bis), and the owner cannot
+demote themselves — transfer first.
 
 ##### UC-6 — Remove a member / member leaves
-Owner/admin removes a member; or a member leaves voluntarily (Paramètres).
+The owner removes a member; or a member leaves voluntarily (Paramètres).
 Their `member` row is deleted; their user account and personal workspace are
 untouched. **Their requests stay with the enterprise workspace** — the data
 belongs to the tenant, not the person (this is the whole point of enterprise).
@@ -613,7 +613,7 @@ member, so **individual accounts need no code change**.
 was hit — "your daily limit" vs "your team's daily limit".
 
 ##### UC-8 — Managerial view
-Owner/admin get a **Mon équipe** surface in the workspace: members and their
+The owner gets a **Mon équipe** surface in the workspace: members and their
 roles, pending invitations, each member's requests (count + list, linkable),
 and usage against the pooled quota over the current window. Buyers see only
 their own dossiers, exactly as today; viewers see dossiers shared with the
@@ -631,7 +631,7 @@ Every account — individual and enterprise — gets a **Paramètres** surface w
   `/interne/plans` — same data, no editing.
 - **Préférences de sourcing** — which data sources this workspace's searches
   use and where suppliers may come from (global / country list / local) — see
-  *Data sources & sourcing preferences* above. Editable by `owner`/`admin`;
+  *Data sources & sourcing preferences* above. Editable by the `owner`;
   applied to every request the workspace launches.
 
 The panel is scoped to the **active workspace**: switch workspace, see that
@@ -640,7 +640,7 @@ workspace's plan. Visible to every member; plan *changes* stay owner-only
 
 ##### UC-10 — Enterprise user management view
 Enterprise workspaces additionally show a **Utilisateurs** section in
-Paramètres — visible to `owner`/`admin` only (disabled-not-hidden for others,
+Paramètres — visible to the `owner` only (disabled-not-hidden for others,
 per the nav rule). It is the operational home of UC-3…UC-6: members list with
 roles, invite by email, create an account directly, change rights, remove,
 pending invitations with revoke/resend. The managerial *analytics* (UC-8) can
@@ -664,7 +664,7 @@ null until Stripe lands. Nothing in UC-1…UC-10 depends on billing.
 | Create-member-with-set-password-link flow | ⬜ needs the email provider (E9 dependency) |
 | Managerial view (members, usage, team requests) | ⬜ new surface, reads existing tables |
 | Paramètres: profile + **Abonnement** panel (plan, usage, upgrade CTA) | ⬜ E11/E12 — read-only version needs no billing |
-| Paramètres: **Utilisateurs** view (enterprise, owner/admin-gated) | ⬜ E2 — the home of invite/create/rights/remove |
+| Paramètres: **Utilisateurs** view (enterprise, owner-gated) | ⬜ E2 — the home of invite/create/rights/remove |
 | Per-member ceiling within the pool (`quota_scope`) | ⬜ E12 refinement, small |
 | Enterprise plan row | ⬜ one migration (plans are rows) |
 | Ownership transfer | ⬜ small server fn + confirm UI |
