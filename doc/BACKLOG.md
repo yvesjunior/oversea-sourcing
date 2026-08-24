@@ -681,6 +681,13 @@ feeds C3/C4 value (Recommandé requires Vérifié)
 
 ### E6 — Facilitation (engagements) · the OSI moment
 
+> **GATED (user, 2026-08-23): do NOT implement until the facilitation flow is
+> defined with the user.** The engagement status machine, who does what at
+> each step (buyer / ops / supplier), and what "connected" means operationally
+> are product decisions to take together first — same discuss-then-build
+> pattern as the sourcing engine. The task list below is the raw material for
+> that discussion, not a spec.
+
 - [x] Ops list view on `/interne/facilitation`: all buyer dossiers + Vue globale/Mes données tabs (engagement queue below still pending)
 - [ ] Engagement creation from a match (buyer clicks "Engager" on a Top-5 supplier)
 - [ ] Status machine + `engagement_events` timeline
