@@ -3,6 +3,7 @@ import { APIError, createAuthMiddleware } from "better-auth/api";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { organization } from "better-auth/plugins";
 import { checkSignupPayload } from "@/lib/signup-guard";
+import { orgAc, orgRoles } from "@/lib/org-access";
 import { secondaryStorage } from "@/server/kv";
 import { eq } from "drizzle-orm";
 import { db } from "@/database";
@@ -104,9 +105,60 @@ export const auth = betterAuth({
   },
   plugins: [
     organization({
-      // Workspace roles: owner | admin | buyer | viewer (buyer/viewer enforced
-      // in app guards; plugin stores the role string on the membership).
+      // Workspace roles: owner | buyer | viewer ("admin" schema-valid but
+      // unminted since the 2026-08-23 merge; app guards rank it like buyer).
+      // The AC lives in src/lib/org-access.ts, shared with the client plugin.
+      ac: orgAc,
+      roles: orgRoles,
       creatorRole: "owner",
+      // B3 (2026-08-23): invitations via the plugin, 7 days, re-invite
+      // replaces the pending one instead of erroring.
+      invitationExpiresIn: 7 * 24 * 3600,
+      cancelPendingInvitationsOnReInvite: true,
+      sendInvitationEmail: async (data) => {
+        const { sendMail } = await import("@/server/mail");
+        const link = `${baseURL}/invitation/${data.id}`;
+        const workspace = data.organization.name;
+        const inviter = data.inviter.user.name || data.inviter.user.email;
+        // Bilingual body: the invitee's locale is unknown until they have an
+        // account, and FR is the product default.
+        await sendMail({
+          to: data.email,
+          subject: `${inviter} vous invite sur OSI — ${workspace}`,
+          text: `${inviter} vous invite à rejoindre l'espace « ${workspace} » sur OSI.\nAcceptez ici : ${link}\n\n${inviter} invited you to join the "${workspace}" workspace on OSI.\nAccept here: ${link}\n\nCe lien expire dans 7 jours / This link expires in 7 days.`,
+          html: `<p>${inviter} vous invite à rejoindre l'espace « <strong>${workspace}</strong> » sur OSI.</p><p><a href="${link}">Accepter l'invitation</a></p><hr/><p>${inviter} invited you to join the "<strong>${workspace}</strong>" workspace on OSI.</p><p><a href="${link}">Accept the invitation</a></p><p style="color:#888;font-size:12px">Ce lien expire dans 7 jours · This link expires in 7 days</p>`,
+        });
+      },
+      organizationHooks: {
+        // Seat cap (B8): members + pending invitations may not exceed the
+        // plan's max_members (0 = unlimited). Enforced INSIDE the plugin flow
+        // so a direct call to the auth endpoint cannot bypass it.
+        beforeCreateInvitation: async ({ invitation }) => {
+          // One owner per workspace: ownership transfers, it is never invited.
+          const role = String(invitation.role);
+          if (role !== "buyer" && role !== "viewer") {
+            throw new APIError("BAD_REQUEST", { message: "INVITE_ROLE_NOT_ALLOWED" });
+          }
+          const { assertSeatAvailable } = await import("@/server/workspace-guard");
+          await assertSeatAvailable(invitation.organizationId, { countPending: true });
+        },
+        beforeAddMember: async ({ member }) => {
+          const { assertSeatAvailable } = await import("@/server/workspace-guard");
+          // creatorRole path (first member of a fresh workspace) always fits:
+          // a new workspace has 0 members and every plan allows at least 1.
+          await assertSeatAvailable(member.organizationId, { countPending: false });
+        },
+        // Role edits from the team screen: never touch the owner, never mint
+        // one — ownership moves only through the transfer flow (B7).
+        beforeUpdateMemberRole: async ({ member, newRole }) => {
+          if (member.role === "owner" || String(newRole) === "owner") {
+            throw new APIError("BAD_REQUEST", { message: "OWNER_ROLE_IS_TRANSFERRED_NOT_EDITED" });
+          }
+          if (String(newRole) !== "buyer" && String(newRole) !== "viewer") {
+            throw new APIError("BAD_REQUEST", { message: "INVITE_ROLE_NOT_ALLOWED" });
+          }
+        },
+      },
     }),
   ],
   databaseHooks: {
@@ -115,6 +167,19 @@ export const auth = betterAuth({
         // Every new user gets a personal workspace — solo users are isolated
         // by construction (doc/BACKLOG.md).
         after: async (newUser) => {
+          // Q1 (decided 2026-08-22): people who sign up THROUGH an invitation
+          // are joining an enterprise — they get no personal workspace. A
+          // pending invitation for this email is the signal.
+          const invited = await db.query.invitation.findFirst({
+            where: (fields, { and: andOp, eq: eqOp, gt }) =>
+              andOp(
+                eqOp(fields.email, newUser.email.toLowerCase()),
+                eqOp(fields.status, "pending"),
+                gt(fields.expiresAt, new Date()),
+              ),
+          });
+          if (invited) return;
+
           const orgId = crypto.randomUUID();
           const suffix = orgId.slice(0, 6);
           await db.insert(schema.organization).values({

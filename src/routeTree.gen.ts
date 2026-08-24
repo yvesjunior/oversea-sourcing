@@ -26,6 +26,7 @@ import { Route as InterneImportsRouteImport } from './routes/interne/imports'
 import { Route as InternePlansRouteImport } from './routes/interne/plans'
 import { Route as InterneUtilisateursRouteImport } from './routes/interne/utilisateurs'
 import { Route as InterneVerificationRouteImport } from './routes/interne/verification'
+import { Route as InvitationIdRouteImport } from './routes/invitation.$id'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiFilesIdRouteImport } from './routes/api/files/$id'
 import { Route as DemandesIdRapportRouteImport } from './routes/demandes/$id.rapport'
@@ -115,6 +116,11 @@ const InterneVerificationRoute = InterneVerificationRouteImport.update({
   path: '/interne/verification',
   getParentRoute: () => rootRouteImport,
 } as any)
+const InvitationIdRoute = InvitationIdRouteImport.update({
+  id: '/invitation/$id',
+  path: '/invitation/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
   path: '/api/auth/$',
@@ -148,6 +154,7 @@ export interface FileRoutesByFullPath {
   '/interne/plans': typeof InternePlansRoute
   '/interne/utilisateurs': typeof InterneUtilisateursRoute
   '/interne/verification': typeof InterneVerificationRoute
+  '/invitation/$id': typeof InvitationIdRoute
   '/demandes/': typeof DemandesIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/files/$id': typeof ApiFilesIdRoute
@@ -170,6 +177,7 @@ export interface FileRoutesByTo {
   '/interne/plans': typeof InternePlansRoute
   '/interne/utilisateurs': typeof InterneUtilisateursRoute
   '/interne/verification': typeof InterneVerificationRoute
+  '/invitation/$id': typeof InvitationIdRoute
   '/demandes': typeof DemandesIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/files/$id': typeof ApiFilesIdRoute
@@ -193,6 +201,7 @@ export interface FileRoutesById {
   '/interne/plans': typeof InternePlansRoute
   '/interne/utilisateurs': typeof InterneUtilisateursRoute
   '/interne/verification': typeof InterneVerificationRoute
+  '/invitation/$id': typeof InvitationIdRoute
   '/demandes/': typeof DemandesIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/files/$id': typeof ApiFilesIdRoute
@@ -217,6 +226,7 @@ export interface FileRouteTypes {
     | '/interne/plans'
     | '/interne/utilisateurs'
     | '/interne/verification'
+    | '/invitation/$id'
     | '/demandes/'
     | '/api/auth/$'
     | '/api/files/$id'
@@ -239,6 +249,7 @@ export interface FileRouteTypes {
     | '/interne/plans'
     | '/interne/utilisateurs'
     | '/interne/verification'
+    | '/invitation/$id'
     | '/demandes'
     | '/api/auth/$'
     | '/api/files/$id'
@@ -261,6 +272,7 @@ export interface FileRouteTypes {
     | '/interne/plans'
     | '/interne/utilisateurs'
     | '/interne/verification'
+    | '/invitation/$id'
     | '/demandes/'
     | '/api/auth/$'
     | '/api/files/$id'
@@ -284,6 +296,7 @@ export interface RootRouteChildren {
   InternePlansRoute: typeof InternePlansRoute
   InterneUtilisateursRoute: typeof InterneUtilisateursRoute
   InterneVerificationRoute: typeof InterneVerificationRoute
+  InvitationIdRoute: typeof InvitationIdRoute
   DemandesIndexRoute: typeof DemandesIndexRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiFilesIdRoute: typeof ApiFilesIdRoute
@@ -410,6 +423,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof InterneVerificationRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/invitation/$id': {
+      id: '/invitation/$id'
+      path: '/invitation/$id'
+      fullPath: '/invitation/$id'
+      preLoaderRoute: typeof InvitationIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/auth/$': {
       id: '/api/auth/$'
       path: '/api/auth/$'
@@ -463,6 +483,7 @@ const rootRouteChildren: RootRouteChildren = {
   InternePlansRoute: InternePlansRoute,
   InterneUtilisateursRoute: InterneUtilisateursRoute,
   InterneVerificationRoute: InterneVerificationRoute,
+  InvitationIdRoute: InvitationIdRoute,
   DemandesIndexRoute: DemandesIndexRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiFilesIdRoute: ApiFilesIdRoute,

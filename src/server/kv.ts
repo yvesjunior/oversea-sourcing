@@ -22,8 +22,11 @@ function warnOnce(error: unknown): void {
 }
 
 function createClient(url: string): Redis {
+  // Connect eagerly: with the offline queue disabled, a lazy connection would
+  // make the FIRST command always fail ("Stream isn't writeable") before the
+  // socket exists. Eager + no queue = commands fail only while Redis is
+  // genuinely down, which is exactly what fail-open wants.
   const client = new Redis(url, {
-    lazyConnect: true,
     // Fail fast instead of buffering commands forever while Redis is down —
     // the fail-open catch below needs errors, not hangs.
     maxRetriesPerRequest: 1,

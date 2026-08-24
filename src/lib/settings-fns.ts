@@ -29,8 +29,19 @@ export type SettingsData = {
     countryMode: "global" | "list";
     countryCodes: string[];
   };
-  /** Owner-only (empty for other roles): the workspace's members. */
-  members: Array<{ userId: string; name: string; email: string; role: string }>;
+  /** Owner-only (empty for other roles): the workspace's members, with the
+   *  managerial usage view (B6) — requests in 24h and lifetime, per member. */
+  members: Array<{
+    memberId: string;
+    userId: string;
+    name: string;
+    email: string;
+    role: string;
+    usedToday: number;
+    usedTotal: number;
+  }>;
+  /** Owner-only: pending invitations. */
+  invitations: Array<{ id: string; email: string; role: string; expiresAt: string }>;
 } | null;
 
 export const getSettingsFn = createServerFn({ method: "GET" }).handler(
@@ -64,20 +75,52 @@ export const getSettingsFn = createServerFn({ method: "GET" }).handler(
     ]);
     if (!user || !workspace) return null;
 
+    const { and, gte, sql } = await import("drizzle-orm");
+    const windowStart = new Date(Date.now() - 24 * 60 * 60 * 1000);
     const members =
       caller.role === "owner"
         ? (
             await db
               .select({
+                memberId: schema.member.id,
                 userId: schema.user.id,
                 name: schema.user.name,
                 email: schema.user.email,
                 role: schema.member.role,
+                usedToday: sql<number>`(
+                  select count(*)::int from ${schema.request}
+                  where ${schema.request.createdBy} = ${schema.user.id}
+                    and ${schema.request.organizationId} = ${caller.workspaceId}
+                    and ${schema.request.createdAt} >= ${windowStart}
+                )`,
+                usedTotal: sql<number>`(
+                  select count(*)::int from ${schema.request}
+                  where ${schema.request.createdBy} = ${schema.user.id}
+                    and ${schema.request.organizationId} = ${caller.workspaceId}
+                )`,
               })
               .from(schema.member)
               .innerJoin(schema.user, eq(schema.user.id, schema.member.userId))
               .where(eq(schema.member.organizationId, caller.workspaceId))
           ).sort((a, b) => a.name.localeCompare(b.name))
+        : [];
+
+    const invitations =
+      caller.role === "owner"
+        ? (
+            await db.query.invitation.findMany({
+              where: and(
+                eq(schema.invitation.organizationId, caller.workspaceId),
+                eq(schema.invitation.status, "pending"),
+                gte(schema.invitation.expiresAt, new Date()),
+              ),
+            })
+          ).map((row) => ({
+            id: row.id,
+            email: row.email,
+            role: row.role ?? "buyer",
+            expiresAt: row.expiresAt.toISOString(),
+          }))
         : [];
 
     return {
@@ -102,6 +145,7 @@ export const getSettingsFn = createServerFn({ method: "GET" }).handler(
         countryCodes: rules?.countryCodes ?? [],
       },
       members,
+      invitations,
     };
   },
 );

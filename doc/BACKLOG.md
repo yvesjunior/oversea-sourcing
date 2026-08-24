@@ -371,22 +371,29 @@ and `/documents` render showcase constants and are disabled in the nav.
       **Note (user, 2026-08-23): the organisation/workspace design may change
       later — current design accepted to keep moving; revisit planned.**
 
-- [ ] **B3 · Invitations.** Server fns create/accept/decline/revoke on the
-      existing `invitation` table (`src/database/schema.ts:411`), 7-day
-      expiry, role payload. **Interim without email provider:** creating an
-      invitation returns a copyable link (`/invitation/$id?token=…`); the
-      owner sends it themselves. Signup via invitation link still passes
-      `signup-guard` (decided Q5). Auto-attach on login for existing accounts
-      (match verified email).
-      *Accept:* full loop in dev: invite → link → signup → member row with
-      invited role; revoked/expired links refuse politely (FR/EN).
+- [x] **B3 · Invitations** (2026-08-23) — via better-auth's org plugin with
+      our rules injected as organizationHooks: 7-day expiry, re-invite
+      replaces, **seat cap enforced inside the plugin flow** (members +
+      pending at invite time, members at accept time — a direct endpoint call
+      cannot bypass it), invited roles restricted to buyer|viewer (one owner,
+      ever). SendGrid adapter `src/server/mail.ts` (fetch, no SDK; no key or
+      MAIL_SILENT=true → logged) sends the bilingual email; the link stays
+      copyable on the team panel. Public `/invitation/$id` page (the id is the
+      capability): anonymous → login/signup with return redirect; mismatch →
+      told which address; match → accept/decline, accept sets the active
+      workspace. *Verified live end to end*, including the seat-cap refusal
+      on a Free workspace and a schema fix (invitation.created_at was missing
+      for better-auth 1.6). Custom AC (`src/lib/org-access.ts`) teaches the
+      plugin our roles — only owner manages the org
 
-- [ ] **B4 · Create-member-directly (UC-4).** The owner creates
-      name+email; account created passwordless via better-auth admin API with
-      a set-password token (reuse reset-password mechanics, 48h). **No
-      personal workspace for these users (decided Q1).** Blocked on the email
-      provider for sending; interim: show the set-password link once to the
-      creator.
+- [x] **B4 · Create-member-directly — delivered through the invitation
+      flow** (2026-08-23, known deviation from UC-4's set-password-link
+      design): the owner enters email + role; a newcomer creates their
+      account through the invitation link (their signup IS the set-password
+      step — no temporary passwords) and **gets no personal workspace** (Q1:
+      the user-create hook skips it when a pending invitation matches the
+      email). The dedicated passwordless pre-created-account flow can come
+      with E1's reset infrastructure if ever needed
 
 - [x] **B5 · Paramètres surfaces** (2026-08-23). `/parametres` live for every
       role (sidebar un-gated), four tabs: **Profil** (name + language,
@@ -400,13 +407,16 @@ and `/documents` render showcase constants and are disabled in the nav.
       B3/B4). *Verified live:* rules row written (`list ["FR","DE"]`,
       updated_by trail) and reset; Abonnement mirrors the internal plan.
 
-- [ ] **B6 · Managerial view.** "Mon équipe" tab beside Utilisateurs:
-      per-member request counts + list links, usage vs pooled quota in the
-      current window. Reuses `EmployeeTabs` pattern.
+- [x] **B6 · Managerial view** (2026-08-23) — folded into the Utilisateurs
+      panel: per-member requests (rolling 24h + lifetime) beside each role,
+      seat usage at the top. A separate "Mon équipe" tab can split out when
+      the table outgrows one screen
 
-- [ ] **B7 · Ownership transfer.** Owner-only server fn: transfer to another
-      member, previous owner → buyer, confirm dialog. Exactly-one-owner
-      invariant enforced in the fn.
+- [x] **B7 · Ownership transfer** (2026-08-23) — `transferOwnershipFn`:
+      owner-only, target must be a member, atomic swap in one transaction
+      (previous owner → buyer); confirm dialog on the team panel. Role edits
+      can never mint or touch an owner (beforeUpdateMemberRole hook).
+      *Verified live: swap executed, exactly one owner at every instant*
 
 - [x] **B8 · Plan ladder built** (2026-08-23, one migration `0009`):
       `plan.audience` (individual | organization | internal), **lifetime trial

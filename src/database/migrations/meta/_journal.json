@@ -71,6 +71,13 @@
       "when": 1787533233763,
       "tag": "0009_strong_photon",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1787536325128,
+      "tag": "0010_bent_ronan",
+      "breakpoints": true
     }
   ]
 }

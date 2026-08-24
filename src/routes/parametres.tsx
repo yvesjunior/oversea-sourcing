@@ -15,6 +15,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { STORAGE_KEY } from "@/i18n/config";
+import { authClient } from "@/lib/auth-client";
+import { transferOwnershipFn } from "@/lib/team-fns";
 import {
   getSettingsFn,
   updateProfileFn,
@@ -274,32 +276,218 @@ function SourcingPanel({
   );
 }
 
-function MembersPanel({ data }: { data: NonNullable<SettingsData> }) {
+function MembersPanel({ data, onSaved }: { data: NonNullable<SettingsData>; onSaved: () => void }) {
   const { t } = useTranslation();
   const sub = data.subscription;
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteRole, setInviteRole] = useState<"buyer" | "viewer">("buyer");
+  const [pending, setPending] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const act = async (run: () => Promise<{ error?: { message?: string } | null } | unknown>) => {
+    setPending(true);
+    setMessage(null);
+    try {
+      const result = (await run()) as { error?: { message?: string } | null } | undefined;
+      if (result?.error) {
+        setMessage(
+          result.error.message === "SEAT_LIMIT_REACHED"
+            ? t("settings.seatLimit")
+            : t("settings.teamError"),
+        );
+        return;
+      }
+      onSaved();
+    } finally {
+      setPending(false);
+    }
+  };
+
+  const invite = () =>
+    act(async () => {
+      const result = await authClient.organization.inviteMember({
+        email: inviteEmail.trim(),
+        role: inviteRole,
+      });
+      if (!result.error) setInviteEmail("");
+      return result;
+    });
+
+  const copyLink = async (invitationId: string) => {
+    await navigator.clipboard.writeText(`${window.location.origin}/invitation/${invitationId}`);
+    setCopiedId(invitationId);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
+
   return (
-    <section className="card-surface max-w-xl space-y-4 p-6">
+    <section className="card-surface max-w-2xl space-y-6 p-6">
       <p className="text-xs text-muted-foreground">
         {t("settings.seatsUsed", {
           used: sub.seatsUsed,
           max: sub.maxMembers === 0 ? "∞" : sub.maxMembers,
         })}
       </p>
-      <ul className="divide-y divide-border/60">
-        {data.members.map((member) => (
-          <li key={member.userId} className="flex items-center justify-between gap-3 py-2.5">
-            <div className="min-w-0">
-              <p className="truncate text-sm font-medium">{member.name}</p>
-              <p className="truncate text-xs text-muted-foreground">{member.email}</p>
-            </div>
-            <span className="shrink-0 rounded-full bg-secondary px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
-              {t(`workspaceRoles.${member.role}`, { defaultValue: member.role })}
-            </span>
-          </li>
-        ))}
-      </ul>
-      {/* Invitations and direct member creation arrive with B3/B4 (SendGrid). */}
-      <p className="text-xs text-muted-foreground">{t("settings.invitationsSoon")}</p>
+
+      {/* Members — the managerial view (B6): role + per-member usage + actions. */}
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[560px] text-sm">
+          <thead>
+            <tr className="border-b border-border text-left text-xs text-muted-foreground">
+              <th className="pb-2 pr-4 font-medium">{t("settings.member")}</th>
+              <th className="pb-2 pr-4 font-medium">{t("settings.role")}</th>
+              <th className="pb-2 pr-4 font-medium">{t("settings.usage24h")}</th>
+              <th className="pb-2 pr-4 font-medium">{t("settings.usageTotalCol")}</th>
+              <th className="pb-2 font-medium" />
+            </tr>
+          </thead>
+          <tbody>
+            {data.members.map((member) => (
+              <tr key={member.userId} className="border-b border-border/60">
+                <td className="py-2.5 pr-4">
+                  <p className="truncate font-medium">{member.name}</p>
+                  <p className="truncate text-xs text-muted-foreground">{member.email}</p>
+                </td>
+                <td className="py-2.5 pr-4">
+                  {member.role === "owner" ? (
+                    <span className="rounded-full bg-gold-gradient px-2 py-0.5 text-[10px] font-semibold text-gold-foreground">
+                      {t("workspaceRoles.owner")}
+                    </span>
+                  ) : (
+                    <select
+                      aria-label={t("settings.role")}
+                      value={member.role}
+                      disabled={pending}
+                      onChange={(e) =>
+                        void act(() =>
+                          authClient.organization.updateMemberRole({
+                            memberId: member.memberId,
+                            role: e.target.value as "buyer" | "viewer",
+                          }),
+                        )
+                      }
+                      className="h-8 rounded-md border border-input bg-background px-2 text-xs"
+                    >
+                      <option value="buyer">{t("workspaceRoles.buyer")}</option>
+                      <option value="viewer">{t("workspaceRoles.viewer")}</option>
+                    </select>
+                  )}
+                </td>
+                <td className="py-2.5 pr-4 tabular-nums text-muted-foreground">
+                  {member.usedToday}
+                </td>
+                <td className="py-2.5 pr-4 tabular-nums text-muted-foreground">
+                  {member.usedTotal}
+                </td>
+                <td className="py-2.5 text-right">
+                  {member.role !== "owner" && (
+                    <span className="inline-flex gap-2">
+                      <button
+                        disabled={pending}
+                        onClick={() => {
+                          if (window.confirm(t("settings.transferConfirm", { name: member.name })))
+                            void act(() =>
+                              transferOwnershipFn({ data: { toUserId: member.userId } }),
+                            );
+                        }}
+                        className="text-xs text-muted-foreground underline-offset-2 hover:underline"
+                      >
+                        {t("settings.transfer")}
+                      </button>
+                      <button
+                        disabled={pending}
+                        onClick={() => {
+                          if (window.confirm(t("settings.removeConfirm", { name: member.name })))
+                            void act(() =>
+                              authClient.organization.removeMember({
+                                memberIdOrEmail: member.memberId,
+                              }),
+                            );
+                        }}
+                        className="text-xs text-destructive underline-offset-2 hover:underline"
+                      >
+                        {t("settings.remove")}
+                      </button>
+                    </span>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Invite (B3) / create (B4 via invitation-signup): email + role. */}
+      <div>
+        <p className="mb-2 text-sm font-semibold">{t("settings.inviteTitle")}</p>
+        <div className="flex flex-wrap items-center gap-2">
+          <Input
+            type="email"
+            value={inviteEmail}
+            onChange={(e) => setInviteEmail(e.target.value)}
+            placeholder={t("settings.invitePlaceholder")}
+            className="h-9 max-w-xs"
+          />
+          <select
+            aria-label={t("settings.role")}
+            value={inviteRole}
+            onChange={(e) => setInviteRole(e.target.value as "buyer" | "viewer")}
+            className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+          >
+            <option value="buyer">{t("workspaceRoles.buyer")}</option>
+            <option value="viewer">{t("workspaceRoles.viewer")}</option>
+          </select>
+          <Button
+            size="sm"
+            disabled={pending || !inviteEmail.includes("@")}
+            onClick={() => void invite()}
+          >
+            {t("settings.invite")}
+          </Button>
+        </div>
+        <p className="mt-2 text-xs text-muted-foreground">{t("settings.inviteHint")}</p>
+      </div>
+
+      {data.invitations.length > 0 && (
+        <div>
+          <p className="mb-2 text-sm font-semibold">{t("settings.pendingTitle")}</p>
+          <ul className="divide-y divide-border/60">
+            {data.invitations.map((invitation) => (
+              <li key={invitation.id} className="flex items-center justify-between gap-3 py-2">
+                <div className="min-w-0">
+                  <p className="truncate text-sm">{invitation.email}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {t(`workspaceRoles.${invitation.role}`, { defaultValue: invitation.role })}
+                  </p>
+                </div>
+                <span className="flex shrink-0 gap-2">
+                  <button
+                    onClick={() => void copyLink(invitation.id)}
+                    className="text-xs text-muted-foreground underline-offset-2 hover:underline"
+                  >
+                    {copiedId === invitation.id ? t("settings.copied") : t("settings.copyLink")}
+                  </button>
+                  <button
+                    disabled={pending}
+                    onClick={() =>
+                      void act(() =>
+                        authClient.organization.cancelInvitation({
+                          invitationId: invitation.id,
+                        }),
+                      )
+                    }
+                    className="text-xs text-destructive underline-offset-2 hover:underline"
+                  >
+                    {t("settings.revoke")}
+                  </button>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {message && <p className="text-sm text-destructive">{message}</p>}
     </section>
   );
 }
@@ -352,7 +540,7 @@ function Parametres() {
           <SourcingPanel data={data} onSaved={refresh} />
         </TabsContent>
         <TabsContent value="utilisateurs" className="mt-3">
-          {isOwner && <MembersPanel data={data} />}
+          {isOwner && <MembersPanel data={data} onSaved={refresh} />}
         </TabsContent>
       </Tabs>
     </div>
