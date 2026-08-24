@@ -632,6 +632,12 @@ feeds C3/C4 value (Recommandé requires Vérifié)
 
 ### E10 — Admin backoffice (`/admin`, staff-gated)
 
+- [x] **Platform user management `/interne/utilisateurs`** (2026-08-23, own
+      nav entry) — every account with platform-role badge, email-verified
+      mark, workspace, **plan assignment** (moved here from the Abonnements
+      screen: people are managed user-centric; Abonnements only edits what
+      plans grant), 24h + lifetime usage (the Free-trial counter), signup
+      date. Gated by the new `users` platform feature (owner + manager)
 - [ ] Layout + `requireStaff` guard
 - [ ] Facilitation queue (E6 surface)
 - [ ] Supplier management: search, edit, **verification workflow** (`unverified → pending → verified`), merge duplicates

@@ -13,6 +13,8 @@ export const PLATFORM_FEATURES = {
   analytics: ["owner", "manager", "accountant"],
   // Plans & subscriptions: limits are edited here, so it is ops, not finance.
   plans: ["owner", "manager"],
+  // Platform user management: every account, its workspace, plan and usage.
+  users: ["owner", "manager"],
 } as const satisfies Record<string, readonly PlatformRole[]>;
 
 export type PlatformFeature = keyof typeof PLATFORM_FEATURES;

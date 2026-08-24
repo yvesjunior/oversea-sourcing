@@ -16,7 +16,26 @@
     "imports": "Imports",
     "finance": "Finance",
     "soon": "Coming soon",
-    "plans": "Subscriptions"
+    "plans": "Subscriptions",
+    "users": "Users"
+  },
+  "platformRoles": {
+    "owner": "Platform owner",
+    "manager": "Manager",
+    "accountant": "Accountant",
+    "user": "Customer"
+  },
+  "usersAdmin": {
+    "title": "Users",
+    "subtitle": "{{count}} account(s) on the platform — roles, workspaces, plans and usage.",
+    "user": "User",
+    "platformRole": "Platform role",
+    "workspace": "Workspace",
+    "plan": "Plan",
+    "usedToday": "24 h",
+    "usedTotal": "Total",
+    "joined": "Joined",
+    "verified": "Email verified"
   },
   "user": {
     "role": "Administrator"

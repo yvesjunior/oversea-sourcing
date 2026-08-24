@@ -7,7 +7,6 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { requirePlatformFeature } from "@/lib/auth-guard";
 import {
-  assignPlanFn,
   getPlanAdminFn,
   updatePlanFn,
   type PlanAdminData,
@@ -204,7 +203,7 @@ function PlanCard({ plan, onSaved }: { plan: PlanView; onSaved: () => void }) {
 function Plans() {
   const { t } = useTranslation();
   const router = useRouter();
-  const { plans, workspaces } = Route.useLoaderData();
+  const { plans } = Route.useLoaderData();
   const refresh = () => void router.invalidate();
 
   return (
@@ -248,47 +247,8 @@ function Plans() {
         ))}
       </Tabs>
 
-      <section className="card-surface p-6">
-        <h2 className="text-base font-semibold">{t("plans.workspacesTitle")}</h2>
-        <div className="mt-4 overflow-x-auto">
-          <table className="w-full min-w-[520px] text-sm">
-            <thead>
-              <tr className="border-b border-border text-left text-xs text-muted-foreground">
-                <th className="pb-2 pr-4 font-medium">{t("plans.workspace")}</th>
-                <th className="pb-2 pr-4 font-medium">{t("plans.usedToday")}</th>
-                <th className="pb-2 font-medium">{t("plans.plan")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {workspaces.map((w) => (
-                <tr key={w.organizationId} className="border-b border-border/60">
-                  <td className="py-2 pr-4">{w.organizationName}</td>
-                  <td className="py-2 pr-4 tabular-nums text-muted-foreground">{w.usedToday}</td>
-                  <td className="py-2">
-                    <select
-                      aria-label={t("plans.plan")}
-                      value={w.planCode}
-                      onChange={(e) => {
-                        void assignPlanFn({
-                          data: { organizationId: w.organizationId, planCode: e.target.value },
-                        }).then(refresh);
-                      }}
-                      className="h-8 rounded-md border border-input bg-background px-2 text-sm"
-                    >
-                      {w.planCode === "—" && <option value="—">—</option>}
-                      {plans.map((p) => (
-                        <option key={p.code} value={p.code}>
-                          {p.name}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
+      {/* Plan ASSIGNMENT moved to /interne/utilisateurs (2026-08-23): people
+          are managed on the user screen; this screen edits what plans grant. */}
     </div>
   );
 }

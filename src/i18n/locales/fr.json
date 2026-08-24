@@ -16,7 +16,26 @@
     "imports": "Imports",
     "finance": "Finance",
     "soon": "Bientôt disponible",
-    "plans": "Abonnements"
+    "plans": "Abonnements",
+    "users": "Utilisateurs"
+  },
+  "platformRoles": {
+    "owner": "Propriétaire plateforme",
+    "manager": "Manager",
+    "accountant": "Comptable",
+    "user": "Client"
+  },
+  "usersAdmin": {
+    "title": "Utilisateurs",
+    "subtitle": "{{count}} compte(s) sur la plateforme — rôles, espaces, forfaits et usage.",
+    "user": "Utilisateur",
+    "platformRole": "Rôle plateforme",
+    "workspace": "Espace",
+    "plan": "Forfait",
+    "usedToday": "24 h",
+    "usedTotal": "Total",
+    "joined": "Inscription",
+    "verified": "E-mail vérifié"
   },
   "user": {
     "role": "Administrateur"

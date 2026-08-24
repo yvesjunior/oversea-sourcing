@@ -11,6 +11,7 @@ import {
   Settings,
   ShieldCheck,
   Repeat,
+  UserCog,
   Users,
   Handshake,
   Wallet,
@@ -74,6 +75,8 @@ const itemsInterne: {
   { key: "finance", url: "/interne/finance", icone: Wallet, disabledForRoles: ["manager"] },
   // Real screen, not a placeholder — so it stays live for managers.
   { key: "plans", url: "/interne/plans", icone: CreditCard },
+  // Platform user management: accounts, roles, plan assignment (2026-08-23).
+  { key: "users", url: "/interne/utilisateurs", icone: UserCog },
 ];
 
 function initialsOf(name: string): string {
