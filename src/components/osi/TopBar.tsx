@@ -6,6 +6,7 @@ import { STORAGE_KEY, resolveLanguage } from "@/i18n/config";
 import type { SessionData } from "@/lib/session-fns";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { AppSidebar } from "./AppSidebar";
+import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
 
 export function TopBar({ session }: { session: SessionData }) {
   const { t, i18n } = useTranslation();
@@ -35,6 +36,7 @@ export function TopBar({ session }: { session: SessionData }) {
       </Sheet>
 
       <div className="ml-auto flex items-center gap-5">
+        {session && <WorkspaceSwitcher />}
         <button
           aria-label={t("topbar.downloads")}
           className="transition-colors hover:text-foreground"

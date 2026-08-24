@@ -358,12 +358,18 @@ and `/documents` render showcase constants and are disabled in the nav.
       rows leaked, restore → works again. Owner-only checks land with their
       surfaces (B5/B7 — no owner-gated mutation exists yet).
 
-- [ ] **B2 · Workspace switcher.** better-auth organization plugin's active-
-      organization session state; switcher UI in the top bar (only when the
-      user has > 1 membership). Every workspace-scoped query already keys on
-      the active workspace id — verify each `src/lib/*-fns.ts` reads it from
-      session, never from client input.
-      *Accept:* switching re-scopes dashboard/requests/stats with no leakage.
+- [x] **B2 · Workspace switcher** (2026-08-23). Top-bar switcher
+      (`WorkspaceSwitcher.tsx` + `getMyWorkspacesFn`) — renders only with > 1
+      membership, shows name + localized role, switches via better-auth
+      `organization.setActive` (session state) and lands on the dashboard.
+      Query audit passed: every server fn reads the workspace from the
+      session; the only fn accepting an organizationId from input is the
+      staff-gated `assignPlanFn` (deliberately cross-tenant). *Verified live:*
+      buyer + a second viewer membership → switcher appears, switch re-scopes
+      stats/dossiers to zero with no leakage, and B1 refuses creation in the
+      viewer workspace with the read-only alert; switch back re-scopes home.
+      **Note (user, 2026-08-23): the organisation/workspace design may change
+      later — current design accepted to keep moving; revisit planned.**
 
 - [ ] **B3 · Invitations.** Server fns create/accept/decline/revoke on the
       existing `invitation` table (`src/database/schema.ts:411`), 7-day

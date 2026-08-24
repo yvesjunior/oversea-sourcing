@@ -52,7 +52,14 @@
     "notifications": "Notifications",
     "openMenu": "Open menu",
     "navTitle": "OSI navigation",
-    "switchLanguage": "Switch language"
+    "switchLanguage": "Switch language",
+    "switchWorkspace": "Switch workspace"
+  },
+  "workspaceRoles": {
+    "owner": "Owner",
+    "admin": "Member",
+    "buyer": "Buyer",
+    "viewer": "Read-only"
   },
   "home": {
     "greeting": "Hello {{name}},",
