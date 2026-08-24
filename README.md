@@ -1196,6 +1196,34 @@ renders correctly without a translation entry.
 ## 9 · Open decisions
 
 - **External supplier data sources & licensing** for the import pipeline
+
+### C2 investigation — Canadian registries (findings 2026-08-24)
+
+Investigated per the C2 gate: can a `registry-ca` connector pull Canadian
+company data via API or browsing? Four routes exist, with one structural
+caveat that reframes the task:
+
+| Route | Access | Licence / terms | Verdict |
+|---|---|---|---|
+| **Corporations Canada Federal Corporation API** ([GC API Store](https://api.ised-isde.canada.ca/en/docs?api=corporations)) | Real-time JSON: status, registered office, directors, filings. Free account + plan subscription; Public plan = **60 hits/min**. **Lookup-only — requires a corporation number or 9-digit BN, no name/keyword search.** (A legacy unauthenticated variant exists at `ic.gc.ca/app/scr/cc/CorporationsCanada/api/corporations/{id\|bn9}.json`.) | Government API, free | ✅ usable — but it **enriches**, it cannot **discover**. Natural fit for E10 verification (confirm a supplier legally exists and is active), not for search |
+| **Federal corporations bulk open data** ([open.canada.ca](https://open.canada.ca/data/en/dataset/0032ce54-c5dd-4b66-99a0-320a7b5e99f2)) | 8 CSVs (active/inactive × business/other), updated ~daily. Names, status, addresses — **no activity/NAICS field**. Excludes banks/insurers and provincial corps | **Open Government Licence – Canada** (commercial use OK, attribution) | ✅ usable as an `import`-type store-only source; discovery limited to name-keyword matching |
+| **Canada's Business Registries (CBR/MRAS)** cross-jurisdiction search ([UI](https://ised-isde.canada.ca/cbr-rec/en/search)) | Undocumented JSON backend confirmed live: `GET /cbr/srch/api/v1/search?fq=keyword:{…}&lang=en&queryaction=fieldquery` — no auth, structured docs (Company_Name, Jurisdiction, Status_State, BN, city, alternate names). Observed sources: federal + ON, QC, AB, MB (~8 of 14 jurisdictions per third parties) | ⚠️ **unofficial**; third-party summaries say the ToU prohibit automated copying — the terms page itself is SPA-rendered and could not be captured | 🔴 **gated like alibaba** — technically ideal, legally unconfirmed. Confirm the ToU (or ask ISED) before any connector code |
+| **Registraire des entreprises Québec** open data ([Données Québec](https://www.donneesquebec.ca/recherche/fr/dataset/registre-des-entreprises)) | Bulk ZIP/CSV, ~bimonthly, and the only source carrying **activity data** (secteurs d'activité) + other names + establishments | **CC-BY-NC-SA 4.0 — non-commercial** | 🔴 **unusable for OSI** (commercial) without a separate agreement with the Registraire |
+
+(BC also runs an official, documented provincial API program at
+[developer.api.bcregistry.gov.bc.ca](https://developer.api.bcregistry.gov.bc.ca/en-CA/products/get-started/apis-summary/) —
+account + key; not dug into.)
+
+**The structural caveat: registries index legal existence, not products.**
+None of the usable sources can answer "find manufacturers of hydraulic
+pumps" — the federal data has no activity field, so keyword search only
+matches company *names*. The one source with activity codes (Québec) is
+NC-licensed. Consequence: **`registry-ca`'s real value is verification and
+enrichment (E10), not supplier discovery.** Recommended shape when built:
+the federal lookup API wired into the E10 verification workflow
+(supplier → BN/corp-number match → existence + active status), plus
+optionally the OGL bulk CSV as a store-only import source. A
+discovery-grade registry connector is not achievable on today's terms.
 - **The concrete "32 compatibility criteria"** — needs a product workshop; the
   weighted v1 scorer stands in
 - ~~Email provider~~ — **decided 2026-08-23: SendGrid** (adapter-wrapped;

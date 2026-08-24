@@ -549,11 +549,16 @@ and `/documents` render showcase constants and are disabled in the nav.
       membership + audit row, screen live-updated; per-source ban → DB row
       with reason + banned_by → unban; global ban/unban; enable toggle.
 
-- [ ] **C2 · First registry connector** (`registry-ca`). Investigation task
-      first: which Canadian registry API (Corporations Canada / provincial
-      registries), auth, rate limits, licensing — write findings to README §9
-      before coding. Then: connector module + `data_source` row, store-only
-      (no request-time fallback).
+- [ ] **C2 · First registry connector** (`registry-ca`). ✅ **Investigation
+      done 2026-08-24 — findings in README §9.** Verdict: registries index
+      legal existence, not products — no usable activity-based discovery
+      (federal data has no activity field; Québec's does but is CC-BY-NC-SA,
+      non-commercial; the CBR cross-registry JSON endpoint is unofficial with
+      probable anti-automation ToU → gated like alibaba). **Reframed:** the
+      federal Corporation API (free, 60 hits/min, lookup by BN/corp number)
+      fits E10 verification/enrichment, and the OGL bulk CSV can be a
+      store-only import source. Build waits on that decision — a
+      discovery-grade `registry-ca` is not achievable on today's terms.
 
 - [ ] **C3 · `supplier_partner` + `/interne/partenaires`.** Migration per
       README schema (status, source `paid|granted`, granted_by, starts/ends,
