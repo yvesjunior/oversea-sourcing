@@ -1261,6 +1261,38 @@ fully autonomous (no upload flow needed). Colorado/New York CSVs as
 optional additions; EDGAR later as verification/enrichment. True
 all-state coverage only exists commercially.
 
+**How to proceed when we add it (spec — nothing coded yet):**
+
+1. **One-time setup**: create a free SAM.gov account, request the personal
+   API key from the profile page → `SAM_API_KEY` in `.env` (prod VM too).
+2. **Access path**: the [Entity/Exclusions Extracts API](https://open.gsa.gov/api/sam-entity-extracts-api/)
+   at `api.sam.gov/data-services/v1/extracts` serves the **monthly public
+   entity extract** (ZIP of a pipe-delimited `.dat`, layout in the
+   [public extract layout PDF](https://open.gsa.gov/api/sam-entity-extracts-api/v1/public_extract_layout.pdf));
+   daily delta files exist for later freshness. Verify the key-based GET
+   works from a worker-like environment FIRST — if it ever misbehaves, the
+   registry-qc **file-fed seam is the drop-in fallback** (`requiresFile` +
+   `downloadUrl` to SAM.gov Data Services).
+3. **Connector** (`registry-us`, static, `country_registry`, US, seeded
+   disabled — migration pattern of 0014/0015): download via the extracts
+   API → unzip (fflate, shared) → parse the pipe-delimited layout (shared
+   CsvParser generalizes or a sibling; repeating NAICS fields use the
+   documented counter convention) → candidates: legal business name (+ DBA
+   as descriptor), city/state in payload, **description built from the
+   NAICS code titles** (a NAICS code→title table ships with the connector),
+   confidence 65, numbered/shell-name filter as usual. Registration status:
+   active only; exclusions list (debarred parties) is a natural per-record
+   ban feed later.
+4. **Scale is already handled**: ~1M records ≈ registry-ca×2.5 — chunked
+   upserts + the C2b big-store prefilter cover it; expect a few minutes per
+   pull.
+5. **Rollout**: warm the store while disabled (C1 rule), then the usual
+   product call before enabling for customers — though NAICS descriptions
+   mean its records clear the matching bar honestly, unlike bare names.
+6. **Out of scope for v1**: state registries (add Colorado/NY later as
+   separate autonomous sources if wanted), EDGAR (E10 enrichment), paid
+   aggregators (product/budget decision).
+
 ### C2 investigation — Canadian registries (findings 2026-08-24)
 
 Investigated per the C2 gate: can a `registry-ca` connector pull Canadian

@@ -811,6 +811,15 @@ feeds C3/C4 value (Recommandé requires Vérifié)
       built 2026-08-24 (C2 — store loaded, enabled=false behind gate C2b) →
       `alibaba` (**ToS/licensing gate before coding**) → `registry-us` →
       per demand
+- [ ] **`registry-us` — SPEC'D, ready to build** (investigated 2026-08-25,
+      full plan in README §9 → "registry-us investigation"): v1 = SAM.gov
+      monthly public entity extract via the Extracts API (free personal key
+      → `SAM_API_KEY`; autonomous static pull; NAICS code titles become the
+      record description, so its records are matchable like registry-qc's).
+      Prerequisite before coding: create the SAM.gov account/key and verify
+      the key-based extract download works server-side; the registry-qc
+      file-fed seam is the drop-in fallback if it doesn't. Seed disabled,
+      warm, then decide enabling.
 - [x] **`registry-qc` — BUILT 2026-08-25** (owner decision 2026-08-24 to
       proceed) as the first **FILE-FED static source**: the registry endpoint
       sits behind an anti-bot wall, so autonomous fetching is impossible —
