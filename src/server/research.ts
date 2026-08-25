@@ -217,14 +217,18 @@ export async function evaluateStoreCoverage(
   requestId: string,
   organizationId: string,
 ): Promise<StoreCoverage> {
-  const scope = await resolveScope(organizationId);
-  const [pool, criteria] = await Promise.all([
-    eligibleCandidates(scope),
+  const [scope, criteria] = await Promise.all([
+    resolveScope(organizationId),
     db.query.requestCriterion.findMany({
       where: eq(schema.requestCriterion.requestId, requestId),
       orderBy: [asc(schema.requestCriterion.position)],
     }),
   ]);
+  // Criteria feed the big-store SQL prefilter (C2b).
+  const pool = await eligibleCandidates(
+    scope,
+    criteria.map((c) => c.value),
+  );
 
   const qualifying = countQualifyingCandidates(pool, criteria);
 

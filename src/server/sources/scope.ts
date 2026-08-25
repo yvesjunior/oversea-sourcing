@@ -15,10 +15,12 @@
 // store model or survived a store wipe — the supplier pool is the platform's
 // asset and never depends on any store's continued existence.
 
-import { and, eq, inArray, isNotNull, or } from "drizzle-orm";
+import { and, count, eq, ilike, inArray, isNotNull, or } from "drizzle-orm";
 import { db } from "@/database";
 import * as schema from "@/database/schema";
 import type { DataSourceType, RiskLevel, VerificationStatus } from "@/database/schema";
+import { criteriaSearchTokens } from "@/lib/match-tokens";
+import { BIG_STORE_FILTER_LIMIT, BIG_STORE_THRESHOLD } from "@/server/sourcing-config";
 
 export type EffectiveScope = {
   /** Enabled ∩ activated — empty means "this workspace turned everything off". */
@@ -90,30 +92,75 @@ function latest(a: Date | null, b: Date | null): Date | null {
  * Loads the pool in memory — fine at the current scale (matching already does
  * the same); the day the pool outgrows this, both move to one SQL query.
  */
-export async function eligibleCandidates(scope: EffectiveScope): Promise<MatchCandidate[]> {
+export async function eligibleCandidates(
+  scope: EffectiveScope,
+  /** The request's criteria values — drives the big-store SQL prefilter. */
+  criteriaValues: string[] = [],
+): Promise<MatchCandidate[]> {
   // Records are loaded scope-filtered in SQL — a static source can hold
-  // hundreds of thousands of rows (registry-ca: ~640k), and a workspace that
+  // hundreds of thousands of rows (registry-ca: ~393k), and a workspace that
   // never activated it must not pay for them. Promoted rows load regardless
   // of scope/status: they carry the supplier fold-in and the "known only via
   // out-of-scope or banned sources → hidden" rule. The one semantic drift:
   // an UNPROMOTED out-of-scope record that key-matches a supplier no longer
   // hides it — acceptable, promotion is what ties records to suppliers.
+  //
+  // C2b (2026-08-24): sources whose store exceeds BIG_STORE_THRESHOLD are
+  // additionally prefiltered BY NAME TOKEN in SQL — a name-only record the
+  // scorer could never match is never loaded. Same token vocabulary as the
+  // scorer (src/lib/match-tokens.ts). With no criteria tokens, a big store
+  // contributes only its promoted records: ranking 393k bare names on
+  // confidence alone is noise, not matching.
   const scopeIds = [...new Set(scope.sources.map((s) => s.id))];
-  const recordFilter =
+
+  const sizes =
     scopeIds.length > 0
+      ? await db
+          .select({ dataSourceId: schema.sourceRecord.dataSourceId, n: count() })
+          .from(schema.sourceRecord)
+          .where(inArray(schema.sourceRecord.dataSourceId, scopeIds))
+          .groupBy(schema.sourceRecord.dataSourceId)
+      : [];
+  const bigIds = sizes.filter((s) => s.n > BIG_STORE_THRESHOLD).map((s) => s.dataSourceId);
+  const smallIds = scopeIds.filter((id) => !bigIds.includes(id));
+  const searchTokens = criteriaSearchTokens(criteriaValues);
+
+  const baseFilter =
+    smallIds.length > 0
       ? or(
           and(
             eq(schema.sourceRecord.status, "active"),
-            inArray(schema.sourceRecord.dataSourceId, scopeIds),
+            inArray(schema.sourceRecord.dataSourceId, smallIds),
           ),
           isNotNull(schema.sourceRecord.supplierId),
         )
       : isNotNull(schema.sourceRecord.supplierId);
-  const [suppliers, records, sources] = await Promise.all([
+
+  const [suppliers, records, bigRecords, sources] = await Promise.all([
     db.query.supplier.findMany(),
-    db.query.sourceRecord.findMany({ where: recordFilter }),
+    db.query.sourceRecord.findMany({ where: baseFilter }),
+    bigIds.length > 0 && searchTokens.length > 0
+      ? db.query.sourceRecord.findMany({
+          where: and(
+            eq(schema.sourceRecord.status, "active"),
+            inArray(schema.sourceRecord.dataSourceId, bigIds),
+            or(...searchTokens.map((token) => ilike(schema.sourceRecord.name, `%${token}%`))),
+          ),
+          limit: BIG_STORE_FILTER_LIMIT,
+        })
+      : Promise.resolve([] as RecordRow[]),
     db.query.dataSource.findMany(),
   ]);
+  if (bigRecords.length === BIG_STORE_FILTER_LIMIT) {
+    console.warn(
+      `scope: big-store prefilter hit its ${BIG_STORE_FILTER_LIMIT}-row cap — ` +
+        `tokens [${searchTokens.join(", ")}] are too generic for [${bigIds.join(", ")}]`,
+    );
+  }
+  // Merge, deduped by record id (a promoted big-store record appears in both).
+  const byId = new Map(records.map((r) => [r.id, r]));
+  for (const record of bigRecords) byId.set(record.id, record);
+  const allRecords = [...byId.values()];
 
   const typeBySource = new Map(sources.map((s) => [s.id, s.type]));
   const scopeSourceIds = new Set(scope.sources.map((s) => s.id));
@@ -127,7 +174,7 @@ export async function eligibleCandidates(scope: EffectiveScope): Promise<MatchCa
   const supplierById = new Map(suppliers.map((s) => [s.id, s]));
   const recordsBySupplier = new Map<string, RecordRow[]>();
   const unclaimedByKey = new Map<string, RecordRow[]>();
-  for (const record of records) {
+  for (const record of allRecords) {
     const owner =
       (record.supplierId && supplierById.get(record.supplierId)) ??
       supplierByKey.get(record.dedupKey);

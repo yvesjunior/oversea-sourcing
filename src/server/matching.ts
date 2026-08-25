@@ -19,6 +19,9 @@
 import { eq, inArray } from "drizzle-orm";
 import { db } from "@/database";
 import * as schema from "@/database/schema";
+// Tokenization lives in the shared lib (C2b): the SQL prefilter in
+// sources/scope.ts must use the exact same vocabulary as this scorer.
+import { tokens } from "@/lib/match-tokens";
 import { recordEvent } from "@/server/requests";
 import { SUPPLIERS_RETURNED } from "@/server/sourcing-config";
 import { eligibleCandidates, resolveScope, type MatchCandidate } from "@/server/sources/scope";
@@ -38,72 +41,6 @@ const REQUIRED_MULTIPLIER = 2;
 /** Categories whose values are numeric specs. A supplier's marketing text will
  *  not state "16 bar", so absence proves nothing — see the header note. */
 const UNVERIFIABLE_CATEGORIES = new Set(["pressure", "flow", "quantity", "lead_time"]);
-
-/** Units and filler that carry no matching signal. */
-const NOISE = new Set([
-  "de",
-  "du",
-  "des",
-  "le",
-  "la",
-  "les",
-  "et",
-  "ou",
-  "en",
-  "un",
-  "une",
-  "pour",
-  "avec",
-  "sous",
-  "par",
-  "an",
-  "the",
-  "and",
-  "or",
-  "for",
-  "with",
-  "per",
-  "year",
-  "of",
-  "mm",
-  "cm",
-  "bar",
-  "kg",
-  "kn",
-  "mois",
-  "jours",
-  "jour",
-  "days",
-  "weeks",
-  "semaines",
-  "units",
-  "unites",
-  "unités",
-  "pieces",
-  "pièces",
-  "pcs",
-  "m3",
-  "h",
-]);
-
-function normalize(input: string): string {
-  return input.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
-}
-
-/** Morphological variants that mean the same thing (A8 field evidence,
- *  2026-08-22: "inox" failed to match "inoxydable" and forced a research pass
- *  over a warm store). Applied to BOTH sides, so direction never matters. */
-const TOKEN_ALIASES: Record<string, string> = {
-  inoxydable: "inox",
-  stainless: "inox",
-};
-
-function tokens(input: string): string[] {
-  return normalize(input)
-    .split(/[^a-z0-9]+/)
-    .filter((token) => token.length >= 2 && !NOISE.has(token))
-    .map((token) => TOKEN_ALIASES[token] ?? token);
-}
 
 export type CriterionScore = {
   label: string;
@@ -231,12 +168,16 @@ export async function createMatchesForRequest(
   organizationId: string,
   options: { recordEvent?: boolean; candidates?: MatchCandidate[] } = {},
 ): Promise<number> {
-  const [candidates, criteria] = await Promise.all([
-    options.candidates ?? resolveScope(organizationId).then((scope) => eligibleCandidates(scope)),
-    db.query.requestCriterion.findMany({
-      where: eq(schema.requestCriterion.requestId, requestId),
-    }),
-  ]);
+  const criteria = await db.query.requestCriterion.findMany({
+    where: eq(schema.requestCriterion.requestId, requestId),
+  });
+  const candidates =
+    options.candidates ??
+    (await eligibleCandidates(
+      await resolveScope(organizationId),
+      // Criteria feed the big-store SQL prefilter (C2b).
+      criteria.map((c) => c.value),
+    ));
   if (candidates.length === 0) return 0;
 
   const ranked = candidates

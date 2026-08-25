@@ -68,3 +68,18 @@ export const STORE_MIN_CANDIDATES = envInt(
   1,
   60,
 );
+
+// ── Big-store prefilter (C2b, 2026-08-24) ───────────────────────────────────
+// A static store can hold hundreds of thousands of name-only records
+// (registry-ca: ~393k). Loading and token-scanning them in memory per request
+// would sink the pipeline, so sources ABOVE this row count are prefiltered in
+// SQL: only records whose NAME matches a request-criteria token are loaded
+// (they are the only ones the matcher could score anyway). Sources at or
+// below the threshold keep the full in-memory behavior.
+
+/** Row count above which a source's store is SQL-prefiltered by name tokens. */
+export const BIG_STORE_THRESHOLD = envInt("BIG_STORE_THRESHOLD", 5_000, 100, 1_000_000);
+
+/** Hard cap on rows the prefilter may return per request — a degenerate token
+ *  ("inox" in a directory of steelworks) must not reload the whole store. */
+export const BIG_STORE_FILTER_LIMIT = envInt("BIG_STORE_FILTER_LIMIT", 20_000, 100, 100_000);

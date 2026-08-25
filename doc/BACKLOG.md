@@ -176,7 +176,12 @@ writing any code.
 - **Two source kinds** (2026-08-24, `src/lib/source-kind.ts`): dynamic
   (`global_web`) is fed ONLY through requests — never admin-triggered;
   static (`registry`/`import`) is admin-triggered as a FULL PULL, no scope —
-  dedup makes every trigger idempotent.
+  dedup makes every trigger idempotent. The request-time fallback collects
+  from DYNAMIC sources only — a static connector must never fire mid-request.
+- **Big stores are SQL-prefiltered** (C2b): candidate loading for sources
+  above `BIG_STORE_THRESHOLD` filters by request-criteria name tokens using
+  the scorer's OWN vocabulary (`src/lib/match-tokens.ts` — keep them shared,
+  or the prefilter drops records the scorer would have matched).
 - **Stores are disposable; suppliers are promoted** (2026-08-24, Phase D —
   BUILT): collections write `source_record` rows only; `supplier` rows are
   created ONLY by promotion in `createMatchesForRequest` (Top-N). Never
@@ -604,14 +609,23 @@ and `/documents` render showcase constants and are disabled in the nav.
       dedup; default-scope record query stays at **0.04 ms** (SQL scope
       filter in scope.ts). Registry data stays a name-only discovery source —
       its real value is E10 verification (federal lookup API, per §9).
-- [ ] **C2b · GATE — enabling `registry-ca`.** Flipping `enabled=true` puts
-      ~393k name-only records in every default workspace's matching scope:
-      `eligibleCandidates` + the scorer would load and token-scan them per
-      request. Before enabling: move the candidate load/prefilter into SQL
-      (name-token index or trigram) and re-measure; also a product call —
-      name-only records rank poorly by construction (score ≈ 18 < the 40
-      store-first bar), so decide what enabling actually buys. Warming the
-      store while disabled is the supported rollout (C1 decision).
+- [x] **C2b · Big-store SQL prefilter** (2026-08-24) — enabling `registry-ca`
+      is now performance-safe. Sources above `BIG_STORE_THRESHOLD` (5k rows,
+      env-tunable) are prefiltered IN SQL: only records whose NAME matches a
+      request-criteria token (≥3 chars, same vocabulary as the scorer —
+      shared `src/lib/match-tokens.ts`, raw accented variants included, capped
+      at `BIG_STORE_FILTER_LIMIT` 20k) are loaded; with no usable tokens a big
+      store contributes only its promoted records. Small stores keep the full
+      in-memory behavior. *Measured in dev with registry-ca (393k) enabled:*
+      token-less request → 36 ms, pool 42; token-rich request ("vannes …
+      inox 316L") → **345 ms, pool 2 450, 53 qualifying → store-hit**. Also
+      fixed same day: the request-time fallback collects from DYNAMIC sources
+      only (`ec374a1`) — a static connector can never fire mid-request.
+      **Remaining product caveat, not a code gate:** name-matched registry
+      records can now legitimately store-hit and reach a Top-N as bare names
+      (no website, no description, ~45 % compatibility). Enabled in dev to
+      exercise it; keep prod's switch OFF until the enrichment agent exists
+      or the bare-name quality is accepted.
 
 - [ ] **C3 · `supplier_partner` + `/interne/partenaires`.** Migration per
       README schema (status, source `paid|granted`, granted_by, starts/ends,
