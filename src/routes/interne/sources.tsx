@@ -9,6 +9,7 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CountryTag } from "@/components/osi/CountryTag";
 import { requirePlatformFeature } from "@/lib/auth-guard";
 import { isDynamicSource } from "@/lib/source-kind";
@@ -35,6 +36,10 @@ export const Route = createFileRoute("/interne/sources")({
 
 /** How often the screen re-reads while a collection is running. */
 const POLL_MS = 5_000;
+
+/** Active-tab styling shared with Paramètres/Abonnements. */
+const TAB_TRIGGER =
+  "py-1 data-[state=active]:bg-gold-gradient data-[state=active]:text-gold-foreground data-[state=active]:shadow-gold";
 
 /** The catalogue is SSR'd and the container's timezone (UTC) is not the
  *  browser's — a server-formatted TIME never survives hydration. Timestamps
@@ -453,7 +458,6 @@ function Sources() {
   const [selectedId, setSelectedId] = useState<string | null>(sources[0]?.id ?? null);
   const [detail, setDetail] = useState<SourceDetailView | null>(null);
 
-  const selected = sources.find((s) => s.id === selectedId) ?? null;
   const anyRunning = sources.some((s) => s.runningRuns > 0);
 
   const loadDetail = useCallback(async (dataSourceId: string) => {
@@ -491,72 +495,70 @@ function Sources() {
         <p className="mt-1 text-sm text-muted-foreground">{t("sourcesAdmin.subtitle")}</p>
       </header>
 
-      <section className="card-surface p-6">
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[820px] text-sm">
-            <thead>
-              <tr className="border-b border-border text-left text-xs text-muted-foreground">
-                <th className="pb-2 pr-4 font-medium">{t("sourcesAdmin.source")}</th>
-                <th className="pb-2 pr-4 font-medium">{t("sourcesAdmin.type")}</th>
-                <th className="pb-2 pr-4 font-medium">{t("sourcesAdmin.store")}</th>
-                <th className="pb-2 pr-4 font-medium">{t("sourcesAdmin.health")}</th>
-                <th className="pb-2 pr-4 font-medium">{t("sourcesAdmin.enabled")}</th>
-                <th className="pb-2 font-medium" />
-              </tr>
-            </thead>
-            <tbody>
-              {sources.map((source) => (
-                <tr
-                  key={source.id}
-                  className={cn(
-                    "border-b border-border/60",
-                    source.id === selectedId && "bg-secondary/40",
-                  )}
-                >
-                  <td className="py-2.5 pr-4">
-                    <p className="font-medium">{source.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      <code className="rounded bg-secondary px-1.5 py-0.5 text-[10px] font-semibold">
-                        {source.code}
-                      </code>
-                      {!source.hasConnector && (
-                        <span className="ml-2 text-[10px]">{t("sourcesAdmin.storeOnly")}</span>
-                      )}
-                    </p>
-                  </td>
-                  <td className="py-2.5 pr-4 text-xs text-muted-foreground">
-                    {t(`sourcesAdmin.types.${source.type}`)}
-                    {source.countryCode ? ` · ${source.countryCode}` : ""}
-                  </td>
-                  <td className="py-2.5 pr-4 text-xs tabular-nums text-muted-foreground">
+      {/* One tab per catalogue source (same pattern as Paramètres/Abonnements);
+          the old overview table's controls live in each tab's panel header. */}
+      <Tabs
+        value={selectedId ?? sources[0]?.id ?? ""}
+        onValueChange={(value) => setSelectedId(value)}
+      >
+        <TabsList>
+          {sources.map((source) => (
+            <TabsTrigger key={source.id} value={source.id} className={TAB_TRIGGER}>
+              {source.name}
+              {source.runningRuns > 0 && (
+                <span className="ml-1.5 inline-block size-1.5 animate-pulse rounded-full bg-current" />
+              )}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+
+        {sources.map((source) => (
+          <TabsContent key={source.id} value={source.id} className="mt-3">
+            <section className="card-surface space-y-5 p-6">
+              <header className="flex flex-wrap items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="flex flex-wrap items-center gap-2">
+                    <code className="rounded bg-secondary px-1.5 py-0.5 text-[10px] font-semibold">
+                      {source.code}
+                    </code>
+                    <span className="text-xs text-muted-foreground">
+                      {t(`sourcesAdmin.types.${source.type}`)}
+                      {source.countryCode ? ` · ${source.countryCode}` : ""}
+                      {!source.hasConnector && ` · ${t("sourcesAdmin.storeOnly")}`}
+                    </span>
+                    {source.runningRuns > 0 ? (
+                      <RunPill status="running" />
+                    ) : source.lastRun ? (
+                      <>
+                        <RunPill status={source.lastRun.status} />
+                        <span className="text-[10px] text-muted-foreground">
+                          {stamp(source.lastRun.completedAt ?? source.lastRun.createdAt)}
+                        </span>
+                      </>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">
+                        {t("sourcesAdmin.neverRan")}
+                      </span>
+                    )}
+                  </p>
+                  <p className="mt-1 text-xs tabular-nums text-muted-foreground">
                     {t("sourcesAdmin.storeCounts", {
                       active: source.storeActive,
                       fresh: source.storeFresh,
                     })}
+                    {" · "}
+                    {t("sourcesAdmin.storePromoted", { count: source.storePromoted })}
                     {source.storeBanned > 0 && (
                       <span className="text-destructive">
                         {" "}
                         {t("sourcesAdmin.storeBanned", { count: source.storeBanned })}
                       </span>
                     )}
-                  </td>
-                  <td className="py-2.5 pr-4">
-                    {source.runningRuns > 0 ? (
-                      <RunPill status="running" />
-                    ) : source.lastRun ? (
-                      <span className="flex items-center gap-2">
-                        <RunPill status={source.lastRun.status} />
-                        <span className="text-[10px] text-muted-foreground">
-                          {stamp(source.lastRun.completedAt ?? source.lastRun.createdAt)}
-                        </span>
-                      </span>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">
-                        {t("sourcesAdmin.neverRan")}
-                      </span>
-                    )}
-                  </td>
-                  <td className="py-2.5 pr-4">
+                  </p>
+                </div>
+                <span className="flex items-center gap-3">
+                  <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                    {t("sourcesAdmin.enabled")}
                     <Switch
                       checked={source.enabled}
                       aria-label={t("sourcesAdmin.enabled")}
@@ -564,70 +566,42 @@ function Sources() {
                         void toggleSourceFn({ data: { id: source.id, enabled } }).then(refresh);
                       }}
                     />
-                  </td>
-                  <td className="py-2.5 text-right">
-                    <Button
-                      size="sm"
-                      variant={source.id === selectedId ? "default" : "outline"}
-                      className="h-7 px-3 text-xs"
-                      onClick={() => setSelectedId(source.id)}
-                    >
-                      {t("sourcesAdmin.browse")}
-                    </Button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
+                  </label>
+                  {isPlatformOwner && (source.storeActive > 0 || source.storeBanned > 0) && (
+                    <WipeButton source={source} onDone={refresh} />
+                  )}
+                </span>
+              </header>
 
-      {selected && (
-        <section className="card-surface space-y-5 p-6">
-          <header className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-base font-bold">{selected.name}</h2>
-            <span className="flex items-center gap-3">
-              <span className="text-xs text-muted-foreground">
-                {t("sourcesAdmin.storeCounts", {
-                  active: selected.storeActive,
-                  fresh: selected.storeFresh,
-                })}
-                {" · "}
-                {t("sourcesAdmin.storePromoted", { count: selected.storePromoted })}
-              </span>
-              {isPlatformOwner && (selected.storeActive > 0 || selected.storeBanned > 0) && (
-                <WipeButton source={selected} onDone={refresh} />
+              {isDynamicSource(source.type) ? (
+                <p className="rounded-lg bg-secondary/60 p-3 text-xs text-muted-foreground">
+                  {t("sourcesAdmin.dynamicHint")}
+                </p>
+              ) : source.hasConnector ? (
+                <RefreshForm source={source} onDone={refresh} />
+              ) : (
+                <p className="rounded-lg bg-secondary/60 p-3 text-xs text-muted-foreground">
+                  {t("sourcesAdmin.storeOnlyHint")}
+                </p>
               )}
-            </span>
-          </header>
 
-          {isDynamicSource(selected.type) ? (
-            <p className="rounded-lg bg-secondary/60 p-3 text-xs text-muted-foreground">
-              {t("sourcesAdmin.dynamicHint")}
-            </p>
-          ) : selected.hasConnector ? (
-            <RefreshForm source={selected} onDone={refresh} />
-          ) : (
-            <p className="rounded-lg bg-secondary/60 p-3 text-xs text-muted-foreground">
-              {t("sourcesAdmin.storeOnlyHint")}
-            </p>
-          )}
+              <div>
+                <h3 className="mb-2 text-sm font-semibold">{t("sourcesAdmin.runsTitle")}</h3>
+                <RunsTable runs={source.id === selectedId ? (detail?.runs ?? []) : []} />
+              </div>
 
-          <div>
-            <h3 className="mb-2 text-sm font-semibold">{t("sourcesAdmin.runsTitle")}</h3>
-            <RunsTable runs={detail?.runs ?? []} />
-          </div>
-
-          <div>
-            <h3 className="mb-2 text-sm font-semibold">{t("sourcesAdmin.storeTitle")}</h3>
-            {detail ? (
-              <StoreTable detail={detail} onChanged={refresh} />
-            ) : (
-              <p className="text-xs text-muted-foreground">…</p>
-            )}
-          </div>
-        </section>
-      )}
+              <div>
+                <h3 className="mb-2 text-sm font-semibold">{t("sourcesAdmin.storeTitle")}</h3>
+                {source.id === selectedId && detail ? (
+                  <StoreTable detail={detail} onChanged={refresh} />
+                ) : (
+                  <p className="text-xs text-muted-foreground">…</p>
+                )}
+              </div>
+            </section>
+          </TabsContent>
+        ))}
+      </Tabs>
     </div>
   );
 }

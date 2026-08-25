@@ -573,8 +573,8 @@ and `/documents` render showcase constants and are disabled in the nav.
 **Goal:** staff runs the source catalogue; Recommandé exists and ranks fairly.
 
 - [x] **C1 · `/interne/sources`** (2026-08-24) — platform owner/manager
-      (`sources` feature in `src/lib/roles.ts`): catalogue list with
-      enable/disable switch, per-source store browser (memberships, freshness,
+      (`sources` feature in `src/lib/roles.ts`): one tab per source
+      (layout reworked 2026-08-24) with enable/disable switch, store browser (memberships, freshness,
       counts, capped at 200), **"Mettre à jour"** (category required + optional
       country → `source_run` trigger=admin created by the fn, collection runs
       on the **research queue** — web never calls Claude; one admin run at a
