@@ -32,7 +32,15 @@ downloads the PDF report.
 
 ## Resume here (last session: 2026-08-23/24)
 
-**Production is live and healthy at [osi-solutions.com](https://osi-solutions.com), commit `b187039` — DEPLOYED 2026-08-24, prod = main.**
+**Production is live and healthy at [osi-solutions.com](https://osi-solutions.com) — prod = main (second deploy of 2026-08-24).**
+**Deploy #2 (evening)** shipped the sourcing-admin wave on top of the
+morning's `b187039`: the `registry-ca` static connector + catalogue row
+(migration 0014, **seeded DISABLED on prod** — its store is empty until
+staff triggers the full pull), the `/interne/sources` tabs layout with
+localized source names, store-browser search + range pagination +
+rows-per-page, grouped panel sections, the dynamic-only request-fallback
+guard, and C2b (big-store SQL prefilter — registry safe to enable;
+product call recorded below keeps prod's switch off until enrichment).
 The full backlog since `d4f93a2` shipped in one go: the sourcing engine
 (Phase A), six-service topology (worker-research + redis first-class,
 one-shot migrate), all of Phase B (roles, switcher, invitations, Paramètres,
