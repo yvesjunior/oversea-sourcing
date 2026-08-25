@@ -42,6 +42,8 @@ export type SourceCatalogueView = {
   hasConnector: boolean;
   /** The full pull needs a staff-uploaded file (file-fed source). */
   requiresFile: boolean;
+  /** Where staff downloads that file (link shown on the tab). */
+  downloadUrl: string | null;
   storeActive: number;
   storeBanned: number;
   /** Active records seen within STORE_FRESH_DAYS. */
@@ -197,6 +199,7 @@ export const getSourceAdminFn = createServerFn({ method: "GET" }).handler(
         enabled: source.enabled,
         hasConnector: getConnector(source.code) !== undefined,
         requiresFile: getConnector(source.code)?.meta.requiresFile === true,
+        downloadUrl: getConnector(source.code)?.meta.downloadUrl ?? null,
         storeActive: counts?.active ?? 0,
         storeBanned: counts?.banned ?? 0,
         storeFresh: counts?.fresh ?? 0,

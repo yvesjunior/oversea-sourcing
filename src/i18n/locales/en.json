@@ -134,6 +134,7 @@
     "dynamicHint": "Dynamic source — fed exclusively by requests (store-first); never triggered manually.",
     "refreshFileHint": "Upload the registry ZIP (downloaded from the official site) — the sync reads then deletes it; deduplication makes every trigger idempotent.",
     "uploadLabel": "Registry file",
+    "downloadLink": "Download the registry ZIP",
     "uploading": "Uploading…",
     "uploadFailed": "The upload failed.",
     "refreshError": {

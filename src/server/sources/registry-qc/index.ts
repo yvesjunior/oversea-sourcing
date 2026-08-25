@@ -127,6 +127,8 @@ export const registryQcConnector: SupplierSourceConnector = {
     countryCode: "CA",
     name: "Registre des entreprises du Québec",
     requiresFile: true,
+    downloadUrl:
+      "https://www.registreentreprises.gouv.qc.ca/RQAnonymeGR/GR/GR03/GR03A2_22A_PIU_RecupDonnPub_PC/FichierDonneesOuvertes.aspx",
   },
   async collect(brief: SearchBrief): Promise<CollectResult> {
     if (!brief.fileKey) {

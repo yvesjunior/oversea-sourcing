@@ -66,6 +66,8 @@ export interface SupplierSourceConnector {
      *  fetched autonomously) — the screen shows an upload control and the
      *  trigger refuses to run without one. */
     requiresFile?: boolean;
+    /** Where staff downloads that file (shown as a link on the source's tab). */
+    downloadUrl?: string;
   };
   /** The only entry point. Throws are fine — the caller isolates failures
    *  per source and records them on the run; one broken source never breaks

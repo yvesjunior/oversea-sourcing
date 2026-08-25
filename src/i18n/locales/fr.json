@@ -134,6 +134,7 @@
     "dynamicHint": "Source dynamique — alimentée exclusivement par les demandes (store-first) ; jamais de déclenchement manuel.",
     "refreshFileHint": "Téléversez le fichier ZIP du registre (téléchargé depuis le site officiel) — la synchronisation le lit puis le supprime ; la déduplication rend chaque déclenchement idempotent.",
     "uploadLabel": "Fichier du registre",
+    "downloadLink": "Télécharger le ZIP du registre",
     "uploading": "Téléversement…",
     "uploadFailed": "Le téléversement a échoué.",
     "refreshError": {

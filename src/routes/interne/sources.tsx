@@ -209,6 +209,19 @@ function RefreshForm({ source, onDone }: { source: SourceCatalogueView; onDone: 
       <p className="text-xs font-semibold">{t("sourcesAdmin.refreshTitle")}</p>
       <p className="mt-0.5 text-[11px] text-muted-foreground">
         {t(source.requiresFile ? "sourcesAdmin.refreshFileHint" : "sourcesAdmin.refreshHint")}
+        {source.requiresFile && source.downloadUrl && (
+          <>
+            {" "}
+            <a
+              href={source.downloadUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="font-medium text-gold underline-offset-2 hover:underline"
+            >
+              {t("sourcesAdmin.downloadLink")} ↗
+            </a>
+          </>
+        )}
       </p>
       <div className="mt-2 flex flex-wrap items-center gap-2">
         {source.requiresFile && (
