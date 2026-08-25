@@ -103,6 +103,10 @@
     "joined": "Joined",
     "verified": "Email verified"
   },
+  "sourceNames": {
+    "global_web": "Global Web",
+    "registry-ca": "Canadian federal registry"
+  },
   "sourcesAdmin": {
     "title": "Data sources",
     "subtitle": "The platform catalogue — activation, collections, health and bans.",

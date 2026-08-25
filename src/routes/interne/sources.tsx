@@ -504,7 +504,9 @@ function Sources() {
         <TabsList>
           {sources.map((source) => (
             <TabsTrigger key={source.id} value={source.id} className={TAB_TRIGGER}>
-              {source.name}
+              {/* Names render through i18n by code; the DB name (French) is
+                  the fallback for sources without a translation yet. */}
+              {t(`sourceNames.${source.code}`, { defaultValue: source.name })}
               {source.runningRuns > 0 && (
                 <span className="ml-1.5 inline-block size-1.5 animate-pulse rounded-full bg-current" />
               )}

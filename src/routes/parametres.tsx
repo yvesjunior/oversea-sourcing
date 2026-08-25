@@ -244,7 +244,7 @@ function SourcingPanel({
                 disabled={!isOwner}
                 className="size-4 accent-[var(--gold)]"
               />
-              {source.name}
+              {t(`sourceNames.${source.code}`, { defaultValue: source.name })}
             </label>
           ))}
         </div>

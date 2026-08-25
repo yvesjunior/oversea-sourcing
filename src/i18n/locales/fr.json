@@ -103,6 +103,10 @@
     "joined": "Inscription",
     "verified": "E-mail vérifié"
   },
+  "sourceNames": {
+    "global_web": "Web mondial",
+    "registry-ca": "Registre fédéral canadien"
+  },
   "sourcesAdmin": {
     "title": "Sources de données",
     "subtitle": "Le catalogue de la plateforme — activation, collections, santé et bannissements.",
