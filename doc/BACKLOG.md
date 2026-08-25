@@ -811,6 +811,14 @@ feeds C3/C4 value (Recommandé requires Vérifié)
       built 2026-08-24 (C2 — store loaded, enabled=false behind gate C2b) →
       `alibaba` (**ToS/licensing gate before coding**) → `registry-us` →
       per demand
+- [ ] **`registry-qc` — BLOCKED on licence** (verified twice, 2026-08-24):
+      the Registraire's open dataset is CC-BY-NC-SA 4.0 (non-commercial) —
+      OSI cannot use it without a written agreement. It is the only registry
+      with ACTIVITY data, so it's worth pursuing: contact
+      Groupe.EOS@req.gouv.qc.ca for commercial terms; once rights exist the
+      connector is ~an hour (same static full-pull pattern as registry-ca).
+      Do NOT build from the open dataset, and do NOT scrape the REQ site.
+      Interim: federally-incorporated QC companies are already in registry-ca.
 - [x] **`supplier_source` memberships + bans** — schema + persistence built
       2026-08-22 (uq pair, payload, first/last_seen, upserts on every
       collection, bans sticky across re-collection via the dedup key; banned
