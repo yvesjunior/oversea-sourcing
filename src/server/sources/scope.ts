@@ -15,7 +15,7 @@
 // store model or survived a store wipe — the supplier pool is the platform's
 // asset and never depends on any store's continued existence.
 
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, or } from "drizzle-orm";
 import { db } from "@/database";
 import * as schema from "@/database/schema";
 import type { DataSourceType, RiskLevel, VerificationStatus } from "@/database/schema";
@@ -91,9 +91,27 @@ function latest(a: Date | null, b: Date | null): Date | null {
  * the same); the day the pool outgrows this, both move to one SQL query.
  */
 export async function eligibleCandidates(scope: EffectiveScope): Promise<MatchCandidate[]> {
+  // Records are loaded scope-filtered in SQL — a static source can hold
+  // hundreds of thousands of rows (registry-ca: ~640k), and a workspace that
+  // never activated it must not pay for them. Promoted rows load regardless
+  // of scope/status: they carry the supplier fold-in and the "known only via
+  // out-of-scope or banned sources → hidden" rule. The one semantic drift:
+  // an UNPROMOTED out-of-scope record that key-matches a supplier no longer
+  // hides it — acceptable, promotion is what ties records to suppliers.
+  const scopeIds = [...new Set(scope.sources.map((s) => s.id))];
+  const recordFilter =
+    scopeIds.length > 0
+      ? or(
+          and(
+            eq(schema.sourceRecord.status, "active"),
+            inArray(schema.sourceRecord.dataSourceId, scopeIds),
+          ),
+          isNotNull(schema.sourceRecord.supplierId),
+        )
+      : isNotNull(schema.sourceRecord.supplierId);
   const [suppliers, records, sources] = await Promise.all([
     db.query.supplier.findMany(),
-    db.query.sourceRecord.findMany(),
+    db.query.sourceRecord.findMany({ where: recordFilter }),
     db.query.dataSource.findMany(),
   ]);
 

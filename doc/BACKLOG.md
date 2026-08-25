@@ -49,6 +49,15 @@ d4f93a2` + rebuild on the VM.
 **Still unverified on prod:** a real outbound email (needs a real signup or
 password reset — watch SendGrid the first time one fires).
 
+**After the deploy, same day:** `registry-ca` built and loaded in dev (C2
+entry in Phase C — 393k records, enabled=false behind gate C2b; NOT yet on
+prod, ships with the next deploy — pulling the store on prod is one click
+on `/interne/sources` afterwards). **Parked mid-flight: notification
+preferences** (Paramètres tab, E9/E11) — the type registry
+`src/lib/notification-types.ts` is drafted (uncommitted); remaining:
+`notification_pref` table + fns + notify.ts gating + the tab. Transactional
+auth mail must stay ungated (boundary documented in that file).
+
 **2026-08-22 was a design day, not a code day.** The SaaS platform design was
 specified and validated end to end — it all lives in the README: the account
 model (Individual/Enterprise, three populations, rights matrix, UC-1…11,
@@ -582,16 +591,27 @@ and `/documents` render showcase constants and are disabled in the nav.
       membership + audit row, screen live-updated; per-source ban → DB row
       with reason + banned_by → unban; global ban/unban; enable toggle.
 
-- [ ] **C2 · First registry connector** (`registry-ca`). ✅ **Investigation
-      done 2026-08-24 — findings in README §9.** Verdict: registries index
-      legal existence, not products — no usable activity-based discovery
-      (federal data has no activity field; Québec's does but is CC-BY-NC-SA,
-      non-commercial; the CBR cross-registry JSON endpoint is unofficial with
-      probable anti-automation ToU → gated like alibaba). **Reframed:** the
-      federal Corporation API (free, 60 hits/min, lookup by BN/corp number)
-      fits E10 verification/enrichment, and the OGL bulk CSV can be a
-      store-only import source. Build waits on that decision — a
-      discovery-grade `registry-ca` is not achievable on today's terms.
+- [x] **C2 · First registry connector** (`registry-ca`) — ✅ **BUILT
+      2026-08-24** (investigation same day, findings in README §9). Static
+      connector over the federal bulk open data (OGL, commercial OK):
+      full-pull of the "Active business corporations" CSV (~100 MB, 643 863
+      rows, daily upstream), self-contained streaming RFC 4180 parser,
+      numbered shells filtered (~249k — digit-only names would false-match
+      numeric criteria like "ISO 9001"), confidence 60, no fabricated
+      descriptions, per-corp provenance URL. Seeded **enabled=false**
+      (migration 0014). *Verified live in dev:* pull → **393 339 records in
+      ~40 s** (chunked upserts); second pull → `added=0`, idempotent by
+      dedup; default-scope record query stays at **0.04 ms** (SQL scope
+      filter in scope.ts). Registry data stays a name-only discovery source —
+      its real value is E10 verification (federal lookup API, per §9).
+- [ ] **C2b · GATE — enabling `registry-ca`.** Flipping `enabled=true` puts
+      ~393k name-only records in every default workspace's matching scope:
+      `eligibleCandidates` + the scorer would load and token-scan them per
+      request. Before enabling: move the candidate load/prefilter into SQL
+      (name-token index or trigram) and re-measure; also a product call —
+      name-only records rank poorly by construction (score ≈ 18 < the 40
+      store-first bar), so decide what enabling actually buys. Warming the
+      store while disabled is the supported rollout (C1 decision).
 
 - [ ] **C3 · `supplier_partner` + `/interne/partenaires`.** Migration per
       README schema (status, source `paid|granted`, granted_by, starts/ends,
@@ -765,11 +785,10 @@ feeds C3/C4 value (Recommandé requires Vérifié)
       `source_run`. Dedup/provenance/confidence applied by the platform core
       after collection, never inside a connector. `global_web` refactored in
       as connector #1 — adding any later source is one module + one row
-- [ ] **Next connectors** (roadmap): first registry (`registry-ca` —
-      investigate the API/licensing first, findings to README §9) → `alibaba`
-      (**ToS/licensing gate before coding**) → `registry-us` → per demand.
-      Store-only connectors also need C1's "Mettre à jour" trigger to be
-      useful
+- [ ] **Next connectors** (roadmap): ~~first registry~~ `registry-ca` ✅
+      built 2026-08-24 (C2 — store loaded, enabled=false behind gate C2b) →
+      `alibaba` (**ToS/licensing gate before coding**) → `registry-us` →
+      per demand
 - [x] **`supplier_source` memberships + bans** — schema + persistence built
       2026-08-22 (uq pair, payload, first/last_seen, upserts on every
       collection, bans sticky across re-collection via the dedup key; banned

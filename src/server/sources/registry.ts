@@ -5,8 +5,9 @@
 
 import type { SupplierSourceConnector } from "@/server/sources/types";
 import { globalWebConnector } from "@/server/sources/global-web";
+import { registryCaConnector } from "@/server/sources/registry-ca";
 
-const CONNECTORS: readonly SupplierSourceConnector[] = [globalWebConnector];
+const CONNECTORS: readonly SupplierSourceConnector[] = [globalWebConnector, registryCaConnector];
 
 const byCode = new Map(CONNECTORS.map((connector) => [connector.meta.code, connector]));
 

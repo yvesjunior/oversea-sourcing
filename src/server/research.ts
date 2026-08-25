@@ -15,7 +15,7 @@
 // precondition. One broken source degrades that source's contribution; the
 // pipeline still ranks whatever the stores already hold.
 
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray, isNotNull, sql } from "drizzle-orm";
 import { db } from "@/database";
 import * as schema from "@/database/schema";
 import { supplierDedupKey } from "@/lib/supplier-key";
@@ -108,47 +108,52 @@ async function persistFromSource(
     if (row && !rows.has(row.dedupKey)) rows.set(row.dedupKey, row);
   }
 
+  // Chunked upserts: a static full pull can carry hundreds of thousands of
+  // rows (registry-ca: ~640k) — row-by-row would take hours. One multi-row
+  // upsert per chunk; `xmax = 0` distinguishes a fresh insert from a
+  // refreshed row. The setWhere keeps bans sticky: a banned record is never
+  // touched, so a fresh pull cannot resurrect it.
+  const PERSIST_CHUNK = 500;
+  const all = [...rows.values()];
   let added = 0;
   let memberships = 0;
-  for (const row of rows.values()) {
-    const inserted = await db
+  const now = new Date();
+  for (let i = 0; i < all.length; i += PERSIST_CHUNK) {
+    const chunk = all.slice(i, i + PERSIST_CHUNK);
+    const upserted = await db
       .insert(schema.sourceRecord)
-      .values(row)
-      .onConflictDoNothing({
+      .values(chunk)
+      .onConflictDoUpdate({
         target: [schema.sourceRecord.dataSourceId, schema.sourceRecord.dedupKey],
+        set: { lastSeenAt: now, payload: sql`excluded.payload` },
+        setWhere: eq(schema.sourceRecord.status, "active"),
       })
-      .returning({ id: schema.sourceRecord.id });
+      .returning({ created: sql<boolean>`(xmax = 0)` });
+    memberships += upserted.length;
+    added += upserted.filter((r) => r.created).length;
+  }
 
-    if (inserted[0]) {
-      added++;
-    } else {
-      await db
-        .update(schema.sourceRecord)
-        .set({ lastSeenAt: new Date(), payload: row.payload })
-        .where(
-          and(
-            eq(schema.sourceRecord.dataSourceId, dataSourceId),
-            eq(schema.sourceRecord.dedupKey, row.dedupKey),
-            // Never resurrect a ban: the refresh only touches active rows.
-            eq(schema.sourceRecord.status, "active"),
-          ),
-        );
-      // Promoted already? Seeing the company again proves it still exists.
-      const existing = await db.query.sourceRecord.findFirst({
-        where: and(
+  // Re-encountering a promoted company proves it still exists — refresh its
+  // supplier's freshness in bulk (only keys from THIS batch, so a small
+  // request-driven collection never over-touches unrelated suppliers).
+  const keys = all.map((row) => row.dedupKey);
+  const TOUCH_CHUNK = 5_000;
+  for (let i = 0; i < keys.length; i += TOUCH_CHUNK) {
+    const slice = keys.slice(i, i + TOUCH_CHUNK);
+    const promoted = db
+      .select({ id: schema.sourceRecord.supplierId })
+      .from(schema.sourceRecord)
+      .where(
+        and(
           eq(schema.sourceRecord.dataSourceId, dataSourceId),
-          eq(schema.sourceRecord.dedupKey, row.dedupKey),
+          inArray(schema.sourceRecord.dedupKey, slice),
+          isNotNull(schema.sourceRecord.supplierId),
         ),
-        columns: { supplierId: true },
-      });
-      if (existing?.supplierId) {
-        await db
-          .update(schema.supplier)
-          .set({ lastResearchedAt: new Date() })
-          .where(eq(schema.supplier.id, existing.supplierId));
-      }
-    }
-    memberships++;
+      );
+    await db
+      .update(schema.supplier)
+      .set({ lastResearchedAt: now })
+      .where(inArray(schema.supplier.id, promoted));
   }
   return { found: candidates.length, added, memberships };
 }

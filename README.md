@@ -328,8 +328,8 @@ Each connector is coded independently and plugged in when ready — one module
 
 | # | Connector | Note |
 |---|---|---|
-| 1 | `global_web` | Refactor of the existing AI research — proves the contract |
-| 2 | First registry (e.g. `registry-ca`) | Proves a structured-API connector + per-source cache |
+| 1 | `global_web` | ✅ Refactor of the existing AI research — proves the contract |
+| 2 | `registry-ca` | ✅ 2026-08-24 — static full pull of the federal bulk open data (OGL): 643k active corporations streamed, numbered shells filtered, ~393k records loaded, idempotent by dedup. **Seeded disabled** — enabling is gated (backlog C2b: matcher-scale prefilter + product call; name-only records rank ≈18, below the store-first bar) |
 | 3 | `alibaba` | ⚠️ **ToS/licensing gate before coding** — marketplace access must be cleared legally first |
 | 4 | `registry-us`, then per demand | — |
 
