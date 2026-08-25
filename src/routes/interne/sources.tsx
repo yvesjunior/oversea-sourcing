@@ -18,7 +18,8 @@ import {
   getSourceDetailFn,
   setRecordStatusFn,
   setSupplierBanFn,
-  STORE_PAGE_SIZE,
+  STORE_PAGE_SIZE_DEFAULT,
+  STORE_PAGE_SIZES,
   toggleSourceFn,
   triggerSourceRefreshFn,
   wipeSourceStoreFn,
@@ -198,9 +199,10 @@ function RunsTable({ runs }: { runs: SourceRunView[] }) {
     return <p className="text-xs text-muted-foreground">{t("sourcesAdmin.noRuns")}</p>;
   }
   return (
-    <div className="overflow-x-auto">
+    // ~3 rows visible; the rest slide in on scroll.
+    <div className="max-h-40 overflow-auto">
       <table className="w-full min-w-[640px] text-sm">
-        <thead>
+        <thead className="sticky top-0 bg-card">
           <tr className="border-b border-border text-left text-xs text-muted-foreground">
             <th className="pb-2 pr-4 font-medium">{t("sourcesAdmin.runWhen")}</th>
             <th className="pb-2 pr-4 font-medium">{t("sourcesAdmin.runTrigger")}</th>
@@ -455,34 +457,39 @@ function Sources() {
     (session?.user as { platformRole?: string } | undefined)?.platformRole === "owner";
   const [selectedId, setSelectedId] = useState<string | null>(sources[0]?.id ?? null);
   const [detail, setDetail] = useState<SourceDetailView | null>(null);
-  // Store browser: committed search + page, reset when the tab changes.
+  // Store browser: committed search + page + page size, reset on tab change.
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState<number>(STORE_PAGE_SIZE_DEFAULT);
 
   const anyRunning = sources.some((s) => s.runningRuns > 0);
 
-  const loadDetail = useCallback(async (dataSourceId: string, term: string, pageIndex: number) => {
-    setDetail(
-      await getSourceDetailFn({
-        data: {
-          dataSourceId,
-          ...(term ? { search: term } : {}),
-          ...(pageIndex > 0 ? { page: pageIndex } : {}),
-        },
-      }),
-    );
-  }, []);
+  const loadDetail = useCallback(
+    async (dataSourceId: string, term: string, pageIndex: number, size: number) => {
+      setDetail(
+        await getSourceDetailFn({
+          data: {
+            dataSourceId,
+            ...(term ? { search: term } : {}),
+            ...(pageIndex > 0 ? { page: pageIndex } : {}),
+            ...(size !== STORE_PAGE_SIZE_DEFAULT ? { pageSize: size } : {}),
+          },
+        }),
+      );
+    },
+    [],
+  );
 
   const refresh = useCallback(() => {
     void router.invalidate();
-    if (selectedId) void loadDetail(selectedId, search, page);
-  }, [router, selectedId, search, page, loadDetail]);
+    if (selectedId) void loadDetail(selectedId, search, page, pageSize);
+  }, [router, selectedId, search, page, pageSize, loadDetail]);
 
   useEffect(() => {
-    if (selectedId) void loadDetail(selectedId, search, page);
+    if (selectedId) void loadDetail(selectedId, search, page, pageSize);
     else setDetail(null);
-  }, [selectedId, search, page, loadDetail]);
+  }, [selectedId, search, page, pageSize, loadDetail]);
 
   const selectTab = (value: string) => {
     setSelectedId(value);
@@ -606,15 +613,17 @@ function Sources() {
                 </p>
               )}
 
-              <div>
+              {/* Group: run history — 3 visible, the rest on scroll. */}
+              <div className="rounded-xl border border-border/60 p-4">
                 <h3 className="mb-2 text-sm font-semibold">{t("sourcesAdmin.runsTitle")}</h3>
                 <RunsTable runs={source.id === selectedId ? (detail?.runs ?? []) : []} />
               </div>
 
-              <div>
-                <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+              {/* Group: the store browser — search, page size, range. */}
+              <div className="rounded-xl border border-border/60 p-4">
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                   <h3 className="text-sm font-semibold">{t("sourcesAdmin.storeTitle")}</h3>
-                  <span className="flex items-center gap-2">
+                  <span className="flex flex-wrap items-center gap-2">
                     <Input
                       value={source.id === selectedId ? searchInput : ""}
                       onChange={(e) => setSearchInput(e.target.value)}
@@ -632,6 +641,23 @@ function Sources() {
                     >
                       {t("sourcesAdmin.search")}
                     </Button>
+                    <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      {t("sourcesAdmin.rowsPerPage")}
+                      <select
+                        value={pageSize}
+                        onChange={(e) => {
+                          setPageSize(Number(e.target.value));
+                          setPage(0);
+                        }}
+                        className="h-8 rounded-md border border-input bg-background px-2 text-xs"
+                      >
+                        {STORE_PAGE_SIZES.map((size) => (
+                          <option key={size} value={size}>
+                            {size}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
                   </span>
                 </div>
                 {source.id === selectedId && detail ? (
@@ -643,8 +669,8 @@ function Sources() {
                         {detail.total === 0
                           ? t("sourcesAdmin.rangeEmpty")
                           : t("sourcesAdmin.range", {
-                              from: detail.page * STORE_PAGE_SIZE + 1,
-                              to: detail.page * STORE_PAGE_SIZE + detail.records.length,
+                              from: detail.page * pageSize + 1,
+                              to: detail.page * pageSize + detail.records.length,
                               total: detail.total.toLocaleString(i18n.language),
                             })}
                       </span>
@@ -662,7 +688,7 @@ function Sources() {
                           size="sm"
                           variant="outline"
                           className="h-7 px-2 text-xs"
-                          disabled={(detail.page + 1) * STORE_PAGE_SIZE >= detail.total}
+                          disabled={(detail.page + 1) * pageSize >= detail.total}
                           onClick={() => setPage((p) => p + 1)}
                         >
                           {t("sourcesAdmin.next")}

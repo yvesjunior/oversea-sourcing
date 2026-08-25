@@ -205,9 +205,10 @@ export const getSourceAdminFn = createServerFn({ method: "GET" }).handler(
   },
 );
 
-/** Records per page in the store browser (registry stores hold ~400k rows —
+/** Page sizes the store browser offers (registry stores hold ~400k rows —
  *  the browser paginates and searches instead of capping). */
-export const STORE_PAGE_SIZE = 50;
+export const STORE_PAGE_SIZES = [5, 10, 50, 100] as const;
+export const STORE_PAGE_SIZE_DEFAULT = 10;
 
 export const getSourceDetailFn = createServerFn({ method: "GET" })
   .inputValidator(
@@ -217,6 +218,12 @@ export const getSourceDetailFn = createServerFn({ method: "GET" })
       search: z.string().trim().max(100).optional(),
       /** Zero-based page over the filtered, last-seen-desc ordering. */
       page: z.number().int().min(0).max(100_000).optional(),
+      pageSize: z
+        .number()
+        .refine((n): n is (typeof STORE_PAGE_SIZES)[number] =>
+          (STORE_PAGE_SIZES as readonly number[]).includes(n),
+        )
+        .optional(),
     }),
   )
   .handler(async ({ data }): Promise<SourceDetailView> => {
@@ -230,6 +237,7 @@ export const getSourceDetailFn = createServerFn({ method: "GET" })
     ]);
 
     const page = data.page ?? 0;
+    const pageSize = data.pageSize ?? STORE_PAGE_SIZE_DEFAULT;
     const recordFilter = data.search
       ? and(
           eq(schema.sourceRecord.dataSourceId, data.dataSourceId),
@@ -259,8 +267,8 @@ export const getSourceDetailFn = createServerFn({ method: "GET" })
         .leftJoin(schema.user, eq(schema.user.id, schema.sourceRecord.bannedBy))
         .where(recordFilter)
         .orderBy(desc(schema.sourceRecord.lastSeenAt))
-        .offset(page * STORE_PAGE_SIZE)
-        .limit(STORE_PAGE_SIZE),
+        .offset(page * pageSize)
+        .limit(pageSize),
       db.select({ value: count() }).from(schema.sourceRecord).where(recordFilter),
       db
         .select({

@@ -168,6 +168,7 @@
     "range": "{{from}}–{{to}} of {{total}}",
     "rangeEmpty": "No results",
     "prev": "Previous",
+    "rowsPerPage": "Rows:",
     "next": "Next",
     "supplier": "Supplier",
     "supplierCountry": "Country",

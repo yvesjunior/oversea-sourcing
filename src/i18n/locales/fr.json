@@ -168,6 +168,7 @@
     "range": "{{from}}–{{to}} sur {{total}}",
     "rangeEmpty": "Aucun résultat",
     "prev": "Précédent",
+    "rowsPerPage": "Lignes :",
     "next": "Suivant",
     "supplier": "Fournisseur",
     "supplierCountry": "Pays",
