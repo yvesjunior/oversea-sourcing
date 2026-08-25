@@ -105,7 +105,8 @@
   },
   "sourceNames": {
     "global_web": "Global Web",
-    "registry-ca": "Canadian federal registry"
+    "registry-ca": "Canadian federal registry",
+    "registry-qc": "Quebec enterprise registry"
   },
   "sourcesAdmin": {
     "title": "Data sources",
@@ -131,7 +132,12 @@
     "refresh": "Update",
     "refreshRunning": "Syncing…",
     "dynamicHint": "Dynamic source — fed exclusively by requests (store-first); never triggered manually.",
+    "refreshFileHint": "Upload the registry ZIP (downloaded from the official site) — the sync reads then deletes it; deduplication makes every trigger idempotent.",
+    "uploadLabel": "Registry file",
+    "uploading": "Uploading…",
+    "uploadFailed": "The upload failed.",
     "refreshError": {
+      "file_required": "This source is file-fed — upload the registry ZIP.",
       "store_only": "This source has no collector.",
       "dynamic_source": "A dynamic source is fed by requests, not by manual trigger.",
       "already_running": "A sync is already running for this source.",

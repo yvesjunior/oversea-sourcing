@@ -106,6 +106,13 @@
       "when": 1787614855647,
       "tag": "0014_seed_registry_ca",
       "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1787631289330,
+      "tag": "0015_seed_registry_qc",
+      "breakpoints": true
     }
   ]
 }

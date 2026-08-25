@@ -9,6 +9,23 @@ import type { Readable } from "node:stream";
 
 const UPLOAD_DIR = process.env["UPLOAD_DIR"] ?? "/data/uploads";
 
+/** Persist a stream without buffering it — big files (registry ZIPs run to
+ *  hundreds of MB) must never sit whole in the web process's memory. */
+export async function putFileStream(
+  data: ReadableStream<Uint8Array>,
+  filename: string,
+): Promise<string> {
+  const { createWriteStream } = await import("node:fs");
+  const { Readable } = await import("node:stream");
+  const { pipeline } = await import("node:stream/promises");
+  const safeName = path.basename(filename).replace(/[^\w.-]+/g, "_") || "file";
+  const key = `${crypto.randomUUID()}/${safeName}`;
+  const target = path.join(UPLOAD_DIR, key);
+  await mkdir(path.dirname(target), { recursive: true });
+  await pipeline(Readable.fromWeb(data as never), createWriteStream(target));
+  return key;
+}
+
 /** Persist bytes; returns the opaque storage key recorded in the DB. */
 export async function putFile(data: Buffer, filename: string): Promise<string> {
   // Key layout: <uuid>/<sanitized-name> — unique, keeps the extension for tooling.
@@ -43,4 +60,8 @@ export async function deleteFile(storageKey: string): Promise<void> {
   const target = path.resolve(UPLOAD_DIR, storageKey);
   if (!target.startsWith(path.resolve(UPLOAD_DIR) + path.sep)) return;
   await unlink(target).catch(() => {});
+  // Keys are <uuid>/<name> — drop the per-file dir too (rmdir refuses
+  // non-empty dirs, so this can never take anything else with it).
+  const { rmdir } = await import("node:fs/promises");
+  await rmdir(path.dirname(target)).catch(() => {});
 }

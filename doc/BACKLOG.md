@@ -811,14 +811,26 @@ feeds C3/C4 value (Recommandé requires Vérifié)
       built 2026-08-24 (C2 — store loaded, enabled=false behind gate C2b) →
       `alibaba` (**ToS/licensing gate before coding**) → `registry-us` →
       per demand
-- [ ] **`registry-qc` — BLOCKED on licence** (verified twice, 2026-08-24):
-      the Registraire's open dataset is CC-BY-NC-SA 4.0 (non-commercial) —
-      OSI cannot use it without a written agreement. It is the only registry
-      with ACTIVITY data, so it's worth pursuing: contact
-      Groupe.EOS@req.gouv.qc.ca for commercial terms; once rights exist the
-      connector is ~an hour (same static full-pull pattern as registry-ca).
-      Do NOT build from the open dataset, and do NOT scrape the REQ site.
-      Interim: federally-incorporated QC companies are already in registry-ca.
+- [x] **`registry-qc` — BUILT 2026-08-25** (owner decision 2026-08-24 to
+      proceed) as the first **FILE-FED static source**: the registry endpoint
+      sits behind an anti-bot wall, so autonomous fetching is impossible —
+      staff downloads the ZIP in their own browser and uploads it on the
+      source's tab (`PUT /api/source-upload`, streamed to the uploads volume,
+      never buffered; the run consumes then deletes the file). Connector
+      parses `Entreprise.csv` (status `IM` only, **activity descriptions —
+      the matching signal no other registry has**) joined with `Nom.csv` by
+      NEQ (legal-type in-force name first, other in-force name as fallback,
+      retired/anterior names and numbered shells skipped), UTF-8 with a
+      windows-1252 fallback sniff, confidence 65. New seams built for it:
+      `SearchBrief.fileKey`, `meta.requiresFile`, `putFileStream`, the
+      upload control on the tab, error `file_required`. Migration 0015 seeds
+      the row **disabled**. *Verified end to end in dev with a
+      guide-conformant fixture ZIP through the real UI: 4 enterprises → 3
+      records with accents + descriptions intact (deregistered excluded,
+      numbered legal name replaced by its fallback, retired name replaced by
+      the current one); upload deleted after the run.* First real pull:
+      staff downloads the actual ZIP from the Registraire's site and uploads
+      it — untested at full scale until then.
 - [x] **`supplier_source` memberships + bans** — schema + persistence built
       2026-08-22 (uq pair, payload, first/last_seen, upserts on every
       collection, bans sticky across re-collection via the dedup key; banned

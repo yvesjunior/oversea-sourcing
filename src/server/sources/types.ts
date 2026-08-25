@@ -27,6 +27,9 @@ export type SearchBrief = {
   countryCodes: string[] | null;
   /** How many candidates the caller wants (connectors may return fewer). */
   wanted: number;
+  /** Storage key of a staff-uploaded file (admin full pull of a file-fed
+   *  source, e.g. registry-qc's ZIP) — null for every other collection. */
+  fileKey?: string | null;
 };
 
 /** The single normalized output shape — exactly what the persistence layer
@@ -59,6 +62,10 @@ export interface SupplierSourceConnector {
     type: DataSourceType;
     countryCode?: string;
     name: string;
+    /** The full pull needs a staff-uploaded file (the source cannot be
+     *  fetched autonomously) — the screen shows an upload control and the
+     *  trigger refuses to run without one. */
+    requiresFile?: boolean;
   };
   /** The only entry point. Throws are fine — the caller isolates failures
    *  per source and records them on the run; one broken source never breaks

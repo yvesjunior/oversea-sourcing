@@ -40,6 +40,8 @@ export type SourceCatalogueView = {
   enabled: boolean;
   /** A registered connector can collect; without one the source is store-only. */
   hasConnector: boolean;
+  /** The full pull needs a staff-uploaded file (file-fed source). */
+  requiresFile: boolean;
   storeActive: number;
   storeBanned: number;
   /** Active records seen within STORE_FRESH_DAYS. */
@@ -194,6 +196,7 @@ export const getSourceAdminFn = createServerFn({ method: "GET" }).handler(
         countryCode: source.countryCode,
         enabled: source.enabled,
         hasConnector: getConnector(source.code) !== undefined,
+        requiresFile: getConnector(source.code)?.meta.requiresFile === true,
         storeActive: counts?.active ?? 0,
         storeBanned: counts?.banned ?? 0,
         storeFresh: counts?.fresh ?? 0,
@@ -343,7 +346,13 @@ export const toggleSourceFn = createServerFn({ method: "POST" })
  *  A disabled source CAN be refreshed on purpose: warming a store before
  *  enabling it is a legitimate rollout move. */
 export const triggerSourceRefreshFn = createServerFn({ method: "POST" })
-  .inputValidator(z.object({ dataSourceId: z.string() }))
+  .inputValidator(
+    z.object({
+      dataSourceId: z.string(),
+      /** Storage key of a staff upload — required by file-fed sources. */
+      fileKey: z.string().max(300).optional(),
+    }),
+  )
   .handler(async ({ data }): Promise<{ ok: boolean; error?: string }> => {
     const session = await requireSourceAdmin();
     if (!session) return { ok: false, error: "forbidden" };
@@ -369,7 +378,9 @@ export const triggerSourceRefreshFn = createServerFn({ method: "POST" })
     });
     if (!source) return { ok: false, error: "not_found" };
     if (isDynamicSource(source.type)) return { ok: false, error: "dynamic_source" };
-    if (!getConnector(source.code)) return { ok: false, error: "store_only" };
+    const connector = getConnector(source.code);
+    if (!connector) return { ok: false, error: "store_only" };
+    if (connector.meta.requiresFile && !data.fileKey) return { ok: false, error: "file_required" };
 
     // One admin pull at a time per source — a second click must not run two
     // syncs over each other while the first is still collecting.
@@ -389,6 +400,7 @@ export const triggerSourceRefreshFn = createServerFn({ method: "POST" })
       trigger: "admin",
       triggeredBy: session.user.id,
       status: "running",
+      ...(data.fileKey ? { scope: { fileKey: data.fileKey } } : {}),
     });
     await enqueueAdminRefresh(runId);
     return { ok: true };

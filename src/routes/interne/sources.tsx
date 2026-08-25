@@ -153,21 +153,49 @@ function BanControl({
 }
 
 /** Full pull for STATIC sources (settled 2026-08-24) — no scope: the
- *  connector collects everything, dedup makes each trigger idempotent. */
+ *  connector collects everything, dedup makes each trigger idempotent.
+ *  File-fed sources (registry-qc) take the staff-downloaded archive here:
+ *  it streams to the uploads volume, the run consumes and deletes it. */
 function RefreshForm({ source, onDone }: { source: SourceCatalogueView; onDone: () => void }) {
   const { t } = useTranslation();
   const [busy, setBusy] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [file, setFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const launch = async () => {
     setBusy(true);
     setError(null);
     try {
-      const result = await triggerSourceRefreshFn({ data: { dataSourceId: source.id } });
+      let fileKey: string | undefined;
+      if (source.requiresFile) {
+        if (!file) {
+          setError(t("sourcesAdmin.refreshError.file_required"));
+          return;
+        }
+        setUploading(true);
+        try {
+          const response = await fetch(
+            `/api/source-upload?filename=${encodeURIComponent(file.name)}`,
+            { method: "PUT", body: file },
+          );
+          if (!response.ok) {
+            setError(t("sourcesAdmin.uploadFailed"));
+            return;
+          }
+          fileKey = ((await response.json()) as { key: string }).key;
+        } finally {
+          setUploading(false);
+        }
+      }
+      const result = await triggerSourceRefreshFn({
+        data: { dataSourceId: source.id, ...(fileKey ? { fileKey } : {}) },
+      });
       if (!result.ok) {
         setError(t(`sourcesAdmin.refreshError.${result.error ?? "unknown"}`));
         return;
       }
+      setFile(null);
       onDone();
     } finally {
       setBusy(false);
@@ -179,10 +207,29 @@ function RefreshForm({ source, onDone }: { source: SourceCatalogueView; onDone: 
   return (
     <div className="rounded-lg bg-secondary/60 p-3">
       <p className="text-xs font-semibold">{t("sourcesAdmin.refreshTitle")}</p>
-      <p className="mt-0.5 text-[11px] text-muted-foreground">{t("sourcesAdmin.refreshHint")}</p>
-      <div className="mt-2">
-        <Button size="sm" disabled={busy || running} onClick={() => void launch()}>
-          {running ? t("sourcesAdmin.refreshRunning") : t("sourcesAdmin.refresh")}
+      <p className="mt-0.5 text-[11px] text-muted-foreground">
+        {t(source.requiresFile ? "sourcesAdmin.refreshFileHint" : "sourcesAdmin.refreshHint")}
+      </p>
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        {source.requiresFile && (
+          <input
+            type="file"
+            accept=".zip"
+            aria-label={t("sourcesAdmin.uploadLabel")}
+            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+            className="max-w-xs text-xs text-muted-foreground file:mr-2 file:rounded-md file:border file:border-input file:bg-background file:px-2 file:py-1 file:text-xs"
+          />
+        )}
+        <Button
+          size="sm"
+          disabled={busy || running || (source.requiresFile && !file)}
+          onClick={() => void launch()}
+        >
+          {uploading
+            ? t("sourcesAdmin.uploading")
+            : running
+              ? t("sourcesAdmin.refreshRunning")
+              : t("sourcesAdmin.refresh")}
         </Button>
       </div>
       {error && <p className="mt-1 text-xs text-destructive">{error}</p>}

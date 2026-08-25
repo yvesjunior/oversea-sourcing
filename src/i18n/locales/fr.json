@@ -105,7 +105,8 @@
   },
   "sourceNames": {
     "global_web": "Web mondial",
-    "registry-ca": "Registre fédéral canadien"
+    "registry-ca": "Registre fédéral canadien",
+    "registry-qc": "Registre des entreprises du Québec"
   },
   "sourcesAdmin": {
     "title": "Sources de données",
@@ -131,7 +132,12 @@
     "refresh": "Mettre à jour",
     "refreshRunning": "Synchronisation en cours…",
     "dynamicHint": "Source dynamique — alimentée exclusivement par les demandes (store-first) ; jamais de déclenchement manuel.",
+    "refreshFileHint": "Téléversez le fichier ZIP du registre (téléchargé depuis le site officiel) — la synchronisation le lit puis le supprime ; la déduplication rend chaque déclenchement idempotent.",
+    "uploadLabel": "Fichier du registre",
+    "uploading": "Téléversement…",
+    "uploadFailed": "Le téléversement a échoué.",
     "refreshError": {
+      "file_required": "Cette source est alimentée par fichier — téléversez le ZIP du registre.",
       "store_only": "Cette source n'a pas de collecteur.",
       "dynamic_source": "Une source dynamique est alimentée par les demandes, pas par déclenchement manuel.",
       "already_running": "Une synchronisation est déjà en cours pour cette source.",

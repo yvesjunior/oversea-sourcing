@@ -482,7 +482,12 @@ export async function runAdminRefresh(sourceRunId: string): Promise<void> {
   if (!connector) return fail("source sans connecteur (store-only)");
 
   // A full pull needs no scope — the brief is a formality static connectors
-  // ignore beyond the source's own country.
+  // ignore beyond the source's own country. File-fed sources (registry-qc)
+  // read the staff upload through brief.fileKey.
+  const fileKey =
+    typeof (run.scope as Record<string, unknown> | null)?.["fileKey"] === "string"
+      ? ((run.scope as Record<string, unknown>)["fileKey"] as string)
+      : null;
   const brief: SearchBrief = {
     title: source.name,
     descriptionRaw: `Synchronisation complète de la source ${source.code}.`,
@@ -491,6 +496,7 @@ export async function runAdminRefresh(sourceRunId: string): Promise<void> {
     attachmentText: null,
     countryCodes: source.countryCode ? [source.countryCode] : null,
     wanted: Number.MAX_SAFE_INTEGER,
+    fileKey,
   };
 
   try {
@@ -514,5 +520,11 @@ export async function runAdminRefresh(sourceRunId: string): Promise<void> {
     const message = error instanceof Error ? error.message : String(error);
     console.error(`refresh: ${source.code} FAILED —`, error);
     await fail(message.slice(0, 500));
+  } finally {
+    // Staff uploads are consumed by the run — never left on the volume.
+    if (fileKey) {
+      const { deleteFile } = await import("@/server/storage");
+      await deleteFile(fileKey);
+    }
   }
 }
