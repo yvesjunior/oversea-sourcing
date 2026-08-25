@@ -333,6 +333,7 @@ Each connector is coded independently and plugged in when ready — one module
 | 3 | `registry-qc` | ✅ 2026-08-25 — first FILE-FED static source (the endpoint cannot be fetched autonomously): staff uploads the Registraire's ZIP on the source's tab, the pull parses Entreprise.csv + Nom.csv (NEQ join, active only, **activity descriptions** — records are genuinely matchable). Seeded disabled |
 | 4 | `alibaba` | ⚠️ **ToS/licensing gate before coding** — marketplace access must be cleared legally first |
 | 5 | `registry-us` | Investigated 2026-08-25 (README §9): no federal registry — v1 = SAM.gov public extract (free key, NAICS activity codes, autonomous pull); free-bulk states optional; Delaware/California closed. Not built |
+| 6 | `registry-uk` · `registry-fr` · `registry-no` · more | Verified autonomous candidates with activity codes — priority Companies House → SIRENE → SAM.gov → BRREG; full access table in §9 "Autonomous-pull registry candidates". Not built |
 
 #### Supplier cache — research reuse
 

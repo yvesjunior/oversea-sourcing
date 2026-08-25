@@ -19,6 +19,7 @@ import { Route as ParametresRouteImport } from './routes/parametres'
 import { Route as ReinitialiserRouteImport } from './routes/reinitialiser'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as TransactionsRouteImport } from './routes/transactions'
+import { Route as ApiSourceUploadRouteImport } from './routes/api/source-upload'
 import { Route as ApiUploadRouteImport } from './routes/api/upload'
 import { Route as DemandesIndexRouteImport } from './routes/demandes/index'
 import { Route as DemandesIdRouteImport } from './routes/demandes/$id'
@@ -82,6 +83,11 @@ const SignupRoute = SignupRouteImport.update({
 const TransactionsRoute = TransactionsRouteImport.update({
   id: '/transactions',
   path: '/transactions',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiSourceUploadRoute = ApiSourceUploadRouteImport.update({
+  id: '/api/source-upload',
+  path: '/api/source-upload',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiUploadRoute = ApiUploadRouteImport.update({
@@ -166,6 +172,7 @@ export interface FileRoutesByFullPath {
   '/reinitialiser': typeof ReinitialiserRoute
   '/signup': typeof SignupRoute
   '/transactions': typeof TransactionsRoute
+  '/api/source-upload': typeof ApiSourceUploadRoute
   '/api/upload': typeof ApiUploadRoute
   '/demandes/$id': typeof DemandesIdRouteWithChildren
   '/interne/facilitation': typeof InterneFacilitationRoute
@@ -192,6 +199,7 @@ export interface FileRoutesByTo {
   '/reinitialiser': typeof ReinitialiserRoute
   '/signup': typeof SignupRoute
   '/transactions': typeof TransactionsRoute
+  '/api/source-upload': typeof ApiSourceUploadRoute
   '/api/upload': typeof ApiUploadRoute
   '/demandes/$id': typeof DemandesIdRouteWithChildren
   '/interne/facilitation': typeof InterneFacilitationRoute
@@ -219,6 +227,7 @@ export interface FileRoutesById {
   '/reinitialiser': typeof ReinitialiserRoute
   '/signup': typeof SignupRoute
   '/transactions': typeof TransactionsRoute
+  '/api/source-upload': typeof ApiSourceUploadRoute
   '/api/upload': typeof ApiUploadRoute
   '/demandes/$id': typeof DemandesIdRouteWithChildren
   '/interne/facilitation': typeof InterneFacilitationRoute
@@ -247,6 +256,7 @@ export interface FileRouteTypes {
     | '/reinitialiser'
     | '/signup'
     | '/transactions'
+    | '/api/source-upload'
     | '/api/upload'
     | '/demandes/$id'
     | '/interne/facilitation'
@@ -273,6 +283,7 @@ export interface FileRouteTypes {
     | '/reinitialiser'
     | '/signup'
     | '/transactions'
+    | '/api/source-upload'
     | '/api/upload'
     | '/demandes/$id'
     | '/interne/facilitation'
@@ -299,6 +310,7 @@ export interface FileRouteTypes {
     | '/reinitialiser'
     | '/signup'
     | '/transactions'
+    | '/api/source-upload'
     | '/api/upload'
     | '/demandes/$id'
     | '/interne/facilitation'
@@ -326,6 +338,7 @@ export interface RootRouteChildren {
   ReinitialiserRoute: typeof ReinitialiserRoute
   SignupRoute: typeof SignupRoute
   TransactionsRoute: typeof TransactionsRoute
+  ApiSourceUploadRoute: typeof ApiSourceUploadRoute
   ApiUploadRoute: typeof ApiUploadRoute
   DemandesIdRoute: typeof DemandesIdRouteWithChildren
   InterneFacilitationRoute: typeof InterneFacilitationRoute
@@ -411,6 +424,13 @@ declare module '@tanstack/react-router' {
       path: '/transactions'
       fullPath: '/transactions'
       preLoaderRoute: typeof TransactionsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/source-upload': {
+      id: '/api/source-upload'
+      path: '/api/source-upload'
+      fullPath: '/api/source-upload'
+      preLoaderRoute: typeof ApiSourceUploadRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/upload': {
@@ -537,6 +557,7 @@ const rootRouteChildren: RootRouteChildren = {
   ReinitialiserRoute: ReinitialiserRoute,
   SignupRoute: SignupRoute,
   TransactionsRoute: TransactionsRoute,
+  ApiSourceUploadRoute: ApiSourceUploadRoute,
   ApiUploadRoute: ApiUploadRoute,
   DemandesIdRoute: DemandesIdRouteWithChildren,
   InterneFacilitationRoute: InterneFacilitationRoute,

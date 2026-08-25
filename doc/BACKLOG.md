@@ -30,9 +30,88 @@ need, gets a real Top-N (researched + imported suppliers, scored), clicks
 *Engager*, OSI ops sees it in the queue, the buyer sees "connected", and
 downloads the PDF report.
 
-## Resume here (last session: 2026-08-23/24)
+## Resume here (last session: 2026-08-25)
 
-**Production is live and healthy at [osi-solutions.com](https://osi-solutions.com) — prod = main (second deploy of 2026-08-24).**
+**Production is live and healthy at [osi-solutions.com](https://osi-solutions.com), commit `89b05ca` (deploy #2 of 2026-08-24).**
+**Main is ~6 commits ahead of prod — the registry-qc wave, NOT deployed:**
+the file-fed source machinery (`a02faf5`: `PUT /api/source-upload` streamed
+staff uploads, `SearchBrief.fileKey`, `meta.requiresFile`/`downloadUrl`,
+`putFileStream`, upload consumed+deleted by the run, fflate ZIP tooling,
+shared `sources/csv.ts` parser), the registry-qc connector + migration
+**0015** (the only migration prod is missing — additive), the download link
+on the tab (`4d65546`), and the registry-us + autonomous-candidates
+investigation docs. Deploy on request as usual; after it, staff can pull
+registry-ca on prod autonomously and feed registry-qc by ZIP upload.
+
+**Dev source-store state (2026-08-25):** `global_web` enabled, store empty —
+wiped during the Phase D disposability test, refills request by request
+(suppliers/matches untouched, by design). `registry-ca` **enabled in dev**,
+393 339 records. `registry-qc` **disabled, store warmed with the REAL
+archive**: the staff flow was exercised for real — actual Registraire ZIP
+downloaded in a browser, uploaded on the tab, parsed at full scale:
+**830 419 candidates → 814 921 records in 65 s** (batched upserts held up;
+activity descriptions populated — these records are matchable). Enabling
+either registry for customers is the recorded product call (bare names for
+CA; QC records carry activities and clear the bar honestly).
+
+**Where to pick up next session:**
+① **Enrichment agent** (the one dashed box in the agreed sourcing flow) —
+DECISION GATE below, then build; ② **next autonomous connectors** — priority
+Companies House → SIRENE → SAM.gov → BRREG (verified access table in README
+§9, "Autonomous-pull registry candidates"); ③ **notification preferences** —
+in flight, plan in the E9/E11 task below; ④ the **E6 flow discussion**
+(still the MVP1 blocker, still gated); ⑤ deploy the registry-qc wave when
+asked. Read "Contracts a next session must NOT re-derive differently"
+before writing code.
+
+### DECISION GATE — the source enrichment agent (discussed 2026-08-24/25)
+
+**Agreed flow (validated in discussion, diagrammed):** staff triggers from
+`/interne/sources` → worker pulls the registry data into the store (built)
+→ **an AI agent enriches store records in the worker** (web search per
+company: website, what they make, confidence — written back onto
+`source_record`; the app's own ANTHROPIC_API_KEY, never a Claude Code
+session) → enriched records visible in the store browser → matching ranks
+them → Top-N promotion (built). Only the enrichment stage is unbuilt.
+
+**The open decision is enrichment SCOPE + budget** (~$0.01–0.03 per record
+at cheap tier; stores now hold 393k CA + 815k QC — enriching everything is
+$12k+, not a thing):
+- **Option 1 — capped batches**: each trigger enriches the next N
+  un-enriched records. Bounded spend, blind targeting.
+- **Option 2 — scoped by keyword** *(recommended first)*: staff enters a
+  category ("pompes hydrauliques"), agent enriches the name/activity-matching
+  records (a search on the QC store's activity text makes this precise).
+  One more control on the source tab; staff aims the spend.
+- **Option 3 — lazy per-request** *(recommended follow-up)*: when a buyer
+  request matches store records, enrich those few inline. Zero waste, adds
+  request latency/cost.
+Implementation seams when decided: enrichment fields update `source_record`
+(description/website/confidence + an `enriched_at` column — small
+migration), an `enrich` job on the research queue, agent module beside
+`ai/research.ts`, per-run `source_run`-style audit with token cost.
+
+### IN FLIGHT — notification preferences (E9/E11, paused mid-build)
+
+Design settled, one file landed:
+- ✅ `src/lib/notification-types.ts` (committed): the type registry
+  (`report_ready` in-app+email, `invitation_accepted` in-app only),
+  `NotificationPrefs` = `{[type]: {inApp?, email?}}`, missing = ON,
+  `channelEnabled()` helper. **Boundary decided: prefs gate ONLY
+  `notify.ts` emissions — transactional auth mail (verification, reset,
+  invitations via mail.ts) is never silenceable.**
+Remaining to build:
+- `notification_pref` table: `user_id` uq FK, `prefs` jsonb, updated_at
+  (migration 0016 — pure create, no prompt).
+- `notify.ts`: load the row, skip in-app insert if `inApp === false`, skip
+  email if `email === false` (stay failure-tolerant).
+- `getNotificationPrefsFn` / `updateNotificationPrefsFn` in
+  `notification-fns.ts` (session user; zod record limited to known types).
+- Paramètres: new "Notifications" tab (all roles, per-user) — one row per
+  registry type, Switch per channel (email switch only where the type has
+  email), save button; i18n `settings.tabNotifications` +
+  `settings.notifTypes.*`; remember the dev gotcha: new i18n keys need a
+  web-container restart.
 **Deploy #2 (evening)** shipped the sourcing-admin wave on top of the
 morning's `b187039`: the `registry-ca` static connector + catalogue row
 (migration 0014, **seeded DISABLED on prod** — its store is empty until
@@ -237,6 +316,18 @@ Quality gates are `npm test` (vitest, 27 unit tests),
   unless the VM gains a working IPv6 route.
 - **Dev has no Google credentials on purpose** — the button would render and then
   fail. Google is prod-only.
+- **tsx watch misses edits that land during a restart.** The dev workers
+  restart on file change, but a second file saved while a restart is in
+  flight is silently skipped — the process then runs one stale module (cost
+  a failed registry-qc run on 2026-08-25: fresh connector + stale
+  research.ts). When a worker behaves as if an edit didn't happen:
+  `docker restart osi-worker-research-1` (or -worker-1) and re-test.
+- **New npm deps need installing INSIDE the dev containers.** node_modules
+  is an image-baked anonymous volume (compose masks the bind mount), so a
+  host `npm install` is invisible to them. After adding a dependency:
+  `docker compose -f docker-compose.dev.yml exec <svc> npm i <pkg> --no-save`
+  for web, worker AND worker-research — or rebuild the image (fflate,
+  2026-08-25).
 - **New i18n keys need a dev web-container restart.** `src/i18n/config.ts`
   guards `init` with `i18n.isInitialized`, and the i18next singleton lives in
   the long-running SSR process — vite re-runs the config on locale edits but
@@ -837,9 +928,12 @@ feeds C3/C4 value (Recommandé requires Vérifié)
       guide-conformant fixture ZIP through the real UI: 4 enterprises → 3
       records with accents + descriptions intact (deregistered excluded,
       numbered legal name replaced by its fallback, retired name replaced by
-      the current one); upload deleted after the run.* First real pull:
-      staff downloads the actual ZIP from the Registraire's site and uploads
-      it — untested at full scale until then.
+      the current one); upload deleted after the run.* **Real archive pulled
+      2026-08-25** (staff flow exercised for real): **830 419 candidates →
+      814 921 records in 65 s**, activity descriptions populated. Store
+      warmed while disabled; upstream refreshes twice a month — re-download
+      + re-upload on that cadence, idempotent. The tab carries the download
+      link (`meta.downloadUrl`).
 - [x] **`supplier_source` memberships + bans** — schema + persistence built
       2026-08-22 (uq pair, payload, first/last_seen, upserts on every
       collection, bans sticky across re-collection via the dedup key; banned
