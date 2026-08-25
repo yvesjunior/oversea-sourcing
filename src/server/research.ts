@@ -30,6 +30,7 @@ import {
   STORE_MIN_SCORE,
   RESEARCH_CANDIDATE_CAP,
 } from "@/server/sourcing-config";
+import { isDynamicSource } from "@/lib/source-kind";
 import { getConnector } from "@/server/sources/registry";
 import {
   eligibleCandidates,
@@ -364,9 +365,13 @@ export async function runResearchForRequest(
     let added = 0;
     const allQueries: string[] = [];
     for (const source of scope.sources) {
+      // STATIC sources never collect at request time (two-kinds rule,
+      // 2026-08-24): their store IS their answer, refreshed only by the
+      // admin full pull. Having a registered connector (registry-ca does)
+      // must not opt them into the fallback — a buyer request cannot be
+      // the thing that downloads a 100 MB registry file.
+      if (!isDynamicSource(source.type)) continue;
       const connector = getConnector(source.code);
-      // Store-only source (registries, imports): its store IS its answer —
-      // nothing to collect at request time.
       if (!connector) continue;
 
       const sourceRunId = crypto.randomUUID();

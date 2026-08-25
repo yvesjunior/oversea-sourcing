@@ -22,7 +22,7 @@ import type { DataSourceType, RiskLevel, VerificationStatus } from "@/database/s
 
 export type EffectiveScope = {
   /** Enabled ∩ activated — empty means "this workspace turned everything off". */
-  sources: Array<{ id: string; code: string; name: string }>;
+  sources: Array<{ id: string; code: string; name: string; type: DataSourceType }>;
   /** Null = worldwide. */
   countryCodes: string[] | null;
 };
@@ -38,7 +38,7 @@ export async function resolveScope(organizationId: string): Promise<EffectiveSco
   const activated = rules?.activatedSourceIds;
   const sources = (
     activated == null ? enabled : enabled.filter((s) => activated.includes(s.id))
-  ).map((s) => ({ id: s.id, code: s.code, name: s.name }));
+  ).map((s) => ({ id: s.id, code: s.code, name: s.name, type: s.type }));
 
   const countryCodes =
     rules?.countryMode === "list" && rules.countryCodes && rules.countryCodes.length > 0
