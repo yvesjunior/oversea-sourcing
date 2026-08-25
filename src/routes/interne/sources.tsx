@@ -18,6 +18,7 @@ import {
   getSourceDetailFn,
   setRecordStatusFn,
   setSupplierBanFn,
+  STORE_PAGE_SIZE,
   toggleSourceFn,
   triggerSourceRefreshFn,
   wipeSourceStoreFn,
@@ -385,9 +386,6 @@ function StoreTable({ detail, onChanged }: { detail: SourceDetailView; onChanged
           ))}
         </tbody>
       </table>
-      {detail.truncated && (
-        <p className="mt-2 text-[10px] text-muted-foreground">{t("sourcesAdmin.truncated")}</p>
-      )}
     </div>
   );
 }
@@ -457,22 +455,46 @@ function Sources() {
     (session?.user as { platformRole?: string } | undefined)?.platformRole === "owner";
   const [selectedId, setSelectedId] = useState<string | null>(sources[0]?.id ?? null);
   const [detail, setDetail] = useState<SourceDetailView | null>(null);
+  // Store browser: committed search + page, reset when the tab changes.
+  const [searchInput, setSearchInput] = useState("");
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(0);
 
   const anyRunning = sources.some((s) => s.runningRuns > 0);
 
-  const loadDetail = useCallback(async (dataSourceId: string) => {
-    setDetail(await getSourceDetailFn({ data: { dataSourceId } }));
+  const loadDetail = useCallback(async (dataSourceId: string, term: string, pageIndex: number) => {
+    setDetail(
+      await getSourceDetailFn({
+        data: {
+          dataSourceId,
+          ...(term ? { search: term } : {}),
+          ...(pageIndex > 0 ? { page: pageIndex } : {}),
+        },
+      }),
+    );
   }, []);
 
   const refresh = useCallback(() => {
     void router.invalidate();
-    if (selectedId) void loadDetail(selectedId);
-  }, [router, selectedId, loadDetail]);
+    if (selectedId) void loadDetail(selectedId, search, page);
+  }, [router, selectedId, search, page, loadDetail]);
 
   useEffect(() => {
-    if (selectedId) void loadDetail(selectedId);
+    if (selectedId) void loadDetail(selectedId, search, page);
     else setDetail(null);
-  }, [selectedId, loadDetail]);
+  }, [selectedId, search, page, loadDetail]);
+
+  const selectTab = (value: string) => {
+    setSelectedId(value);
+    setSearchInput("");
+    setSearch("");
+    setPage(0);
+  };
+
+  const commitSearch = () => {
+    setSearch(searchInput.trim());
+    setPage(0);
+  };
 
   // A collection takes tens of seconds — keep the screen honest while one runs
   // instead of asking the operator to hammer reload.
@@ -497,10 +519,7 @@ function Sources() {
 
       {/* One tab per catalogue source (same pattern as Paramètres/Abonnements);
           the old overview table's controls live in each tab's panel header. */}
-      <Tabs
-        value={selectedId ?? sources[0]?.id ?? ""}
-        onValueChange={(value) => setSelectedId(value)}
-      >
+      <Tabs value={selectedId ?? sources[0]?.id ?? ""} onValueChange={selectTab}>
         <TabsList>
           {sources.map((source) => (
             <TabsTrigger key={source.id} value={source.id} className={TAB_TRIGGER}>
@@ -593,9 +612,64 @@ function Sources() {
               </div>
 
               <div>
-                <h3 className="mb-2 text-sm font-semibold">{t("sourcesAdmin.storeTitle")}</h3>
+                <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                  <h3 className="text-sm font-semibold">{t("sourcesAdmin.storeTitle")}</h3>
+                  <span className="flex items-center gap-2">
+                    <Input
+                      value={source.id === selectedId ? searchInput : ""}
+                      onChange={(e) => setSearchInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") commitSearch();
+                      }}
+                      placeholder={t("sourcesAdmin.searchPlaceholder")}
+                      className="h-8 w-56 text-sm"
+                    />
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-8 px-3 text-xs"
+                      onClick={commitSearch}
+                    >
+                      {t("sourcesAdmin.search")}
+                    </Button>
+                  </span>
+                </div>
                 {source.id === selectedId && detail ? (
-                  <StoreTable detail={detail} onChanged={refresh} />
+                  <>
+                    <StoreTable detail={detail} onChanged={refresh} />
+                    {/* Range navigation — the registry store holds ~400k rows. */}
+                    <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                      <span className="text-xs tabular-nums text-muted-foreground">
+                        {detail.total === 0
+                          ? t("sourcesAdmin.rangeEmpty")
+                          : t("sourcesAdmin.range", {
+                              from: detail.page * STORE_PAGE_SIZE + 1,
+                              to: detail.page * STORE_PAGE_SIZE + detail.records.length,
+                              total: detail.total.toLocaleString(i18n.language),
+                            })}
+                      </span>
+                      <span className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 px-2 text-xs"
+                          disabled={page === 0}
+                          onClick={() => setPage((p) => Math.max(0, p - 1))}
+                        >
+                          {t("sourcesAdmin.prev")}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 px-2 text-xs"
+                          disabled={(detail.page + 1) * STORE_PAGE_SIZE >= detail.total}
+                          onClick={() => setPage((p) => p + 1)}
+                        >
+                          {t("sourcesAdmin.next")}
+                        </Button>
+                      </span>
+                    </div>
+                  </>
                 ) : (
                   <p className="text-xs text-muted-foreground">…</p>
                 )}

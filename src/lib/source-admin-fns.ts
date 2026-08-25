@@ -69,9 +69,11 @@ export type SourceRecordView = {
 };
 
 export type SourceDetailView = {
+  /** One page of records (STORE_PAGE_SIZE), filtered by `search` when given. */
   records: SourceRecordView[];
-  /** True when the store browser was capped — the tail exists but isn't shown. */
-  truncated: boolean;
+  /** Total records matching the filter — drives the range display. */
+  total: number;
+  page: number;
   runs: SourceRunView[];
 };
 
@@ -203,23 +205,39 @@ export const getSourceAdminFn = createServerFn({ method: "GET" }).handler(
   },
 );
 
-/** The store cap — plenty for the current pool; the day a source holds more,
- *  this screen needs search/pagination, not a bigger cap. */
-const STORE_BROWSER_LIMIT = 200;
+/** Records per page in the store browser (registry stores hold ~400k rows —
+ *  the browser paginates and searches instead of capping). */
+export const STORE_PAGE_SIZE = 50;
 
 export const getSourceDetailFn = createServerFn({ method: "GET" })
-  .inputValidator(z.object({ dataSourceId: z.string() }))
+  .inputValidator(
+    z.object({
+      dataSourceId: z.string(),
+      /** Case-insensitive substring match on the record name. */
+      search: z.string().trim().max(100).optional(),
+      /** Zero-based page over the filtered, last-seen-desc ordering. */
+      page: z.number().int().min(0).max(100_000).optional(),
+    }),
+  )
   .handler(async ({ data }): Promise<SourceDetailView> => {
     const session = await requireSourceAdmin();
-    if (!session) return { records: [], truncated: false, runs: [] };
+    if (!session) return { records: [], total: 0, page: 0, runs: [] };
 
-    const [{ db }, { desc, eq }, schema] = await Promise.all([
+    const [{ db }, { and, count, desc, eq, ilike }, schema] = await Promise.all([
       import("@/database"),
       import("drizzle-orm"),
       import("@/database/schema"),
     ]);
 
-    const [records, runs] = await Promise.all([
+    const page = data.page ?? 0;
+    const recordFilter = data.search
+      ? and(
+          eq(schema.sourceRecord.dataSourceId, data.dataSourceId),
+          ilike(schema.sourceRecord.name, `%${data.search}%`),
+        )
+      : eq(schema.sourceRecord.dataSourceId, data.dataSourceId);
+
+    const [records, [totalRow], runs] = await Promise.all([
       db
         .select({
           recordId: schema.sourceRecord.id,
@@ -239,9 +257,11 @@ export const getSourceDetailFn = createServerFn({ method: "GET" })
         .from(schema.sourceRecord)
         .leftJoin(schema.supplier, eq(schema.supplier.id, schema.sourceRecord.supplierId))
         .leftJoin(schema.user, eq(schema.user.id, schema.sourceRecord.bannedBy))
-        .where(eq(schema.sourceRecord.dataSourceId, data.dataSourceId))
+        .where(recordFilter)
         .orderBy(desc(schema.sourceRecord.lastSeenAt))
-        .limit(STORE_BROWSER_LIMIT + 1),
+        .offset(page * STORE_PAGE_SIZE)
+        .limit(STORE_PAGE_SIZE),
+      db.select({ value: count() }).from(schema.sourceRecord).where(recordFilter),
       db
         .select({
           id: schema.sourceRun.id,
@@ -265,9 +285,8 @@ export const getSourceDetailFn = createServerFn({ method: "GET" })
         .limit(20),
     ]);
 
-    const truncated = records.length > STORE_BROWSER_LIMIT;
     return {
-      records: records.slice(0, STORE_BROWSER_LIMIT).map((row) => ({
+      records: records.map((row) => ({
         recordId: row.recordId,
         supplierId: row.supplierId,
         name: row.name,
@@ -282,7 +301,8 @@ export const getSourceDetailFn = createServerFn({ method: "GET" })
         globallyBanned: row.globalBannedAt !== null,
         globalBanReason: row.globalBanReason,
       })),
-      truncated,
+      total: totalRow?.value ?? 0,
+      page,
       runs: runs.map(toRunView),
     };
   });
