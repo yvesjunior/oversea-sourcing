@@ -1241,6 +1241,30 @@ renders correctly without a translation entry.
 
 - **External supplier data sources & licensing** for the import pipeline
 
+### Autonomous-pull registry candidates (verified 2026-08-25 — not built)
+
+Registries a worker can pull END-TO-END with no manual download/upload
+(direct file URL or free-key API) — the registry-ca pattern. ✅ = endpoint
+probed live today.
+
+| Registry | Access | Activity data | Cadence · scale | Note |
+|---|---|---|---|---|
+| 🇨🇦 `registry-ca` | direct CSV | ❌ names only | daily · 643k | **built** |
+| 🇺🇸 **SAM.gov** | Extracts API, free personal key | ✅ NAICS | monthly + daily deltas · ~1M | spec'd (see below) |
+| 🇬🇧 **Companies House** ✅ | [BasicCompanyDataAsOneFile ZIP](https://download.companieshouse.gov.uk/en_output.html) — **no auth at all** | ✅ SIC codes | monthly · ~5M | easiest big win |
+| 🇫🇷 **SIRENE (INSEE)** ✅ | monthly stock ZIPs, direct URLs via the stable [data.gouv dataset API](https://www.data.gouv.fr/datasets/base-sirene-des-entreprises-et-de-leurs-etablissements-siren-siret/) | ✅ NAF/APE codes | monthly · **25M+ unités (1–3 GB)** — needs an active/company filter and possibly a streaming persist pass | highest-value for a FR-first platform |
+| 🇳🇴 **BRREG** ✅ | [full-register download](https://data.brreg.no/enhetsregisteret/api/enheter/lastned), no auth + clean REST API | ✅ NACE codes | daily · ~1M | cleanest API of all |
+| 🌍 **GLEIF LEI** ✅ | daily golden copy, direct URL via API, no auth | ❌ | daily · 3.4M worldwide | global coverage, finance-skewed; verification material |
+| 🇺🇸 Colorado ✅ | direct daily CSV (Socrata) | ❌ | daily · ~1M | plus NY/AK/CT/OH/AR similar |
+| 🇦🇺 ABN bulk · 🇸🇬 ACRA · 🇫🇮 PRH · 🇪🇪 e-Register | direct/open (not probed today) | SG/FI/EE ✅ | weekly–monthly | per demand |
+| 🇩🇰 CVR · 🇧🇪 KBO/BCE · 🇨🇭 Zefix | free but account/registration required | ✅ | — | one-time signup each |
+
+**Not autonomous** (for contrast): Quebec (anti-bot wall → file-fed, built),
+Germany (no bulk), Delaware/California (nothing), most other US states
+(paid). **Priority suggestion by product value**: Companies House (no-auth
++ SIC) → SIRENE (FR market, NAF) → SAM.gov (US, NAICS) → BRREG — every one
+of them activity-coded, i.e. matchable records, unlike bare-name registries.
+
 ### registry-us investigation (findings 2026-08-25 — not built)
 
 **There is no US federal business registry** — incorporation is per-state:
