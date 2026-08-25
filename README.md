@@ -332,7 +332,7 @@ Each connector is coded independently and plugged in when ready — one module
 | 2 | `registry-ca` | ✅ 2026-08-24 — static full pull of the federal bulk open data (OGL): 643k active corporations streamed, numbered shells filtered, ~393k records loaded, idempotent by dedup. **Performance-safe to enable since C2b** (big-store SQL prefilter by criteria name tokens — measured 345 ms over 393k rows; shared vocabulary in `src/lib/match-tokens.ts`). Enabled in dev; **prod switch stays OFF as a product call** — name-matched records can store-hit and reach a Top-N as bare names until the enrichment agent exists |
 | 3 | `registry-qc` | ✅ 2026-08-25 — first FILE-FED static source (the endpoint cannot be fetched autonomously): staff uploads the Registraire's ZIP on the source's tab, the pull parses Entreprise.csv + Nom.csv (NEQ join, active only, **activity descriptions** — records are genuinely matchable). Seeded disabled |
 | 4 | `alibaba` | ⚠️ **ToS/licensing gate before coding** — marketplace access must be cleared legally first |
-| 5 | `registry-us`, then per demand | — |
+| 5 | `registry-us` | Investigated 2026-08-25 (README §9): no federal registry — v1 = SAM.gov public extract (free key, NAICS activity codes, autonomous pull); free-bulk states optional; Delaware/California closed. Not built |
 
 #### Supplier cache — research reuse
 
@@ -1240,6 +1240,26 @@ renders correctly without a translation entry.
 ## 9 · Open decisions
 
 - **External supplier data sources & licensing** for the import pipeline
+
+### registry-us investigation (findings 2026-08-25 — not built)
+
+**There is no US federal business registry** — incorporation is per-state:
+50+ separate registries with wildly different access. The practical routes:
+
+| Route | Coverage | Activity data | Access | Verdict |
+|---|---|---|---|---|
+| **[SAM.gov Entity Management](https://open.gsa.gov/api/entity-api/)** (federal contractor registrations) | ~1M entities registered to do business with the US government — heavy in manufacturers | ✅ **NAICS codes per entity** (the signal registries usually lack) | Free api.data.gov API key; JSON API + **monthly public bulk extract** — machine-fetchable, autonomous pulls possible | **Best v1** — one national dataset, activity codes, registry-ca-style connector |
+| **Free bulk states** — [Colorado](https://data.colorado.gov) (daily CSV, direct URL verified 200), New York (Socrata), Alaska, Connecticut, Ohio, Arkansas, Washington (portal extract) | Those states' full registries | ❌ mostly names/status/addresses only | Direct download, autonomous | Good follow-ups; name-only limits (same as registry-ca) |
+| **SEC EDGAR** (public companies) | ~10k operating public cos | ✅ SIC codes | Free bulk JSON, no key (User-Agent required) | Small; enrichment material, not discovery |
+| **Delaware · California · Texas…** | The biggest incorporation states | — | Delaware: **no bulk at all**; California: none; Texas & many others: paid per-state | Closed for now |
+| **Aggregators** (OpenCorporates, D&B, Data Axle) | All states | varies | Commercial licensing | Only route to true 50-state coverage — a paid decision |
+
+**Recommendation when built:** `registry-us` v1 = the SAM.gov public
+extract — single national pull, NAICS activity codes make its records
+genuinely matchable (like registry-qc, unlike registry-ca), free key,
+fully autonomous (no upload flow needed). Colorado/New York CSVs as
+optional additions; EDGAR later as verification/enrichment. True
+all-state coverage only exists commercially.
 
 ### C2 investigation — Canadian registries (findings 2026-08-24)
 
