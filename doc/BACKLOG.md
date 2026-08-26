@@ -16,7 +16,7 @@
 | **E2** Workspaces & tenancy | Roles, invitations, team UI | ✅ Phase B (2026-08-23) — audit-log task open |
 | **E12** Plans & quotas | Full ladder, seats, trial cap, Abonnements | 🟡 billing provider open |
 | **E3** Request core loop | Pipeline, criteria, attachments, dossier | ✅ done |
-| **E4** Supplier data | **Web research**, dedup, directory, sources admin | 🟡 import pipeline + merge tool open |
+| **E4** Supplier data | **Web research**, dedup, directory, sources admin | 🟡 **ADR-001 pivot (2026-08-26) → Phase S**; import/merge open |
 | **E5** Matching & scoring | Criteria-aware v1 + breakdown | 🟡 the "32 criteria" + comparison view open |
 | **E6** Facilitation | Engagements — *the OSI moment* | 🔴 not started (no tables) |
 | **E7** Reports | Printable report + PDF export | 🟡 stored `documents` rows open |
@@ -65,21 +65,33 @@ activity descriptions populated — these records are matchable). Enabling
 either registry for customers is the recorded product call (bare names for
 CA; QC records carry activities and clear the bar honestly).
 
-**Where to pick up next session:**
-① **Enrichment agent** (the one dashed box in the agreed sourcing flow) —
-DECISION GATE below, then build; ② **next autonomous connectors** — priority
-Companies House → SIRENE → SAM.gov → BRREG (verified access table in README
-§9, "Autonomous-pull registry candidates"); **Asia investigated 2026-08-25**
-(README §9 table): Singapore ACRA first (monthly CSVs + SSIC activity,
-verified), then Japan (NTA + gBizINFO), Taiwan (verify endpoint); China has
-NO open registry — covered by global_web, upgradable only via paid data or
-the gated alibaba connector; ③ **notification preferences** —
-in flight, plan in the E9/E11 task below; ④ the **E6 flow discussion**
-(still the MVP1 blocker, still gated); ⑤ deploy the registry-qc wave when
-asked. Read "Contracts a next session must NOT re-derive differently"
-before writing code.
+**⚡ ADR-001 ACCEPTED 2026-08-26 — supplier provisioning pivoted to the
+demand-pull supplier graph.** Full decision record:
+[doc/adr/ADR-001-supplier-provisioning.md](adr/ADR-001-supplier-provisioning.md).
+It SUPERSEDES the enrichment decision gate (resolved below) and the
+availability-driven connector roadmap; registries become **verification
+infrastructure** (never matched, never workspace-selectable, stores kept as
+local verification tables on a ~6-month refresh). Implementation plan =
+**Phase S** below.
 
-### DECISION GATE — the source enrichment agent (discussed 2026-08-24/25)
+**Where to pick up next session:**
+① **S1 — category taxonomy** (Phase S below; blocks the S2 request form —
+resolve the HS vs NAICS/NACE vs in-house choice first); ② **notification
+preferences** — in flight, plan in the E9/E11 task below; ③ the **E6 flow
+discussion** (still the MVP1 blocker, still gated — and now also the seam
+of the S6 feedback loop); ④ deploy the India wave when asked. Read
+"Contracts a next session must NOT re-derive differently" before writing
+code.
+
+### DECISION GATE — the source enrichment agent — ✅ RESOLVED 2026-08-26
+
+> **Resolved by ADR-001:** Option 3 (lazy per-request, the ~3×N candidates a
+> live request surfaces) is PRIMARY; Option 2 (keyword-scoped batches) is the
+> staff-aimed secondary; Option 1 (blind capped batches) is dead. And
+> **registry records are never enriched at all** — they carry the
+> verification role now, out of matching entirely. The implementation seams
+> at the end of this section remain the guide (→ Phase S task S4). Original
+> discussion kept below for history.
 
 **Agreed flow (validated in discussion, diagrammed):** staff triggers from
 `/interne/sources` → worker pulls the registry data into the store (built)
@@ -297,6 +309,13 @@ writing any code.
   `requireEmailVerification` is a product decision, not a cleanup.
 - **No prod deploys unless explicitly requested** — dev is the test ground;
   main accumulates.
+- **ADR-001 (accepted 2026-08-26) governs supplier provisioning** —
+  registries are verification-only (never matched, never
+  workspace-selectable; stores = local verification tables, ~6-mo refresh),
+  enrichment is demand-pulled (~3×N per request, never store-sized), the
+  connector roadmap is corridor-driven (customs-US next), intake goes
+  form-first (category from the S1 taxonomy). Backlog/README text predating
+  the ADR is superseded where it conflicts — update it, don't follow it.
 
 ### Start working
 
@@ -822,6 +841,52 @@ suppliers only.
       DB-bound — verified live against the dev stack per the repo's
       unit-only policy (integration tests come with CI, if CI ever comes).
 
+### Phase S — ADR-001: the demand-pull supplier graph (ACCEPTED 2026-08-26)
+
+**The supplier-provisioning strategy pivoted** — decision record in
+[doc/adr/ADR-001-supplier-provisioning.md](adr/ADR-001-supplier-provisioning.md)
+(diagrammed artifact linked from there). Principles: **demand-pull** (nothing
+is spent on a supplier until a request needs them) and **the deal loop is
+the data-acquisition engine** (facilitation outcomes are the unscrapable
+moat). New source-role axis: *discovery* sources are workspace-selectable;
+**registries are verification infrastructure** — never matched, never in
+workspace settings, evidence lines on supplier profiles only; their stores
+stay as local verification tables, refreshed ~every 6 months. The supplier
+graph = the `supplier` table as node + dated, sourced edges (capabilities,
+shipments, registry snapshots, certs, verification evidence, deal
+outcomes); lifecycle `lead → profiled → verified → engaged → partner` is
+derived from edges, never set by hand.
+
+- [ ] **S1 · Category taxonomy** — in-house tree (~50–100 nodes), mapped
+      behind the scenes to HS / NIC / SSIC. The spine for the form (S2),
+      retrieval (S3), coverage measurement, and the E5 "32 criteria"
+      workshop. Resolve the open choice (HS vs NAICS/NACE vs in-house
+      mapped to all three) FIRST — it blocks S2.
+- [ ] **S2 · Structured request form as primary intake** — the E3 task
+      (added 2026-08-26). Depends on S1.
+- [ ] **S3 · Category/activity-code retrieval** — replaces the name-only
+      big-store ILIKE prefilter for discovery stores: criteria/category →
+      activity-code mapping (NIC, SSIC, QC activity classes), zero AI cost.
+- [ ] **S4 · Lazy per-request enrichment** — enrich the ~3×N candidates a
+      live request surfaces (site scrape → evidence-cited capability
+      profile); keyword-scoped batches as the staff-aimed secondary. Seams
+      (from the resolved gate above): `enrich` job on the research queue,
+      agent module beside `ai/research.ts`, enrichment fields +
+      `enriched_at` on `source_record`, per-run audit with token cost.
+- [ ] **S5 · Customs/BoL connector + verification battery + source roles** —
+      free US import-records connector first (proof of export capability;
+      the only free route to the China corridor). `data_source` role split
+      (`discovery | verification`); `sourcing_rules` + Paramètres scope to
+      discovery; `eligibleCandidates` drops verification-role stores.
+      Verification battery = the E10 spec (ADR §4): six checks → evidence
+      rows → derived tier ladder (0 unverified → 1 existence → 2 capability
+      → 3 Vérifié OSI); sanctions hit blocks presentation; scheduled ~6-mo
+      registry refresh (the scheduler is the third legitimate caller of
+      connectors, as the README always reserved).
+- [ ] **S6 · Engagement feedback loop** — gated with E6: outcomes (response
+      time, MOQ, lead time, quotes) write back onto the supplier as edges.
+      The moat; build the schema seams when E6's flow is defined.
+
 ### Sequencing & dependencies
 
 ```
@@ -905,6 +970,26 @@ feeds C3/C4 value (Recommandé requires Vérifié)
 - [x] **Personal dashboard** (Accueil): real session user greeting, stats + "Vos dossiers
       récents" scoped to the logged-in user, per-role workspace visibility
 - [ ] Activity feed: recent events across _my_ requests/engagements (from engagement_events + status changes)
+- [ ] **Structured request form as primary intake** (owner decision
+      2026-08-26, kept in backlog — context in ADR-001, the supplier-
+      provisioning review: https://claude.ai/code/artifact/a537df29-e576-4725-b8de-661efd1d1438).
+      Replace the free-text-only intake with a form: **category (required,
+      from a new in-house taxonomy ~50–100 nodes, mapped behind the scenes
+      to HS/NIC/SSIC codes)** · product name · spec chips (material,
+      standards) · certifications multi-select · quantity + unit · target
+      lead time · free-text details field for nuance. The form writes
+      `request_criterion` rows directly — `createRequestFn` stays the single
+      choke point; the regex parser is superseded wherever the form covers
+      it. **Why it matters beyond UX:** the category field is the intake
+      half of the taxonomy spine — it unlocks category→activity-code
+      retrieval over the registry stores (prefilter v2, fixing the
+      name-only prefilter gap at `src/server/sources/scope.ts:147`), makes
+      the cache key honest, and makes coverage measurable per
+      category × corridor. **Pre-launch, no conversion constraint** (no
+      customers on dev or prod): build form-first now; the low-friction
+      plain-language hero is a launch-time design task, and the form's
+      fields will define exactly what that parser must extract. Dependency:
+      the taxonomy (ADR-001 open question #2) — resolve it first.
 
 ### E4 — Supplier data platform
 
@@ -933,11 +1018,19 @@ feeds C3/C4 value (Recommandé requires Vérifié)
       `source_run`. Dedup/provenance/confidence applied by the platform core
       after collection, never inside a connector. `global_web` refactored in
       as connector #1 — adding any later source is one module + one row
-- [ ] **Next connectors** (roadmap): ~~first registry~~ `registry-ca` ✅
-      built 2026-08-24 (C2 — store loaded, enabled=false behind gate C2b) →
-      `alibaba` (**ToS/licensing gate before coding**) → `registry-us` →
-      per demand
-- [ ] **`registry-us` — SPEC'D, ready to build** (investigated 2026-08-25,
+- [ ] ~~**Next connectors** (roadmap): `registry-ca` ✅ → `alibaba` →
+      `registry-us` → per demand~~ — **SUPERSEDED by ADR-001 (2026-08-26)**:
+      no more registries are built for discovery; the next connector is
+      **customs/BoL (US import records, free)** per Phase S task S5, and
+      connector priority is corridor-driven. Existing registry connectors
+      + stores are retained as verification backends. The alibaba
+      ToS/licensing gate still applies if a marketplace connector is ever
+      wanted (marketplaces are discovery-role).
+- [ ] **`registry-us` — SPEC'D but DEPRIORITIZED by ADR-001** (registries
+      are verification-role now; build it only when discovery demand
+      surfaces US-verification volume — the spec below then applies
+      unchanged, feeding a verification store instead of matching)
+      (investigated 2026-08-25,
       full plan in README §9 → "registry-us investigation"): v1 = SAM.gov
       monthly public entity extract via the Extracts API (free personal key
       → `SAM_API_KEY`; autonomous static pull; NAICS code titles become the

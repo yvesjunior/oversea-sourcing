@@ -55,9 +55,68 @@ Consequences, all first-class rather than afterthoughts:
 - **Dedup / entity resolution** is a core subsystem — a unique index on a
   normalized `name|COUNTRY` key, so a repeat search cannot re-add a known company
 
+#### ADR-001 — supplier provisioning is demand-pull (ACCEPTED 2026-08-26)
+
+> **Status: ✅ DECIDED.**
+> [doc/adr/ADR-001-supplier-provisioning.md](doc/adr/ADR-001-supplier-provisioning.md)
+> is the decision record; **Phase S** in [doc/BACKLOG.md](doc/BACKLOG.md) is
+> the implementation plan. The sections below this one describe the built
+> machinery — still mechanically accurate, but **their roles are redirected
+> where they conflict with the ADR**.
+
+The strategy in one paragraph: **the demand-pull supplier graph.** Nothing
+is spent on a supplier until a real request needs them (spend attaches to
+*presented candidates*, never to collected records), and the facilitation
+loop is the data-acquisition engine — deal outcomes (response time, MOQ,
+lead time, quotes) are the unscrapable data that compounds per deal. The
+supplier graph = the `supplier` table as node + dated, sourced, queryable
+edges (capabilities→category, shipments, registry snapshots, certifications,
+verification evidence, deal outcomes); the lifecycle
+`lead → profiled → verified → engaged → partner` is *derived* from a node's
+edges, never set by hand. Plain Postgres — "graph" is the shape, not the
+engine.
+
+Key redirections versus the sections below:
+
+- **Source roles** (new axis, orthogonal to dynamic/static): *discovery*
+  sources (`global_web`; customs and marketplaces later) stay
+  workspace-selectable in Préférences de sourcing. **Registries are
+  *verification* infrastructure** — never fed into matching, never in
+  workspace settings; buyers meet them only as evidence lines on a
+  supplier's profile ("Existence vérifiée — Registre du Québec, actif,
+  consulté 2026-08"). Registry records therefore never need enrichment;
+  `sourcing_rules` and the Paramètres UI scope to discovery-role sources;
+  `eligibleCandidates` drops verification-role stores from matching.
+- **Registry stores are kept** as local verification lookup tables,
+  refreshed by scheduled full pull **~every 6 months per source** (staff
+  upload for the file-fed QC/JP); evidence records the snapshot date;
+  finalists get a live registry-API confirm where one exists. Registry
+  coverage grows on demand — a new country's registry is added when
+  discovery starts surfacing candidates there.
+- **Discovery grows corridor-first**: the next connector is **customs /
+  bill-of-lading data** (free US import records — proof of export
+  capability, and the only free route to the China corridor). The
+  availability-driven registry roadmap (Companies House → SIRENE → BRREG)
+  is retired.
+- **Enrichment is lazy**: the ~3×N candidates a live request surfaces get a
+  site-scrape + evidence-cited capability profile; keyword-scoped batches
+  are the staff-aimed secondary; store-sized enrichment batches do not
+  exist in this design.
+- **Verification battery (= the E10 spec)**: six checks per presented
+  candidate — legal existence, digital identity, export track record,
+  certifications (IAF CertSearch), sanctions screening (a hit blocks
+  presentation), LLM coherence read — each writing an evidence row; the
+  trust tier is derived (0 unverified → 1 existence verified → 2 capability
+  evidenced → 3 Vérifié OSI). `verification_status` stops being settable by
+  any code.
+- **Intake goes form-first**: a structured request form (category required,
+  from the new taxonomy) becomes the primary intake (E3); the
+  plain-language hero is a launch-time design task.
+
 #### Data sources & sourcing preferences
 
-> **Status: ✅ IMPLEMENTED (core 2026-08-22 · surfaces 2026-08-23/24).** The
+> **Status: ✅ IMPLEMENTED (core 2026-08-22 · surfaces 2026-08-23/24) —
+> roles redirected by ADR-001 above.** The
 > engine is live: connector contract + registry (`src/server/sources/`),
 > `global_web` as connector #1, per-source stores (`source_record`),
 > `source_run` audit, the store-first request flow on its own `research`
@@ -322,6 +381,13 @@ scheduler is just a third caller of the same connector — nothing else
 changes.
 
 ##### Connector roadmap (integrate while going)
+
+> **Superseded for *discovery* by ADR-001 (2026-08-26):** next connectors
+> are corridor-driven — **customs/BoL (US import records) first** (Phase S
+> task S5); the registries below are retained as **verification backends**
+> (per-candidate lookups + ~6-monthly store refresh), not discovery
+> sources. Rows #5/#6 (registry-us, UK/FR/NO) are deprioritized to
+> "when verification demand surfaces that country".
 
 Each connector is coded independently and plugged in when ready — one module
 + one `data_source` row, nothing else changes:
