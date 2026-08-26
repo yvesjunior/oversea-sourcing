@@ -32,18 +32,27 @@ downloads the PDF report.
 
 ## Resume here (last session: 2026-08-25/26)
 
-**Production is live and healthy at [osi-solutions.com](https://osi-solutions.com) — deploy #3 (2026-08-26) ships prod = main.**
-Deploy #3 carries the registry-qc wave (file-fed machinery: streamed
+**Production is live and healthy at [osi-solutions.com](https://osi-solutions.com), commit `8177522` (deploy #3, 2026-08-26).**
+Deploy #3 shipped the registry-qc wave (file-fed machinery: streamed
 `PUT /api/source-upload`, `SearchBrief.fileKey`, `meta.requiresFile` +
 `downloadUrl`, fflate ZIP tooling, shared `sources/csv.ts` +
 `sources/file-tools.ts`) **and the Asia wave** (registry-sg autonomous,
-registry-jp file-fed — see the entries below), migrations **0015 + 0016**
-(both additive seeds, rows disabled). The catalogue on prod is now five
-sources: `global_web` (enabled) + four registries (ALL disabled, stores
-empty — staff warms them: CA autonomously, QC/JP by ZIP upload from the
-links on their tabs, SG autonomously). Display names shortened per owner
-request: Web mondial · Registre Canada · Registre Québec · Registre
-Singapour · Registre Japon (i18n `sourceNames.*`).
+registry-jp file-fed), migrations **0015 + 0016**. Prod's catalogue is
+five sources: `global_web` (enabled) + CA/QC/SG/JP registries (ALL
+disabled, stores empty — staff warms them: CA/SG autonomously, QC/JP by
+ZIP upload from the links on their tabs). Display names shortened per
+owner request: Web mondial · Registre Canada · Registre Québec · Registre
+Singapour · Registre Japon · Registre Inde (i18n `sourceNames.*`).
+**Main is ahead of prod by the India source** (`registry-in` + migration
+**0017**, additive) — sixth catalogue entry, deploy on request.
+
+**Dev store state at session end (2026-08-26):** registry-ca 393 339 ·
+registry-qc 814 921 (real archive) · registry-jp fixture-only (2) ·
+registry-sg **first full pull in flight** (paging its 27 datasets,
+~47k live entities through 5/27 at last check — twice interrupted by
+container recreations during the lockfile fixes, relaunched cleanly each
+time; final count lands in the source tab) · registry-in empty, awaiting
+`DATA_GOV_IN_API_KEY` (owner signup) for its first 2.6M-row pull.
 
 **Dev source-store state (2026-08-25):** `global_web` enabled, store empty —
 wiped during the Phase D disposability test, refills request by request
@@ -322,6 +331,21 @@ Quality gates are `npm test` (vitest, 27 unit tests),
   unless the VM gains a working IPv6 route.
 - **Dev has no Google credentials on purpose** — the button would render and then
   fail. Google is prod-only.
+- **`npm install <pkg>` on macOS can silently break the prod build** (bit
+  on 2026-08-26, deploy #3): npm drops other platforms' optional native
+  bindings from package-lock (npm/cli#4828) — the VM's image build then
+  fails on rolldown's missing linux-x64 binding. Cure: regenerate the lock
+  cleanly (`rm -rf node_modules package-lock.json && npm install`)… which
+  has its own trap: caret ranges drift (better-auth went 1.6.25 → 1.7.x
+  with breaking types — now PINNED EXACT at 1.6.25; upgrade deliberately or
+  not at all). After any lockfile change, REBUILD the dev image too
+  (`docker compose -f docker-compose.dev.yml build web && up -d`) or the
+  containers mix old image deps with new lock (TanStack export crash).
+- **Recreating a worker container kills its in-flight pull.** The job dies
+  with the process; the source_run strands as `running` (pg-boss re-delivers
+  only after the job's expiration, up to 1h). Settle it
+  (`update source_run set status='failed' … where status='running'`) and
+  re-trigger from the tab. Cost the Singapore pull twice on 2026-08-26.
 - **pg-boss cancels handlers at the job's expiration (default 15 min).**
   A registry full pull can run longer; the handler is killed mid-pull and
   the source_run strands as `running`. Admin refreshes are enqueued with
@@ -944,7 +968,13 @@ feeds C3/C4 value (Recommandé requires Vérifié)
       814 921 records in 65 s**, activity descriptions populated. Store
       warmed while disabled; upstream refreshes twice a month — re-download
       + re-upload on that cadence, idempotent. The tab carries the download
-      link (`meta.downloadUrl`).
+      link (`meta.downloadUrl`). **Why not autonomous:** the endpoint sits
+      behind an anti-bot JS challenge (verified: server fetch → 403
+      challenge page; automated browser → never released). We do not
+      circumvent bot detection. The clean path to automation: ask the
+      Registraire (guide contact `groupe.pilotage@req.gouv.qc.ca`) for a
+      machine endpoint or IP exemption — the connector then flips to
+      autonomous with the parsing unchanged.
 - [x] **`registry-sg` — BUILT 2026-08-25/26** (Asia wave): AUTONOMOUS static
       source over data.gov.sg's open datastore (no key, no account) — the
       ACRA corporate-entities collection, 27 datasets paged at 1000
