@@ -18,6 +18,14 @@ describe("supplierDedupKey", () => {
     expect(supplierDedupKey("Acme Valves", "FR")).not.toBe(supplierDedupKey("Acme Valves", "CN"));
   });
 
+  it("keeps non-latin names (kanji) instead of reducing them to nothing", () => {
+    const key = supplierDedupKey("株式会社 山田製作所", "JP");
+    expect(key).not.toBeNull();
+    expect(key).toContain("|JP");
+    // Same company, different spacing → same key.
+    expect(supplierDedupKey("株式会社山田製作所", "JP")).toBe(key);
+  });
+
   it("returns null when the company is not identifiable", () => {
     expect(supplierDedupKey("", "FR")).toBeNull();
     expect(supplierDedupKey("Acme Valves", "")).toBeNull();

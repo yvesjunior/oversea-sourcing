@@ -54,13 +54,17 @@ const LEGAL_SUFFIXES = [
   "industrial",
 ];
 
-/** Fold accents and case, strip punctuation → comparable token list. */
+/** Fold accents and case, strip punctuation → comparable token list.
+ *  Unicode-aware (2026-08-25, registry-jp): kanji/kana/hangul names must
+ *  produce keys too — the old `[^a-z0-9]` class reduced them to nothing and
+ *  every Japanese company would have been silently dropped. Latin names are
+ *  unaffected: accents are already folded to ASCII before this step. */
 function tokenize(name: string): string[] {
   return name
     .normalize("NFD")
     .replace(/[̀-ͯ]/g, "")
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/[^\p{Letter}\p{Number}]+/gu, " ")
     .trim()
     .split(" ")
     .filter(Boolean);

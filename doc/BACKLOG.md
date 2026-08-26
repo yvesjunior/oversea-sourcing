@@ -30,18 +30,20 @@ need, gets a real Top-N (researched + imported suppliers, scored), clicks
 *Engager*, OSI ops sees it in the queue, the buyer sees "connected", and
 downloads the PDF report.
 
-## Resume here (last session: 2026-08-25)
+## Resume here (last session: 2026-08-25/26)
 
-**Production is live and healthy at [osi-solutions.com](https://osi-solutions.com), commit `89b05ca` (deploy #2 of 2026-08-24).**
-**Main is ~6 commits ahead of prod — the registry-qc wave, NOT deployed:**
-the file-fed source machinery (`a02faf5`: `PUT /api/source-upload` streamed
-staff uploads, `SearchBrief.fileKey`, `meta.requiresFile`/`downloadUrl`,
-`putFileStream`, upload consumed+deleted by the run, fflate ZIP tooling,
-shared `sources/csv.ts` parser), the registry-qc connector + migration
-**0015** (the only migration prod is missing — additive), the download link
-on the tab (`4d65546`), and the registry-us + autonomous-candidates
-investigation docs. Deploy on request as usual; after it, staff can pull
-registry-ca on prod autonomously and feed registry-qc by ZIP upload.
+**Production is live and healthy at [osi-solutions.com](https://osi-solutions.com) — deploy #3 (2026-08-26) ships prod = main.**
+Deploy #3 carries the registry-qc wave (file-fed machinery: streamed
+`PUT /api/source-upload`, `SearchBrief.fileKey`, `meta.requiresFile` +
+`downloadUrl`, fflate ZIP tooling, shared `sources/csv.ts` +
+`sources/file-tools.ts`) **and the Asia wave** (registry-sg autonomous,
+registry-jp file-fed — see the entries below), migrations **0015 + 0016**
+(both additive seeds, rows disabled). The catalogue on prod is now five
+sources: `global_web` (enabled) + four registries (ALL disabled, stores
+empty — staff warms them: CA autonomously, QC/JP by ZIP upload from the
+links on their tabs, SG autonomously). Display names shortened per owner
+request: Web mondial · Registre Canada · Registre Québec · Registre
+Singapour · Registre Japon (i18n `sourceNames.*`).
 
 **Dev source-store state (2026-08-25):** `global_web` enabled, store empty —
 wiped during the Phase D disposability test, refills request by request
@@ -320,6 +322,11 @@ Quality gates are `npm test` (vitest, 27 unit tests),
   unless the VM gains a working IPv6 route.
 - **Dev has no Google credentials on purpose** — the button would render and then
   fail. Google is prod-only.
+- **pg-boss cancels handlers at the job's expiration (default 15 min).**
+  A registry full pull can run longer; the handler is killed mid-pull and
+  the source_run strands as `running`. Admin refreshes are enqueued with
+  `expireInSeconds: 3600` (src/server/queue.ts) — keep that in mind for any
+  future long-running job type.
 - **tsx watch misses edits that land during a restart.** The dev workers
   restart on file change, but a second file saved while a restart is in
   flight is silently skipped — the process then runs one stale module (cost
@@ -938,6 +945,33 @@ feeds C3/C4 value (Recommandé requires Vérifié)
       warmed while disabled; upstream refreshes twice a month — re-download
       + re-upload on that cadence, idempotent. The tab carries the download
       link (`meta.downloadUrl`).
+- [x] **`registry-sg` — BUILT 2026-08-25/26** (Asia wave): AUTONOMOUS static
+      source over data.gov.sg's open datastore (no key, no account) — the
+      ACRA corporate-entities collection, 27 datasets paged at 1000
+      rows/page with a server-side LIVE-status filter and a `fields`
+      selection (full rows carry 50+ columns). Every record has its
+      **primary SSIC activity code + description** → matchable records,
+      like registry-qc. Retries with backoff on every call (~600 sequential
+      requests make transient blips a certainty — the first attempt died on
+      one), per-dataset progress logs, confidence 65. Seeded disabled
+      (migration 0016). *First real pull ran in dev at commit time —
+      dataset-by-dataset totals matching the probes (16 031 live in
+      "others", 115k+ through 6/27); final store count in the source tab.*
+- [x] **`registry-jp` — BUILT 2026-08-25/26** (Asia wave): FILE-FED static
+      source (the NTA download is a per-session CSRF-token form POST —
+      probed; `downloadUrl` on the tab points at the 全件データ page). Staff
+      uploads the Unicode CSV ZIPs chunk by chunk — each pull is an
+      idempotent partial sync that accumulates. Parses the NTA's HEADERLESS
+      30-column format: keeps latest (col 24), open (col 19 empty),
+      displayed (col 30 ≠ 1), non-government (kind ≠ 101/201) rows; name =
+      official English name when present, else the registered kanji name.
+      No activity data → confidence 60, name-only like registry-ca.
+      **Prerequisite fixed in `src/lib/supplier-key.ts`: the dedup tokenizer
+      is Unicode-aware now — the old `[^a-z0-9]` class reduced kanji names
+      to empty keys and every Japanese company would have been silently
+      dropped (unit-tested).** *Fixture verified through the real UI: 2 of
+      5 rows kept — the active kanji corp and the English-named one; closed,
+      non-latest and government rows excluded.*
 - [x] **`supplier_source` memberships + bans** — schema + persistence built
       2026-08-22 (uq pair, payload, first/last_seen, upserts on every
       collection, bans sticky across re-collection via the dedup key; banned

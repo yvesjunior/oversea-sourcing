@@ -37,10 +37,14 @@ export function getBoss(): Promise<PgBoss> {
 }
 
 /** pg-boss v10+ requires the queue to exist before send() — createQueue is idempotent. */
-async function send(queue: string, data: object): Promise<void> {
+async function send(
+  queue: string,
+  data: object,
+  options?: { expireInSeconds?: number },
+): Promise<void> {
   const instance = await getBoss();
   await instance.createQueue(queue);
-  await instance.send(queue, data);
+  await instance.send(queue, data, options ?? {});
 }
 
 export async function enqueuePipeline(requestId: string): Promise<void> {
@@ -52,5 +56,10 @@ export async function enqueueResearch(requestId: string): Promise<void> {
 }
 
 export async function enqueueAdminRefresh(sourceRunId: string): Promise<void> {
-  await send(QUEUES.research, { sourceRunId } satisfies AdminRefreshJob);
+  // A registry full pull legitimately runs for tens of minutes (paginated
+  // APIs, million-row files) — pg-boss's default 15-minute expiration would
+  // cancel the handler mid-pull and strand the source_run as `running`.
+  await send(QUEUES.research, { sourceRunId } satisfies AdminRefreshJob, {
+    expireInSeconds: 3600,
+  });
 }

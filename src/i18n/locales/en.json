@@ -105,8 +105,10 @@
   },
   "sourceNames": {
     "global_web": "Global Web",
-    "registry-ca": "Canadian federal registry",
-    "registry-qc": "Quebec enterprise registry"
+    "registry-ca": "Canada Registry",
+    "registry-qc": "Quebec Registry",
+    "registry-sg": "Singapore Registry",
+    "registry-jp": "Japan Registry"
   },
   "sourcesAdmin": {
     "title": "Data sources",
