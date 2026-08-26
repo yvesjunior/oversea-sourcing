@@ -1266,6 +1266,18 @@ Germany (no bulk), Delaware/California (nothing), most other US states
 + SIC) → SIRENE (FR market, NAF) → SAM.gov (US, NAICS) → BRREG — every one
 of them activity-coded, i.e. matchable records, unlike bare-name registries.
 
+#### Asian registries (investigated 2026-08-25 — not built)
+
+| Country | Access | Activity data | Autonomous? | Verdict |
+|---|---|---|---|---|
+| 🇸🇬 **Singapore ACRA** ✅ probed | [27 monthly CSVs on data.gov.sg](https://data.gov.sg/collections/2/view) + datastore API, no key, open licence incl. commercial use | ✅ **primary SSIC code + description** | ✅ direct | **Build first in Asia** — our exact pattern, ~1.5M entities |
+| 🇯🇵 **Japan** ✅ pages probed | Two layers: [NTA Corporate Number](https://www.houjin-bangou.nta.go.jp/download/) bulk CSVs (~5M corps, names + addresses, free; Web-API needs a free application ID) and [gBizINFO](https://info.gbiz.go.jp/) (METI aggregate — REST API with free token + bulk download, richer fields) | partial (gBizINFO where declared) | ✅ | Feasible pair; moderate discovery value |
+| 🇹🇼 **Taiwan** | MOEA/GCIS company-registration open data (data.gov.tw + GCIS open API), industry codes included | ✅ | ✅ (endpoint format to verify — first probe returned empty) | Promising; verify then build |
+| 🇮🇳 **India** | MCA company master data — state-wise CSVs via data.gov.in (free API key), activity classification included | ✅ | ✅ | Possible; refresh cadence irregular/stale |
+| 🇨🇳 **China** | NECIPS (gsxt.gov.cn): no API, no bulk, aggressive anti-bot. Data exists only through commercial providers (Qichacha/Tianyancha/QCC — paid licences) | — | ❌ | **Closed as a registry.** China coverage today = the `global_web` AI agent (already finds Chinese manufacturers); a paid-data decision or the gated `alibaba` connector are the upgrades |
+| 🇰🇷 Korea · 🇭🇰 Hong Kong · 🇻🇳 Vietnam · 🇲🇾 Malaysia | Korea: open-data portal needs a Korean-verified account, court registry paid · HK: search-only, per-document fees · VN: search-only portal · MY (SSM): paid | — | ❌ | Closed for now |
+| 🇹🇭 Thailand | DBD publishes datasets behind a free registration | partial | ~ | Per demand |
+
 ### registry-us investigation (findings 2026-08-25 — not built)
 
 **There is no US federal business registry** — incorporation is per-state:

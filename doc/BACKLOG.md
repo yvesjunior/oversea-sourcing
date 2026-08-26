@@ -58,7 +58,11 @@ CA; QC records carry activities and clear the bar honestly).
 ① **Enrichment agent** (the one dashed box in the agreed sourcing flow) —
 DECISION GATE below, then build; ② **next autonomous connectors** — priority
 Companies House → SIRENE → SAM.gov → BRREG (verified access table in README
-§9, "Autonomous-pull registry candidates"); ③ **notification preferences** —
+§9, "Autonomous-pull registry candidates"); **Asia investigated 2026-08-25**
+(README §9 table): Singapore ACRA first (monthly CSVs + SSIC activity,
+verified), then Japan (NTA + gBizINFO), Taiwan (verify endpoint); China has
+NO open registry — covered by global_web, upgradable only via paid data or
+the gated alibaba connector; ③ **notification preferences** —
 in flight, plan in the E9/E11 task below; ④ the **E6 flow discussion**
 (still the MVP1 blocker, still gated); ⑤ deploy the registry-qc wave when
 asked. Read "Contracts a next session must NOT re-derive differently"
