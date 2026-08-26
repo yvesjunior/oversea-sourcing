@@ -108,7 +108,8 @@
     "registry-ca": "Canada Registry",
     "registry-qc": "Quebec Registry",
     "registry-sg": "Singapore Registry",
-    "registry-jp": "Japan Registry"
+    "registry-jp": "Japan Registry",
+    "registry-in": "India Registry"
   },
   "sourcesAdmin": {
     "title": "Data sources",

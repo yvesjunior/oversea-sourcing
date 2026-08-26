@@ -972,6 +972,20 @@ feeds C3/C4 value (Recommandé requires Vérifié)
       dropped (unit-tested).** *Fixture verified through the real UI: 2 of
       5 rows kept — the active kanji corp and the English-named one; closed,
       non-latest and government rows excluded.*
+- [ ] **`registry-in` — BUILT 2026-08-26, first pull PENDING a free key**:
+      AUTONOMOUS static source over data.gov.in's consolidated MCA resource
+      ("RoC-wise Company Master Data", 3.67M rows, updated 2026-07 — probed:
+      **2 597 823 Active companies**, every record with an NIC code +
+      industrial-classification text → matchable records). Pages the API
+      with a server-side Active filter, retries/backoff, progress logs;
+      confidence 65. **Prerequisite: `DATA_GOV_IN_API_KEY` in `.env`** —
+      free signup at data.gov.in; the public sample key is capped at 10
+      rows/page and rate-limited (smoke run failed cleanly with HTTP 429 —
+      the error path is verified end to end: retries fired, run failed
+      clean, error surfaced on the tab). `REGISTRY_IN_PAGE_SIZE` /
+      `REGISTRY_IN_MAX_PAGES` env knobs exist for tuning/smoke. Migration
+      0017 seeds the row disabled. Full-pull verification happens when the
+      key lands (expect ~2.6M records, ~30-45 min).
 - [x] **`supplier_source` memberships + bans** — schema + persistence built
       2026-08-22 (uq pair, payload, first/last_seen, upserts on every
       collection, bans sticky across re-collection via the dedup key; banned
