@@ -811,12 +811,20 @@ Constraints: only the owner assigns roles, no one can be promoted **to**
 owner this way (that is ownership transfer, UC-6bis), and the owner cannot
 demote themselves — transfer first.
 
-##### UC-6 — Remove a member / member leaves
-The owner removes a member; or a member leaves voluntarily (Paramètres).
-Their `member` row is deleted; their user account and personal workspace are
-untouched. **Their requests stay with the enterprise workspace** — the data
-belongs to the tenant, not the person (this is the whole point of enterprise).
-The `owner` cannot be removed and cannot leave without transferring ownership.
+##### UC-6 — Remove a member / member leaves (re-interpreted 2026-08-26)
+The owner removes a member. Their `member` row is deleted, and then:
+- **If they belong to another workspace** (an individual invited into the
+  org), nothing else happens — they fall back to their own workspace.
+- **If this was their ONLY workspace** (invited-only signups), **their
+  account is deleted** — no orphan logins, no deadlock; coming back means
+  registering again. Platform staff are never auto-deleted.
+
+**The tenant keeps the work either way** — that part of the original UC-6
+stands: `request.created_by` and `file.uploaded_by` are nullable with
+`on delete set null`, so the enterprise's dossiers, matches, reports and
+attachments survive the person, attributed to "utilisateur supprimé".
+The `owner` cannot be removed and cannot leave without transferring
+ownership.
 
 ##### UC-7 — Quota & usage (the money view)
 The enterprise plan's `requests_per_day` is a **pooled workspace limit**

@@ -115,6 +115,9 @@ async function handlePipeline({ requestId }: PipelineJob, enqueue: Enqueue): Pro
   if (status === "validating") {
     await transitionRequest(requestId, orgId, "validating", "report_ready");
     // E9: the buyer should not have to keep the tab open to learn the result.
+    // created_by is null when the creator's account was deleted (UC-6
+    // re-interpretation) — the dossier still finishes, nobody to notify.
+    if (!request.createdBy) return;
     const { notifyUser } = await import("@/server/notify");
     const link = `/demandes/${requestId}`;
     await notifyUser({

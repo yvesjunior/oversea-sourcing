@@ -220,6 +220,24 @@ export const auth = betterAuth({
             link: "/parametres",
           });
         },
+        // Removal from your ONLY workspace deletes the account (owner
+        // decision 2026-08-26, UC-6 re-interpreted): the tenant keeps the
+        // work (request.created_by / file.uploaded_by null out to
+        // "utilisateur supprimé"), the person re-registers if they ever
+        // come back. Guards: never auto-delete platform staff, and never a
+        // user who still belongs somewhere (an individual invited into an
+        // org and removed later simply falls back to their own workspace).
+        afterRemoveMember: async ({ member }) => {
+          const [remaining, removedUser] = await Promise.all([
+            db.query.member.findFirst({ where: eq(schema.member.userId, member.userId) }),
+            db.query.user.findFirst({ where: eq(schema.user.id, member.userId) }),
+          ]);
+          if (remaining || !removedUser || removedUser.platformRole !== "user") return;
+          await db.delete(schema.user).where(eq(schema.user.id, member.userId));
+          console.log(
+            `member removal: last workspace of ${removedUser.email} — account deleted (UC-6 re-interpretation, 2026-08-26)`,
+          );
+        },
         // Role edits from the team screen: never touch the owner, never mint
         // one — ownership moves only through the transfer flow (B7).
         beforeUpdateMemberRole: async ({ member, newRole }) => {

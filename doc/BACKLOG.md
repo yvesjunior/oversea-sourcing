@@ -107,6 +107,17 @@ workspaces backfilled `individual` (no enterprise exists yet anywhere).
 **Follow-up:** granting a platform role on /interne/utilisateurs should
 also add OSI-org membership (manual SQL meanwhile); signup UX for the
 individual-vs-organisation choice is the open design question;
+②e **DONE 2026-08-26 — removal from the only workspace deletes the
+account** (owner decision; kills the orphan-login deadlock — a user with
+no workspace would loop between login and the auth gate forever). UC-6
+re-interpreted: **the tenant keeps the work, the person doesn't need to
+exist** — migration **0024** makes `request.created_by` and
+`file.uploaded_by` nullable `set null`; the org-plugin `afterRemoveMember`
+hook deletes the user when no membership remains (never platform staff;
+an individual-first user just falls back to their own workspace). The
+report_ready notifier skips null creators. *Verified in dev:* deleting a
+user left their request intact with `created_by` null. Re-joining =
+re-registering (fresh account) — recorded as accepted.
 ②d **DONE 2026-08-26 — the signup account-type fork** (owner confirmed
 the three choices: self-serve organisation signup — supersedes Q3's
 staff-assisted-only rule for the entry tier; org trial = Free-like + 3

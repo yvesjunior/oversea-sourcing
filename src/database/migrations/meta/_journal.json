@@ -169,6 +169,13 @@
       "when": 1787799237113,
       "tag": "0023_groovy_stature",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1787800347470,
+      "tag": "0024_slim_zarda",
+      "breakpoints": true
     }
   ]
 }

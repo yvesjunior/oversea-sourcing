@@ -140,9 +140,10 @@ export const request = pgTable(
     organizationId: text("organization_id")
       .notNull()
       .references(() => organization.id, { onDelete: "cascade" }),
-    createdBy: text("created_by")
-      .notNull()
-      .references(() => user.id, { onDelete: "cascade" }),
+    /** Nullable since 2026-08-26 (UC-6 re-interpreted): removal from your
+     *  only workspace DELETES the account, but the tenant keeps the work —
+     *  a deleted creator leaves null, displayed as "utilisateur supprimé". */
+    createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
     title: text("title").notNull(),
     descriptionRaw: text("description_raw").notNull().default(""),
     /** Taxonomy node id (src/lib/taxonomy.ts) — ADR-001 S2: the structured
@@ -688,9 +689,9 @@ export const file = pgTable(
     filename: text("filename").notNull(),
     mime: text("mime").notNull(),
     size: bigint("size", { mode: "number" }).notNull(),
-    uploadedBy: text("uploaded_by")
-      .notNull()
-      .references(() => user.id, { onDelete: "cascade" }),
+    /** Nullable since 2026-08-26 — same rule as request.created_by: the
+     *  tenant's attachments survive the uploader's account deletion. */
+    uploadedBy: text("uploaded_by").references(() => user.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (table) => [index("file_org_idx").on(table.organizationId)],
