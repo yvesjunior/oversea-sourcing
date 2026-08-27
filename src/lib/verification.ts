@@ -21,9 +21,11 @@ export const CHECK_TTL_DAYS: Record<VerificationCheck, number> = {
   human_review: 365 * 5, // a staff decision does not silently expire
 };
 
-/** The checks the battery can actually run today (free, no external spend).
- *  export_record joins with the customs-us source; certification with a cert
- *  registry route; human_review is a staff action, never auto-run. */
+/** The checks the battery can actually run today (free, no external spend —
+ *  a hard owner constraint: no paid data subscriptions, ever).
+ *  export_record is dormant (no free customs route exists); certification
+ *  joins with a free cert-registry route; human_review is a staff action,
+ *  never auto-run. */
 export const AUTO_CHECKS = [
   "existence",
   "digital_identity",

@@ -5,12 +5,13 @@
 // (src/lib/verification.ts). THIS MODULE IS THE ONLY WRITER of
 // supplier.verification_status.
 //
-// v1 checks (free — owner decision 2026-08-26, free resources only):
+// v1 checks (free — owner constraint 2026-08-26: no paid data
+// subscriptions, EVER):
 //   existence        → the verification-role registry STORES, offline lookup
 //   digital_identity → website reachable · MX present · domain age (RDAP)
 //   sanctions        → OFAC SDN screened locally (list refreshed ≤7 days)
-// export_record joins with the customs-us source; certification with a cert
-// registry route; human_review is a staff action (E10 screen).
+// export_record is dormant (no free customs route); certification joins
+// with a free cert-registry route; human_review is a staff action (E10).
 
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/database";

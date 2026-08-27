@@ -401,7 +401,9 @@ export const VERIFICATION_CHECKS = [
   "digital_identity",
   /** OFAC SDN screening (local list, refreshed ≤7d). A hit is a hard flag. */
   "sanctions",
-  /** Customs/BoL export history — arrives with the customs-us source. */
+  /** Customs/BoL export history — DORMANT: the owner's no-paid-data
+   *  constraint (2026-08-26) closed every access route; revives only if a
+   *  genuinely free licensed route ever appears. */
   "export_record",
   /** Cert registries (IAF CertSearch…) — later; claims stay unverified. */
   "certification",

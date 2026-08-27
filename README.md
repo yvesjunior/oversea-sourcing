@@ -95,11 +95,15 @@ Key redirections versus the sections below:
   finalists get a live registry-API confirm where one exists. Registry
   coverage grows on demand — a new country's registry is added when
   discovery starts surfacing candidates there.
-- **Discovery grows corridor-first**: the next connector is **customs /
-  bill-of-lading data** (free US import records — proof of export
-  capability, and the only free route to the China corridor). The
-  availability-driven registry roadmap (Companies House → SIRENE → BRREG)
-  is retired.
+- **Discovery grows demand-first over genuinely FREE sources only** —
+  **owner constraint (2026-08-26): no paid subscription to any data
+  provider, ever; do not align any design with one.** Customs/BoL data —
+  the ADR's original discovery backbone — is therefore **closed** (the
+  2026-08-26 investigation found no free route; every access path is
+  paid). `global_web` carries discovery, including the China corridor; new
+  connectors are added only when a genuinely free, licensed source exists
+  for a corridor buyers need. The availability-driven registry roadmap
+  (Companies House → SIRENE → BRREG) stays retired.
 - **Enrichment is lazy**: the ~3×N candidates a live request surfaces get a
   site-scrape + evidence-cited capability profile; keyword-scoped batches
   are the staff-aimed secondary; store-sized enrichment batches do not
@@ -400,11 +404,12 @@ changes.
 ##### Connector roadmap (integrate while going)
 
 > **Superseded for *discovery* by ADR-001 (2026-08-26):** next connectors
-> are corridor-driven — **customs/BoL (US import records) first** (Phase S
-> task S5); the registries below are retained as **verification backends**
-> (per-candidate lookups + ~6-monthly store refresh), not discovery
-> sources. Rows #5/#6 (registry-us, UK/FR/NO) are deprioritized to
-> "when verification demand surfaces that country".
+> are demand-driven over **genuinely free sources only** (owner constraint:
+> no paid data subscriptions, ever — customs/BoL is closed, see §9); the
+> registries below are retained as **verification backends** (per-candidate
+> lookups + ~6-monthly store refresh), not discovery sources. Rows #5/#6
+> (registry-us, UK/FR/NO) are deprioritized to "when verification demand
+> surfaces that country".
 
 Each connector is coded independently and plugged in when ready — one module
 + one `data_source` row, nothing else changes:
@@ -1416,13 +1421,21 @@ all-state coverage only exists commercially.
    separate autonomous sources if wanted), EDGAR (E10 enrichment), paid
    aggregators (product/budget decision).
 
-### customs-us investigation (findings 2026-08-26 — ADR-001 S5, DECISION GATE)
+### customs-us investigation (findings 2026-08-26 — ✅ CLOSED, not built)
 
-**Why customs data:** bills of lading are the discovery backbone of the
-accepted ADR-001 design — the **shipper** on a US import record is a
-foreign supplier with *proven export history* (what they ship, how often,
-to whom), and it is the only data route into the China corridor. One
-dataset feeds both discovery and the export-record verification check.
+> **CLOSED by owner constraint (2026-08-26): OSI takes no paid subscription
+> to any data provider — now or later; no design may align with one.**
+> Every access route below is paid (no free route exists), so `customs-us`
+> is **not built** and the `export_record` verification check stays
+> dormant. It would revive only if a genuinely free, licensed route ever
+> appears. The findings are kept below so nobody re-investigates.
+
+**Why customs data was considered:** bills of lading were the discovery
+backbone of ADR-001's original design — the **shipper** on a US import
+record is a foreign supplier with *proven export history*, and it was the
+only data route into the China corridor. With it closed, `global_web`
+carries discovery (China included) and tier-2 capability evidence comes
+from certifications and the S6 engagement loop.
 
 **What exists (verified 2026-08-26):**
 
@@ -1439,17 +1452,10 @@ ones. US data covers ocean freight into the US; it evidences the
 China/Vietnam/India → US corridors directly, and a supplier's US export
 history is still strong capability evidence for a Canadian/EU buyer.
 
-**DECISION GATE (owner): this is the first connector that costs money.**
-- **Option A — CBP subscription (~$100–150/mo)**: own the raw data,
-  cleanest licence, build `customs-us` as a scheduled static connector.
-  Recommended when ready to spend; the price is confirmed by one phone
-  call before committing.
-- **Option B — ImportYeti API (~$50/mo)**: cheaper and pre-parsed, but
-  gated on their ToS permitting storage/re-use, and adds platform
-  dependence.
-- **Option C — defer**: global_web stays the only discovery source; the
-  verification battery (E10) can still be built now — export-record checks
-  slot in later when the data arrives.
+**Resolution (2026-08-26):** the owner's no-paid-data constraint closes
+every route above. `global_web` stays the discovery source; the
+verification battery (E10) was built the same day with the free checks
+only.
 
 ### C2 investigation — Canadian registries (findings 2026-08-24)
 

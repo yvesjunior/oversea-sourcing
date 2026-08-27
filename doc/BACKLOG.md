@@ -87,10 +87,12 @@ request form, migration 0019)** are BUILT and dev-verified — see the Phase
 S entries. Baseline tag before any of it: `adr-001-baseline`.
 
 **Where to pick up next session:**
-① **S4 — lazy per-request enrichment** (seams in the resolved gate below)
-or **S5 — customs/BoL connector investigation** (free US import records:
-verify access + format before coding, like every connector); S3 (activity-
+① **E10 staff review surface** (`/interne/verification` — the pending-tier
+queue with evidence rows + a "Vérifier" action writing `human_review`
+rows: makes Tier 3/Vérifié earnable, zero cost) or **S4 — lazy
+per-request enrichment** (seams in the resolved gate below); S3 (activity-
 code retrieval) matters only when a discovery store grows big again;
+customs/BoL is CLOSED (no-paid-data constraint, see S5);
 ② **notification preferences** — in flight, plan in the E9/E11 task below;
 ③ the **E6 flow discussion** (still the MVP1 blocker, still gated — and now
 also the seam of the S6 feedback loop); ④ deploy when asked (main is now
@@ -328,9 +330,12 @@ writing any code.
   registries are verification-only (never matched, never
   workspace-selectable; stores = local verification tables, ~6-mo refresh),
   enrichment is demand-pulled (~3×N per request, never store-sized), the
-  connector roadmap is corridor-driven (customs-US next), intake goes
-  form-first (category from the S1 taxonomy). Backlog/README text predating
-  the ADR is superseded where it conflicts — update it, don't follow it.
+  connector roadmap is demand-driven over **genuinely free sources only —
+  the owner's HARD no-paid-data-subscription constraint (2026-08-26)
+  excludes every paid feed/API, permanently (customs/BoL is closed)** —
+  and intake goes form-first (category from the S1 taxonomy).
+  Backlog/README text predating the ADR is superseded where it conflicts —
+  update it, don't follow it.
 
 ### Start working
 
@@ -916,19 +921,19 @@ derived from edges, never set by hand.
       (from the resolved gate above): `enrich` job on the research queue,
       agent module beside `ai/research.ts`, enrichment fields +
       `enriched_at` on `source_record`, per-run audit with token cost.
-- [ ] **S5 · Customs/BoL connector + verification battery + source roles** —
-      US import-records connector first (proof of export capability;
-      the only data route into the China corridor).
-      **Customs access INVESTIGATED 2026-08-26 → DECISION GATE** (README
-      §9 "customs-us investigation"): **no free route exists** (Enigma
-      retired, FOIA rejected 2023, OEC paywalled). Options: **A)** official
-      CBP AMS daily extract subscription ~$100–150/mo (exact price by phone
-      to the CBP Collections Section — the clean, licensed route,
-      recommended when ready to spend); **B)** ImportYeti API ~$50/mo,
-      gated on a ToS check (alibaba rule); **C)** defer — build the
-      verification battery now, slot export-record checks in when data
-      arrives. First connector that costs money — **owner decided
-      2026-08-26: Option C, defer — free resources preferred for now.**
+- [ ] **S5 · Verification battery + source roles** (customs connector
+      REMOVED from scope — see below).
+      **Customs access investigated 2026-08-26 → CLOSED** (README §9
+      "customs-us investigation"): **no free route exists** (Enigma
+      retired, FOIA rejected 2023, OEC paywalled; the only routes are the
+      paid CBP feed or paid APIs), and the **owner set a HARD CONSTRAINT
+      2026-08-26: no paid subscription to any data provider, ever — do not
+      align any design with one.** Consequences: `customs-us` is not built;
+      discovery = `global_web` + genuinely free sources only; the China
+      corridor stays covered by global_web; the `export_record` check is
+      dormant unless a truly free licensed route ever appears; tier-2
+      capability evidence comes from certifications and the S6 engagement
+      loop instead. Do not re-propose paid data options.
       Verification battery =
       the E10 spec (ADR §4): six checks → evidence rows → derived tier
       ladder (0 unverified → 1 existence → 2 capability → 3 Vérifié OSI);
@@ -958,9 +963,10 @@ derived from edges, never set by hand.
         waits; the tier-1-as-presentation-floor rule flips to inline
         later, once the checks have soak time). Per-check TTLs (existence
         180d aligned to the 6-mo store refresh · identity 30d · sanctions
-        7d) make re-runs ≈free. export_record joins with customs-us;
-        certification with a cert-registry route; human_review = the E10
-        staff screen (open). *Verified live in dev end to end:* request
+        7d) make re-runs ≈free. export_record is DORMANT (no-paid-data
+        constraint — only a truly free licensed route would revive it);
+        certification joins with a free cert-registry route; human_review
+        = the E10 staff screen (open). *Verified live in dev end to end:* request
         #3026 → 5 suppliers → SDN auto-downloaded → CN/CZ suppliers
         existence-inconclusive (`country_not_covered`, honest) with
         site/MX evidence; a supplier keyed to a real registry-qc record →
@@ -1123,12 +1129,13 @@ feeds C3/C4 value (Recommandé requires Vérifié)
       as connector #1 — adding any later source is one module + one row
 - [ ] ~~**Next connectors** (roadmap): `registry-ca` ✅ → `alibaba` →
       `registry-us` → per demand~~ — **SUPERSEDED by ADR-001 (2026-08-26)**:
-      no more registries are built for discovery; the next connector is
-      **customs/BoL (US import records, free)** per Phase S task S5, and
-      connector priority is corridor-driven. Existing registry connectors
-      + stores are retained as verification backends. The alibaba
-      ToS/licensing gate still applies if a marketplace connector is ever
-      wanted (marketplaces are discovery-role).
+      no more registries are built for discovery; connector priority is
+      demand-driven over **genuinely free sources only** (customs/BoL is
+      CLOSED — no free route + the owner's no-paid-data constraint).
+      Existing registry connectors + stores are retained as verification
+      backends. The alibaba ToS/licensing gate still applies if a
+      marketplace connector is ever wanted (marketplaces are
+      discovery-role, and free-tier only).
 - [ ] **`registry-us` — SPEC'D but DEPRIORITIZED by ADR-001** (registries
       are verification-role now; build it only when discovery demand
       surfaces US-verification volume — the spec below then applies

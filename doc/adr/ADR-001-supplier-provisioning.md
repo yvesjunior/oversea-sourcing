@@ -7,6 +7,16 @@
 | **Pretty version** | Claude artifact (diagrams): <https://claude.ai/code/artifact/a537df29-e576-4725-b8de-661efd1d1438> |
 | **Implementation plan** | Phase S in [doc/BACKLOG.md](../BACKLOG.md) |
 
+> **AMENDMENT (owner, 2026-08-26, same day — supersedes every mention of
+> customs/BoL data below): OSI takes NO paid subscription to any data
+> provider — now or later; no design may align with one.** The customs-us
+> investigation found no free route (see README §9), so customs/BoL data is
+> **closed**: `global_web` carries discovery (China corridor included), new
+> connectors are added only for genuinely free licensed sources, the
+> `export_record` check is dormant, and tier-2 capability evidence comes
+> from certifications and the S6 engagement loop. Open question #1 is
+> resolved accordingly.
+
 ## Context
 
 OSI's value chain: buyer describes an industrial need → the platform finds
@@ -52,7 +62,8 @@ The flow:
 REQUEST (structured form → HS-aligned taxonomy node)
   → RETRIEVE from the supplier graph (hybrid: edge filters + text/embedding)
   → coverage thin for this category × corridor?
-      DISCOVER fan-out: customs/BoL data (backbone) · marketplaces · web AI
+      DISCOVER fan-out: web AI (global_web) · free sources only
+      (customs/BoL closed by the no-paid-data amendment)
   → ENRICH top ~3×N lazily (site scrape → evidence-cited capability profile)
   → VERIFY per candidate (battery below; registries plug in HERE)
   → PRESENT Top-N (trust tier + evidence)
@@ -125,8 +136,8 @@ five registry connectors + warmed stores (as verification tables).
 2. **S2** Structured request form as primary intake (E3)
 3. **S3** Category/activity-code retrieval (replaces the name-only ILIKE)
 4. **S4** Lazy per-request enrichment (~3×N; keyword batches secondary)
-5. **S5** Customs/BoL discovery connector (free US records first) +
-   verification battery (E10) + `data_source` role split
+5. **S5** Verification battery (E10) + `data_source` role split
+   (~~customs/BoL connector~~ — closed by the no-paid-data amendment)
 6. **S6** Engagement feedback loop (with E6) — the moat
 
 ## Consequences
@@ -143,8 +154,8 @@ five registry connectors + warmed stores (as verification tables).
 
 ## Open questions
 
-1. Customs data access tier — free US records only, or budget a paid
-   provider for EU corridors?
+1. ~~Customs data access tier~~ — **RESOLVED 2026-08-26: no paid data
+   subscriptions, ever; no free route exists → customs data is closed.**
 2. Taxonomy choice — HS, NAICS/NACE, or in-house tree mapped to all three?
    (First in the start sequence; blocks S2.)
 3. Per-request enrichment budget — cap in dollars or candidates? Per plan tier?
