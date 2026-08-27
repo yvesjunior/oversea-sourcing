@@ -183,6 +183,13 @@
       "when": 1787800963350,
       "tag": "0025_sharp_wrecking_crew",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1787801166402,
+      "tag": "0026_parallel_hex",
+      "breakpoints": true
     }
   ]
 }

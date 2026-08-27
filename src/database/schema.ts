@@ -523,6 +523,35 @@ export const notificationPref = pgTable(
   (table) => [uniqueIndex("notification_pref_user_uq").on(table.userId)],
 );
 
+/** Organisation profile (owner, 2026-08-26) — the company's legal & tax
+ *  identity, shown in Paramètres for non-individual workspaces: the
+ *  workspace owner edits, other members read. Feeds invoicing/facilitation
+ *  paperwork later; nothing here is matching data. */
+export const organizationProfile = pgTable(
+  "organization_profile",
+  {
+    id: text("id").primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    /** Registered legal name when it differs from the display name. */
+    legalName: text("legal_name"),
+    website: text("website"),
+    phone: text("phone"),
+    addressLine: text("address_line"),
+    city: text("city"),
+    postalCode: text("postal_code"),
+    countryCode: text("country_code"),
+    /** Company/registry number (NEQ, corporation number, SIREN…). */
+    registrationNumber: text("registration_number"),
+    /** Tax identifier (TVA/TPS-TVQ/VAT number). */
+    taxId: text("tax_id"),
+    updatedBy: text("updated_by").references(() => user.id, { onDelete: "set null" }),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex("organization_profile_org_uq").on(table.organizationId)],
+);
+
 /** Per-workspace sourcing preferences (validated 2026-08-22): activate sources
  *  once in Settings — requests never specify a source. No row = defaults
  *  (all enabled sources, global origin). */

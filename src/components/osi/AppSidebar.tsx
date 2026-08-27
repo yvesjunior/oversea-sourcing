@@ -4,7 +4,6 @@ import {
   Database,
   FileText,
   Home,
-  Import,
   Inbox,
   LogIn,
   LogOut,
@@ -71,7 +70,6 @@ const itemsInterne: {
   { key: "verification", url: "/interne/verification", icone: ShieldCheck },
   // Customer accounts (individual vs organisation), 2026-08-26.
   { key: "clients", url: "/interne/clients", icone: Briefcase },
-  { key: "imports", url: "/interne/imports", icone: Import, disabledForRoles: ["manager"] },
   { key: "finance", url: "/interne/finance", icone: Wallet, disabledForRoles: ["manager"] },
   // Real screen, not a placeholder — so it stays live for managers.
   { key: "plans", url: "/interne/plans", icone: CreditCard },

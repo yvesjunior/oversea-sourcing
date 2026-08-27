@@ -25,9 +25,12 @@ import {
 } from "@/lib/notification-types";
 import { transferOwnershipFn } from "@/lib/team-fns";
 import {
+  getOrganizationProfileFn,
   getSettingsFn,
+  updateOrganizationProfileFn,
   updateProfileFn,
   updateSourcingRulesFn,
+  type OrganizationProfileData,
   type SettingsData,
 } from "@/lib/settings-fns";
 
@@ -39,6 +42,85 @@ export const Route = createFileRoute("/parametres")({
 
 const TAB_TRIGGER =
   "py-1 data-[state=active]:bg-gold-gradient data-[state=active]:text-gold-foreground data-[state=active]:shadow-gold";
+
+/** Organisation profile (owner, 2026-08-26) — the company's legal & tax
+ *  identity, on non-individual workspaces only. The workspace owner edits;
+ *  every other member sees the same fields read-only (visible, not hidden —
+ *  the app's rule). */
+function OrganizationPanel({ isOwner }: { isOwner: boolean }) {
+  const { t } = useTranslation();
+  const [profile, setProfile] = useState<OrganizationProfileData | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    void getOrganizationProfileFn().then(setProfile);
+  }, []);
+
+  if (!profile) return <p className="text-sm text-muted-foreground">…</p>;
+
+  const set = (key: keyof OrganizationProfileData) => (value: string) => {
+    setSaved(false);
+    setProfile((current) => (current ? { ...current, [key]: value } : current));
+  };
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      const result = await updateOrganizationProfileFn({ data: profile });
+      setSaved(result.ok);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const field = (key: keyof OrganizationProfileData, autoComplete?: string) => (
+    <div className="grid gap-1.5">
+      <Label htmlFor={`org-${key}`}>{t(`settings.orgFields.${key}`)}</Label>
+      <Input
+        id={`org-${key}`}
+        value={profile[key]}
+        onChange={(e) => set(key)(e.target.value)}
+        disabled={!isOwner}
+        {...(autoComplete ? { autoComplete } : {})}
+        className={isOwner ? "" : "text-muted-foreground"}
+      />
+    </div>
+  );
+
+  return (
+    <section className="card-surface max-w-xl space-y-5 p-6">
+      {!isOwner && <p className="text-xs text-muted-foreground">{t("settings.ownerOnly")}</p>}
+      <div>
+        <p className="mb-3 text-sm font-semibold">{t("settings.orgInfoTitle")}</p>
+        <div className="grid gap-4 sm:grid-cols-2">
+          {field("legalName", "organization")}
+          {field("website", "url")}
+          {field("phone", "tel")}
+          {field("countryCode", "country")}
+          {field("addressLine", "street-address")}
+          {field("city", "address-level2")}
+          {field("postalCode", "postal-code")}
+        </div>
+      </div>
+      <div>
+        <p className="mb-3 text-sm font-semibold">{t("settings.orgTaxTitle")}</p>
+        <div className="grid gap-4 sm:grid-cols-2">
+          {field("registrationNumber")}
+          {field("taxId")}
+        </div>
+      </div>
+      {isOwner && (
+        <div className="flex items-center gap-3">
+          <Button size="sm" disabled={saving} onClick={() => void save()}>
+            {t("settings.save")}
+          </Button>
+          {saved && <span className="text-xs text-emerald-600">{t("settings.savedShort")}</span>}
+        </div>
+      )}
+    </section>
+  );
+}
 
 /** E9/E11 — per-user notification preferences: one row per registry type,
  *  a switch per channel (email only where the type sends one). Missing = ON;
@@ -634,6 +716,11 @@ function Parametres() {
           <TabsTrigger value="profil" className={TAB_TRIGGER}>
             {t("settings.tabProfile")}
           </TabsTrigger>
+          {data.workspace.type !== "individual" && (
+            <TabsTrigger value="organisation" className={TAB_TRIGGER}>
+              {t("settings.tabOrganisation")}
+            </TabsTrigger>
+          )}
           <TabsTrigger value="abonnement" className={TAB_TRIGGER}>
             {t("settings.tabSubscription")}
           </TabsTrigger>
@@ -652,6 +739,11 @@ function Parametres() {
         <TabsContent value="profil" className="mt-3">
           <ProfilPanel data={data} onSaved={refresh} />
         </TabsContent>
+        {data.workspace.type !== "individual" && (
+          <TabsContent value="organisation" className="mt-3">
+            <OrganizationPanel isOwner={isOwner} />
+          </TabsContent>
+        )}
         <TabsContent value="abonnement" className="mt-3">
           <AbonnementPanel data={data} />
         </TabsContent>

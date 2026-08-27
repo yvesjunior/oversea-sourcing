@@ -49,8 +49,27 @@ export async function requireWorkspaceRole(
 } | null> {
   const { auth } = await import("@/server/auth");
   const session = await auth.api.getSession({ headers });
-  const workspaceId = session?.session.activeOrganizationId;
-  if (!session || !workspaceId) return null;
+  if (!session) return null;
+  let workspaceId = session.session.activeOrganizationId;
+  if (!workspaceId) {
+    // Self-heal (2026-08-26): a signup's session can be created before the
+    // user-create hook finishes provisioning the workspace (observed on an
+    // organisation signup — active_organization_id landed NULL). The user
+    // HAS a membership; adopt it, persist it on the session row, and purge
+    // the Redis-cached copy so the healed value is what future getSession
+    // calls see.
+    const membership = await db.query.member.findFirst({
+      where: eq(schema.member.userId, session.user.id),
+    });
+    if (!membership) return null;
+    workspaceId = membership.organizationId;
+    await db
+      .update(schema.session)
+      .set({ activeOrganizationId: workspaceId })
+      .where(eq(schema.session.id, session.session.id));
+    const { secondaryStorage } = await import("@/server/kv");
+    if (secondaryStorage) await secondaryStorage.delete(session.session.token);
+  }
   const membership = await requireMember(session.user.id, workspaceId, min);
   if (!membership) return null;
   return {

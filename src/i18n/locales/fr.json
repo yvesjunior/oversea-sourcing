@@ -13,7 +13,6 @@
     "interne": "Interne",
     "facilitation": "Facilitation",
     "verification": "Vérification fournisseurs",
-    "imports": "Imports",
     "finance": "Finance",
     "soon": "Bientôt disponible",
     "plans": "Abonnements",
@@ -88,6 +87,20 @@
     "notifTypes": {
       "report_ready": "Rapport prêt (une recherche de fournisseurs est terminée)",
       "invitation_accepted": "Invitation acceptée (quelqu’un a rejoint votre espace)"
+    },
+    "tabOrganisation": "Organisation",
+    "orgInfoTitle": "Informations de l’organisation",
+    "orgTaxTitle": "Informations fiscales",
+    "orgFields": {
+      "legalName": "Raison sociale",
+      "website": "Site web",
+      "phone": "Téléphone",
+      "countryCode": "Pays (code)",
+      "addressLine": "Adresse",
+      "city": "Ville",
+      "postalCode": "Code postal",
+      "registrationNumber": "Numéro d’entreprise",
+      "taxId": "Numéro de taxe (TVA/TPS-TVQ)"
     }
   },
   "invitation": {
@@ -596,8 +609,6 @@
     "facilitationText": "La file des mises en relation acheteur–fournisseur apparaîtra ici.",
     "verificationTitle": "Vérification fournisseurs",
     "verificationText": "Les fournisseurs en attente de vérification apparaîtront ici.",
-    "importsTitle": "Imports",
-    "importsText": "Les imports de données fournisseurs et leur suivi apparaîtront ici.",
     "financeTitle": "Finance",
     "financeText": "Le suivi des transactions et des paiements apparaîtra ici.",
     "documentsTitle": "Documents",

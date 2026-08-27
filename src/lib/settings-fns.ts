@@ -8,7 +8,7 @@ import { z } from "zod";
 
 export type SettingsData = {
   profile: { name: string; email: string; locale: string; emailVerified: boolean };
-  workspace: { id: string; name: string; role: string };
+  workspace: { id: string; name: string; role: string; type: string };
   subscription: {
     planCode: string;
     planName: string;
@@ -134,7 +134,12 @@ export const getSettingsFn = createServerFn({ method: "GET" }).handler(
         locale: user.locale ?? "fr",
         emailVerified: user.emailVerified,
       },
-      workspace: { id: workspace.id, name: workspace.name, role: caller.role },
+      workspace: {
+        id: workspace.id,
+        name: workspace.name,
+        role: caller.role,
+        type: workspace.type,
+      },
       subscription: {
         planCode: plan.code,
         planName: plan.name,
@@ -241,5 +246,107 @@ export const updateSourcingRulesFn = createServerFn({ method: "POST" })
           updatedAt: new Date(),
         },
       });
+    return { ok: true };
+  });
+
+/** Organisation profile (owner, 2026-08-26) — legal & tax identity of a
+ *  non-individual workspace. Any member reads; only the owner writes. */
+export type OrganizationProfileData = {
+  legalName: string;
+  website: string;
+  phone: string;
+  addressLine: string;
+  city: string;
+  postalCode: string;
+  countryCode: string;
+  registrationNumber: string;
+  taxId: string;
+};
+
+const EMPTY_ORG_PROFILE: OrganizationProfileData = {
+  legalName: "",
+  website: "",
+  phone: "",
+  addressLine: "",
+  city: "",
+  postalCode: "",
+  countryCode: "",
+  registrationNumber: "",
+  taxId: "",
+};
+
+export const getOrganizationProfileFn = createServerFn({ method: "GET" }).handler(
+  async (): Promise<OrganizationProfileData> => {
+    const [{ requireWorkspaceRole }, { getRequest }, { db }, { eq }, schema] = await Promise.all([
+      import("@/server/workspace-guard"),
+      import("@tanstack/react-start/server"),
+      import("@/database"),
+      import("drizzle-orm"),
+      import("@/database/schema"),
+    ]);
+    const caller = await requireWorkspaceRole(getRequest().headers, "viewer");
+    if (!caller) return EMPTY_ORG_PROFILE;
+
+    const row = await db.query.organizationProfile.findFirst({
+      where: eq(schema.organizationProfile.organizationId, caller.workspaceId),
+    });
+    if (!row) return EMPTY_ORG_PROFILE;
+    return {
+      legalName: row.legalName ?? "",
+      website: row.website ?? "",
+      phone: row.phone ?? "",
+      addressLine: row.addressLine ?? "",
+      city: row.city ?? "",
+      postalCode: row.postalCode ?? "",
+      countryCode: row.countryCode ?? "",
+      registrationNumber: row.registrationNumber ?? "",
+      taxId: row.taxId ?? "",
+    };
+  },
+);
+
+export const updateOrganizationProfileFn = createServerFn({ method: "POST" })
+  .inputValidator(
+    z.object({
+      legalName: z.string().trim().max(160),
+      website: z.string().trim().max(200),
+      phone: z.string().trim().max(40),
+      addressLine: z.string().trim().max(200),
+      city: z.string().trim().max(80),
+      postalCode: z.string().trim().max(20),
+      countryCode: z.string().trim().toUpperCase().max(2),
+      registrationNumber: z.string().trim().max(60),
+      taxId: z.string().trim().max(60),
+    }),
+  )
+  .handler(async ({ data }): Promise<{ ok: boolean }> => {
+    const [{ requireWorkspaceRole }, { getRequest }, { db }, schema] = await Promise.all([
+      import("@/server/workspace-guard"),
+      import("@tanstack/react-start/server"),
+      import("@/database"),
+      import("@/database/schema"),
+    ]);
+    // Owner-only writes — everyone else is read-only by design.
+    const caller = await requireWorkspaceRole(getRequest().headers, "owner");
+    if (!caller) return { ok: false };
+
+    const nullable = (value: string) => (value === "" ? null : value);
+    const columns = {
+      legalName: nullable(data.legalName),
+      website: nullable(data.website),
+      phone: nullable(data.phone),
+      addressLine: nullable(data.addressLine),
+      city: nullable(data.city),
+      postalCode: nullable(data.postalCode),
+      countryCode: nullable(data.countryCode),
+      registrationNumber: nullable(data.registrationNumber),
+      taxId: nullable(data.taxId),
+      updatedBy: caller.userId,
+      updatedAt: new Date(),
+    };
+    await db
+      .insert(schema.organizationProfile)
+      .values({ id: crypto.randomUUID(), organizationId: caller.workspaceId, ...columns })
+      .onConflictDoUpdate({ target: schema.organizationProfile.organizationId, set: columns });
     return { ok: true };
   });

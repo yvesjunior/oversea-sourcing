@@ -13,7 +13,6 @@
     "interne": "Internal",
     "facilitation": "Facilitation",
     "verification": "Supplier verification",
-    "imports": "Imports",
     "finance": "Finance",
     "soon": "Coming soon",
     "plans": "Subscriptions",
@@ -88,6 +87,20 @@
     "notifTypes": {
       "report_ready": "Report ready (a supplier search finished)",
       "invitation_accepted": "Invitation accepted (someone joined your workspace)"
+    },
+    "tabOrganisation": "Organisation",
+    "orgInfoTitle": "Organisation information",
+    "orgTaxTitle": "Tax information",
+    "orgFields": {
+      "legalName": "Legal name",
+      "website": "Website",
+      "phone": "Phone",
+      "countryCode": "Country (code)",
+      "addressLine": "Address",
+      "city": "City",
+      "postalCode": "Postal code",
+      "registrationNumber": "Registration number",
+      "taxId": "Tax number (VAT/GST)"
     }
   },
   "invitation": {
@@ -596,8 +609,6 @@
     "facilitationText": "The buyer–supplier connection queue will appear here.",
     "verificationTitle": "Supplier verification",
     "verificationText": "Suppliers awaiting verification will appear here.",
-    "importsTitle": "Imports",
-    "importsText": "Supplier data imports and their tracking will appear here.",
     "financeTitle": "Finance",
     "financeText": "Transaction and payment oversight will appear here.",
     "documentsTitle": "Documents",

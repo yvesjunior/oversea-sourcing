@@ -26,7 +26,6 @@ import { Route as DemandesIdRouteImport } from './routes/demandes/$id'
 import { Route as InterneClientsRouteImport } from './routes/interne/clients'
 import { Route as InterneFacilitationRouteImport } from './routes/interne/facilitation'
 import { Route as InterneFinanceRouteImport } from './routes/interne/finance'
-import { Route as InterneImportsRouteImport } from './routes/interne/imports'
 import { Route as InternePlansRouteImport } from './routes/interne/plans'
 import { Route as InterneSourcesRouteImport } from './routes/interne/sources'
 import { Route as InterneUtilisateursRouteImport } from './routes/interne/utilisateurs'
@@ -121,11 +120,6 @@ const InterneFinanceRoute = InterneFinanceRouteImport.update({
   path: '/interne/finance',
   getParentRoute: () => rootRouteImport,
 } as any)
-const InterneImportsRoute = InterneImportsRouteImport.update({
-  id: '/interne/imports',
-  path: '/interne/imports',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const InternePlansRoute = InternePlansRouteImport.update({
   id: '/interne/plans',
   path: '/interne/plans',
@@ -184,7 +178,6 @@ export interface FileRoutesByFullPath {
   '/interne/clients': typeof InterneClientsRoute
   '/interne/facilitation': typeof InterneFacilitationRoute
   '/interne/finance': typeof InterneFinanceRoute
-  '/interne/imports': typeof InterneImportsRoute
   '/interne/plans': typeof InternePlansRoute
   '/interne/sources': typeof InterneSourcesRoute
   '/interne/utilisateurs': typeof InterneUtilisateursRoute
@@ -212,7 +205,6 @@ export interface FileRoutesByTo {
   '/interne/clients': typeof InterneClientsRoute
   '/interne/facilitation': typeof InterneFacilitationRoute
   '/interne/finance': typeof InterneFinanceRoute
-  '/interne/imports': typeof InterneImportsRoute
   '/interne/plans': typeof InternePlansRoute
   '/interne/sources': typeof InterneSourcesRoute
   '/interne/utilisateurs': typeof InterneUtilisateursRoute
@@ -241,7 +233,6 @@ export interface FileRoutesById {
   '/interne/clients': typeof InterneClientsRoute
   '/interne/facilitation': typeof InterneFacilitationRoute
   '/interne/finance': typeof InterneFinanceRoute
-  '/interne/imports': typeof InterneImportsRoute
   '/interne/plans': typeof InternePlansRoute
   '/interne/sources': typeof InterneSourcesRoute
   '/interne/utilisateurs': typeof InterneUtilisateursRoute
@@ -271,7 +262,6 @@ export interface FileRouteTypes {
     | '/interne/clients'
     | '/interne/facilitation'
     | '/interne/finance'
-    | '/interne/imports'
     | '/interne/plans'
     | '/interne/sources'
     | '/interne/utilisateurs'
@@ -299,7 +289,6 @@ export interface FileRouteTypes {
     | '/interne/clients'
     | '/interne/facilitation'
     | '/interne/finance'
-    | '/interne/imports'
     | '/interne/plans'
     | '/interne/sources'
     | '/interne/utilisateurs'
@@ -327,7 +316,6 @@ export interface FileRouteTypes {
     | '/interne/clients'
     | '/interne/facilitation'
     | '/interne/finance'
-    | '/interne/imports'
     | '/interne/plans'
     | '/interne/sources'
     | '/interne/utilisateurs'
@@ -356,7 +344,6 @@ export interface RootRouteChildren {
   InterneClientsRoute: typeof InterneClientsRoute
   InterneFacilitationRoute: typeof InterneFacilitationRoute
   InterneFinanceRoute: typeof InterneFinanceRoute
-  InterneImportsRoute: typeof InterneImportsRoute
   InternePlansRoute: typeof InternePlansRoute
   InterneSourcesRoute: typeof InterneSourcesRoute
   InterneUtilisateursRoute: typeof InterneUtilisateursRoute
@@ -488,13 +475,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof InterneFinanceRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/interne/imports': {
-      id: '/interne/imports'
-      path: '/interne/imports'
-      fullPath: '/interne/imports'
-      preLoaderRoute: typeof InterneImportsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/interne/plans': {
       id: '/interne/plans'
       path: '/interne/plans'
@@ -583,7 +563,6 @@ const rootRouteChildren: RootRouteChildren = {
   InterneClientsRoute: InterneClientsRoute,
   InterneFacilitationRoute: InterneFacilitationRoute,
   InterneFinanceRoute: InterneFinanceRoute,
-  InterneImportsRoute: InterneImportsRoute,
   InternePlansRoute: InternePlansRoute,
   InterneSourcesRoute: InterneSourcesRoute,
   InterneUtilisateursRoute: InterneUtilisateursRoute,

@@ -7,7 +7,6 @@ export type PlatformRole = "user" | "owner" | "manager" | "accountant";
 export const PLATFORM_FEATURES = {
   facilitation: ["owner", "manager"],
   verification: ["owner", "manager"],
-  imports: ["owner", "manager"],
   finance: ["owner", "accountant"],
   // Spend analytics is an employee surface — hidden from buyers (2026-08-05).
   analytics: ["owner", "manager", "accountant"],

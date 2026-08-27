@@ -71,7 +71,17 @@ export const getCustomerAccountsFn = createServerFn({ method: "GET" }).handler(
         )`,
       })
       .from(schema.organization)
-      .where(ne(schema.organization.type, "internal"))
+      // A CUSTOMER account = not the internal workspace, and not a staff
+      // member's personal workspace (owner feedback 2026-08-26: listing
+      // those made "Clients" a mirror of "Utilisateurs"). Ownership by a
+      // platform-role holder disqualifies the workspace from this screen.
+      .where(
+        sql`${ne(schema.organization.type, "internal")} and not exists (
+          select 1 from "member" m join "user" u on u.id = m.user_id
+          where m.organization_id = "organization"."id"
+            and m.role = 'owner' and u.platform_role <> 'user'
+        )`,
+      )
       .orderBy(desc(schema.organization.createdAt));
 
     return rows.map((row) => ({

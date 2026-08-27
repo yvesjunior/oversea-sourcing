@@ -246,7 +246,20 @@ export const auth = betterAuth({
             db.query.user.findFirst({ where: eq(schema.user.id, member.userId) }),
           ]);
           if (remaining || !removedUser || removedUser.platformRole !== "user") return;
+          // Session tokens BEFORE the delete: with Redis secondary storage,
+          // better-auth serves sessions from the CACHE — deleting only the
+          // rows would leave the deleted account a working session until the
+          // cache expires (found live, 2026-08-26). Purge both the per-token
+          // entries and the user's active-sessions list.
+          const sessions = await db.query.session.findMany({
+            where: eq(schema.session.userId, member.userId),
+            columns: { token: true },
+          });
           await db.delete(schema.user).where(eq(schema.user.id, member.userId));
+          if (secondaryStorage) {
+            for (const s of sessions) await secondaryStorage.delete(s.token);
+            await secondaryStorage.delete(`active-sessions-${member.userId}`);
+          }
           console.log(
             `member removal: last workspace of ${removedUser.email} — account deleted (UC-6 re-interpretation, 2026-08-26)`,
           );
