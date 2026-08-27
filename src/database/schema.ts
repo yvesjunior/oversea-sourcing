@@ -486,6 +486,23 @@ export const notification = pgTable(
   (table) => [index("notification_user_idx").on(table.userId, table.readAt)],
 );
 
+/** Per-user notification preferences (E9/E11) — gate ONLY what goes through
+ *  src/server/notify.ts; transactional auth mail is never silenceable. No
+ *  row / missing type / missing flag = ON (src/lib/notification-types.ts). */
+export const notificationPref = pgTable(
+  "notification_pref",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    /** `{[type]: {inApp?, email?}}` — see NotificationPrefs. */
+    prefs: jsonb("prefs").$type<Record<string, { inApp?: boolean; email?: boolean }>>().notNull(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex("notification_pref_user_uq").on(table.userId)],
+);
+
 /** Per-workspace sourcing preferences (validated 2026-08-22): activate sources
  *  once in Settings — requests never specify a source. No row = defaults
  *  (all enabled sources, global origin). */

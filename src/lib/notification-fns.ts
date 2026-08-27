@@ -4,6 +4,7 @@
 
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { isKnownNotificationType, type NotificationPrefs } from "@/lib/notification-types";
 
 export type NotificationView = {
   id: string;
@@ -85,5 +86,63 @@ export const markNotificationsReadFn = createServerFn({ method: "POST" })
           ...(data.id ? [eq(schema.notification.id, data.id)] : []),
         ),
       );
+    return { ok: true };
+  });
+
+/** The caller's notification preferences (E11) — `{[type]: {inApp?, email?}}`,
+ *  missing = ON. Gates ONLY notify.ts emissions (never transactional mail). */
+export const getNotificationPrefsFn = createServerFn({ method: "GET" }).handler(
+  async (): Promise<NotificationPrefs> => {
+    const session = await requireSession();
+    if (!session) return {};
+
+    const [{ db }, { eq }, schema] = await Promise.all([
+      import("@/database"),
+      import("drizzle-orm"),
+      import("@/database/schema"),
+    ]);
+    const row = await db.query.notificationPref.findFirst({
+      where: eq(schema.notificationPref.userId, session.user.id),
+    });
+    return row?.prefs ?? {};
+  },
+);
+
+export const updateNotificationPrefsFn = createServerFn({ method: "POST" })
+  .inputValidator(
+    z.object({
+      prefs: z.record(
+        // Only registered types are storable — a typo'd key would silently
+        // gate nothing forever.
+        z.string().refine(isKnownNotificationType),
+        z.object({ inApp: z.boolean().optional(), email: z.boolean().optional() }),
+      ),
+    }),
+  )
+  .handler(async ({ data }): Promise<{ ok: boolean }> => {
+    const session = await requireSession();
+    if (!session) return { ok: false };
+
+    const [{ db }, schema] = await Promise.all([import("@/database"), import("@/database/schema")]);
+    // Strip undefined flags (exactOptionalPropertyTypes) — stored JSON only
+    // carries explicit booleans; missing means ON.
+    const prefs: Record<string, { inApp?: boolean; email?: boolean }> = {};
+    for (const [type, flags] of Object.entries(data.prefs)) {
+      prefs[type] = {
+        ...(flags.inApp !== undefined ? { inApp: flags.inApp } : {}),
+        ...(flags.email !== undefined ? { email: flags.email } : {}),
+      };
+    }
+    await db
+      .insert(schema.notificationPref)
+      .values({
+        id: crypto.randomUUID(),
+        userId: session.user.id,
+        prefs,
+      })
+      .onConflictDoUpdate({
+        target: schema.notificationPref.userId,
+        set: { prefs, updatedAt: new Date() },
+      });
     return { ok: true };
   });

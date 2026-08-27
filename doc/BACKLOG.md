@@ -21,9 +21,9 @@
 | **E6** Facilitation | Engagements — *the OSI moment* | 🔴 not started (no tables) |
 | **E7** Reports | Printable report + PDF export | 🟡 stored `documents` rows open |
 | **E8** Transactions | Milestones, tracking | 🔴 not started (no tables) |
-| **E9** Notifications | In-app + email | 🟡 bell + first emitters live; E6 templates + prefs open |
+| **E9** Notifications | In-app + email | 🟡 bell, emitters, **prefs (2026-08-26)** live; E6 templates gated |
 | **E10** Admin surfaces | Verification, imports, ops queue | 🟡 **verification LIVE (S5b/S5c, 2026-08-26)**; imports/ops queue placeholders |
-| **E11** Settings | Profile, sourcing rules | 🟡 Paramètres live (B5); notification prefs open |
+| **E11** Settings | Profile, sourcing rules | 🟡 Paramètres + **notification prefs (2026-08-26)** live; password change / rename / deletion open |
 
 **MVP1 = E0–E7 + E10.** Definition of done: a real buyer signs up, submits a real
 need, gets a real Top-N (researched + imported suppliers, scored), clicks
@@ -86,17 +86,23 @@ split, migration 0018) + **S1 (taxonomy, 78 nodes)** + **S2 (structured
 request form, migration 0019)** are BUILT and dev-verified — see the Phase
 S entries. Baseline tag before any of it: `adr-001-baseline`.
 
-**Where to pick up next session:**
-① **S4 — lazy per-request enrichment** (seams in the resolved gate below)
-— the E10 staff review surface is DONE (S5c); S3 (activity-code
-retrieval) matters only when a discovery store grows big again;
-customs/BoL is CLOSED (no-paid-data constraint, see S5);
-② **notification preferences** — in flight, plan in the E9/E11 task below;
-③ the **E6 flow discussion** (still the MVP1 blocker, still gated — and now
-also the seam of the S6 feedback loop); ④ deploy when asked (main is now
-several waves ahead of prod: India source + ADR-001 S5a/S1/S2, migrations
-0017–0019). Read "Contracts a next session must NOT re-derive differently"
-before writing code.
+**PRIORITY ORDER (owner, 2026-08-26): foundation before facilitation.**
+E6 (staff-as-middleman on orders) is deliberately the LAST step before
+financial activities (E8/billing) — do not propose starting it; S6 waits
+with it. First: user management, organisation setup, settings.
+
+**Where to pick up next session (foundation track):**
+① ~~notification preferences~~ ✅ DONE 2026-08-26 (see the E9/E11 entry);
+② **settings/account gaps** (surveyed 2026-08-26): password change in
+Profil, workspace rename (owner), account deletion, create-enterprise-
+workspace flow (Q3 says staff-assisted — revisit), 2FA (E1);
+③ the **workspace/organisation design revisit** (recorded at B2: the
+current org model was accepted "to keep moving" — discuss before deep org
+work); ④ **E2 audit log** on auth/membership mutations; ⑤ S4 enrichment
+when the foundation track clears; ⑥ deploy when asked (main is many waves
+ahead of prod: India + ADR-001 S5a/S1/S2/S5b/S5c, migrations 0017–0020).
+Read "Contracts a next session must NOT re-derive differently" before
+writing code.
 
 ### DECISION GATE — the source enrichment agent — ✅ RESOLVED 2026-08-26
 
@@ -133,7 +139,21 @@ Implementation seams when decided: enrichment fields update `source_record`
 migration), an `enrich` job on the research queue, agent module beside
 `ai/research.ts`, per-run `source_run`-style audit with token cost.
 
-### IN FLIGHT — notification preferences (E9/E11, paused mid-build)
+### ~~IN FLIGHT~~ ✅ DONE — notification preferences (E9/E11, 2026-08-26)
+
+**Shipped as planned below** (foundation track, after the owner's
+facilitation-last priority call): migration **0021** (`notification_pref`,
+user uq, prefs jsonb), `notify.ts` gates BOTH channels through
+`channelEnabled()` (fail-open: a prefs read failure never mutes anything),
+`get/updateNotificationPrefsFn` (zod keys restricted to registered types;
+undefined flags stripped), and the Paramètres → **Notifications** tab (all
+roles, per-user): one row per registry type, in-app + email switches
+(email only where the type sends one), the "transactional mail is always
+sent" note, save + Enregistré ✓. *Verified live in dev:* email toggled off
+for report_ready → row `{"report_ready":{"email":false}}` → `notifyUser`
+wrote the in-app row and sent NO mail (dev logs every send — none
+appeared). Transactional-mail boundary untouched. Original plan kept
+below for history.
 
 Design settled, one file landed:
 - ✅ `src/lib/notification-types.ts` (committed): the type registry
@@ -246,7 +266,7 @@ password reset".
 i18n pattern), `notify.ts` single failure-tolerant emitter, real bell (dot
 only when unread, click = read + navigate). First emitters: `report_ready`
 (worker, in-app + email) and `invitation_accepted` (→ inviter). Open in E9:
-engagement templates (gated with E6) and preferences (E11).
+engagement templates (gated with E6); ~~preferences~~ ✅ shipped 2026-08-26.
 
 **E6 is GATED (user decision):** no facilitation implementation until the
 flow is defined together — statuses, actors, what "connected" means. Open

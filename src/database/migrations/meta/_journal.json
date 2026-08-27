@@ -148,6 +148,13 @@
       "when": 1787792574736,
       "tag": "0020_lethal_jigsaw",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1787797218047,
+      "tag": "0021_serious_obadiah_stane",
+      "breakpoints": true
     }
   ]
 }

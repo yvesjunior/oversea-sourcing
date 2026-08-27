@@ -6,16 +6,23 @@
 //   Sourcing      owner edits, others read — activated sources + country origin
 //   Utilisateurs  owner only — the member list (invite/create arrive with B3)
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import { Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { STORAGE_KEY } from "@/i18n/config";
 import { authClient } from "@/lib/auth-client";
+import { getNotificationPrefsFn, updateNotificationPrefsFn } from "@/lib/notification-fns";
+import {
+  channelEnabled,
+  NOTIFICATION_TYPES,
+  type NotificationPrefs,
+} from "@/lib/notification-types";
 import { transferOwnershipFn } from "@/lib/team-fns";
 import {
   getSettingsFn,
@@ -32,6 +39,90 @@ export const Route = createFileRoute("/parametres")({
 
 const TAB_TRIGGER =
   "py-1 data-[state=active]:bg-gold-gradient data-[state=active]:text-gold-foreground data-[state=active]:shadow-gold";
+
+/** E9/E11 — per-user notification preferences: one row per registry type,
+ *  a switch per channel (email only where the type sends one). Missing = ON;
+ *  the whole map is saved as one row. Loads on mount: the prefs are personal
+ *  and not part of the workspace-scoped SettingsData payload. */
+function NotificationsPanel() {
+  const { t } = useTranslation();
+  const [prefs, setPrefs] = useState<NotificationPrefs | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    void getNotificationPrefsFn().then(setPrefs);
+  }, []);
+
+  const toggle = (type: string, channel: "inApp" | "email", enabled: boolean) => {
+    setSaved(false);
+    setPrefs((current) => ({
+      ...(current ?? {}),
+      [type]: { ...(current?.[type] ?? {}), [channel]: enabled },
+    }));
+  };
+
+  const save = async () => {
+    if (!prefs) return;
+    setSaving(true);
+    try {
+      const result = await updateNotificationPrefsFn({ data: { prefs } });
+      setSaved(result.ok);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (!prefs) return <p className="text-sm text-muted-foreground">…</p>;
+
+  return (
+    <section className="card-surface max-w-xl space-y-5 p-6">
+      <div>
+        <p className="mb-1 text-sm font-semibold">{t("settings.notifTitle")}</p>
+        <p className="mb-4 text-xs text-muted-foreground">{t("settings.notifHint")}</p>
+        <div className="space-y-3">
+          {NOTIFICATION_TYPES.map((entry) => (
+            <div
+              key={entry.type}
+              className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-secondary/50 px-3 py-2.5"
+            >
+              <p className="text-sm">{t(`settings.notifTypes.${entry.type}`)}</p>
+              <span className="flex items-center gap-4">
+                <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                  {t("settings.notifInApp")}
+                  <Switch
+                    checked={channelEnabled(prefs, entry.type, "inApp")}
+                    aria-label={`${t(`settings.notifTypes.${entry.type}`)} — ${t("settings.notifInApp")}`}
+                    onCheckedChange={(checked) => toggle(entry.type, "inApp", checked)}
+                  />
+                </label>
+                {entry.hasEmail && (
+                  <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                    {t("settings.notifEmail")}
+                    <Switch
+                      checked={channelEnabled(prefs, entry.type, "email")}
+                      aria-label={`${t(`settings.notifTypes.${entry.type}`)} — ${t("settings.notifEmail")}`}
+                      onCheckedChange={(checked) => toggle(entry.type, "email", checked)}
+                    />
+                  </label>
+                )}
+              </span>
+            </div>
+          ))}
+        </div>
+        {/* Transactional mail (verification, reset, invitations) is never
+            silenceable — say so, or a muted user thinks reset emails broke. */}
+        <p className="mt-3 text-xs text-muted-foreground">{t("settings.notifTransactional")}</p>
+      </div>
+      <div className="flex items-center gap-3">
+        <Button size="sm" disabled={saving} onClick={() => void save()}>
+          {t("settings.save")}
+        </Button>
+        {saved && <span className="text-xs text-emerald-600">{t("settings.savedShort")}</span>}
+      </div>
+    </section>
+  );
+}
 
 function ProfilPanel({ data, onSaved }: { data: NonNullable<SettingsData>; onSaved: () => void }) {
   const { t, i18n } = useTranslation();
@@ -549,6 +640,9 @@ function Parametres() {
           <TabsTrigger value="sourcing" className={TAB_TRIGGER}>
             {t("settings.tabSourcing")}
           </TabsTrigger>
+          <TabsTrigger value="notifications" className={TAB_TRIGGER}>
+            {t("settings.tabNotifications")}
+          </TabsTrigger>
           {/* Owner-only content; the tab stays visible-but-disabled for other
               roles (the app's disabled-not-hidden rule). */}
           <TabsTrigger value="utilisateurs" className={TAB_TRIGGER} disabled={!isOwner}>
@@ -563,6 +657,9 @@ function Parametres() {
         </TabsContent>
         <TabsContent value="sourcing" className="mt-3">
           <SourcingPanel data={data} onSaved={refresh} />
+        </TabsContent>
+        <TabsContent value="notifications" className="mt-3">
+          <NotificationsPanel />
         </TabsContent>
         <TabsContent value="utilisateurs" className="mt-3">
           {isOwner && <MembersPanel data={data} onSaved={refresh} />}

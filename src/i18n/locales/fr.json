@@ -76,7 +76,18 @@
     "emailUnverified": "Adresse non vérifiée —",
     "resendVerification": "renvoyer l'e-mail de confirmation",
     "verifySent": "e-mail envoyé ✓",
-    "sourcesVerificationNote": "Les registres nationaux ne sont pas listés ici : ils servent automatiquement à vérifier les fournisseurs qui vous sont présentés."
+    "sourcesVerificationNote": "Les registres nationaux ne sont pas listés ici : ils servent automatiquement à vérifier les fournisseurs qui vous sont présentés.",
+    "tabNotifications": "Notifications",
+    "notifTitle": "Préférences de notification",
+    "notifHint": "Choisissez comment chaque type de notification vous parvient. Tout est activé par défaut.",
+    "notifInApp": "Dans l’application",
+    "notifEmail": "E-mail",
+    "notifTransactional": "Les e-mails de compte (confirmation d’adresse, réinitialisation de mot de passe, invitations) sont toujours envoyés.",
+    "savedShort": "Enregistré ✓",
+    "notifTypes": {
+      "report_ready": "Rapport prêt (une recherche de fournisseurs est terminée)",
+      "invitation_accepted": "Invitation acceptée (quelqu’un a rejoint votre espace)"
+    }
   },
   "invitation": {
     "title": "Invitation — {{workspace}}",
