@@ -7,6 +7,11 @@
  *   manager@osi.dev     platform employee — manager (ops)
  *   accountant@osi.dev  platform employee — accountant (finance)
  *   buyer@osi.dev       regular buyer (own personal workspace)
+ * Fake customer ORGANISATION (2026-08-26) — "Atelier Boréal Fabrication",
+ * enterprise on org_trial:
+ *   camille@atelier-boreal.dev   workspace owner (organisation signup path)
+ *   marc@atelier-boreal.dev      buyer, joined via invitation (no personal
+ *                                workspace — the Q1 rule)
  */
 import { eq } from "drizzle-orm";
 import { db } from "./index";
@@ -52,10 +57,80 @@ async function main() {
     }
     console.log(`+ created: ${compte.email} (${compte.platformRole})`);
   }
+  await seedCustomerOrg();
   await seedSuppliers();
   await seedRequests();
   console.log("Seed done. Password for all accounts: " + PASSWORD);
   process.exit(0);
+}
+
+// ── Fake customer organisation (2026-08-26) ──────────────────────────────────
+// Exercises the real account-model paths: Camille arrives through the
+// ORGANISATION signup (enterprise workspace + org_trial, no personal
+// workspace); Marc through an INVITATION (member row, no personal workspace).
+async function seedCustomerOrg() {
+  const ORG_NAME = "Atelier Boréal Fabrication";
+  const camille = "camille@atelier-boreal.dev";
+  const marc = "marc@atelier-boreal.dev";
+
+  if (!(await db.query.user.findFirst({ where: eq(schema.user.email, camille) }))) {
+    await auth.api.signUpEmail({
+      // The extra signup-fork fields are typed loosely here — the auth
+      // config's additionalFields validate them server-side.
+      body: {
+        email: camille,
+        password: PASSWORD,
+        name: "Camille Tremblay",
+        locale: "fr",
+        accountType: "organization",
+        companyName: ORG_NAME,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } as any,
+    });
+    console.log(`+ created: ${camille} (owner of "${ORG_NAME}")`);
+  }
+
+  const org = await db.query.organization.findFirst({
+    where: eq(schema.organization.name, ORG_NAME),
+  });
+  const camilleUser = await db.query.user.findFirst({ where: eq(schema.user.email, camille) });
+  if (!org || !camilleUser) {
+    console.warn("~ customer org seed: organisation missing, skipping Marc");
+    return;
+  }
+
+  if (!(await db.query.user.findFirst({ where: eq(schema.user.email, marc) }))) {
+    // A pending invitation BEFORE the signup is what suppresses the personal
+    // workspace (the user-create hook checks it) — exactly the real flow.
+    await db.insert(schema.invitation).values({
+      id: crypto.randomUUID(),
+      organizationId: org.id,
+      email: marc,
+      role: "buyer",
+      status: "pending",
+      inviterId: camilleUser.id,
+      expiresAt: new Date(Date.now() + 7 * 24 * 3600 * 1000),
+      createdAt: new Date(),
+    });
+    await auth.api.signUpEmail({
+      body: { email: marc, password: PASSWORD, name: "Marc Bélanger", locale: "fr" },
+    });
+    const marcUser = await db.query.user.findFirst({ where: eq(schema.user.email, marc) });
+    if (marcUser) {
+      await db.insert(schema.member).values({
+        id: crypto.randomUUID(),
+        organizationId: org.id,
+        userId: marcUser.id,
+        role: "buyer",
+        createdAt: new Date(),
+      });
+      await db
+        .update(schema.invitation)
+        .set({ status: "accepted" })
+        .where(eq(schema.invitation.email, marc));
+      console.log(`+ created: ${marc} (buyer in "${ORG_NAME}", via invitation)`);
+    }
+  }
 }
 
 // ── Supplier pool (platform-global) ──────────────────────────────────────────

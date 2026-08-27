@@ -286,8 +286,14 @@ export function AuthForm({
           <p className="text-center text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
             Connexion rapide — test
           </p>
-          <div className="mt-3 grid grid-cols-2 gap-2">
-            {["buyer", "manager", "accountant", "owner"].map((compte) => (
+          {/* Grouped by population (2026-08-26): the internal OSI org's
+              staff, then the customer accounts — including the seeded fake
+              organisation (Camille owner / Marc buyer, same demo password). */}
+          <p className="mt-3 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+            Interne OSI
+          </p>
+          <div className="mt-1.5 grid grid-cols-3 gap-2">
+            {["owner", "manager", "accountant"].map((compte) => (
               <Button
                 key={compte}
                 type="button"
@@ -298,6 +304,27 @@ export function AuthForm({
                 className="capitalize"
               >
                 {compte}
+              </Button>
+            ))}
+          </div>
+          <p className="mt-3 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+            Clients
+          </p>
+          <div className="mt-1.5 grid grid-cols-3 gap-2">
+            {[
+              { label: "Buyer (indiv.)", email: "buyer@osi.dev" },
+              { label: "Camille (org)", email: "camille@atelier-boreal.dev" },
+              { label: "Marc (org)", email: "marc@atelier-boreal.dev" },
+            ].map((compte) => (
+              <Button
+                key={compte.email}
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={pending}
+                onClick={() => void quickLogin(compte.email)}
+              >
+                {compte.label}
               </Button>
             ))}
           </div>
