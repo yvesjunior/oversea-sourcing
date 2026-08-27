@@ -34,10 +34,21 @@ downloads the PDF report.
 
 ### Session digest 2026-08-26/27 — read this first
 
-**One session changed the product's strategy AND its account model. 25
-commits sit on main past the tag `adr-001-baseline` (= `e6e2d1b`, the
-rollback point), migrations 0018–0026, everything dev-verified live in the
-browser, NOTHING deployed and nothing pushed to origin.**
+**One session changed the product's strategy AND its account model —
+and it is LIVE: DEPLOYED TO PROD 2026-08-27 (deploy #4, commit `52b1827`,
+migrations 0017–0026 applied cleanly).** 26 commits past the tag
+`adr-001-baseline` (= `e6e2d1b`, the rollback point), everything
+dev-verified live in the browser before shipping.
+
+**Deploy #4 verified on prod:** public origin 200 · five containers up
+(migrate exited clean) · data intact (7 users · 63 suppliers · 35 matches
+· 7 requests) · the staff org "Oversea Sourcing Intelligence" created with
+yves enrolled (1 member) · all six sources present, registries flipped to
+`verification` role, global_web the sole discovery source · plans ladder
+carries `org_trial` · the signup account-type fork renders on
+osi-solutions.com/signup (with the prod-only Google button). Backup taken
+minutes before: `backups/osi-20260827-111706.sql.gz` (30M). Rollback =
+`git checkout adr-001-baseline` + rebuild on the VM + restore if needed.
 
 **Strategy (ADR-001, ACCEPTED then AMENDED — the governing document):**
 [doc/adr/ADR-001-supplier-provisioning.md](adr/ADR-001-supplier-provisioning.md)
@@ -108,16 +119,14 @@ until the next page load after accepting an invitation (switcher fetches
 memberships on mount only); the remove-member button has no
 "this deletes their account" warning copy yet.
 
-**A future prod deploy carries migrations 0017–0026** (all additive or
-rehearsed in dev; 0022 seeds the staff org and enrolls
-yves@overseaimportexports.com automatically; 0018 flips prod's registries
-to verification-role — correct per ADR-001). No new env vars required
-(DATA_GOV_IN_API_KEY remains optional for registry-in). Remember the
-docs-are-a-release-gate rule when that deploy happens.
+~~A future prod deploy carries migrations 0017–0026~~ **SHIPPED as deploy
+#4 (see above).** No new env vars were required (DATA_GOV_IN_API_KEY
+remains optional for registry-in whenever the owner creates the key).
 
 ### Previous session context (2026-08-25/26 — sourcing waves)
 
-**Production is live and healthy at [osi-solutions.com](https://osi-solutions.com), commit `8177522` (deploy #3, 2026-08-26).**
+**(Superseded by deploy #4 above — kept for history.)**
+**Production was at commit `8177522` (deploy #3, 2026-08-26).**
 Deploy #3 shipped the registry-qc wave (file-fed machinery: streamed
 `PUT /api/source-upload`, `SearchBrief.fileKey`, `meta.requiresFile` +
 `downloadUrl`, fflate ZIP tooling, shared `sources/csv.ts` +
@@ -187,10 +196,10 @@ role grants now REALLY deserve a trail);
 ④ **small follow-ups**: platform-role grants should enroll into the OSI
 org (manual SQL meanwhile) · workspace-badge refresh after invitation
 accept · warning copy on remove-member ("deletes their account");
-⑤ **S4 lazy enrichment** when the foundation track clears; ⑥ **deploy
-when asked** — main is MANY waves ahead of prod (India + all of ADR-001 +
-the whole account model, migrations 0017–0026). Read "Contracts a next
-session must NOT re-derive differently" before writing code.
+⑤ **S4 lazy enrichment** when the foundation track clears;
+⑥ ~~deploy when asked~~ ✅ **deploy #4 shipped 2026-08-27** — prod = main
+= `52b1827`. Read "Contracts a next session must NOT re-derive
+differently" before writing code.
 
 **History of the foundation waves (2026-08-26/27), newest first:**
 ②b **DONE 2026-08-26 — the staff org + explicit account types** (owner
