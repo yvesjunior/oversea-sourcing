@@ -45,6 +45,92 @@ const LABELS: Record<"fr" | "en", Labels> = {
   },
 };
 
+/** What the structured request form (ADR-001 S2) submits — already-typed
+ *  fields, no parsing needed. Criteria built from this carry source "user". */
+export type StructuredNeed = {
+  /** Taxonomy node id (validated against src/lib/taxonomy.ts by the caller). */
+  categoryId: string;
+  product: string;
+  material?: string | undefined;
+  certifications?: string[] | undefined;
+  quantity?: string | undefined;
+  leadTime?: string | undefined;
+  /** Free-text nuance — still regex-parsed for pressure/flow etc. */
+  details?: string | undefined;
+};
+
+/** Criteria straight from the form fields (ADR-001 S2) — the buyer TYPED
+ *  these, so nothing is guessed: the product and every filled constraint
+ *  become rows, then the free-text details pass through the regex parser for
+ *  anything extra (pressure, flow…) without duplicating a category the form
+ *  already provided. */
+export function structuredCriteria(need: StructuredNeed, locale: string): ParsedCriterion[] {
+  const labels = LABELS[locale === "en" ? "en" : "fr"];
+  const criteria: ParsedCriterion[] = [];
+
+  // The product is the primary matching signal — required, like a criterion
+  // the supplier's text must evidence.
+  criteria.push({
+    category: "other",
+    label: labels.need,
+    value: need.product.trim().slice(0, 120),
+    unit: null,
+    required: true,
+  });
+  if (need.material?.trim()) {
+    criteria.push({
+      category: "material",
+      label: labels.material,
+      value: need.material.trim(),
+      unit: null,
+      required: true,
+    });
+  }
+  const certs = (need.certifications ?? []).map((c) => c.trim()).filter(Boolean);
+  if (certs.length > 0) {
+    criteria.push({
+      category: "certification",
+      label: labels.certification,
+      value: certs.join(", "),
+      unit: null,
+      required: true,
+    });
+  }
+  if (need.quantity?.trim()) {
+    criteria.push({
+      category: "quantity",
+      label: labels.quantity,
+      value: need.quantity.trim(),
+      unit: null,
+      required: false,
+    });
+  }
+  if (need.leadTime?.trim()) {
+    criteria.push({
+      category: "lead_time",
+      label: labels.lead_time,
+      value: need.leadTime.trim(),
+      unit: null,
+      required: false,
+    });
+  }
+
+  // Details may still carry parseable specs; keep only categories the form
+  // did not already answer, and drop the parser's "need" fallback row (the
+  // product row above already plays that role).
+  if (need.details?.trim()) {
+    const present = new Set(criteria.map((c) => c.category));
+    for (const parsed of parseCriteria(need.details, locale)) {
+      if (parsed.category === "other") continue;
+      if (present.has(parsed.category)) continue;
+      criteria.push(parsed);
+      present.add(parsed.category);
+    }
+  }
+
+  return criteria.slice(0, 8);
+}
+
 /** Best-effort structured criteria from free text. */
 export function parseCriteria(descriptionRaw: string, locale: string): ParsedCriterion[] {
   const labels = LABELS[locale === "en" ? "en" : "fr"];

@@ -291,7 +291,25 @@
     "trialUsed": "Vous avez utilisé les {{limit}} demandes incluses dans le forfait {{plan}}. Passez à un forfait payant pour continuer — votre saisie est conservée.",
     "readOnlyRoleTitle": "Accès en lecture seule",
     "readOnlyRole": "Votre rôle dans cet espace est en lecture seule — demandez un accès acheteur au propriétaire de l'espace pour lancer des recherches.",
-    "quotaReached": "Vous avez atteint la limite de {{limit}} demande(s) par jour du forfait {{plan}}. Votre saisie est conservée — réessayez à partir du {{when}}."
+    "quotaReached": "Vous avez atteint la limite de {{limit}} demande(s) par jour du forfait {{plan}}. Votre saisie est conservée — réessayez à partir du {{when}}.",
+    "form": {
+      "product": "Produit à approvisionner",
+      "productPlaceholder": "ex. vannes papillon inox DN50",
+      "quantity": "Quantité",
+      "quantityPlaceholder": "ex. 5 000 unités / an",
+      "category": "Catégorie",
+      "categoryPlaceholder": "Choisir une catégorie…",
+      "sectorGeneral": "{{name}} — général",
+      "material": "Matériau",
+      "materialPlaceholder": "ex. acier inoxydable 316L",
+      "certifications": "Certifications",
+      "certificationsPlaceholder": "ex. ISO 9001, CE",
+      "leadTime": "Délai souhaité",
+      "leadTimePlaceholder": "ex. 60 jours",
+      "details": "Détails",
+      "detailsPlaceholder": "Tout ce qui compte : spécifications, pression, normes, destination, contexte…",
+      "requiredError": "Choisissez une catégorie et décrivez le produit — les deux champs marqués *."
+    }
   },
   "stats": {
     "activeRequests": "Demandes actives",

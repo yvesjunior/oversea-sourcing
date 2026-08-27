@@ -183,12 +183,27 @@ export type CreateRequestResult =
       resetAt: string | null;
     };
 
-/** Create a request from the hero prompt: draft → received, criteria parsed
- *  synchronously at intake (no AI stage), then straight to supplier search. */
+/** Create a request: draft → received, then straight to supplier search.
+ *  Two intake shapes (ADR-001 S2): the STRUCTURED form (primary — category +
+ *  typed fields become criteria rows directly, source "user") and legacy
+ *  free text (criteria regex-parsed at intake, source "ai"). */
 export const createRequestFn = createServerFn({ method: "POST" })
   .inputValidator(
     z.object({
       description: z.string().trim().min(1).max(5000),
+      /** The structured form's fields, verbatim (description above is the
+       *  composed rendering of the same answers — the research brief). */
+      structured: z
+        .object({
+          categoryId: z.string().min(1).max(60),
+          product: z.string().trim().min(2).max(200),
+          material: z.string().trim().max(120).optional(),
+          certifications: z.array(z.string().trim().min(1).max(60)).max(12).optional(),
+          quantity: z.string().trim().max(80).optional(),
+          leadTime: z.string().trim().max(80).optional(),
+          details: z.string().trim().max(4000).optional(),
+        })
+        .optional(),
       /** The client is about to upload files for this request. Hold the
        *  pipeline until it says go, so the worker doesn't research a request
        *  whose attachments have not landed yet. */
@@ -224,6 +239,17 @@ export const createRequestFn = createServerFn({ method: "POST" })
     const firstLine = data.description.split("\n").find((line) => line.trim()) ?? "";
     const locale = session.user.locale ?? "fr";
 
+    // Structured intake: the category must be a real taxonomy node — an
+    // unknown id is dropped (stored null), never trusted into cache keys.
+    const { categoryById } = await import("@/lib/taxonomy");
+    const categoryId =
+      data.structured && categoryById(data.structured.categoryId)
+        ? data.structured.categoryId
+        : null;
+    const title = data.structured
+      ? data.structured.product.slice(0, 80)
+      : firstLine.trim().slice(0, 80);
+
     const outcome = await db.transaction(
       async (tx): Promise<{ id: string } | Extract<CreateRequestResult, { ok: false }>> => {
         await tx.execute(
@@ -249,8 +275,9 @@ export const createRequestFn = createServerFn({ method: "POST" })
           id,
           organizationId: workspaceId,
           createdBy: session.user.id,
-          title: firstLine.trim().slice(0, 80) || `#${id}`,
+          title: title || `#${id}`,
           descriptionRaw: data.description,
+          categoryId,
           status: "draft",
           locale,
         });
@@ -264,10 +291,13 @@ export const createRequestFn = createServerFn({ method: "POST" })
     await recordEvent(id, workspaceId, "request.created");
     await transitionRequest(id, workspaceId, "draft", "received");
 
-    // Intake parsing (instant, zero tokens) — the info helper on the hero
-    // prompt guides buyers to input this can pick apart.
-    const { parseCriteria } = await import("@/server/parse-criteria");
-    const criteria = parseCriteria(data.description, locale);
+    // Criteria at intake (instant, zero tokens). Structured form (S2): the
+    // typed fields become rows directly — nothing is guessed, source "user".
+    // Free text: the regex parser does its best, source "ai".
+    const { parseCriteria, structuredCriteria } = await import("@/server/parse-criteria");
+    const criteria = data.structured
+      ? structuredCriteria(data.structured, locale)
+      : parseCriteria(data.description, locale);
     if (criteria.length > 0) {
       await db.insert(schema.requestCriterion).values(
         criteria.map((criterion, index) => ({
@@ -278,7 +308,7 @@ export const createRequestFn = createServerFn({ method: "POST" })
           value: criterion.value,
           unit: criterion.unit,
           required: criterion.required,
-          source: "ai" as const,
+          source: data.structured ? ("user" as const) : ("ai" as const),
           position: index,
         })),
       );

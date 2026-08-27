@@ -291,7 +291,25 @@
     "trialUsed": "You have used the {{limit}} requests included in the {{plan}} plan. Upgrade to a paid plan to keep sourcing — your text is kept.",
     "readOnlyRoleTitle": "Read-only access",
     "readOnlyRole": "Your role in this workspace is read-only — ask the workspace owner for a buyer seat to launch requests.",
-    "quotaReached": "You have reached the {{plan}} plan limit of {{limit}} request(s) per day. Your text is kept — try again from {{when}}."
+    "quotaReached": "You have reached the {{plan}} plan limit of {{limit}} request(s) per day. Your text is kept — try again from {{when}}.",
+    "form": {
+      "product": "Product to source",
+      "productPlaceholder": "e.g. stainless steel butterfly valves DN50",
+      "quantity": "Quantity",
+      "quantityPlaceholder": "e.g. 5,000 units / year",
+      "category": "Category",
+      "categoryPlaceholder": "Choose a category…",
+      "sectorGeneral": "{{name}} — general",
+      "material": "Material",
+      "materialPlaceholder": "e.g. 316L stainless steel",
+      "certifications": "Certifications",
+      "certificationsPlaceholder": "e.g. ISO 9001, CE",
+      "leadTime": "Target lead time",
+      "leadTimePlaceholder": "e.g. 60 days",
+      "details": "Details",
+      "detailsPlaceholder": "Anything else that matters: specs, pressure, standards, destination, context…",
+      "requiredError": "Choose a category and describe the product — the two fields marked *."
+    }
   },
   "stats": {
     "activeRequests": "Active requests",

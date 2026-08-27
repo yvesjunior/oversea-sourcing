@@ -111,9 +111,17 @@ Key redirections versus the sections below:
   trust tier is derived (0 unverified → 1 existence verified → 2 capability
   evidenced → 3 Vérifié OSI). `verification_status` stops being settable by
   any code.
-- **Intake goes form-first**: a structured request form (category required,
-  from the new taxonomy) becomes the primary intake (E3); the
-  plain-language hero is a launch-time design task.
+- **Intake goes form-first** — ✅ **BUILT 2026-08-26 (S1+S2, migration
+  0019)**: the hero is now a structured form — product* and category*
+  (required; the category select runs over the in-house taxonomy in
+  `src/lib/taxonomy.ts`, 78 nodes with FR/EN labels + HS mappings, and
+  auto-suggests from the typed text), plus quantity, material,
+  certifications, lead time and a details textarea. Typed fields become
+  criteria rows verbatim (source `user`; product and certifications
+  required); details still pass the regex parser for extra specs;
+  `request.category_id` stores the taxonomy node — the coverage/cache key.
+  The auth-gate draft preserves the whole form as JSON. The plain-language
+  hero remains a launch-time design task.
 
 #### Data sources & sourcing preferences
 
@@ -893,12 +901,14 @@ Guarded transitions live in [`src/lib/request-status.ts`](src/lib/request-status
 illegal ones throw. Every change writes a `request_event` row, so timelines,
 activity feeds and dashboard stats are **pure read-models of the DB**.
 
-1. **Create** (`createRequestFn`) — the hero prompt inserts a `request` (ids from
-   `request_id_seq`, `#3000+`) and **parses criteria synchronously at intake**
-   ([`parse-criteria.ts`](src/server/parse-criteria.ts) — deterministic regex,
-   instant, zero tokens, editable afterwards). There is no pre-search AI analysis
-   *(removed 2026-08-05)*; an ℹ️ helper on the prompt guides buyers to structured
-   input instead. With attachments, the pipeline is held until the upload
+1. **Create** (`createRequestFn`) — the **structured form** (ADR-001 S2,
+   2026-08-26) inserts a `request` (ids from `request_id_seq`, `#3000+`) with
+   its taxonomy `category_id`; the typed fields become criteria rows verbatim
+   (source `user`, zero tokens), and the details text still passes the regex
+   parser ([`parse-criteria.ts`](src/server/parse-criteria.ts)) for extra
+   specs. Free-text intake remains as the legacy path (criteria fully
+   regex-parsed, source `ai`). There is no pre-search AI analysis *(removed
+   2026-08-05)*. With attachments, the pipeline is held until the upload
    finishes, then released.
 2. **Research** (worker, `searching`) — **store-first (2026-08-22):** the
    pipeline scores each source's own store against the criteria; when the

@@ -1,103 +1,204 @@
+// The structured request form — ADR-001 S2: form-first intake (pre-launch,
+// no funnel to protect; the plain-language hero is a launch-time task).
+// Category + product are required; every typed field becomes a criteria row
+// directly (source "user") in createRequestFn — nothing is guessed. The
+// details textarea keeps the nuance and still feeds the regex parser for
+// specs (pressure, flow…). The auth gate preserves the WHOLE form as a JSON
+// draft across login/signup; a legacy plain-text draft still auto-creates
+// through the free-text path.
+
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { Info, Loader2, Mic, Paperclip, Sparkles, TriangleAlert, X } from "lucide-react";
+import { Loader2, Mic, Paperclip, Sparkles, TriangleAlert, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import globe from "@/assets/globe.jpg";
 import { Button } from "@/components/ui/button";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { createRequestFn, startRequestPipelineFn } from "@/lib/requests-fns";
+import { categoryLabel, childrenOf, rootCategories, suggestCategory } from "@/lib/taxonomy";
 
-const HELP_HINT_KEYS = [
-  "product",
-  "material",
-  "specs",
-  "certifications",
-  "quantity",
-  "leadTime",
-] as const;
-
-const DRAFT_KEY = "osi-draft-besoin";
+const LEGACY_DRAFT_KEY = "osi-draft-besoin";
+const DRAFT_KEY = "osi-draft-besoin-v2";
 
 type HeroUser = { name: string } | null;
+
+type FormFields = {
+  categoryId: string;
+  product: string;
+  quantity: string;
+  material: string;
+  /** Comma-separated in the UI; split on submit. */
+  certifications: string;
+  leadTime: string;
+  details: string;
+};
+
+const EMPTY_FIELDS: FormFields = {
+  categoryId: "",
+  product: "",
+  quantity: "",
+  material: "",
+  certifications: "",
+  leadTime: "",
+  details: "",
+};
+
+function splitCertifications(input: string): string[] {
+  return input
+    .split(/[,;]+/)
+    .map((c) => c.trim())
+    .filter(Boolean)
+    .slice(0, 12);
+}
 
 export function HeroPrompt({ user }: { user: HeroUser }) {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
-  const [besoin, setBesoin] = useState("");
+  const [fields, setFields] = useState<FormFields>(EMPTY_FIELDS);
   const [files, setFiles] = useState<File[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [invalid, setInvalid] = useState(false);
   const [blockedAlert, setBlockedAlert] = useState<{ title: string; message: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const loggedIn = user !== null;
   const prenom = user?.name?.split(" ")[0];
 
-  const submitNeed = async (text: string, attachments: File[]) => {
-    if (!text.trim() || submitting) return;
+  const set = (key: keyof FormFields) => (value: string) =>
+    setFields((current) => ({ ...current, [key]: value }));
+
+  const formValid = fields.categoryId !== "" && fields.product.trim().length >= 2;
+
+  // Category suggestion from what the buyer typed — only while the category
+  // is still unchosen; never overrides an explicit pick.
+  const maybeSuggest = () => {
+    if (fields.categoryId) return;
+    const node = suggestCategory(`${fields.product} ${fields.material} ${fields.details}`);
+    if (node) set("categoryId")(node.id);
+  };
+
+  /** The composed plain-text rendering of the answers — descriptionRaw: the
+   *  research brief, the report's "need in the buyer's own words". */
+  const composeDescription = (f: FormFields): string => {
+    const lines = [f.product.trim()];
+    lines.push(`${t("home.form.category")}: ${categoryLabel(f.categoryId, i18n.language)}`);
+    if (f.material.trim()) lines.push(`${t("home.form.material")}: ${f.material.trim()}`);
+    if (f.certifications.trim())
+      lines.push(
+        `${t("home.form.certifications")}: ${splitCertifications(f.certifications).join(", ")}`,
+      );
+    if (f.quantity.trim()) lines.push(`${t("home.form.quantity")}: ${f.quantity.trim()}`);
+    if (f.leadTime.trim()) lines.push(`${t("home.form.leadTime")}: ${f.leadTime.trim()}`);
+    if (f.details.trim()) lines.push("", f.details.trim());
+    return lines.join("\n");
+  };
+
+  const handleCreateResult = (
+    created: Awaited<ReturnType<typeof createRequestFn>>,
+    draftToPreserve: () => void,
+  ): created is Extract<Awaited<ReturnType<typeof createRequestFn>>, { ok: true }> => {
+    if (created.ok) return true;
+    if (created.reason === "quota_exceeded") {
+      // Keep the typed need on screen: the buyer hit a wall, they did not
+      // make a mistake, and retyping it tomorrow is a punishment. The two
+      // walls pitch different actions: daily resets, lifetime upgrades.
+      setBlockedAlert(
+        created.refusal === "lifetime"
+          ? {
+              title: t("home.trialUsedTitle"),
+              message: t("home.trialUsed", { limit: created.limit, plan: created.planName }),
+            }
+          : {
+              title: t("home.quotaReachedTitle"),
+              message: t("home.quotaReached", {
+                limit: created.limit,
+                plan: created.planName,
+                when: created.resetAt
+                  ? new Date(created.resetAt).toLocaleString(i18n.language, {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      day: "numeric",
+                      month: "long",
+                    })
+                  : "",
+              }),
+            },
+      );
+      return false;
+    }
+    if (created.reason === "forbidden") {
+      // Read-only seat (viewer) — same prominent alert, different message;
+      // redirecting to login would loop a perfectly authenticated user.
+      setBlockedAlert({ title: t("home.readOnlyRoleTitle"), message: t("home.readOnlyRole") });
+      return false;
+    }
+    // Session evaporated — fall back to the auth gate.
+    draftToPreserve();
+    void navigate({ to: "/login", search: { redirect: "/" } });
+    return false;
+  };
+
+  const finishCreate = async (id: string, attachments: File[]) => {
+    if (attachments.length > 0) {
+      const form = new FormData();
+      form.set("requestId", id);
+      for (const file of attachments) form.append("files", file);
+      // Best-effort: the request exists either way; failures surface on the
+      // detail page where files can be re-attached.
+      await fetch("/api/upload", { method: "POST", body: form }).catch(() => {});
+      // Release the pipeline now the files are stored. If this call fails the
+      // request still runs — the worker sweeps "received" after two minutes.
+      await startRequestPipelineFn({ data: { id } }).catch(() => {});
+    }
+    void navigate({ to: "/demandes/$id", params: { id } });
+  };
+
+  const submitStructured = async (f: FormFields, attachments: File[]) => {
+    if (submitting) return;
     setBlockedAlert(null);
     setSubmitting(true);
     try {
       const hasFiles = attachments.length > 0;
-      // With files, creation does NOT start the pipeline — otherwise the worker
-      // would read the attachments before they finished uploading.
       const created = await createRequestFn({
-        data: { description: text, attachmentsPending: hasFiles },
+        data: {
+          description: composeDescription(f),
+          structured: {
+            categoryId: f.categoryId,
+            product: f.product.trim(),
+            ...(f.material.trim() ? { material: f.material.trim() } : {}),
+            ...(f.certifications.trim()
+              ? { certifications: splitCertifications(f.certifications) }
+              : {}),
+            ...(f.quantity.trim() ? { quantity: f.quantity.trim() } : {}),
+            ...(f.leadTime.trim() ? { leadTime: f.leadTime.trim() } : {}),
+            ...(f.details.trim() ? { details: f.details.trim() } : {}),
+          },
+          attachmentsPending: hasFiles,
+        },
       });
-      if (!created.ok) {
-        if (created.reason === "quota_exceeded") {
-          // Keep the typed need on screen: the buyer hit a wall, they did not
-          // make a mistake, and retyping it tomorrow is a punishment. The two
-          // walls pitch different actions: daily resets, lifetime upgrades.
-          setBlockedAlert(
-            created.refusal === "lifetime"
-              ? {
-                  title: t("home.trialUsedTitle"),
-                  message: t("home.trialUsed", { limit: created.limit, plan: created.planName }),
-                }
-              : {
-                  title: t("home.quotaReachedTitle"),
-                  message: t("home.quotaReached", {
-                    limit: created.limit,
-                    plan: created.planName,
-                    when: created.resetAt
-                      ? new Date(created.resetAt).toLocaleString(i18n.language, {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                          day: "numeric",
-                          month: "long",
-                        })
-                      : "",
-                  }),
-                },
-          );
-          return;
-        }
-        if (created.reason === "forbidden") {
-          // Read-only seat (viewer) — same prominent alert, different message;
-          // redirecting to login would loop a perfectly authenticated user.
-          setBlockedAlert({
-            title: t("home.readOnlyRoleTitle"),
-            message: t("home.readOnlyRole"),
-          });
-          return;
-        }
-        // Session evaporated — fall back to the auth gate.
-        window.localStorage.setItem(DRAFT_KEY, text);
-        void navigate({ to: "/login", search: { redirect: "/" } });
+      if (
+        !handleCreateResult(created, () =>
+          window.localStorage.setItem(DRAFT_KEY, JSON.stringify(f)),
+        )
+      )
         return;
-      }
-      if (hasFiles) {
-        const form = new FormData();
-        form.set("requestId", created.id);
-        for (const file of attachments) form.append("files", file);
-        // Best-effort: the request exists either way; failures surface on the
-        // detail page where files can be re-attached.
-        await fetch("/api/upload", { method: "POST", body: form }).catch(() => {});
-        // Release the pipeline now the files are stored. If this call fails the
-        // request still runs — the worker sweeps "received" after two minutes.
-        await startRequestPipelineFn({ data: { id: created.id } }).catch(() => {});
-      }
-      void navigate({ to: "/demandes/$id", params: { id: created.id } });
+      await finishCreate(created.id, attachments);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  /** Legacy path: a plain-text draft saved before the structured form shipped
+   *  still auto-creates through the free-text intake after login. */
+  const submitLegacyText = async (text: string) => {
+    if (!text.trim() || submitting) return;
+    setBlockedAlert(null);
+    setSubmitting(true);
+    try {
+      const created = await createRequestFn({ data: { description: text } });
+      if (!handleCreateResult(created, () => window.localStorage.setItem(LEGACY_DRAFT_KEY, text)))
+        return;
+      await finishCreate(created.id, []);
     } finally {
       setSubmitting(false);
     }
@@ -106,32 +207,56 @@ export function HeroPrompt({ user }: { user: HeroUser }) {
   // Restore a draft that survived the login/signup redirect (auth gate) —
   // once authenticated, the request is created automatically (no retyping).
   useEffect(() => {
+    const legacy = window.localStorage.getItem(LEGACY_DRAFT_KEY);
+    if (legacy) {
+      setFields((current) => ({ ...current, details: legacy }));
+      if (loggedIn) {
+        // Remove BEFORE the async create: guards StrictMode double-effects.
+        window.localStorage.removeItem(LEGACY_DRAFT_KEY);
+        void submitLegacyText(legacy);
+      }
+      return;
+    }
     const draft = window.localStorage.getItem(DRAFT_KEY);
     if (!draft) return;
-    setBesoin(draft);
-    if (loggedIn) {
-      // Remove BEFORE the async create: guards StrictMode double-effects.
+    try {
+      const parsed = { ...EMPTY_FIELDS, ...(JSON.parse(draft) as Partial<FormFields>) };
+      setFields(parsed);
+      if (loggedIn) {
+        window.localStorage.removeItem(DRAFT_KEY);
+        if (parsed.categoryId && parsed.product.trim().length >= 2) {
+          void submitStructured(parsed, []);
+        }
+      }
+    } catch {
       window.localStorage.removeItem(DRAFT_KEY);
-      void submitNeed(draft, []);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loggedIn]);
 
   const onSubmit = (event: FormEvent) => {
     event.preventDefault();
+    if (!formValid) {
+      setInvalid(true);
+      return;
+    }
+    setInvalid(false);
     if (!loggedIn) {
-      // The auth gate: preserve the typed need, send to login, restore after.
-      if (besoin.trim()) window.localStorage.setItem(DRAFT_KEY, besoin);
+      // The auth gate: preserve the whole form, send to login, restore after.
+      window.localStorage.setItem(DRAFT_KEY, JSON.stringify(fields));
       void navigate({ to: "/login", search: { redirect: "/" } });
       return;
     }
-    void submitNeed(besoin, files);
+    void submitStructured(fields, files);
   };
 
   const onFilesPicked = (picked: FileList | null) => {
     if (!picked) return;
     setFiles((current) => [...current, ...Array.from(picked)]);
   };
+
+  const fieldLabel = "mb-1 block text-xs font-medium text-muted-foreground";
+  const requiredMark = <span className="text-gold"> *</span>;
 
   return (
     <section className="relative overflow-hidden pt-4">
@@ -155,45 +280,121 @@ export function HeroPrompt({ user }: { user: HeroUser }) {
           {t("home.heroTitle")}
         </h1>
 
-        <form className="card-surface mt-8 p-4" onSubmit={onSubmit}>
-          <div className="flex items-start gap-2">
-            <Textarea
-              value={besoin}
-              onChange={(e) => setBesoin(e.target.value)}
-              placeholder={t("home.placeholder")}
-              className="min-h-[92px] flex-1 resize-none border-0 bg-transparent px-2 text-base shadow-none focus-visible:ring-0"
-            />
-            {/* The input guide replaces the removed pre-search AI analysis:
-                buyers structure the need themselves; intake parsing does the rest. */}
-            <Popover>
-              <PopoverTrigger asChild>
-                <button
-                  type="button"
-                  aria-label={t("home.helpAria")}
-                  className="mt-1 shrink-0 text-muted-foreground transition-colors hover:text-gold"
-                >
-                  <Info className="size-[18px]" />
-                </button>
-              </PopoverTrigger>
-              <PopoverContent align="end" className="w-80 text-sm">
-                <p className="font-semibold">{t("home.helpTitle")}</p>
-                <p className="mt-1 text-xs text-muted-foreground">{t("home.helpIntro")}</p>
-                <ul className="mt-3 space-y-1.5 text-xs text-muted-foreground">
-                  {HELP_HINT_KEYS.map((key) => (
-                    <li key={key} className="flex gap-2">
-                      <span className="mt-1.5 size-1 shrink-0 rounded-full bg-gold" />
-                      <span>{t(`home.helpHints.${key}`)}</span>
-                    </li>
-                  ))}
-                </ul>
-                <p className="mt-3 rounded-lg bg-secondary p-3 text-xs italic leading-relaxed text-muted-foreground">
-                  {t("home.helpExample")}
-                </p>
-              </PopoverContent>
-            </Popover>
+        <form className="card-surface mt-8 space-y-3 p-4" onSubmit={onSubmit}>
+          <div className="grid gap-3 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+            <div>
+              <label htmlFor="need-product" className={fieldLabel}>
+                {t("home.form.product")}
+                {requiredMark}
+              </label>
+              <Input
+                id="need-product"
+                value={fields.product}
+                onChange={(e) => set("product")(e.target.value)}
+                onBlur={maybeSuggest}
+                placeholder={t("home.form.productPlaceholder")}
+                className="h-9"
+              />
+            </div>
+            <div>
+              <label htmlFor="need-quantity" className={fieldLabel}>
+                {t("home.form.quantity")}
+              </label>
+              <Input
+                id="need-quantity"
+                value={fields.quantity}
+                onChange={(e) => set("quantity")(e.target.value)}
+                placeholder={t("home.form.quantityPlaceholder")}
+                className="h-9"
+              />
+            </div>
           </div>
+
+          <div>
+            <label htmlFor="need-category" className={fieldLabel}>
+              {t("home.form.category")}
+              {requiredMark}
+            </label>
+            <select
+              id="need-category"
+              value={fields.categoryId}
+              onChange={(e) => set("categoryId")(e.target.value)}
+              className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+            >
+              <option value="">{t("home.form.categoryPlaceholder")}</option>
+              {rootCategories().map((sector) => {
+                const sectorName = i18n.language.startsWith("fr") ? sector.fr : sector.en;
+                return (
+                  <optgroup key={sector.id} label={sectorName}>
+                    <option value={sector.id}>
+                      {t("home.form.sectorGeneral", { name: sectorName })}
+                    </option>
+                    {childrenOf(sector.id).map((node) => (
+                      <option key={node.id} value={node.id}>
+                        {i18n.language.startsWith("fr") ? node.fr : node.en}
+                      </option>
+                    ))}
+                  </optgroup>
+                );
+              })}
+            </select>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div>
+              <label htmlFor="need-material" className={fieldLabel}>
+                {t("home.form.material")}
+              </label>
+              <Input
+                id="need-material"
+                value={fields.material}
+                onChange={(e) => set("material")(e.target.value)}
+                placeholder={t("home.form.materialPlaceholder")}
+                className="h-9"
+              />
+            </div>
+            <div>
+              <label htmlFor="need-certs" className={fieldLabel}>
+                {t("home.form.certifications")}
+              </label>
+              <Input
+                id="need-certs"
+                value={fields.certifications}
+                onChange={(e) => set("certifications")(e.target.value)}
+                placeholder={t("home.form.certificationsPlaceholder")}
+                className="h-9"
+              />
+            </div>
+            <div>
+              <label htmlFor="need-lead" className={fieldLabel}>
+                {t("home.form.leadTime")}
+              </label>
+              <Input
+                id="need-lead"
+                value={fields.leadTime}
+                onChange={(e) => set("leadTime")(e.target.value)}
+                placeholder={t("home.form.leadTimePlaceholder")}
+                className="h-9"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label htmlFor="need-details" className={fieldLabel}>
+              {t("home.form.details")}
+            </label>
+            <Textarea
+              id="need-details"
+              value={fields.details}
+              onChange={(e) => set("details")(e.target.value)}
+              onBlur={maybeSuggest}
+              placeholder={t("home.form.detailsPlaceholder")}
+              className="min-h-[72px] resize-none text-sm"
+            />
+          </div>
+
           {files.length > 0 && (
-            <ul className="mt-2 flex flex-wrap gap-2 px-2">
+            <ul className="flex flex-wrap gap-2">
               {files.map((file, index) => (
                 <li
                   key={`${file.name}-${index}`}
@@ -213,7 +414,12 @@ export function HeroPrompt({ user }: { user: HeroUser }) {
               ))}
             </ul>
           )}
-          <div className="mt-3 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
+
+          {invalid && !formValid && (
+            <p className="text-xs text-destructive">{t("home.form.requiredError")}</p>
+          )}
+
+          <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
             <div className="flex min-w-0 items-center gap-4 text-sm text-muted-foreground">
               <button
                 type="button"

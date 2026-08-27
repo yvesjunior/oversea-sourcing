@@ -129,6 +129,10 @@ export const request = pgTable(
       .references(() => user.id, { onDelete: "cascade" }),
     title: text("title").notNull(),
     descriptionRaw: text("description_raw").notNull().default(""),
+    /** Taxonomy node id (src/lib/taxonomy.ts) — ADR-001 S2: the structured
+     *  form makes the category explicit; null = legacy/free-text intake.
+     *  The cache/coverage key of the demand-pull design. */
+    categoryId: text("category_id"),
     status: text("status").$type<RequestStatus>().notNull().default("draft"),
     locale: text("locale").notNull().default("fr"),
     // Denormalized display cache — source of truth becomes `matches` at E5.
@@ -141,6 +145,8 @@ export const request = pgTable(
   (table) => [
     index("request_org_idx").on(table.organizationId),
     index("request_created_by_idx").on(table.createdBy),
+    // Coverage measurement per category (ADR-001): cheap to hold from day one.
+    index("request_category_idx").on(table.categoryId),
   ],
 );
 

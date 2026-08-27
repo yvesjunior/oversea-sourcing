@@ -73,14 +73,22 @@ infrastructure** (never matched, never workspace-selectable, stores kept as
 local verification tables on a ~6-month refresh). Implementation plan =
 **Phase S** below.
 
+**Phase S progress (2026-08-26, same day as acceptance):** S5a (source-role
+split, migration 0018) + **S1 (taxonomy, 78 nodes)** + **S2 (structured
+request form, migration 0019)** are BUILT and dev-verified — see the Phase
+S entries. Baseline tag before any of it: `adr-001-baseline`.
+
 **Where to pick up next session:**
-① **S1 — category taxonomy** (Phase S below; blocks the S2 request form —
-resolve the HS vs NAICS/NACE vs in-house choice first); ② **notification
-preferences** — in flight, plan in the E9/E11 task below; ③ the **E6 flow
-discussion** (still the MVP1 blocker, still gated — and now also the seam
-of the S6 feedback loop); ④ deploy the India wave when asked. Read
-"Contracts a next session must NOT re-derive differently" before writing
-code.
+① **S4 — lazy per-request enrichment** (seams in the resolved gate below)
+or **S5 — customs/BoL connector investigation** (free US import records:
+verify access + format before coding, like every connector); S3 (activity-
+code retrieval) matters only when a discovery store grows big again;
+② **notification preferences** — in flight, plan in the E9/E11 task below;
+③ the **E6 flow discussion** (still the MVP1 blocker, still gated — and now
+also the seam of the S6 feedback loop); ④ deploy when asked (main is now
+several waves ahead of prod: India source + ADR-001 S5a/S1/S2, migrations
+0017–0019). Read "Contracts a next session must NOT re-derive differently"
+before writing code.
 
 ### DECISION GATE — the source enrichment agent — ✅ RESOLVED 2026-08-26
 
@@ -856,13 +864,34 @@ shipments, registry snapshots, certs, verification evidence, deal
 outcomes); lifecycle `lead → profiled → verified → engaged → partner` is
 derived from edges, never set by hand.
 
-- [ ] **S1 · Category taxonomy** — in-house tree (~50–100 nodes), mapped
-      behind the scenes to HS / NIC / SSIC. The spine for the form (S2),
-      retrieval (S3), coverage measurement, and the E5 "32 criteria"
-      workshop. Resolve the open choice (HS vs NAICS/NACE vs in-house
-      mapped to all three) FIRST — it blocks S2.
-- [ ] **S2 · Structured request form as primary intake** — the E3 task
-      (added 2026-08-26). Depends on S1.
+- [x] **S1 · Category taxonomy — BUILT 2026-08-26** (`src/lib/taxonomy.ts`):
+      in-house tree, **78 nodes** (16 sectors → 62 categories), FR/EN
+      labels, HS heading mappings (the customs bridge), matching keywords
+      drawn from the scorer's own vocabulary (`match-tokens`). Helpers:
+      `categoryById/rootCategories/childrenOf/categoryLabel` and
+      `suggestCategory(text)` (pure keyword scoring — pre-fills the form
+      from typed text, no AI). A typed module, deliberately not a table
+      (moves to rows the day staff editing is needed); **node ids are
+      stable — never reuse one**. Integrity + suggestion under unit test
+      (`taxonomy.test.ts`).
+- [x] **S2 · Structured request form — BUILT 2026-08-26** (primary intake):
+      HeroPrompt is now the form — product* + quantité / **catégorie***
+      (select over the S1 tree, auto-suggested on blur while unchosen) /
+      matériau / certifications / délai / détails textarea; attachments +
+      mic unchanged. Migration **0019**: `request.category_id` (+index).
+      `createRequestFn` takes the optional `structured` payload: fields
+      become criteria rows VERBATIM (**source "user"**, product row
+      required — the primary matching signal; certifications required),
+      details still regex-parsed for extra specs without duplicating a
+      category the form answered (`structuredCriteria` in
+      parse-criteria.ts, unit-tested); title = product; invalid category
+      ids stored null, never trusted into cache keys. Auth-gate draft is
+      the whole form as JSON (`osi-draft-besoin-v2`); a legacy plain-text
+      draft still auto-creates through the free-text path. *Verified live
+      in dev end to end:* form → suggestion picked "Pompes" → request
+      #3024 with `category_id=pumps`, 3 user-source criteria rows, pipeline
+      store-hit (pool 42 — promoted suppliers only, registries absent per
+      S5a), report_ready.
 - [ ] **S3 · Category/activity-code retrieval** — replaces the name-only
       big-store ILIKE prefilter for discovery stores: criteria/category →
       activity-code mapping (NIC, SSIC, QC activity classes), zero AI cost.
@@ -985,8 +1014,10 @@ feeds C3/C4 value (Recommandé requires Vérifié)
 - [x] **Personal dashboard** (Accueil): real session user greeting, stats + "Vos dossiers
       récents" scoped to the logged-in user, per-role workspace visibility
 - [ ] Activity feed: recent events across _my_ requests/engagements (from engagement_events + status changes)
-- [ ] **Structured request form as primary intake** (owner decision
-      2026-08-26, kept in backlog — context in ADR-001, the supplier-
+- [x] **Structured request form as primary intake** — ✅ **BUILT 2026-08-26
+      as Phase S task S2** (see the Phase S entry for the implementation
+      facts). Original scoping below (owner decision
+      2026-08-26 — context in ADR-001, the supplier-
       provisioning review: https://claude.ai/code/artifact/a537df29-e576-4725-b8de-661efd1d1438).
       Replace the free-text-only intake with a form: **category (required,
       from a new in-house taxonomy ~50–100 nodes, mapped behind the scenes
