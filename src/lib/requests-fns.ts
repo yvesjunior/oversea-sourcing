@@ -13,6 +13,9 @@ export type RequestSummary = {
   updatedAt: string;
   /** Set only when viewing across workspaces (employees): whose dossier this is. */
   workspaceName: string | null;
+  /** Who created it — live name while the account exists, the at-creation
+   *  snapshot after deletion (UC-6), null only on pre-snapshot legacy rows. */
+  createdByName: string | null;
 };
 
 /** YOUR sourcing requests, newest first — personal surfaces are own-workspace
@@ -31,6 +34,7 @@ export const getMyRequestsFn = createServerFn({ method: "GET" }).handler(
     const workspaceId = session?.session.activeOrganizationId;
     if (!session || !workspaceId) return [];
 
+    const { sql } = await import("drizzle-orm");
     const rows = await db
       .select({
         id: schema.request.id,
@@ -38,8 +42,11 @@ export const getMyRequestsFn = createServerFn({ method: "GET" }).handler(
         status: schema.request.status,
         compatibilityScore: schema.request.compatibilityScore,
         updatedAt: schema.request.updatedAt,
+        // Live name while the account exists; the snapshot survives deletion.
+        createdByName: sql<string | null>`coalesce("user"."name", ${schema.request.createdByName})`,
       })
       .from(schema.request)
+      .leftJoin(schema.user, eq(schema.user.id, schema.request.createdBy))
       .where(eq(schema.request.organizationId, workspaceId))
       .orderBy(desc(schema.request.updatedAt));
 
@@ -66,6 +73,7 @@ export const getAllRequestsFn = createServerFn({ method: "GET" }).handler(
     if (!session || !canSeeAllRequests(session.user.platformRole)) return [];
     const ownWorkspaceId = session.session.activeOrganizationId;
 
+    const { sql } = await import("drizzle-orm");
     const rows = await db
       .select({
         id: schema.request.id,
@@ -75,9 +83,11 @@ export const getAllRequestsFn = createServerFn({ method: "GET" }).handler(
         updatedAt: schema.request.updatedAt,
         workspaceName: schema.organization.name,
         organizationId: schema.request.organizationId,
+        createdByName: sql<string | null>`coalesce("user"."name", ${schema.request.createdByName})`,
       })
       .from(schema.request)
       .innerJoin(schema.organization, eq(schema.request.organizationId, schema.organization.id))
+      .leftJoin(schema.user, eq(schema.user.id, schema.request.createdBy))
       .orderBy(desc(schema.request.updatedAt));
 
     return rows.map((row) => ({
@@ -87,6 +97,7 @@ export const getAllRequestsFn = createServerFn({ method: "GET" }).handler(
       compatibilityScore: row.compatibilityScore,
       updatedAt: row.updatedAt.toISOString(),
       workspaceName: row.organizationId === ownWorkspaceId ? null : row.workspaceName,
+      createdByName: row.createdByName,
     }));
   },
 );
@@ -280,6 +291,9 @@ export const createRequestFn = createServerFn({ method: "POST" })
           categoryId,
           status: "draft",
           locale,
+          // Attribution snapshot (2026-08-26): survives the creator's
+          // account deletion (UC-6 re-interpretation).
+          createdByName: session.user.name,
         });
         return { id };
       },
@@ -455,6 +469,14 @@ export const getRequestDetailFn = createServerFn({ method: "GET" })
       }
     }
 
+    // Live name while the account exists; the snapshot survives deletion.
+    const creator = row.createdBy
+      ? await db.query.user.findFirst({
+          where: eq(schema.user.id, row.createdBy),
+          columns: { name: true },
+        })
+      : null;
+
     return {
       id: row.id,
       title: row.title,
@@ -462,6 +484,7 @@ export const getRequestDetailFn = createServerFn({ method: "GET" })
       compatibilityScore: row.compatibilityScore,
       updatedAt: row.updatedAt.toISOString(),
       workspaceName,
+      createdByName: creator?.name ?? row.createdByName,
       descriptionRaw: row.descriptionRaw,
       createdAt: row.createdAt.toISOString(),
       launchedAt: row.launchedAt?.toISOString() ?? null,
@@ -629,5 +652,6 @@ export const getRequestFn = createServerFn({ method: "GET" })
       compatibilityScore: row.compatibilityScore,
       updatedAt: row.updatedAt.toISOString(),
       workspaceName,
+      createdByName: row.createdByName,
     };
   });

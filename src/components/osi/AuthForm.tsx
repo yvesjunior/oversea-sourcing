@@ -84,14 +84,19 @@ export function AuthForm({
             } as Parameters<typeof authClient.signUp.email>[0]);
       if (result.error) {
         const code = result.error.code ?? "";
+        const message = result.error.message ?? "";
         setError(
           result.error.status === 429
             ? t("auth.errorRateLimit")
-            : code.includes("ALREADY_EXISTS")
-              ? t("auth.errorExists")
-              : code.includes("INVALID") || result.error.status === 401
-                ? t("auth.errorInvalid")
-                : t("auth.errorGeneric"),
+            : message.includes("COMPANY_NAME_TAKEN")
+              ? t("auth.errorCompanyTaken")
+              : message.includes("COMPANY_NAME_REQUIRED")
+                ? t("auth.errorCompanyRequired")
+                : code.includes("ALREADY_EXISTS")
+                  ? t("auth.errorExists")
+                  : code.includes("INVALID") || result.error.status === 401
+                    ? t("auth.errorInvalid")
+                    : t("auth.errorGeneric"),
         );
         return;
       }

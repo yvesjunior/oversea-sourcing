@@ -50,6 +50,14 @@ export function DossierCard({ demande }: { demande: RequestSummary }) {
           <span className="text-xs text-muted-foreground">{t("dossier.updated")}</span>
           <span className="text-xs text-muted-foreground">{maj}</span>
         </div>
+        {/* Attribution inside a shared workspace — the snapshot survives the
+            creator's account deletion (UC-6 re-interpretation). */}
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
+          <span className="text-xs text-muted-foreground">{t("dossier.createdBy")}</span>
+          <span className="max-w-[60%] truncate text-xs font-medium">
+            {demande.createdByName ?? t("common.deletedUser")}
+          </span>
+        </div>
       </div>
     </Link>
   );

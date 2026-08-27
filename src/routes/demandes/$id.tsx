@@ -151,6 +151,9 @@ function DemandeDetail() {
               {demande.workspaceName}
             </span>
           )}
+          <span className="ml-2 align-middle text-xs font-normal text-muted-foreground">
+            {t("dossier.createdBy")} {demande.createdByName ?? t("common.deletedUser")}
+          </span>
         </h1>
         <span className="flex items-center gap-2">
           {canCancel && (

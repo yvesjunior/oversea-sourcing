@@ -253,7 +253,9 @@
       "organization": "A company workspace — invite your team (3 seats to start)."
     },
     "companyName": "Company name",
-    "companyNamePlaceholder": "e.g. Nordik Manufacturing Inc."
+    "companyNamePlaceholder": "e.g. Nordik Manufacturing Inc.",
+    "errorCompanyTaken": "This organisation name is already taken.",
+    "errorCompanyRequired": "Enter your organisation name."
   },
   "resetPwd": {
     "forgotTitle": "Forgot password",
@@ -394,7 +396,8 @@
   "dossier": {
     "status": "Status",
     "compatibility": "Compatibility",
-    "updated": "Updated"
+    "updated": "Updated",
+    "createdBy": "Created by"
   },
   "demandes": {
     "title": "Requests",
@@ -708,5 +711,8 @@
     "noPlan": "default",
     "empty": "No customer accounts yet.",
     "emptyTab": "No accounts of this type yet."
+  },
+  "common": {
+    "deletedUser": "Deleted user"
   }
 }

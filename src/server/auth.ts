@@ -136,11 +136,24 @@ export const auth = betterAuth({
       if (accountType !== "individual" && accountType !== "organization") {
         throw new APIError("BAD_REQUEST", { message: "INVALID_ACCOUNT_TYPE" });
       }
-      if (
-        accountType === "organization" &&
-        (typeof body.companyName !== "string" || body.companyName.trim().length < 2)
-      ) {
-        throw new APIError("BAD_REQUEST", { message: "COMPANY_NAME_REQUIRED" });
+      if (accountType === "organization") {
+        const companyName = typeof body.companyName === "string" ? body.companyName.trim() : "";
+        if (companyName.length < 2) {
+          throw new APIError("BAD_REQUEST", { message: "COMPANY_NAME_REQUIRED" });
+        }
+        // Organisation names are unique (owner, 2026-08-26) — checked here
+        // for a clear error; the partial unique index (migration 0025) is
+        // the race-proof backstop.
+        const taken = await db.query.organization.findFirst({
+          where: (fields, { and: andOp, inArray: inArrayOp, sql: sqlOp }) =>
+            andOp(
+              inArrayOp(fields.type, ["enterprise", "internal"]),
+              sqlOp`lower(${fields.name}) = ${companyName.toLowerCase()}`,
+            ),
+        });
+        if (taken) {
+          throw new APIError("BAD_REQUEST", { message: "COMPANY_NAME_TAKEN" });
+        }
       }
     }),
   },

@@ -144,6 +144,9 @@ export const request = pgTable(
      *  only workspace DELETES the account, but the tenant keeps the work —
      *  a deleted creator leaves null, displayed as "utilisateur supprimé". */
     createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+    /** Attribution snapshot taken at creation — the display fallback once
+     *  the creator's account is gone ("Créé par …" must survive UC-6). */
+    createdByName: text("created_by_name"),
     title: text("title").notNull(),
     descriptionRaw: text("description_raw").notNull().default(""),
     /** Taxonomy node id (src/lib/taxonomy.ts) — ADR-001 S2: the structured

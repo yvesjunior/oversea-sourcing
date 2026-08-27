@@ -253,7 +253,9 @@
       "organization": "Un espace entreprise — invitez votre équipe (3 sièges pour commencer)."
     },
     "companyName": "Nom de l’entreprise",
-    "companyNamePlaceholder": "ex. Nordik Manufacturing inc."
+    "companyNamePlaceholder": "ex. Nordik Manufacturing inc.",
+    "errorCompanyTaken": "Ce nom d’organisation est déjà utilisé.",
+    "errorCompanyRequired": "Saisissez le nom de votre organisation."
   },
   "resetPwd": {
     "forgotTitle": "Mot de passe oublié",
@@ -394,7 +396,8 @@
   "dossier": {
     "status": "Statut",
     "compatibility": "Compatibilité",
-    "updated": "Mis à jour"
+    "updated": "Mis à jour",
+    "createdBy": "Créé par"
   },
   "demandes": {
     "title": "Demandes",
@@ -708,5 +711,8 @@
     "noPlan": "défaut",
     "empty": "Aucun compte client pour l’instant.",
     "emptyTab": "Aucun compte de ce type pour l’instant."
+  },
+  "common": {
+    "deletedUser": "Utilisateur supprimé"
   }
 }
