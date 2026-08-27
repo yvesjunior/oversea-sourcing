@@ -676,5 +676,10 @@
       "unparseable_website": "unparseable website URL",
       "no_name_slug": "no comparable name"
     }
+  },
+  "workspaceTypes": {
+    "internal": "OSI staff workspace",
+    "individual": "Personal workspace",
+    "enterprise": "Company workspace"
   }
 }

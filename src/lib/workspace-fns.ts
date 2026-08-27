@@ -5,6 +5,8 @@ import { createServerFn } from "@tanstack/react-start";
 export type WorkspaceSummary = {
   id: string;
   name: string;
+  /** internal | individual | enterprise — drives the switcher's color coding. */
+  type: string;
   /** The caller's role in it: owner | buyer | viewer (legacy admin possible). */
   role: string;
   /** The session's active workspace — where the caller is "standing". */
@@ -29,6 +31,7 @@ export const getMyWorkspacesFn = createServerFn({ method: "GET" }).handler(
       .select({
         id: schema.organization.id,
         name: schema.organization.name,
+        type: schema.organization.type,
         role: schema.member.role,
       })
       .from(schema.member)

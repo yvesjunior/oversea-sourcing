@@ -1,14 +1,16 @@
-// Workspace switcher (B2, 2026-08-23) — where the user is "standing".
+// Workspace indicator + switcher (B2, 2023-08-23 · made prominent 2026-08-26
+// on owner request: "we must know where we are connected").
 //
-// Renders nothing for the common case (one workspace): individuals never see
-// machinery they don't need. With several memberships it shows the active
-// workspace and lets the user move; the active organization lives in the
-// SESSION (better-auth org plugin), so every server fn re-scopes on the next
-// call — the switch itself never carries data across.
+// ALWAYS visible when signed in: a color-coded badge naming the active
+// workspace — gold for the staff org (internal), teal-tinted for an
+// enterprise, neutral-but-legible for a personal workspace. With several
+// memberships it becomes the dropdown switcher; the active organization
+// lives in the SESSION (better-auth org plugin), so every server fn
+// re-scopes on the next call — the switch itself never carries data across.
 
 import { useEffect, useState } from "react";
 import { useRouter } from "@tanstack/react-router";
-import { Building2, Check, ChevronsUpDown } from "lucide-react";
+import { Building2, Check, ChevronsUpDown, ShieldCheck, User } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { authClient } from "@/lib/auth-client";
 import { getMyWorkspacesFn, type WorkspaceSummary } from "@/lib/workspace-fns";
@@ -18,6 +20,20 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { cn } from "@/lib/utils";
+
+/** The badge look per organization.type — the color IS the information. */
+const TYPE_STYLES: Record<string, string> = {
+  internal: "bg-gold-gradient text-gold-foreground shadow-gold border-transparent",
+  enterprise: "bg-emerald-500/15 text-emerald-700 border-emerald-500/40 dark:text-emerald-400",
+  individual: "bg-secondary text-foreground border-border",
+};
+
+function TypeIcon({ type }: { type: string }) {
+  if (type === "internal") return <ShieldCheck className="size-4 shrink-0" />;
+  if (type === "enterprise") return <Building2 className="size-4 shrink-0" />;
+  return <User className="size-4 shrink-0" />;
+}
 
 export function WorkspaceSwitcher() {
   const { t } = useTranslation();
@@ -29,10 +45,23 @@ export function WorkspaceSwitcher() {
     void getMyWorkspacesFn().then(setWorkspaces);
   }, []);
 
-  // One workspace (or anonymous): no machinery to show.
-  if (workspaces.length < 2) return null;
+  if (workspaces.length === 0) return null;
 
   const active = workspaces.find((w) => w.active) ?? workspaces[0]!;
+  const badge = cn(
+    "flex max-w-[300px] items-center gap-2 rounded-lg border px-3.5 py-2 text-sm font-bold",
+    TYPE_STYLES[active.type] ?? TYPE_STYLES["individual"],
+  );
+
+  // One workspace: a static badge — the user still always sees where they are.
+  if (workspaces.length < 2) {
+    return (
+      <span className={badge} title={t(`workspaceTypes.${active.type}`)}>
+        <TypeIcon type={active.type} />
+        <span className="truncate">{active.name}</span>
+      </span>
+    );
+  }
 
   const switchTo = async (workspace: WorkspaceSummary) => {
     if (workspace.active || switching) return;
@@ -54,23 +83,28 @@ export function WorkspaceSwitcher() {
       <DropdownMenuTrigger
         aria-label={t("topbar.switchWorkspace")}
         disabled={switching}
-        className="flex max-w-[220px] items-center gap-2 rounded-lg border border-border px-3 py-1.5 text-xs font-semibold transition-colors hover:text-foreground"
+        className={cn(badge, "transition-opacity hover:opacity-90")}
+        title={t(`workspaceTypes.${active.type}`)}
       >
-        <Building2 className="size-3.5 shrink-0" />
+        <TypeIcon type={active.type} />
         <span className="truncate">{active.name}</span>
-        <ChevronsUpDown className="size-3 shrink-0 opacity-60" />
+        <ChevronsUpDown className="size-3.5 shrink-0 opacity-70" />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-64">
+      <DropdownMenuContent align="end" className="w-72">
         {workspaces.map((workspace) => (
           <DropdownMenuItem
             key={workspace.id}
             onSelect={() => void switchTo(workspace)}
             className="flex items-center justify-between gap-3"
           >
-            <span className="min-w-0">
-              <span className="block truncate text-sm">{workspace.name}</span>
-              <span className="block text-xs text-muted-foreground">
-                {t(`workspaceRoles.${workspace.role}`, { defaultValue: workspace.role })}
+            <span className="flex min-w-0 items-center gap-2.5">
+              <TypeIcon type={workspace.type} />
+              <span className="min-w-0">
+                <span className="block truncate text-sm font-medium">{workspace.name}</span>
+                <span className="block text-xs text-muted-foreground">
+                  {t(`workspaceTypes.${workspace.type}`)} ·{" "}
+                  {t(`workspaceRoles.${workspace.role}`, { defaultValue: workspace.role })}
+                </span>
               </span>
             </span>
             {workspace.active && <Check className="size-4 shrink-0 text-gold" />}

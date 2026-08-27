@@ -676,5 +676,10 @@
       "unparseable_website": "URL de site invalide",
       "no_name_slug": "nom non comparable"
     }
+  },
+  "workspaceTypes": {
+    "internal": "Espace interne OSI",
+    "individual": "Espace personnel",
+    "enterprise": "Espace entreprise"
   }
 }
