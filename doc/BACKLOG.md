@@ -913,8 +913,18 @@ derived from edges, never set by hand.
       agent module beside `ai/research.ts`, enrichment fields +
       `enriched_at` on `source_record`, per-run audit with token cost.
 - [ ] **S5 · Customs/BoL connector + verification battery + source roles** —
-      free US import-records connector first (proof of export capability;
-      the only free route to the China corridor). Verification battery =
+      US import-records connector first (proof of export capability;
+      the only data route into the China corridor).
+      **Customs access INVESTIGATED 2026-08-26 → DECISION GATE** (README
+      §9 "customs-us investigation"): **no free route exists** (Enigma
+      retired, FOIA rejected 2023, OEC paywalled). Options: **A)** official
+      CBP AMS daily extract subscription ~$100–150/mo (exact price by phone
+      to the CBP Collections Section — the clean, licensed route,
+      recommended when ready to spend); **B)** ImportYeti API ~$50/mo,
+      gated on a ToS check (alibaba rule); **C)** defer — build the
+      verification battery now, slot export-record checks in when data
+      arrives. First connector that costs money — owner call.
+      Verification battery =
       the E10 spec (ADR §4): six checks → evidence rows → derived tier
       ladder (0 unverified → 1 existence → 2 capability → 3 Vérifié OSI);
       sanctions hit blocks presentation; scheduled ~6-mo registry refresh

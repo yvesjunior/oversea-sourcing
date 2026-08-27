@@ -1409,6 +1409,41 @@ all-state coverage only exists commercially.
    separate autonomous sources if wanted), EDGAR (E10 enrichment), paid
    aggregators (product/budget decision).
 
+### customs-us investigation (findings 2026-08-26 — ADR-001 S5, DECISION GATE)
+
+**Why customs data:** bills of lading are the discovery backbone of the
+accepted ADR-001 design — the **shipper** on a US import record is a
+foreign supplier with *proven export history* (what they ship, how often,
+to whom), and it is the only data route into the China corridor. One
+dataset feeds both discovery and the export-record verification check.
+
+**What exists (verified 2026-08-26):**
+
+| Route | What it is | Cost | Verdict |
+|---|---|---|---|
+| **CBP AMS daily extract** ([19 CFR 103.31](https://www.law.cornell.edu/cfr/text/19/103.31)) | The official raw feed: daily nationwide compilation of inward vessel manifests, 22 disclosable fields incl. **shipper name + address**, consignee, cargo description, quantities, ports. Subscription through the CBP National Finance Center (Indianapolis, +1 317-614-4514), priced at production cost — order of magnitude **~$100–150/month** (exact price only by contacting them; the regulation still says "CD-ROM", so confirm current delivery media when ordering) | ~$100–150/mo | ✅ **The clean route** — licensed, complete (minus confidentiality opt-outs), daily; a static scheduled connector parses it into the customs-us store |
+| **ImportYeti** (importyeti.com) | Free web app over the same CBP data ("all 70M BoLs"); the ~$50/mo tier advertises CSV exports + API access | free browse · ~$50/mo API | ⚠️ Cheaper, but **ToS/licensing gate before any code** (same rule as alibaba): re-using their API output as OSI's stored dataset needs their terms to allow it — unverified (site blocks server fetches) |
+| **Free bulk** (Enigma public exports, FOIA, OEC bulk) | Enigma's public AMS exports (used by researchers up to ~2019) are retired behind auth; a 2023 FOIA for ACE manifest records was **rejected** ([Data Liberation Project](https://www.data-liberation-project.org/requests/cbp-bills-of-lading/)); OEC's BoL bulk download is paywalled | — | ❌ **No free route exists today** |
+| **Commercial** (Panjiva, ImportGenius, Datamyne) | Full trade-intelligence platforms | $$$+ | Out of scope pre-launch |
+
+**Notes:** shippers/importers can request confidentiality (2-year
+opt-outs) — those records are absent from every route, including the paid
+ones. US data covers ocean freight into the US; it evidences the
+China/Vietnam/India → US corridors directly, and a supplier's US export
+history is still strong capability evidence for a Canadian/EU buyer.
+
+**DECISION GATE (owner): this is the first connector that costs money.**
+- **Option A — CBP subscription (~$100–150/mo)**: own the raw data,
+  cleanest licence, build `customs-us` as a scheduled static connector.
+  Recommended when ready to spend; the price is confirmed by one phone
+  call before committing.
+- **Option B — ImportYeti API (~$50/mo)**: cheaper and pre-parsed, but
+  gated on their ToS permitting storage/re-use, and adds platform
+  dependence.
+- **Option C — defer**: global_web stays the only discovery source; the
+  verification battery (E10) can still be built now — export-record checks
+  slot in later when the data arrives.
+
 ### C2 investigation — Canadian registries (findings 2026-08-24)
 
 Investigated per the C2 gate: can a `registry-ca` connector pull Canadian
