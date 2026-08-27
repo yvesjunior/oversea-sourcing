@@ -22,7 +22,12 @@ export type ResearchJob = { requestId: string };
  *  worker owns only the collection. Rides the research queue on purpose: it is
  *  the same slow, Claude-bound work, and worker-research owns all collection. */
 export type AdminRefreshJob = { sourceRunId: string };
-export type ResearchQueueJob = ResearchJob | AdminRefreshJob;
+/** Verification battery (ADR-001 §4 = E10): run the free checks on every
+ *  supplier presented on this request's Top-N. Rides the research queue —
+ *  worker-research owns all outbound network (registry lookups run offline,
+ *  but site/RDAP/OFAC fetches do not). Distinguished by its key name. */
+export type VerifyJob = { verifyRequestId: string };
+export type ResearchQueueJob = ResearchJob | AdminRefreshJob | VerifyJob;
 
 let boss: PgBoss | null = null;
 let started: Promise<PgBoss> | null = null;
@@ -53,6 +58,10 @@ export async function enqueuePipeline(requestId: string): Promise<void> {
 
 export async function enqueueResearch(requestId: string): Promise<void> {
   await send(QUEUES.research, { requestId } satisfies ResearchJob);
+}
+
+export async function enqueueVerification(requestId: string): Promise<void> {
+  await send(QUEUES.research, { verifyRequestId: requestId } satisfies VerifyJob);
 }
 
 export async function enqueueAdminRefresh(sourceRunId: string): Promise<void> {

@@ -387,6 +387,76 @@ export const sourceRun = pgTable(
   (table) => [index("source_run_source_idx").on(table.dataSourceId)],
 );
 
+// ── Verification battery (ADR-001 §4 = E10, built 2026-08-26) ────────────────
+// Verification is EVIDENCE ACCUMULATION, not a status someone sets: each check
+// writes one row here (what was checked, from which source, with what result,
+// when), and the supplier's trust tier / verification_status is DERIVED from
+// these rows by src/lib/verification.ts — never set by hand. One row per
+// (supplier, check): a re-run refreshes it; recency lives in checked_at.
+
+export const VERIFICATION_CHECKS = [
+  /** Legal existence — lookup against the verification-role registry stores. */
+  "existence",
+  /** Website alive, MX present, domain age (RDAP). */
+  "digital_identity",
+  /** OFAC SDN screening (local list, refreshed ≤7d). A hit is a hard flag. */
+  "sanctions",
+  /** Customs/BoL export history — arrives with the customs-us source. */
+  "export_record",
+  /** Cert registries (IAF CertSearch…) — later; claims stay unverified. */
+  "certification",
+  /** Staff review — the Tier 3 gate (Vérifié OSI). */
+  "human_review",
+] as const;
+export type VerificationCheck = (typeof VERIFICATION_CHECKS)[number];
+
+export type VerificationOutcome = "passed" | "failed" | "inconclusive";
+
+export const supplierVerification = pgTable(
+  "supplier_verification",
+  {
+    id: text("id").primaryKey(),
+    supplierId: text("supplier_id")
+      .notNull()
+      .references(() => supplier.id, { onDelete: "cascade" }),
+    check: text("check").$type<VerificationCheck>().notNull(),
+    status: text("status").$type<VerificationOutcome>().notNull(),
+    /** Which backend answered (e.g. `registry-qc`, `rdap`, `ofac_sdn`). */
+    source: text("source"),
+    sourceUrl: text("source_url"),
+    /** Check-specific detail (snapshot date, domain age, matched entry…). */
+    result: jsonb("result").$type<Record<string, unknown>>(),
+    checkedAt: timestamp("checked_at").notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("supplier_verification_uq").on(table.supplierId, table.check),
+    index("supplier_verification_supplier_idx").on(table.supplierId),
+  ],
+);
+
+/** Local sanctions list (OFAC SDN v1) — downloaded and screened offline;
+ *  worker-research refreshes it when stale (≤7 days). */
+export const sanctionEntry = pgTable(
+  "sanction_entry",
+  {
+    id: text("id").primaryKey(),
+    /** Which list ('ofac_sdn'; EU/UN lists join later). */
+    list: text("list").notNull(),
+    /** The list's own entry id (SDN ent_num). */
+    uid: text("uid").notNull(),
+    name: text("name").notNull(),
+    /** supplier-key nameSlug of the name — the screening join column. */
+    nameSlug: text("name_slug").notNull(),
+    program: text("program"),
+    entityType: text("entity_type"),
+    importedAt: timestamp("imported_at").notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("sanction_entry_uq").on(table.list, table.uid),
+    index("sanction_entry_slug_idx").on(table.nameSlug),
+  ],
+);
+
 // ── Notifications (E9, 2026-08-23) — in-app inbox, one row per recipient ─────
 // Same i18n pattern as request_event: `type` + `params` are rendered
 // client-side with the user's language, so a notification created in FR reads

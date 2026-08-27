@@ -509,8 +509,12 @@ and `/documents` render showcase constants and are disabled in the nav.
   matcher, store-first qualifier, connector contract, dedup key). Still
   unit-only — DB-bound behavior (ban stickiness, quota lock) is verified
   manually against the dev stack; no CI runs any of it automatically
-- ⚠️ **Supplier verification has no state machine**, unlike requests: any code can
-  set any status
+- ✅ **Fixed 2026-08-26 (S5b): supplier verification is evidence-derived** —
+  `verification_status` is a projection of `supplier_verification` rows
+  computed in `src/lib/verification.ts`, written ONLY by
+  `src/server/verification.ts`. Suppliers now actually earn `pending` (+5)
+  through the automated battery; `verified` (+12) waits for the E10 staff
+  review surface (human_review rows)
 - ⚠️ `.docx` / `.xlsx` attachments are accepted at upload but cannot be read
 - ⚠️ `/transactions` still renders showcase constants from `src/data/osi.ts`
   (`etapesTransaction`). Analytics is DB-backed now, so `kpisAnalyses`,
@@ -923,13 +927,45 @@ derived from edges, never set by hand.
       recommended when ready to spend); **B)** ImportYeti API ~$50/mo,
       gated on a ToS check (alibaba rule); **C)** defer — build the
       verification battery now, slot export-record checks in when data
-      arrives. First connector that costs money — owner call.
+      arrives. First connector that costs money — **owner decided
+      2026-08-26: Option C, defer — free resources preferred for now.**
       Verification battery =
       the E10 spec (ADR §4): six checks → evidence rows → derived tier
       ladder (0 unverified → 1 existence → 2 capability → 3 Vérifié OSI);
       sanctions hit blocks presentation; scheduled ~6-mo registry refresh
       (the scheduler is the third legitimate caller of connectors, as the
       README always reserved).
+  - [x] **S5b · Verification battery v1 — BUILT 2026-08-26** (the free
+        checks; = the E10 core): migration **0020** adds
+        `supplier_verification` (one evidence row per supplier × check —
+        status, source, sourceUrl, result jsonb, checked_at; uq pair) and
+        `sanction_entry` (local OFAC SDN copy, name_slug join column).
+        Checks (src/server/verification.ts): **existence** (offline lookup
+        of the supplier's dedup_key in the verification-role stores of its
+        country — passed with registry name + snapshot date; `failed` =
+        covered country, not found; `inconclusive` = country not covered,
+        e.g. CN); **digital_identity** (site reachable, MX, RDAP domain
+        age — young-domain flagged, never auto-failed); **sanctions**
+        (OFAC SDN downloaded when >7 days old — 19 319 entries — screened
+        by conservative whole-`nameSlug` equality; a hit → status
+        `rejected`, −25, staff reviews). Tier ladder DERIVED in
+        `src/lib/verification.ts` (0 → 1 existence → 2 capability → 3
+        human_review; projection onto `verification_status`: 3→verified,
+        1-2→pending, hit→rejected) — **verification.ts is the ONLY writer
+        of that column**; the "any code can set any status" debt dies by
+        construction. Runs as a `verify` job on the research queue,
+        enqueued right after Top-N promotion (async — the report never
+        waits; the tier-1-as-presentation-floor rule flips to inline
+        later, once the checks have soak time). Per-check TTLs (existence
+        180d aligned to the 6-mo store refresh · identity 30d · sanctions
+        7d) make re-runs ≈free. export_record joins with customs-us;
+        certification with a cert-registry route; human_review = the E10
+        staff screen (open). *Verified live in dev end to end:* request
+        #3026 → 5 suppliers → SDN auto-downloaded → CN/CZ suppliers
+        existence-inconclusive (`country_not_covered`, honest) with
+        site/MX evidence; a supplier keyed to a real registry-qc record →
+        existence passed (registry name + snapshot 2026-08-25) → derived
+        **pending**. 46 unit tests green (tier ladder + nameSlug pinned).
   - [x] **S5a · Source-role split — BUILT 2026-08-26** (first ADR-001 code;
         baseline tag `adr-001-baseline`): migration **0018** adds
         `data_source.role` (`discovery | verification`, default discovery)

@@ -17,7 +17,13 @@ import { and, eq, inArray, lt } from "drizzle-orm";
 import { db } from "@/database";
 import * as schema from "@/database/schema";
 import type { RequestStatus } from "@/database/schema";
-import { QUEUES, type PipelineJob, type ResearchJob, type ResearchQueueJob } from "@/server/queue";
+import {
+  QUEUES,
+  type PipelineJob,
+  type ResearchJob,
+  type ResearchQueueJob,
+  type VerifyJob,
+} from "@/server/queue";
 import { recordEvent, transitionRequest } from "@/server/requests";
 import { createMatchesForRequest } from "@/server/matching";
 import { researchEnabled } from "@/server/ai/flags";
@@ -97,6 +103,10 @@ async function handlePipeline({ requestId }: PipelineJob, enqueue: Enqueue): Pro
         candidates: scoped.candidates,
       });
       console.log(`pipeline: ${requestId} matched top suppliers from a pool of ${analyzed}`);
+      // ADR-001 §4: every presented supplier gets the verification battery.
+      // Async on the research queue — the report never waits on a slow
+      // website; evidence and the derived tier land seconds later.
+      await enqueue(QUEUES.research, { verifyRequestId: requestId } satisfies VerifyJob);
     }
     await transitionRequest(requestId, orgId, "searching", "validating");
     status = "validating";
@@ -134,6 +144,11 @@ async function handlePipeline({ requestId }: PipelineJob, enqueue: Enqueue): Pro
 async function handleResearch(job: ResearchQueueJob, enqueue: Enqueue): Promise<void> {
   if ("sourceRunId" in job) {
     await runAdminRefresh(job.sourceRunId);
+    return;
+  }
+  if ("verifyRequestId" in job) {
+    const { runVerificationForRequest } = await import("@/server/verification");
+    await runVerificationForRequest(job.verifyRequestId);
     return;
   }
   const { requestId } = job;

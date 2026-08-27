@@ -104,13 +104,20 @@ Key redirections versus the sections below:
   site-scrape + evidence-cited capability profile; keyword-scoped batches
   are the staff-aimed secondary; store-sized enrichment batches do not
   exist in this design.
-- **Verification battery (= the E10 spec)**: six checks per presented
-  candidate — legal existence, digital identity, export track record,
-  certifications (IAF CertSearch), sanctions screening (a hit blocks
-  presentation), LLM coherence read — each writing an evidence row; the
-  trust tier is derived (0 unverified → 1 existence verified → 2 capability
-  evidenced → 3 Vérifié OSI). `verification_status` stops being settable by
-  any code.
+- **Verification battery (= the E10 spec)** — ✅ **v1 BUILT 2026-08-26
+  (S5b, migration 0020)**: every supplier presented on a Top-N gets the
+  free checks — legal existence (offline lookup in the verification-role
+  stores, evidence carries the registry name + snapshot date), digital
+  identity (site alive, MX, RDAP domain age), OFAC SDN sanctions screening
+  (local list, ≤7 days old; a hit derives `rejected`, −25, for staff
+  review) — each writing one `supplier_verification` evidence row. The
+  trust tier is DERIVED (`src/lib/verification.ts`: 0 unverified →
+  1 existence verified → 2 capability evidenced → 3 Vérifié OSI via
+  human_review) and projected onto `verification_status`
+  (3→verified · 1-2→pending), whose ONLY writer is
+  `src/server/verification.ts`. Runs async on the research queue right
+  after promotion. export_record and certification checks join when their
+  data sources arrive; the E10 staff-review surface is still open.
 - **Intake goes form-first** — ✅ **BUILT 2026-08-26 (S1+S2, migration
   0019)**: the hero is now a structured form — product* and category*
   (required; the category select runs over the in-house taxonomy in

@@ -70,6 +70,19 @@ function tokenize(name: string): string[] {
     .filter(Boolean);
 }
 
+/** The name half of the dedup key, alone — accents/case/punctuation folded,
+ *  legal suffixes dropped. The sanctions screening join column (ADR-001 §4):
+ *  "Banco Nacional de Cuba S.A." and OFAC's "BANCO NACIONAL DE CUBA" both
+ *  slug to "banconacionaldecuba". Null when nothing identifying remains. */
+export function nameSlug(name: string): string | null {
+  const tokens = tokenize(name);
+  // Single letters are punctuation debris ("S.A." → "s","a"), never identity —
+  // dropping them makes "… S.A." and the bare name screen as equal.
+  const meaningful = tokens.filter((token) => token.length > 1 && !LEGAL_SUFFIXES.includes(token));
+  const slug = (meaningful.length > 0 ? meaningful : tokens).join("");
+  return slug.length < 2 ? null : slug;
+}
+
 /**
  * `dedup_key` for a supplier: normalized name + country.
  *
