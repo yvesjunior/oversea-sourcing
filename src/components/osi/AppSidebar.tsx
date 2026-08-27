@@ -16,6 +16,7 @@ import {
   Users,
   Handshake,
   Wallet,
+  Briefcase,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { authClient } from "@/lib/auth-client";
@@ -66,12 +67,10 @@ const itemsInterne: {
     icone: Handshake,
     disabledForRoles: ["manager"],
   },
-  {
-    key: "verification",
-    url: "/interne/verification",
-    icone: ShieldCheck,
-    disabledForRoles: ["manager"],
-  },
+  // Real screen since S5c (2026-08-26) — live for managers too.
+  { key: "verification", url: "/interne/verification", icone: ShieldCheck },
+  // Customer accounts (individual vs organisation), 2026-08-26.
+  { key: "clients", url: "/interne/clients", icone: Briefcase },
   { key: "imports", url: "/interne/imports", icone: Import, disabledForRoles: ["manager"] },
   { key: "finance", url: "/interne/finance", icone: Wallet, disabledForRoles: ["manager"] },
   // Real screen, not a placeholder — so it stays live for managers.

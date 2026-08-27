@@ -107,6 +107,17 @@ workspaces backfilled `individual` (no enterprise exists yet anywhere).
 **Follow-up:** granting a platform role on /interne/utilisateurs should
 also add OSI-org membership (manual SQL meanwhile); signup UX for the
 individual-vs-organisation choice is the open design question;
+②c **DONE 2026-08-26 — prominent workspace badge + /interne/clients**
+(owner requests): the top-bar workspace indicator is always visible and
+color-coded by type (gold = OSI staff org, emerald = enterprise, neutral
+= personal; type named in tooltip + dropdown subtitles); new staff
+screen **Clients** (feature `clients`, owner/manager) lists every
+non-internal account in two tabs (individuels / organisations) with
+owner, plan, members, lifetime requests, created date — account-centric
+counterpart of /interne/utilisateurs. Also fixed: /interne/verification
+un-greyed for managers (real screen since S5c). Gotcha for posterity:
+interpolating a drizzle column into a raw sql`` correlated subquery
+renders it UNQUALIFIED ("id" — ambiguous); qualify identifiers by hand;
 ③ the **workspace/organisation design revisit** (recorded at B2: the
 current org model was accepted "to keep moving" — discuss before deep org
 work); ④ **E2 audit log** on auth/membership mutations; ⑤ S4 enrichment

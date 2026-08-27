@@ -18,7 +18,8 @@
     "soon": "Coming soon",
     "plans": "Subscriptions",
     "users": "Users",
-    "sources": "Data sources"
+    "sources": "Data sources",
+    "clients": "Customers"
   },
   "platformRoles": {
     "owner": "Platform owner",
@@ -681,5 +682,20 @@
     "internal": "OSI staff workspace",
     "individual": "Personal workspace",
     "enterprise": "Company workspace"
+  },
+  "clientsAdmin": {
+    "title": "Customer accounts",
+    "subtitle": "Every buyer account on the platform — individual and organisation workspaces.",
+    "tabIndividual": "Individual accounts ({{count}})",
+    "tabEnterprise": "Organisation accounts ({{count}})",
+    "account": "Account",
+    "owner": "Owner",
+    "plan": "Plan",
+    "members": "Members",
+    "requests": "Requests",
+    "since": "Customer since",
+    "noPlan": "default",
+    "empty": "No customer accounts yet.",
+    "emptyTab": "No accounts of this type yet."
   }
 }

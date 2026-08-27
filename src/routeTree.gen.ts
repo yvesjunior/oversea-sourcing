@@ -23,6 +23,7 @@ import { Route as ApiSourceUploadRouteImport } from './routes/api/source-upload'
 import { Route as ApiUploadRouteImport } from './routes/api/upload'
 import { Route as DemandesIndexRouteImport } from './routes/demandes/index'
 import { Route as DemandesIdRouteImport } from './routes/demandes/$id'
+import { Route as InterneClientsRouteImport } from './routes/interne/clients'
 import { Route as InterneFacilitationRouteImport } from './routes/interne/facilitation'
 import { Route as InterneFinanceRouteImport } from './routes/interne/finance'
 import { Route as InterneImportsRouteImport } from './routes/interne/imports'
@@ -105,6 +106,11 @@ const DemandesIdRoute = DemandesIdRouteImport.update({
   path: '/demandes/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const InterneClientsRoute = InterneClientsRouteImport.update({
+  id: '/interne/clients',
+  path: '/interne/clients',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const InterneFacilitationRoute = InterneFacilitationRouteImport.update({
   id: '/interne/facilitation',
   path: '/interne/facilitation',
@@ -175,6 +181,7 @@ export interface FileRoutesByFullPath {
   '/api/source-upload': typeof ApiSourceUploadRoute
   '/api/upload': typeof ApiUploadRoute
   '/demandes/$id': typeof DemandesIdRouteWithChildren
+  '/interne/clients': typeof InterneClientsRoute
   '/interne/facilitation': typeof InterneFacilitationRoute
   '/interne/finance': typeof InterneFinanceRoute
   '/interne/imports': typeof InterneImportsRoute
@@ -202,6 +209,7 @@ export interface FileRoutesByTo {
   '/api/source-upload': typeof ApiSourceUploadRoute
   '/api/upload': typeof ApiUploadRoute
   '/demandes/$id': typeof DemandesIdRouteWithChildren
+  '/interne/clients': typeof InterneClientsRoute
   '/interne/facilitation': typeof InterneFacilitationRoute
   '/interne/finance': typeof InterneFinanceRoute
   '/interne/imports': typeof InterneImportsRoute
@@ -230,6 +238,7 @@ export interface FileRoutesById {
   '/api/source-upload': typeof ApiSourceUploadRoute
   '/api/upload': typeof ApiUploadRoute
   '/demandes/$id': typeof DemandesIdRouteWithChildren
+  '/interne/clients': typeof InterneClientsRoute
   '/interne/facilitation': typeof InterneFacilitationRoute
   '/interne/finance': typeof InterneFinanceRoute
   '/interne/imports': typeof InterneImportsRoute
@@ -259,6 +268,7 @@ export interface FileRouteTypes {
     | '/api/source-upload'
     | '/api/upload'
     | '/demandes/$id'
+    | '/interne/clients'
     | '/interne/facilitation'
     | '/interne/finance'
     | '/interne/imports'
@@ -286,6 +296,7 @@ export interface FileRouteTypes {
     | '/api/source-upload'
     | '/api/upload'
     | '/demandes/$id'
+    | '/interne/clients'
     | '/interne/facilitation'
     | '/interne/finance'
     | '/interne/imports'
@@ -313,6 +324,7 @@ export interface FileRouteTypes {
     | '/api/source-upload'
     | '/api/upload'
     | '/demandes/$id'
+    | '/interne/clients'
     | '/interne/facilitation'
     | '/interne/finance'
     | '/interne/imports'
@@ -341,6 +353,7 @@ export interface RootRouteChildren {
   ApiSourceUploadRoute: typeof ApiSourceUploadRoute
   ApiUploadRoute: typeof ApiUploadRoute
   DemandesIdRoute: typeof DemandesIdRouteWithChildren
+  InterneClientsRoute: typeof InterneClientsRoute
   InterneFacilitationRoute: typeof InterneFacilitationRoute
   InterneFinanceRoute: typeof InterneFinanceRoute
   InterneImportsRoute: typeof InterneImportsRoute
@@ -454,6 +467,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DemandesIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/interne/clients': {
+      id: '/interne/clients'
+      path: '/interne/clients'
+      fullPath: '/interne/clients'
+      preLoaderRoute: typeof InterneClientsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/interne/facilitation': {
       id: '/interne/facilitation'
       path: '/interne/facilitation'
@@ -560,6 +580,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiSourceUploadRoute: ApiSourceUploadRoute,
   ApiUploadRoute: ApiUploadRoute,
   DemandesIdRoute: DemandesIdRouteWithChildren,
+  InterneClientsRoute: InterneClientsRoute,
   InterneFacilitationRoute: InterneFacilitationRoute,
   InterneFinanceRoute: InterneFinanceRoute,
   InterneImportsRoute: InterneImportsRoute,

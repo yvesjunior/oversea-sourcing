@@ -15,6 +15,8 @@ export const PLATFORM_FEATURES = {
   plans: ["owner", "manager"],
   // Platform user management: every account, its workspace, plan and usage.
   users: ["owner", "manager"],
+  // Customer accounts by type — individual vs organisation (2026-08-26).
+  clients: ["owner", "manager"],
   // Data-source catalogue: enable/disable, store browser, refresh, bans (C1).
   sources: ["owner", "manager"],
 } as const satisfies Record<string, readonly PlatformRole[]>;

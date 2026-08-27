@@ -18,7 +18,8 @@
     "soon": "Bientôt disponible",
     "plans": "Abonnements",
     "users": "Utilisateurs",
-    "sources": "Sources de données"
+    "sources": "Sources de données",
+    "clients": "Clients"
   },
   "platformRoles": {
     "owner": "Propriétaire plateforme",
@@ -681,5 +682,20 @@
     "internal": "Espace interne OSI",
     "individual": "Espace personnel",
     "enterprise": "Espace entreprise"
+  },
+  "clientsAdmin": {
+    "title": "Comptes clients",
+    "subtitle": "Tous les comptes acheteurs de la plateforme — espaces individuels et organisations.",
+    "tabIndividual": "Comptes individuels ({{count}})",
+    "tabEnterprise": "Comptes organisation ({{count}})",
+    "account": "Compte",
+    "owner": "Propriétaire",
+    "plan": "Abonnement",
+    "members": "Membres",
+    "requests": "Demandes",
+    "since": "Client depuis",
+    "noPlan": "défaut",
+    "empty": "Aucun compte client pour l’instant.",
+    "emptyTab": "Aucun compte de ce type pour l’instant."
   }
 }
