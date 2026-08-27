@@ -22,7 +22,7 @@
 | **E7** Reports | Printable report + PDF export | 🟡 stored `documents` rows open |
 | **E8** Transactions | Milestones, tracking | 🔴 not started (no tables) |
 | **E9** Notifications | In-app + email | 🟡 bell + first emitters live; E6 templates + prefs open |
-| **E10** Admin surfaces | Verification, imports, ops queue | 🔴 placeholders only |
+| **E10** Admin surfaces | Verification, imports, ops queue | 🟡 **verification LIVE (S5b/S5c, 2026-08-26)**; imports/ops queue placeholders |
 | **E11** Settings | Profile, sourcing rules | 🟡 Paramètres live (B5); notification prefs open |
 
 **MVP1 = E0–E7 + E10.** Definition of done: a real buyer signs up, submits a real
@@ -87,11 +87,9 @@ request form, migration 0019)** are BUILT and dev-verified — see the Phase
 S entries. Baseline tag before any of it: `adr-001-baseline`.
 
 **Where to pick up next session:**
-① **E10 staff review surface** (`/interne/verification` — the pending-tier
-queue with evidence rows + a "Vérifier" action writing `human_review`
-rows: makes Tier 3/Vérifié earnable, zero cost) or **S4 — lazy
-per-request enrichment** (seams in the resolved gate below); S3 (activity-
-code retrieval) matters only when a discovery store grows big again;
+① **S4 — lazy per-request enrichment** (seams in the resolved gate below)
+— the E10 staff review surface is DONE (S5c); S3 (activity-code
+retrieval) matters only when a discovery store grows big again;
 customs/BoL is CLOSED (no-paid-data constraint, see S5);
 ② **notification preferences** — in flight, plan in the E9/E11 task below;
 ③ the **E6 flow discussion** (still the MVP1 blocker, still gated — and now
@@ -940,6 +938,26 @@ derived from edges, never set by hand.
       sanctions hit blocks presentation; scheduled ~6-mo registry refresh
       (the scheduler is the third legitimate caller of connectors, as the
       README always reserved).
+  - [x] **S5c · E10 staff review surface — BUILT 2026-08-26**:
+        `/interne/verification` (placeholder replaced; owner/manager via the
+        existing `verification` feature gate) lists every supplier that has
+        been through the battery — **sanctions alerts first**, then
+        evidenced (tiers 1-2), tier 0, verified last — with one evidence
+        chip per check (detail in the tooltip: registry name, snapshot,
+        HTTP status, MX, matched SDN entries, reviewer). **"Vérifier
+        (Vérifié OSI)"** writes the `human_review` evidence row (who/when,
+        via `recordHumanReview` in server/verification.ts — the
+        single-writer rule holds) → derived `verified`, +12 in matching,
+        the ✓ badge in /fournisseurs; **"Retirer la vérification"** deletes
+        the row and the tier falls back to the automated evidence. Server
+        fns in `src/lib/verification-fns.ts` (typed EvidenceDetail
+        projection of the jsonb). *Verified live in dev end to end:*
+        request #3027 (bearings) → 5 suppliers × 3 checks → screen rendered
+        chips incl. an honest "Registre ✗" for NTN·JP (covered country,
+        fixture store, not found) → Vérifier on AST Bearings → Examen OSI ✓
+        chip, gold Vérifié OSI tier, ✓ badge live in the directory,
+        human_review row carries reviewedBy. Tier 3 is now EARNABLE — the
+        scorer's +12 stopped being dead weight.
   - [x] **S5b · Verification battery v1 — BUILT 2026-08-26** (the free
         checks; = the E10 core): migration **0020** adds
         `supplier_verification` (one evidence row per supplier × check —
@@ -1309,7 +1327,11 @@ feeds C3/C4 value (Recommandé requires Vérifié)
       date. Gated by the new `users` platform feature (owner + manager)
 - [ ] Layout + `requireStaff` guard
 - [ ] Facilitation queue (E6 surface)
-- [ ] Supplier management: search, edit, **verification workflow** (`unverified → pending → verified`), merge duplicates
+- [x] **Verification workflow — BUILT 2026-08-26 (ADR-001 S5b/S5c)**:
+      evidence-derived tiers + the `/interne/verification` review screen
+      (battery evidence, sanctions alerts, Vérifier/Retirer via
+      `human_review` rows). Supplier search/edit + merge duplicates still
+      pending
 - [ ] Import runs: trigger, monitor, error report
 - [ ] Ops dashboard: counts (open engagements, pending verifications, active requests)
 - [ ] **`supplier_partner` table + `/interne/partenaires`** (validated

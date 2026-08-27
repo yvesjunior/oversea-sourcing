@@ -120,8 +120,12 @@ Key redirections versus the sections below:
   human_review) and projected onto `verification_status`
   (3→verified · 1-2→pending), whose ONLY writer is
   `src/server/verification.ts`. Runs async on the research queue right
-  after promotion. export_record and certification checks join when their
-  data sources arrive; the E10 staff-review surface is still open.
+  after promotion. The **E10 staff review surface is live too
+  (`/interne/verification`, same day)**: battery evidence per supplier,
+  sanctions alerts first, "Vérifier (Vérifié OSI)" writes the
+  `human_review` row (→ verified, +12, the ✓ badge), "Retirer" deletes it.
+  export_record is dormant (no-paid-data constraint) and certification
+  joins when a free cert-registry route is added.
 - **Intake goes form-first** — ✅ **BUILT 2026-08-26 (S1+S2, migration
   0019)**: the hero is now a structured form — product* and category*
   (required; the category select runs over the in-house taxonomy in

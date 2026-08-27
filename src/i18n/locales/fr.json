@@ -628,5 +628,42 @@
     "invitation_accepted": "{{name}} a rejoint votre espace {{workspace}}",
     "empty": "Aucune notification",
     "markAllRead": "Tout marquer comme lu"
+  },
+  "verificationAdmin": {
+    "title": "Vérification des fournisseurs",
+    "subtitle": "Chaque fournisseur présenté à un acheteur, avec ses preuves de vérification — alertes sanctions en tête. « Vérifier » accorde Vérifié OSI (niveau 3).",
+    "supplier": "Fournisseur",
+    "evidence": "Preuves",
+    "tier": "Niveau de confiance",
+    "action": "Action",
+    "approve": "Vérifier (Vérifié OSI)",
+    "revoke": "Retirer la vérification",
+    "sanctionsAlert": "⚠ Alerte sanctions",
+    "source": "Source",
+    "snapshot": "Instantané",
+    "reviewedBy": "Examiné par",
+    "youngDomain": "domaine < 90 jours",
+    "checks": {
+      "existence": "Registre",
+      "digital_identity": "Site web",
+      "sanctions": "Sanctions",
+      "export_record": "Exportations",
+      "certification": "Certifications",
+      "human_review": "Examen OSI"
+    },
+    "tiers": {
+      "0": "Non vérifié",
+      "1": "Existence vérifiée",
+      "2": "Capacité évidencée",
+      "3": "Vérifié OSI"
+    },
+    "reasons": {
+      "country_not_covered": "aucun registre pour ce pays",
+      "not_in_registry": "introuvable au registre",
+      "no_website": "aucun site web connu",
+      "no_dedup_key": "nom non comparable",
+      "unparseable_website": "URL de site invalide",
+      "no_name_slug": "nom non comparable"
+    }
   }
 }

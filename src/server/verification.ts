@@ -252,6 +252,63 @@ const RUNNERS: Record<AutoCheck, (supplier: SupplierRow) => Promise<CheckResult>
   sanctions: checkSanctions,
 };
 
+/** Re-derive a supplier's verification_status from its evidence rows and
+ *  persist it. Part of the single-writer contract of this module. */
+export async function persistDerivedStatus(supplierId: string): Promise<void> {
+  const evidence = await db.query.supplierVerification.findMany({
+    where: eq(schema.supplierVerification.supplierId, supplierId),
+    columns: { check: true, status: true },
+  });
+  const status = deriveVerificationStatus(evidence);
+  await db
+    .update(schema.supplier)
+    .set({ verificationStatus: status })
+    .where(eq(schema.supplier.id, supplierId));
+}
+
+/** The E10 staff decision — the ONLY way a supplier reaches Tier 3
+ *  ("Vérifié OSI"). Approve writes the human_review evidence row (who,
+ *  when, note); revoke deletes it — the tier falls back to whatever the
+ *  automated evidence supports, exactly like any other expired evidence. */
+export async function recordHumanReview(
+  supplierId: string,
+  reviewer: { id: string; name: string },
+  action: "approve" | "revoke",
+  note?: string,
+): Promise<void> {
+  if (action === "approve") {
+    const columns = {
+      status: "passed" as const,
+      source: "staff",
+      sourceUrl: null,
+      result: { reviewedBy: reviewer.name, ...(note ? { note } : {}) },
+      checkedAt: new Date(),
+    };
+    await db
+      .insert(schema.supplierVerification)
+      .values({
+        id: crypto.randomUUID(),
+        supplierId,
+        check: "human_review",
+        ...columns,
+      })
+      .onConflictDoUpdate({
+        target: [schema.supplierVerification.supplierId, schema.supplierVerification.check],
+        set: columns,
+      });
+  } else {
+    await db
+      .delete(schema.supplierVerification)
+      .where(
+        and(
+          eq(schema.supplierVerification.supplierId, supplierId),
+          eq(schema.supplierVerification.check, "human_review"),
+        ),
+      );
+  }
+  await persistDerivedStatus(supplierId);
+}
+
 /** Run the battery for every supplier presented on a request's Top-N.
  *  Idempotent and cheap on re-runs: fresh evidence (within its TTL) is kept,
  *  only due checks execute. Never throws per-supplier — one unreachable

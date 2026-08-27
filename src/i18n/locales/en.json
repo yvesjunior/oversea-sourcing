@@ -628,5 +628,42 @@
     "invitation_accepted": "{{name}} joined your workspace {{workspace}}",
     "empty": "No notifications",
     "markAllRead": "Mark all as read"
+  },
+  "verificationAdmin": {
+    "title": "Supplier verification",
+    "subtitle": "Every supplier presented to a buyer, with its verification evidence — sanctions alerts first. \"Verify\" grants Vérifié OSI (tier 3).",
+    "supplier": "Supplier",
+    "evidence": "Evidence",
+    "tier": "Trust level",
+    "action": "Action",
+    "approve": "Verify (Vérifié OSI)",
+    "revoke": "Withdraw verification",
+    "sanctionsAlert": "⚠ Sanctions alert",
+    "source": "Source",
+    "snapshot": "Snapshot",
+    "reviewedBy": "Reviewed by",
+    "youngDomain": "domain < 90 days",
+    "checks": {
+      "existence": "Registry",
+      "digital_identity": "Website",
+      "sanctions": "Sanctions",
+      "export_record": "Exports",
+      "certification": "Certifications",
+      "human_review": "OSI review"
+    },
+    "tiers": {
+      "0": "Unverified",
+      "1": "Existence verified",
+      "2": "Capability evidenced",
+      "3": "Vérifié OSI"
+    },
+    "reasons": {
+      "country_not_covered": "no registry backend for this country",
+      "not_in_registry": "not found in the registry",
+      "no_website": "no website on file",
+      "no_dedup_key": "no comparable name",
+      "unparseable_website": "unparseable website URL",
+      "no_name_slug": "no comparable name"
+    }
   }
 }
