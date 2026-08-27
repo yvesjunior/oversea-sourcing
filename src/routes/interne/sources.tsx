@@ -609,6 +609,17 @@ function Sources() {
                     <code className="rounded bg-secondary px-1.5 py-0.5 text-[10px] font-semibold">
                       {source.code}
                     </code>
+                    {/* ADR-001 role — verification sources never feed matching. */}
+                    <span
+                      className={cn(
+                        "rounded-full px-2 py-0.5 text-[10px] font-semibold",
+                        source.role === "verification"
+                          ? "bg-secondary text-muted-foreground"
+                          : "bg-gold-gradient text-gold-foreground",
+                      )}
+                    >
+                      {t(`sourcesAdmin.roles.${source.role}`)}
+                    </span>
                     <span className="text-xs text-muted-foreground">
                       {t(`sourcesAdmin.types.${source.type}`)}
                       {source.countryCode ? ` · ${source.countryCode}` : ""}
@@ -660,6 +671,15 @@ function Sources() {
                   )}
                 </span>
               </header>
+
+              {/* ADR-001: a verification source's store is a lookup table for
+                  the per-candidate checks — refreshed on a slow cadence, never
+                  matched, never visible to workspaces. */}
+              {source.role === "verification" && (
+                <p className="rounded-lg bg-secondary/60 p-3 text-xs text-muted-foreground">
+                  {t("sourcesAdmin.verificationHint")}
+                </p>
+              )}
 
               {isDynamicSource(source.type) ? (
                 <p className="rounded-lg bg-secondary/60 p-3 text-xs text-muted-foreground">

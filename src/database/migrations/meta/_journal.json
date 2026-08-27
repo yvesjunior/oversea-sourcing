@@ -127,6 +127,13 @@
       "when": 1787772379185,
       "tag": "0017_seed_registry_in",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1787788817114,
+      "tag": "0018_secret_tomas",
+      "breakpoints": true
     }
   ]
 }

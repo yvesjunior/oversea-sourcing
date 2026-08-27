@@ -48,10 +48,9 @@ Singapour · Registre Japon · Registre Inde (i18n `sourceNames.*`).
 
 **Dev store state at session end (2026-08-26):** registry-ca 393 339 ·
 registry-qc 814 921 (real archive) · registry-jp fixture-only (2) ·
-registry-sg **first full pull in flight** (paging its 27 datasets,
-~47k live entities through 5/27 at last check — twice interrupted by
-container recreations during the lockfile fixes, relaunched cleanly each
-time; final count lands in the source tab) · registry-in empty, awaiting
+registry-sg **613 653** (full pull
+succeeded 2026-08-26 after two interrupted attempts — 618 889 candidates
+across its 27 datasets) · registry-in empty, awaiting
 `DATA_GOV_IN_API_KEY` (owner signup) for its first 2.6M-row pull.
 
 **Dev source-store state (2026-08-25):** `global_web` enabled, store empty —
@@ -875,14 +874,30 @@ derived from edges, never set by hand.
       `enriched_at` on `source_record`, per-run audit with token cost.
 - [ ] **S5 · Customs/BoL connector + verification battery + source roles** —
       free US import-records connector first (proof of export capability;
-      the only free route to the China corridor). `data_source` role split
-      (`discovery | verification`); `sourcing_rules` + Paramètres scope to
-      discovery; `eligibleCandidates` drops verification-role stores.
-      Verification battery = the E10 spec (ADR §4): six checks → evidence
-      rows → derived tier ladder (0 unverified → 1 existence → 2 capability
-      → 3 Vérifié OSI); sanctions hit blocks presentation; scheduled ~6-mo
-      registry refresh (the scheduler is the third legitimate caller of
-      connectors, as the README always reserved).
+      the only free route to the China corridor). Verification battery =
+      the E10 spec (ADR §4): six checks → evidence rows → derived tier
+      ladder (0 unverified → 1 existence → 2 capability → 3 Vérifié OSI);
+      sanctions hit blocks presentation; scheduled ~6-mo registry refresh
+      (the scheduler is the third legitimate caller of connectors, as the
+      README always reserved).
+  - [x] **S5a · Source-role split — BUILT 2026-08-26** (first ADR-001 code;
+        baseline tag `adr-001-baseline`): migration **0018** adds
+        `data_source.role` (`discovery | verification`, default discovery)
+        and flips every `country_registry` to verification. `resolveScope`
+        now feeds matching from DISCOVERY sources only — a supplier known
+        only through verification records is invisible to matching by the
+        existing out-of-scope rule (a bare registry name is not a
+        presentable candidate). `updateSourcingRulesFn` drops verification
+        ids from any payload; Paramètres lists discovery sources only +
+        the "registres = vérification automatique" note;
+        `/interne/sources` shows a role badge per tab and the ADR-001
+        verification explainer (store = lookup table, ~6-mo cadence);
+        refresh/upload/wipe unchanged (store warming stays legitimate).
+        *Verified in dev:* migration applied (6 rows correct), Paramètres
+        shows only Web mondial, registry tabs badge + hint render; tsc,
+        eslint, 28 unit tests green. **Bonus same evening: the Singapore
+        pull completed** — 618 889 candidates → **613 653 records**, its
+        store is warmed as a verification table.
 - [ ] **S6 · Engagement feedback loop** — gated with E6: outcomes (response
       time, MOQ, lead time, quotes) write back onto the supplier as edges.
       The moat; build the schema seams when E6's flow is defined.

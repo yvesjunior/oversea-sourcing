@@ -68,7 +68,11 @@ export const getSettingsFn = createServerFn({ method: "GET" }).handler(
         .select({ value: count() })
         .from(schema.member)
         .where(eq(schema.member.organizationId, caller.workspaceId)),
-      db.query.dataSource.findMany({ where: eq(schema.dataSource.enabled, true) }),
+      // ADR-001: only DISCOVERY-role sources are workspace-selectable —
+      // verification sources (registries) never appear in workspace settings.
+      db.query.dataSource.findMany({
+        where: (t, { and: andOp }) => andOp(eq(t.enabled, true), eq(t.role, "discovery")),
+      }),
       db.query.sourcingRules.findFirst({
         where: eq(schema.sourcingRules.organizationId, caller.workspaceId),
       }),
@@ -202,12 +206,27 @@ export const updateSourcingRulesFn = createServerFn({ method: "POST" })
     const caller = await requireWorkspaceRole(getRequest().headers, "owner");
     if (!caller) return { ok: false };
 
+    // ADR-001: a workspace can only activate DISCOVERY-role sources —
+    // verification ids in the payload are dropped, never stored.
+    const { and, eq, inArray } = await import("drizzle-orm");
+    let activatedSourceIds = data.activatedSourceIds;
+    if (activatedSourceIds && activatedSourceIds.length > 0) {
+      const discovery = await db.query.dataSource.findMany({
+        where: and(
+          eq(schema.dataSource.role, "discovery"),
+          inArray(schema.dataSource.id, activatedSourceIds),
+        ),
+        columns: { id: true },
+      });
+      activatedSourceIds = discovery.map((s) => s.id);
+    }
+
     await db
       .insert(schema.sourcingRules)
       .values({
         id: crypto.randomUUID(),
         organizationId: caller.workspaceId,
-        activatedSourceIds: data.activatedSourceIds,
+        activatedSourceIds,
         countryMode: data.countryMode,
         countryCodes: data.countryMode === "list" ? data.countryCodes : null,
         updatedBy: caller.userId,
@@ -215,7 +234,7 @@ export const updateSourcingRulesFn = createServerFn({ method: "POST" })
       .onConflictDoUpdate({
         target: schema.sourcingRules.organizationId,
         set: {
-          activatedSourceIds: data.activatedSourceIds,
+          activatedSourceIds,
           countryMode: data.countryMode,
           countryCodes: data.countryMode === "list" ? data.countryCodes : null,
           updatedBy: caller.userId,

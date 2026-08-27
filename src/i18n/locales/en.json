@@ -75,7 +75,8 @@
     "emailVerified": "Address verified",
     "emailUnverified": "Address not verified —",
     "resendVerification": "resend the confirmation email",
-    "verifySent": "email sent ✓"
+    "verifySent": "email sent ✓",
+    "sourcesVerificationNote": "National registries are not listed here: they are used automatically to verify the suppliers presented to you."
   },
   "invitation": {
     "title": "Invitation — {{workspace}}",
@@ -194,7 +195,12 @@
     "globallyBanned": "globally banned",
     "banReason": "Reason (required)",
     "confirm": "Confirm",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "roles": {
+      "discovery": "Discovery",
+      "verification": "Verification"
+    },
+    "verificationHint": "Verification source (ADR-001) — its store is a local lookup table for per-candidate checks (legal existence, activity). It never feeds matching, never appears in workspace settings, and is refreshed on a slow cadence (~every 6 months)."
   },
   "user": {
     "role": "Administrator"

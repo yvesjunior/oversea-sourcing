@@ -278,6 +278,15 @@ export const supplier = pgTable(
 export const DATA_SOURCE_TYPES = ["global_web", "country_registry", "import"] as const;
 export type DataSourceType = (typeof DATA_SOURCE_TYPES)[number];
 
+/** ADR-001 (2026-08-26) — the role axis, orthogonal to dynamic/static:
+ *  - `discovery` finds candidates for matching; workspace-selectable in
+ *    Préférences de sourcing (global_web; customs/marketplaces later).
+ *  - `verification` backs the per-candidate checks (all registries): never
+ *    fed into matching, never workspace-selectable — its store is a local
+ *    verification lookup table, refreshed ~every 6 months. */
+export const DATA_SOURCE_ROLES = ["discovery", "verification"] as const;
+export type DataSourceRole = (typeof DATA_SOURCE_ROLES)[number];
+
 export const dataSource = pgTable(
   "data_source",
   {
@@ -286,9 +295,13 @@ export const dataSource = pgTable(
     code: text("code").notNull(),
     name: text("name").notNull(),
     type: text("type").$type<DataSourceType>().notNull(),
+    /** ADR-001: only `discovery` sources enter matching / workspace settings;
+     *  `verification` sources back the E10 checks. */
+    role: text("role").$type<DataSourceRole>().notNull().default("discovery"),
     /** Null = worldwide (global_web); set for national registries. */
     countryCode: text("country_code"),
-    /** A disabled source is never consulted, for anyone. */
+    /** A disabled source is never consulted, for anyone. For a verification
+     *  source this means "verification backend active", not buyer exposure. */
     enabled: boolean("enabled").notNull().default(false),
     config: jsonb("config").$type<Record<string, unknown>>(),
     createdAt: timestamp("created_at").notNull().defaultNow(),

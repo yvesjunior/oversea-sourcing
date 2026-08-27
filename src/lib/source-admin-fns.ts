@@ -11,7 +11,7 @@
 
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import type { DataSourceType } from "@/database/schema";
+import type { DataSourceRole, DataSourceType } from "@/database/schema";
 
 export type SourceRunView = {
   id: string;
@@ -36,6 +36,8 @@ export type SourceCatalogueView = {
   code: string;
   name: string;
   type: DataSourceType;
+  /** ADR-001: discovery feeds matching; verification backs the E10 checks. */
+  role: DataSourceRole;
   countryCode: string | null;
   enabled: boolean;
   /** A registered connector can collect; without one the source is store-only. */
@@ -195,6 +197,7 @@ export const getSourceAdminFn = createServerFn({ method: "GET" }).handler(
         code: source.code,
         name: source.name,
         type: source.type,
+        role: source.role,
         countryCode: source.countryCode,
         enabled: source.enabled,
         hasConnector: getConnector(source.code) !== undefined,

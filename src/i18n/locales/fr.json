@@ -75,7 +75,8 @@
     "emailVerified": "Adresse vérifiée",
     "emailUnverified": "Adresse non vérifiée —",
     "resendVerification": "renvoyer l'e-mail de confirmation",
-    "verifySent": "e-mail envoyé ✓"
+    "verifySent": "e-mail envoyé ✓",
+    "sourcesVerificationNote": "Les registres nationaux ne sont pas listés ici : ils servent automatiquement à vérifier les fournisseurs qui vous sont présentés."
   },
   "invitation": {
     "title": "Invitation — {{workspace}}",
@@ -194,7 +195,12 @@
     "globallyBanned": "banni globalement",
     "banReason": "Motif (obligatoire)",
     "confirm": "Confirmer",
-    "cancel": "Annuler"
+    "cancel": "Annuler",
+    "roles": {
+      "discovery": "Découverte",
+      "verification": "Vérification"
+    },
+    "verificationHint": "Source de vérification (ADR-001) — son store est une table de consultation locale pour les contrôles par candidat (existence légale, activité). Elle n’alimente jamais le matching, n’apparaît jamais dans les paramètres des espaces, et se rafraîchit à cadence lente (~tous les 6 mois)."
   },
   "user": {
     "role": "Administrateur"

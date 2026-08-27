@@ -248,6 +248,11 @@ function SourcingPanel({
             </label>
           ))}
         </div>
+        {/* ADR-001: registries are verification infrastructure — deliberately
+            absent from this list; buyers meet them as evidence on profiles. */}
+        <p className="mt-3 text-xs text-muted-foreground">
+          {t("settings.sourcesVerificationNote")}
+        </p>
       </div>
 
       <div>

@@ -78,15 +78,17 @@ engine.
 
 Key redirections versus the sections below:
 
-- **Source roles** (new axis, orthogonal to dynamic/static): *discovery*
-  sources (`global_web`; customs and marketplaces later) stay
-  workspace-selectable in Préférences de sourcing. **Registries are
-  *verification* infrastructure** — never fed into matching, never in
-  workspace settings; buyers meet them only as evidence lines on a
-  supplier's profile ("Existence vérifiée — Registre du Québec, actif,
-  consulté 2026-08"). Registry records therefore never need enrichment;
-  `sourcing_rules` and the Paramètres UI scope to discovery-role sources;
-  `eligibleCandidates` drops verification-role stores from matching.
+- **Source roles** (new axis, orthogonal to dynamic/static) — ✅ **BUILT
+  2026-08-26 (migration 0018, `data_source.role`)**: *discovery* sources
+  (`global_web`; customs and marketplaces later) stay workspace-selectable
+  in Préférences de sourcing. **Registries are *verification*
+  infrastructure** — never fed into matching (`resolveScope` filters to
+  discovery), never in workspace settings (the Paramètres list + the save
+  fn both scope to discovery); buyers meet them only as evidence lines on
+  a supplier's profile ("Existence vérifiée — Registre du Québec, actif,
+  consulté 2026-08"). Registry records therefore never need enrichment.
+  `/interne/sources` shows each source's role; a verification source's
+  "enabled" switch means "verification backend active", not buyer exposure.
 - **Registry stores are kept** as local verification lookup tables,
   refreshed by scheduled full pull **~every 6 months per source** (staff
   upload for the file-fed QC/JP); evidence records the snapshot date;

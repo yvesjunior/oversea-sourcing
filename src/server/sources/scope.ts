@@ -30,8 +30,16 @@ export type EffectiveScope = {
 };
 
 export async function resolveScope(organizationId: string): Promise<EffectiveScope> {
+  // ADR-001 (2026-08-26): only DISCOVERY-role sources ever enter matching.
+  // Verification sources (registries) are platform infrastructure — their
+  // stores back the per-candidate checks and never contribute candidates. A
+  // supplier known ONLY through verification records is thereby invisible to
+  // matching (a bare registry name is not a presentable candidate); it
+  // re-enters when a discovery source or the deal loop evidences it.
   const [enabled, rules] = await Promise.all([
-    db.query.dataSource.findMany({ where: eq(schema.dataSource.enabled, true) }),
+    db.query.dataSource.findMany({
+      where: and(eq(schema.dataSource.enabled, true), eq(schema.dataSource.role, "discovery")),
+    }),
     db.query.sourcingRules.findFirst({
       where: eq(schema.sourcingRules.organizationId, organizationId),
     }),
