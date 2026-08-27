@@ -15,8 +15,9 @@ import globe from "@/assets/globe.jpg";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { CategoryCombobox } from "@/components/osi/CategoryCombobox";
 import { createRequestFn, startRequestPipelineFn } from "@/lib/requests-fns";
-import { categoryLabel, childrenOf, rootCategories, suggestCategory } from "@/lib/taxonomy";
+import { categoryLabel, suggestCategory } from "@/lib/taxonomy";
 
 const LEGACY_DRAFT_KEY = "osi-draft-besoin";
 const DRAFT_KEY = "osi-draft-besoin-v2";
@@ -315,29 +316,11 @@ export function HeroPrompt({ user }: { user: HeroUser }) {
               {t("home.form.category")}
               {requiredMark}
             </label>
-            <select
-              id="need-category"
+            <CategoryCombobox
+              triggerId="need-category"
               value={fields.categoryId}
-              onChange={(e) => set("categoryId")(e.target.value)}
-              className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
-            >
-              <option value="">{t("home.form.categoryPlaceholder")}</option>
-              {rootCategories().map((sector) => {
-                const sectorName = i18n.language.startsWith("fr") ? sector.fr : sector.en;
-                return (
-                  <optgroup key={sector.id} label={sectorName}>
-                    <option value={sector.id}>
-                      {t("home.form.sectorGeneral", { name: sectorName })}
-                    </option>
-                    {childrenOf(sector.id).map((node) => (
-                      <option key={node.id} value={node.id}>
-                        {i18n.language.startsWith("fr") ? node.fr : node.en}
-                      </option>
-                    ))}
-                  </optgroup>
-                );
-              })}
-            </select>
+              onChange={set("categoryId")}
+            />
           </div>
 
           <div className="grid gap-3 sm:grid-cols-3">

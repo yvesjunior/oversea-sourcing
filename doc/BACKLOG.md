@@ -46,6 +46,14 @@ Singapour · Registre Japon · Registre Inde (i18n `sourceNames.*`).
 **Main is ahead of prod by the India source** (`registry-in` + migration
 **0017**, additive) — sixth catalogue entry, deploy on request.
 
+**Dev wiped clean of buyer-interaction data (owner request, 2026-08-26,
+after S2 shipped):** 0 requests / suppliers / matches / criteria /
+research runs / notifications — a buyer-untouched base for testing the new
+intake. Kept intact: the 4 demo accounts + workspaces, plans,
+sourcing_rules, data_source catalogue, **all 1 821 915 store records**
+(supplier links nulled by the Phase D FK, as designed) and the source_run
+audit.
+
 **Dev store state at session end (2026-08-26):** registry-ca 393 339 ·
 registry-qc 814 921 (real archive) · registry-jp fixture-only (2) ·
 registry-sg **613 653** (full pull
@@ -876,7 +884,10 @@ derived from edges, never set by hand.
       (`taxonomy.test.ts`).
 - [x] **S2 · Structured request form — BUILT 2026-08-26** (primary intake):
       HeroPrompt is now the form — product* + quantité / **catégorie***
-      (select over the S1 tree, auto-suggested on blur while unchosen) /
+      (**searchable combobox** over the S1 tree — cmdk/Popover
+      `CategoryCombobox.tsx`, accent-insensitive, matches BOTH locales +
+      the node keywords, so "pump" finds "Pompes"; auto-suggested on blur
+      while unchosen) /
       matériau / certifications / délai / détails textarea; attachments +
       mic unchanged. Migration **0019**: `request.category_id` (+index).
       `createRequestFn` takes the optional `structured` payload: fields

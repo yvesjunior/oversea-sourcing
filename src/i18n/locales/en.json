@@ -308,7 +308,9 @@
       "leadTimePlaceholder": "e.g. 60 days",
       "details": "Details",
       "detailsPlaceholder": "Anything else that matters: specs, pressure, standards, destination, context…",
-      "requiredError": "Choose a category and describe the product — the two fields marked *."
+      "requiredError": "Choose a category and describe the product — the two fields marked *.",
+      "categorySearch": "Search a category…",
+      "categoryNone": "No category found"
     }
   },
   "stats": {

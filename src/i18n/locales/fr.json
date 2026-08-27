@@ -308,7 +308,9 @@
       "leadTimePlaceholder": "ex. 60 jours",
       "details": "Détails",
       "detailsPlaceholder": "Tout ce qui compte : spécifications, pression, normes, destination, contexte…",
-      "requiredError": "Choisissez une catégorie et décrivez le produit — les deux champs marqués *."
+      "requiredError": "Choisissez une catégorie et décrivez le produit — les deux champs marqués *.",
+      "categorySearch": "Rechercher une catégorie…",
+      "categoryNone": "Aucune catégorie trouvée"
     }
   },
   "stats": {
