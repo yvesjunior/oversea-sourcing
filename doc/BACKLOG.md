@@ -107,6 +107,26 @@ workspaces backfilled `individual` (no enterprise exists yet anywhere).
 **Follow-up:** granting a platform role on /interne/utilisateurs should
 also add OSI-org membership (manual SQL meanwhile); signup UX for the
 individual-vs-organisation choice is the open design question;
+②f **DONE 2026-08-26 — the org-account polish wave** (owner requests,
+all live-verified): ① request **creator attribution** everywhere
+("Créé par …" on cards + detail) via a `created_by_name` SNAPSHOT
+(migration 0025, backfilled) — display resolves live name → snapshot →
+"utilisateur supprimé", so it survives account deletion; ② **unique
+organisation names** (case-insensitive partial index on
+enterprise+internal, 0025) + a clear signup error; ③ **organisation
+profile tab** in Paramètres (org info + tax info; owner edits, members
+read-only; `organization_profile`, migration 0026, updated_by trail);
+④ **personal settings confirmed user-scoped** (Profil + Notifications
+follow the person across workspaces — already true by design);
+⑤ `/interne/clients` now excludes staff-owned personal workspaces (was
+mirroring /interne/utilisateurs); ⑥ **Imports nav removed** (superseded
+by the sources model). Two defects found live and fixed: **SECURITY —
+deleting a user left their Redis-cached session usable** (afterRemoveMember
+now purges session tokens + active-sessions from secondary storage;
+gotcha: NEVER delete users by raw SQL without purging the cache), and
+**org-signup sessions could land with a NULL active workspace**
+(hook/session race) — requireWorkspaceRole self-heals by adopting the
+first membership and purging the cached session.
 ②e **DONE 2026-08-26 — removal from the only workspace deletes the
 account** (owner decision; kills the orphan-login deadlock — a user with
 no workspace would loop between login and the auth gate forever). UC-6
