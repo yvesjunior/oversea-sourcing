@@ -107,6 +107,24 @@ workspaces backfilled `individual` (no enterprise exists yet anywhere).
 **Follow-up:** granting a platform role on /interne/utilisateurs should
 also add OSI-org membership (manual SQL meanwhile); signup UX for the
 individual-vs-organisation choice is the open design question;
+②d **DONE 2026-08-26 — the signup account-type fork** (owner confirmed
+the three choices: self-serve organisation signup — supersedes Q3's
+staff-assisted-only rule for the entry tier; org trial = Free-like + 3
+seats; NO personal workspace for organisation signups — Q1 extended):
+migration **0023** adds `user.account_type`/`company_name` (signup
+intent, kept as audit) and seeds the **`org_trial`** plan (1/day, 2
+lifetime, 3 seats, pooled, audience organization — owner-editable live).
+Signup form: Individuel | Organisation segmented choice + company-name
+field; better-auth additionalFields carry the intent; the before-hook
+validates it (organisation requires a company name); the user-create
+hook provisions EITHER the personal workspace (unchanged) OR an
+`enterprise` workspace named after the company on org_trial. Social
+signups default to individual. `assignPlanFn` now enforces
+audience ↔ organization.type (internal audience stays a free staff
+call — prod precedent). *Verified live in dev end to end:* organisation
+signup → "Nordik Manufacturing Inc." (type enterprise, plan org_trial,
+exactly ONE membership), emerald badge in the top bar, intent audited
+on the user row; test account removed after.
 ②c **DONE 2026-08-26 — prominent workspace badge + /interne/clients**
 (owner requests): the top-bar workspace indicator is always visible and
 color-coded by type (gold = OSI staff org, emerald = enterprise, neutral

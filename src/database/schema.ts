@@ -30,6 +30,13 @@ export const user = pgTable("user", {
   // OSI custom fields
   locale: text("locale").notNull().default("fr"),
   platformRole: text("platform_role").notNull().default("user"),
+  /** Signup intent (owner decision 2026-08-26): the account type chosen at
+   *  signup — 'individual' | 'organization'. Consumed once by the
+   *  user-create hook to provision the right workspace; kept as audit. */
+  accountType: text("account_type").notNull().default("individual"),
+  /** Company name typed at an organisation signup (becomes the workspace
+   *  name; kept as audit). */
+  companyName: text("company_name"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });

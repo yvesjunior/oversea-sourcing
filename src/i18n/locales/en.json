@@ -242,7 +242,18 @@
     "errorGeneric": "Something went wrong. Please try again.",
     "errorRateLimit": "Too many sign-in attempts. Wait a few seconds and try again.",
     "gateHint": "Sign in to launch the search — your input is preserved.",
-    "forgotPassword": "Forgot password?"
+    "forgotPassword": "Forgot password?",
+    "accountType": "Account type",
+    "accountTypes": {
+      "individual": "Individual",
+      "organization": "Organisation"
+    },
+    "accountTypeHints": {
+      "individual": "A personal workspace — you source for yourself.",
+      "organization": "A company workspace — invite your team (3 seats to start)."
+    },
+    "companyName": "Company name",
+    "companyNamePlaceholder": "e.g. Nordik Manufacturing Inc."
   },
   "resetPwd": {
     "forgotTitle": "Forgot password",

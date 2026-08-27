@@ -128,6 +128,20 @@ export const auth = betterAuth({
         console.warn(`signup rejected (${rejection.reason})`);
         throw new APIError("BAD_REQUEST", { message: rejection.message });
       }
+      // Signup fork (2026-08-26): the account type must be one of ours, and
+      // an organisation signup must carry the company name it will be named
+      // after — this error IS user-facing (a form gap, not an attack).
+      const body = ctx.body as { accountType?: unknown; companyName?: unknown };
+      const accountType = body.accountType ?? "individual";
+      if (accountType !== "individual" && accountType !== "organization") {
+        throw new APIError("BAD_REQUEST", { message: "INVALID_ACCOUNT_TYPE" });
+      }
+      if (
+        accountType === "organization" &&
+        (typeof body.companyName !== "string" || body.companyName.trim().length < 2)
+      ) {
+        throw new APIError("BAD_REQUEST", { message: "COMPANY_NAME_REQUIRED" });
+      }
     }),
   },
   ...(isGoogleEnabled
@@ -141,6 +155,10 @@ export const auth = betterAuth({
     additionalFields: {
       locale: { type: "string", defaultValue: "fr", input: true },
       platformRole: { type: "string", defaultValue: "user", input: false },
+      // Signup fork (owner, 2026-08-26): individual | organization —
+      // validated in the before-hook, consumed by the user-create hook.
+      accountType: { type: "string", defaultValue: "individual", input: true },
+      companyName: { type: "string", required: false, input: true },
     },
   },
   plugins: [
@@ -234,12 +252,25 @@ export const auth = betterAuth({
           });
           if (invited) return;
 
+          // Signup fork (owner, 2026-08-26): ONE workspace per account.
+          // Organisation signups get a company workspace named after the
+          // company — and NO personal workspace (same reasoning as Q1: dual
+          // workspaces mean dual free allowances). Social signups carry no
+          // accountType and default to individual.
+          const intent = newUser as { accountType?: string; companyName?: string | null };
+          const isOrganisation =
+            intent.accountType === "organization" && !!intent.companyName?.trim();
+
           const orgId = crypto.randomUUID();
           const suffix = orgId.slice(0, 6);
+          const workspaceName = isOrganisation
+            ? intent.companyName!.trim().slice(0, 80)
+            : newUser.name || newUser.email.split("@")[0] || "Workspace";
           await db.insert(schema.organization).values({
             id: orgId,
-            name: newUser.name || newUser.email.split("@")[0] || "Workspace",
-            slug: `${slugify(newUser.email.split("@")[0] ?? "workspace")}-${suffix}`,
+            name: workspaceName,
+            slug: `${slugify(isOrganisation ? workspaceName : (newUser.email.split("@")[0] ?? "workspace"))}-${suffix}`,
+            type: isOrganisation ? "enterprise" : "individual",
             createdAt: new Date(),
           });
           await db.insert(schema.member).values({
@@ -249,21 +280,24 @@ export const auth = betterAuth({
             role: "owner",
             createdAt: new Date(),
           });
-          // Put the new workspace on Free. Without this the workspace has no
-          // subscription, resolvePlan falls back to the env defaults, and the
-          // daily quota is silently UNLIMITED — the migration only seeded
-          // subscriptions for workspaces that existed when it ran.
-          // Applies to every signup route, social included.
-          const freePlan = await db.query.plan.findFirst({
-            where: eq(schema.plan.code, "free"),
-          });
-          if (freePlan) {
+          // Put the new workspace on its trial plan. Without this the
+          // workspace has no subscription, resolvePlan falls back to the env
+          // defaults, and the daily quota is silently UNLIMITED — the
+          // migration only seeded subscriptions for workspaces that existed
+          // when it ran. Applies to every signup route, social included.
+          // Organisations start on org_trial (Free-like, 3 seats); the free
+          // fallback keeps a missing row from silently unlimiting anyone.
+          const planCode = isOrganisation ? "org_trial" : "free";
+          const trialPlan =
+            (await db.query.plan.findFirst({ where: eq(schema.plan.code, planCode) })) ??
+            (await db.query.plan.findFirst({ where: eq(schema.plan.code, "free") }));
+          if (trialPlan) {
             await db
               .insert(schema.subscription)
               .values({
                 id: crypto.randomUUID(),
                 organizationId: orgId,
-                planId: freePlan.id,
+                planId: trialPlan.id,
                 status: "active",
               })
               .onConflictDoNothing({ target: schema.subscription.organizationId });

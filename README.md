@@ -901,9 +901,12 @@ themselves) as an interim: same tables, no email.
   users keep the personal workspace they already have.
 - **Q2 — Multi-enterprise membership: allowed.** The schema supports it; the
   workspace switcher handles it.
-- **Q3 — Enterprise creation before billing: staff-assisted only**, behind a
-  "Contactez-nous" — `business` limits assigned from `/interne/plans` after a
-  sales conversation. No self-service until Stripe lands.
+- **Q3 — ~~staff-assisted only~~ SUPERSEDED 2026-08-26: organisation
+  signup is self-serve.** The signup form forks (Individuel | Organisation);
+  an organisation signup creates an `enterprise` workspace named after the
+  company on the **`org_trial`** plan (Free-like, 3 seats) and NO personal
+  workspace (Q1 extended). Upgrades to Business/Enterprise stay
+  "Contactez-nous" until billing.
 - **Q4 — Enterprise pricing** (per-seat vs flat): still a business call; the
   schema is agnostic (`plan` rows). The only question left open.
 - **Q5 — Invitations do *not* bypass signup guards** — no disposable-domain or

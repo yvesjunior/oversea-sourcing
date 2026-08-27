@@ -181,6 +181,27 @@ export const assignPlanFn = createServerFn({ method: "POST" })
     const plan = await db.query.plan.findFirst({ where: eq(schema.plan.code, data.planCode) });
     if (!plan) return { ok: false };
 
+    // Audience ↔ account-type enforcement (owner, 2026-08-26): individual
+    // plans fit individual workspaces, organization plans fit enterprise
+    // (and the internal org). Internal-audience plans stay a free staff
+    // call — prod precedent: the platform owner's personal workspace runs
+    // on `internal` since 2026-08-20.
+    const workspace = await db.query.organization.findFirst({
+      where: eq(schema.organization.id, data.organizationId),
+    });
+    if (!workspace) return { ok: false };
+    const compatible =
+      plan.audience === "internal" ||
+      (plan.audience === "organization"
+        ? workspace.type === "enterprise" || workspace.type === "internal"
+        : workspace.type === "individual");
+    if (!compatible) {
+      console.warn(
+        `assignPlan: refused ${plan.code} (${plan.audience}) on ${workspace.name} (${workspace.type})`,
+      );
+      return { ok: false };
+    }
+
     await db
       .insert(schema.subscription)
       .values({

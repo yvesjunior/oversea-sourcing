@@ -50,6 +50,8 @@ export function AuthForm({
   const { t, i18n } = useTranslation();
   const router = useRouter();
   const [name, setName] = useState("");
+  const [accountType, setAccountType] = useState<"individual" | "organization">("individual");
+  const [companyName, setCompanyName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -72,6 +74,11 @@ export function AuthForm({
               password,
               name,
               locale: i18n.language,
+              // The signup fork: consumed by the user-create hook to
+              // provision the right workspace (organisation → company
+              // workspace, no personal one).
+              accountType,
+              ...(accountType === "organization" ? { companyName: companyName.trim() } : {}),
               // Passed through to the server hook, not stored on the user.
               [HONEYPOT_FIELD]: honeypot,
             } as Parameters<typeof authClient.signUp.email>[0]);
@@ -157,17 +164,59 @@ export function AuthForm({
           </div>
         )}
         {mode === "signup" && (
-          <div className="space-y-1.5">
-            <Label htmlFor="name">{t("auth.name")}</Label>
-            <Input
-              id="name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder={t("auth.namePlaceholder")}
-              autoComplete="name"
-              required
-            />
-          </div>
+          <>
+            {/* The account-type fork (owner, 2026-08-26): individual OR
+                organisation, chosen AT signup — an organisation gets a
+                company workspace and no personal one. */}
+            <div className="space-y-1.5">
+              <Label>{t("auth.accountType")}</Label>
+              <div className="grid grid-cols-2 gap-2">
+                {(["individual", "organization"] as const).map((type) => (
+                  <button
+                    key={type}
+                    type="button"
+                    aria-pressed={accountType === type}
+                    onClick={() => setAccountType(type)}
+                    className={
+                      accountType === type
+                        ? "rounded-lg border border-transparent bg-gold-gradient px-3 py-2.5 text-sm font-semibold text-gold-foreground shadow-gold"
+                        : "rounded-lg border border-input bg-background px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+                    }
+                  >
+                    {t(`auth.accountTypes.${type}`)}
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {t(`auth.accountTypeHints.${accountType}`)}
+              </p>
+            </div>
+            {accountType === "organization" && (
+              <div className="space-y-1.5">
+                <Label htmlFor="company-name">{t("auth.companyName")}</Label>
+                <Input
+                  id="company-name"
+                  value={companyName}
+                  onChange={(e) => setCompanyName(e.target.value)}
+                  placeholder={t("auth.companyNamePlaceholder")}
+                  autoComplete="organization"
+                  minLength={2}
+                  required
+                />
+              </div>
+            )}
+            <div className="space-y-1.5">
+              <Label htmlFor="name">{t("auth.name")}</Label>
+              <Input
+                id="name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder={t("auth.namePlaceholder")}
+                autoComplete="name"
+                required
+              />
+            </div>
+          </>
         )}
         <div className="space-y-1.5">
           <Label htmlFor="email">{t("auth.email")}</Label>

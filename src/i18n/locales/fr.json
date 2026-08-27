@@ -242,7 +242,18 @@
     "errorGeneric": "Une erreur est survenue. Réessayez.",
     "errorRateLimit": "Trop de tentatives de connexion. Patientez quelques secondes puis réessayez.",
     "gateHint": "Connectez-vous pour lancer la recherche — votre saisie est conservée.",
-    "forgotPassword": "Mot de passe oublié ?"
+    "forgotPassword": "Mot de passe oublié ?",
+    "accountType": "Type de compte",
+    "accountTypes": {
+      "individual": "Individuel",
+      "organization": "Organisation"
+    },
+    "accountTypeHints": {
+      "individual": "Un espace personnel — vous approvisionnez pour vous-même.",
+      "organization": "Un espace entreprise — invitez votre équipe (3 sièges pour commencer)."
+    },
+    "companyName": "Nom de l’entreprise",
+    "companyNamePlaceholder": "ex. Nordik Manufacturing inc."
   },
   "resetPwd": {
     "forgotTitle": "Mot de passe oublié",
