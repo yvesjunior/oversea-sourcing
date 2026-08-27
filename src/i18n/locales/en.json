@@ -101,7 +101,13 @@
       "postalCode": "Postal code",
       "registrationNumber": "Registration number",
       "taxId": "Tax number (VAT/GST)"
-    }
+    },
+    "dangerTitle": "Danger zone — delete this account",
+    "dangerHintOrg": "Deletes the organisation workspace and ALL its data (requests, reports, files, members list). Members whose only workspace this is lose their account — including you. This cannot be undone.",
+    "dangerHintIndividual": "Deletes your workspace, all its data and your user account. This cannot be undone.",
+    "dangerConfirm": "Type \"{{name}}\" to confirm",
+    "dangerButton": "Delete permanently",
+    "dangerFailed": "Deletion refused — check the typed name."
   },
   "invitation": {
     "title": "Invitation — {{workspace}}",

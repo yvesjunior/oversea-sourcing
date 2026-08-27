@@ -25,6 +25,7 @@ import {
 } from "@/lib/notification-types";
 import { transferOwnershipFn } from "@/lib/team-fns";
 import {
+  destroyWorkspaceFn,
   getOrganizationProfileFn,
   getSettingsFn,
   updateOrganizationProfileFn,
@@ -42,6 +43,62 @@ export const Route = createFileRoute("/parametres")({
 
 const TAB_TRIGGER =
   "py-1 data-[state=active]:bg-gold-gradient data-[state=active]:text-gold-foreground data-[state=active]:shadow-gold";
+
+/** Account destruction (workspace-owner capability, 2026-08-26): deletes
+ *  the workspace and everything in it; members whose only workspace this
+ *  was lose their accounts — org-signup owners included. Guarded by typing
+ *  the exact workspace name. Shown to the owner only. */
+function DangerZone({ workspaceName, type }: { workspaceName: string; type: string }) {
+  const { t } = useTranslation();
+  const router = useRouter();
+  const [confirmName, setConfirmName] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState(false);
+
+  const destroy = async () => {
+    setBusy(true);
+    setFailed(false);
+    try {
+      const result = await destroyWorkspaceFn({ data: { confirmName } });
+      if (!result.ok) {
+        setFailed(true);
+        return;
+      }
+      // Whether the caller's account went with the workspace or they fell
+      // back to another one, the session state is stale — restart from "/".
+      window.location.href = "/";
+    } finally {
+      setBusy(false);
+      void router; // (router retained for future soft-navigation)
+    }
+  };
+
+  return (
+    <section className="max-w-xl rounded-xl border-2 border-destructive/40 p-6">
+      <p className="text-sm font-semibold text-destructive">{t("settings.dangerTitle")}</p>
+      <p className="mt-1 text-xs text-muted-foreground">
+        {t(type === "individual" ? "settings.dangerHintIndividual" : "settings.dangerHintOrg")}
+      </p>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <Input
+          value={confirmName}
+          onChange={(e) => setConfirmName(e.target.value)}
+          placeholder={t("settings.dangerConfirm", { name: workspaceName })}
+          className="h-9 max-w-xs text-sm"
+        />
+        <Button
+          size="sm"
+          variant="destructive"
+          disabled={busy || confirmName.trim() !== workspaceName}
+          onClick={() => void destroy()}
+        >
+          {t("settings.dangerButton")}
+        </Button>
+      </div>
+      {failed && <p className="mt-2 text-xs text-destructive">{t("settings.dangerFailed")}</p>}
+    </section>
+  );
+}
 
 /** Organisation profile (owner, 2026-08-26) — the company's legal & tax
  *  identity, on non-individual workspaces only. The workspace owner edits;
@@ -736,12 +793,20 @@ function Parametres() {
             {t("settings.tabMembers")}
           </TabsTrigger>
         </TabsList>
-        <TabsContent value="profil" className="mt-3">
+        <TabsContent value="profil" className="mt-3 space-y-4">
           <ProfilPanel data={data} onSaved={refresh} />
+          {data.workspace.type === "individual" && isOwner && (
+            <DangerZone workspaceName={data.workspace.name} type={data.workspace.type} />
+          )}
         </TabsContent>
         {data.workspace.type !== "individual" && (
-          <TabsContent value="organisation" className="mt-3">
+          <TabsContent value="organisation" className="mt-3 space-y-4">
             <OrganizationPanel isOwner={isOwner} />
+            {/* Never offered on the internal OSI workspace (server refuses
+                it too) — owner decision 2026-08-26. */}
+            {isOwner && data.workspace.type === "enterprise" && (
+              <DangerZone workspaceName={data.workspace.name} type={data.workspace.type} />
+            )}
           </TabsContent>
         )}
         <TabsContent value="abonnement" className="mt-3">

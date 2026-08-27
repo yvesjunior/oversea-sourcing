@@ -350,3 +350,38 @@ export const updateOrganizationProfileFn = createServerFn({ method: "POST" })
       .onConflictDoUpdate({ target: schema.organizationProfile.organizationId, set: columns });
     return { ok: true };
   });
+
+/** Destroy the whole workspace account (owner capability, 2026-08-26):
+ *  the workspace and all its data go; members whose only workspace this was
+ *  lose their accounts (org-signup owners included). The typed name must
+ *  match — a destructive action never rides a single click. */
+export const destroyWorkspaceFn = createServerFn({ method: "POST" })
+  .inputValidator(z.object({ confirmName: z.string().trim().min(1).max(200) }))
+  .handler(async ({ data }): Promise<{ ok: boolean; selfDeleted: boolean }> => {
+    const [{ requireWorkspaceRole }, { getRequest }, { db }, { eq }, schema] = await Promise.all([
+      import("@/server/workspace-guard"),
+      import("@tanstack/react-start/server"),
+      import("@/database"),
+      import("drizzle-orm"),
+      import("@/database/schema"),
+    ]);
+    const caller = await requireWorkspaceRole(getRequest().headers, "owner");
+    if (!caller) return { ok: false, selfDeleted: false };
+
+    const workspace = await db.query.organization.findFirst({
+      where: eq(schema.organization.id, caller.workspaceId),
+    });
+    if (!workspace || workspace.type === "internal") return { ok: false, selfDeleted: false };
+    if (data.confirmName.trim() !== workspace.name) return { ok: false, selfDeleted: false };
+
+    const { destroyWorkspace } = await import("@/server/account");
+    const deleted = await destroyWorkspace(caller.workspaceId);
+    if (deleted === null) return { ok: false, selfDeleted: false };
+
+    // Did the caller's own account go with it? (No remaining user row.)
+    const stillExists = await db.query.user.findFirst({
+      where: eq(schema.user.id, caller.userId),
+      columns: { id: true },
+    });
+    return { ok: true, selfDeleted: !stillExists };
+  });

@@ -101,7 +101,13 @@
       "postalCode": "Code postal",
       "registrationNumber": "Numéro d’entreprise",
       "taxId": "Numéro de taxe (TVA/TPS-TVQ)"
-    }
+    },
+    "dangerTitle": "Zone de danger — supprimer ce compte",
+    "dangerHintOrg": "Supprime l’espace de l’organisation et TOUTES ses données (demandes, rapports, fichiers, membres). Les membres dont c’est le seul espace perdent leur compte — vous y compris. Action irréversible.",
+    "dangerHintIndividual": "Supprime votre espace, toutes ses données et votre compte utilisateur. Action irréversible.",
+    "dangerConfirm": "Saisissez « {{name}} » pour confirmer",
+    "dangerButton": "Supprimer définitivement",
+    "dangerFailed": "Suppression refusée — vérifiez le nom saisi."
   },
   "invitation": {
     "title": "Invitation — {{workspace}}",
