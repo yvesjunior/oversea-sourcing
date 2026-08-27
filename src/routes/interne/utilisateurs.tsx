@@ -1,20 +1,16 @@
-// Platform user management (staff, 2026-08-23) — every account with its
-// platform role, workspace, plan and usage. Plan assignment happens HERE
-// (user-centric); the Abonnements screen only edits what each plan grants.
+// Platform user management — the INTERNAL OSI team only (rescoped
+// 2026-08-27: customer people belong to their own workspace; customer
+// ACCOUNTS + plan assignment live on /interne/clients).
 
-import { createFileRoute, useRouter } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import { requirePlatformFeature } from "@/lib/auth-guard";
-import { assignPlanFn, getPlanAdminFn } from "@/lib/plan-fns";
 import { getPlatformUsersFn, type PlatformUserView } from "@/lib/user-admin-fns";
 
 export const Route = createFileRoute("/interne/utilisateurs")({
   beforeLoad: ({ context }) => requirePlatformFeature(context.session, "users"),
   head: () => ({ meta: [{ title: "Utilisateurs | OSI" }] }),
-  loader: async () => {
-    const [users, planAdmin] = await Promise.all([getPlatformUsersFn(), getPlanAdminFn()]);
-    return { users, plans: planAdmin.plans };
-  },
+  loader: async () => ({ users: await getPlatformUsersFn() }),
   component: Utilisateurs,
 });
 
@@ -36,9 +32,7 @@ function RoleBadge({ role }: { role: string }) {
 
 function Utilisateurs() {
   const { t, i18n } = useTranslation();
-  const router = useRouter();
-  const { users, plans } = Route.useLoaderData();
-  const refresh = () => void router.invalidate();
+  const { users } = Route.useLoaderData();
 
   const stamp = (iso: string) =>
     new Date(iso).toLocaleDateString(i18n.language, {
@@ -64,7 +58,6 @@ function Utilisateurs() {
                 <th className="pb-2 pr-4 font-medium">{t("usersAdmin.user")}</th>
                 <th className="pb-2 pr-4 font-medium">{t("usersAdmin.platformRole")}</th>
                 <th className="pb-2 pr-4 font-medium">{t("usersAdmin.workspace")}</th>
-                <th className="pb-2 pr-4 font-medium">{t("usersAdmin.plan")}</th>
                 <th className="pb-2 pr-4 font-medium">{t("usersAdmin.usedToday")}</th>
                 <th className="pb-2 pr-4 font-medium">{t("usersAdmin.usedTotal")}</th>
                 <th className="pb-2 font-medium">{t("usersAdmin.joined")}</th>
@@ -88,29 +81,6 @@ function Utilisateurs() {
                     <RoleBadge role={user.platformRole} />
                   </td>
                   <td className="py-2.5 pr-4 text-muted-foreground">{user.workspaceName ?? "—"}</td>
-                  <td className="py-2.5 pr-4">
-                    {user.workspaceId ? (
-                      <select
-                        aria-label={t("usersAdmin.plan")}
-                        value={user.planCode ?? "—"}
-                        onChange={(e) => {
-                          void assignPlanFn({
-                            data: { organizationId: user.workspaceId!, planCode: e.target.value },
-                          }).then(refresh);
-                        }}
-                        className="h-8 rounded-md border border-input bg-background px-2 text-sm"
-                      >
-                        {!user.planCode && <option value="—">—</option>}
-                        {plans.map((p) => (
-                          <option key={p.code} value={p.code}>
-                            {p.name}
-                          </option>
-                        ))}
-                      </select>
-                    ) : (
-                      "—"
-                    )}
-                  </td>
                   <td className="py-2.5 pr-4 tabular-nums text-muted-foreground">
                     {user.usedToday}
                   </td>

@@ -1,15 +1,16 @@
-// Customer accounts (staff view, 2026-08-26) — the account-centric
-// counterpart of /interne/utilisateurs: every non-internal workspace,
-// split by account type (individual vs organisation), with owner, plan,
-// seats and lifetime usage. Read-only v1; plan assignment stays on the
-// user screen, account actions come with the enterprise-onboarding work.
+// Customer accounts (staff view, 2026-08-26/27) — the account-centric
+// counterpart of /interne/utilisateurs (which lists the INTERNAL team
+// only): every customer workspace, split by account type, with owner,
+// plan, seats and lifetime usage. PLAN ASSIGNMENT lives here (an account
+// action, audience-filtered; assignPlanFn enforces server-side too).
 
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { Briefcase } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EmptySection } from "@/components/osi/EmptySection";
 import { requirePlatformFeature } from "@/lib/auth-guard";
+import { assignPlanFn, getPlanAdminFn } from "@/lib/plan-fns";
 import { getCustomerAccountsFn, type CustomerAccountView } from "@/lib/client-admin-fns";
 
 export const Route = createFileRoute("/interne/clients")({
@@ -19,14 +20,27 @@ export const Route = createFileRoute("/interne/clients")({
   beforeLoad: ({ context }) => {
     requirePlatformFeature(context.session, "clients");
   },
-  loader: async () => await getCustomerAccountsFn(),
+  loader: async () => {
+    const [accounts, planAdmin] = await Promise.all([getCustomerAccountsFn(), getPlanAdminFn()]);
+    return { accounts, plans: planAdmin.plans };
+  },
   component: ClientsScreen,
 });
 
 const TAB_TRIGGER =
   "py-1 data-[state=active]:bg-gold-gradient data-[state=active]:text-gold-foreground data-[state=active]:shadow-gold";
 
-function AccountsTable({ accounts }: { accounts: CustomerAccountView[] }) {
+type PlanOption = { code: string; name: string; audience: string };
+
+function AccountsTable({
+  accounts,
+  plans,
+  onChanged,
+}: {
+  accounts: CustomerAccountView[];
+  plans: PlanOption[];
+  onChanged: () => void;
+}) {
   const { t, i18n } = useTranslation();
 
   if (accounts.length === 0) {
@@ -56,9 +70,32 @@ function AccountsTable({ accounts }: { accounts: CustomerAccountView[] }) {
                 )}
               </td>
               <td className="py-3 pr-4">
-                <span className="rounded-full bg-secondary px-2 py-0.5 text-xs font-semibold">
-                  {account.planCode ?? t("clientsAdmin.noPlan")}
-                </span>
+                {/* Plan assignment lives HERE now (2026-08-27) — it is an
+                    ACCOUNT action; options are audience-compatible with the
+                    account type (assignPlanFn enforces it server-side too). */}
+                <select
+                  aria-label={t("clientsAdmin.plan")}
+                  value={account.planCode ?? "—"}
+                  onChange={(e) => {
+                    void assignPlanFn({
+                      data: { organizationId: account.id, planCode: e.target.value },
+                    }).then(onChanged);
+                  }}
+                  className="h-8 rounded-md border border-input bg-background px-2 text-sm"
+                >
+                  {!account.planCode && <option value="—">—</option>}
+                  {plans
+                    .filter((p) =>
+                      account.type === "enterprise"
+                        ? p.audience !== "individual"
+                        : p.audience !== "organization",
+                    )
+                    .map((p) => (
+                      <option key={p.code} value={p.code}>
+                        {p.name}
+                      </option>
+                    ))}
+                </select>
               </td>
               <td className="py-3 pr-4 text-xs tabular-nums">{account.members}</td>
               <td className="py-3 pr-4 text-xs tabular-nums">{account.requestsTotal}</td>
@@ -79,7 +116,9 @@ function AccountsTable({ accounts }: { accounts: CustomerAccountView[] }) {
 
 function ClientsScreen() {
   const { t } = useTranslation();
-  const accounts = Route.useLoaderData();
+  const router = useRouter();
+  const { accounts, plans } = Route.useLoaderData();
+  const refresh = () => void router.invalidate();
   const individuals = accounts.filter((a) => a.type === "individual");
   const enterprises = accounts.filter((a) => a.type === "enterprise");
 
@@ -107,12 +146,12 @@ function ClientsScreen() {
         </TabsList>
         <TabsContent value="individual" className="mt-3">
           <section className="card-surface p-6">
-            <AccountsTable accounts={individuals} />
+            <AccountsTable accounts={individuals} plans={plans} onChanged={refresh} />
           </section>
         </TabsContent>
         <TabsContent value="enterprise" className="mt-3">
           <section className="card-surface p-6">
-            <AccountsTable accounts={enterprises} />
+            <AccountsTable accounts={enterprises} plans={plans} onChanged={refresh} />
           </section>
         </TabsContent>
       </Tabs>

@@ -125,7 +125,7 @@
   },
   "usersAdmin": {
     "title": "Users",
-    "subtitle": "{{count}} account(s) on the platform — roles, workspaces, plans and usage.",
+    "subtitle": "The OSI internal team — platform roles and their activity. Customer accounts live on the Customers screen.",
     "user": "User",
     "platformRole": "Platform role",
     "workspace": "Workspace",

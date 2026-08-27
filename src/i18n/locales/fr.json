@@ -125,7 +125,7 @@
   },
   "usersAdmin": {
     "title": "Utilisateurs",
-    "subtitle": "{{count}} compte(s) sur la plateforme — rôles, espaces, forfaits et usage.",
+    "subtitle": "L’équipe interne OSI — rôles plateforme et activité. Les comptes clients vivent sur l’écran Clients.",
     "user": "Utilisateur",
     "platformRole": "Rôle plateforme",
     "workspace": "Espace",

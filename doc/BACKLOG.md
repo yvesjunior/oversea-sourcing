@@ -107,6 +107,23 @@ workspaces backfilled `individual` (no enterprise exists yet anywhere).
 **Follow-up:** granting a platform role on /interne/utilisateurs should
 also add OSI-org membership (manual SQL meanwhile); signup UX for the
 individual-vs-organisation choice is the open design question;
+②g **DONE 2026-08-27 — owner lifecycle powers + staff-view scoping**
+(owner decisions): ① **workspace-owner account destruction** — Paramètres
+"Zone de danger" (Organisation tab for enterprises, Profil for
+individuals; internal workspace indestructible, server+UI): typed-name
+confirm → `destroyWorkspace()` deletes the org (all scoped data cascades)
+and applies the UC-6 rule to members (only-workspace members lose their
+accounts, org-signup owners included). Account-deletion MECHANICS
+centralized in `src/server/account.ts` (incl. the Redis session purge) —
+the one place users die. Billing = the other owner-only capability,
+recorded for when Stripe lands. *Verified live:* Camille destroyed
+Atelier Boréal through the UI → org + both accounts gone → one db:seed
+recreated it (seed now provisions the fake org via the real
+signup+invitation paths; quick-login grouped INTERNE/CLIENTS covers it).
+② **/interne/utilisateurs rescoped to the INTERNAL team only** ("from
+the users nav we should not see other orgs' users") — customer people
+are their workspace owner's business; **plan assignment moved to
+/interne/clients** (an account action, audience-filtered options).
 ②f **DONE 2026-08-26 — the org-account polish wave** (owner requests,
 all live-verified): ① request **creator attribution** everywhere
 ("Créé par …" on cards + detail) via a `created_by_name` SNAPSHOT

@@ -1,6 +1,8 @@
-// Platform user management (staff surface, 2026-08-23) — every account, its
-// platform role, workspace, plan and usage. This is USER-centric on purpose:
-// the Abonnements screen edits plans; people are managed here.
+// Platform user management (staff surface, 2023-08-23 · rescoped
+// 2026-08-27): the INTERNAL team only — owner feedback: "from the users
+// nav we should not see other orgs' users". Customer people are their own
+// workspace owner's business; customer ACCOUNTS live on /interne/clients
+// (where plan assignment moved).
 
 import { createServerFn } from "@tanstack/react-start";
 
@@ -15,7 +17,6 @@ export type PlatformUserView = {
   workspaceId: string | null;
   workspaceName: string | null;
   workspaceRole: string | null;
-  planCode: string | null;
   /** Requests created by this user in the rolling 24h window. */
   usedToday: number;
   /** Requests created by this user, ever (the Free trial counts these). */
@@ -39,7 +40,7 @@ export const getPlatformUsersFn = createServerFn({ method: "GET" }).handler(
     const session = await requireUserAdmin();
     if (!session) return [];
 
-    const [{ db }, { eq, sql }, schema] = await Promise.all([
+    const [{ db }, { eq, ne, sql }, schema] = await Promise.all([
       import("@/database"),
       import("drizzle-orm"),
       import("@/database/schema"),
@@ -57,7 +58,6 @@ export const getPlatformUsersFn = createServerFn({ method: "GET" }).handler(
         workspaceId: schema.organization.id,
         workspaceName: schema.organization.name,
         workspaceRole: schema.member.role,
-        planCode: schema.plan.code,
         usedToday: sql<number>`(
           select count(*)::int from ${schema.request}
           where ${schema.request.createdBy} = ${schema.user.id}
@@ -71,8 +71,8 @@ export const getPlatformUsersFn = createServerFn({ method: "GET" }).handler(
       .from(schema.user)
       .leftJoin(schema.member, eq(schema.member.userId, schema.user.id))
       .leftJoin(schema.organization, eq(schema.organization.id, schema.member.organizationId))
-      .leftJoin(schema.subscription, eq(schema.subscription.organizationId, schema.organization.id))
-      .leftJoin(schema.plan, eq(schema.plan.id, schema.subscription.planId))
+      // Staff only — a customer org's people are never listed here.
+      .where(ne(schema.user.platformRole, "user"))
       .orderBy(schema.user.createdAt);
 
     // One row per user: keep the first membership (personal workspace) — the
