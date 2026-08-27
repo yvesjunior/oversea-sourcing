@@ -30,7 +30,92 @@ need, gets a real Top-N (researched + imported suppliers, scored), clicks
 *Engager*, OSI ops sees it in the queue, the buyer sees "connected", and
 downloads the PDF report.
 
-## Resume here (last session: 2026-08-25/26)
+## Resume here (last session: 2026-08-26/27 — the ADR-001 + account-model marathon)
+
+### Session digest 2026-08-26/27 — read this first
+
+**One session changed the product's strategy AND its account model. 25
+commits sit on main past the tag `adr-001-baseline` (= `e6e2d1b`, the
+rollback point), migrations 0018–0026, everything dev-verified live in the
+browser, NOTHING deployed and nothing pushed to origin.**
+
+**Strategy (ADR-001, ACCEPTED then AMENDED — the governing document):**
+[doc/adr/ADR-001-supplier-provisioning.md](adr/ADR-001-supplier-provisioning.md)
+(pretty version with diagrams: the Claude artifact linked inside it).
+Supplier provisioning pivoted to the **demand-pull supplier graph**;
+registries became **verification infrastructure** (never matched, never
+workspace-selectable, ~6-month store refresh); the **no-paid-data
+amendment is a HARD owner constraint** — no paid subscription to any data
+provider, EVER (customs/BoL closed; never re-propose paid options).
+Built from it (Phase S below): S5a source-role split (mig 0018) · S1
+taxonomy (78 nodes, `src/lib/taxonomy.ts`) · S2 structured request form
+as primary intake (mig 0019, searchable category combobox) · S5b
+verification battery (mig 0020 — evidence rows, derived tiers, OFAC list;
+`server/verification.ts` is the ONLY writer of `verification_status`) ·
+S5c the `/interne/verification` review screen (Vérifié OSI = earnable).
+Still open in Phase S: **S4 lazy enrichment** (deprioritized behind the
+foundation track) · S3 (only when a discovery store grows big) · S6
+(gated with E6).
+
+**Account model (owner decisions, all implemented + live-verified):**
+- **PRIORITY: foundation before facilitation** — E6 is deliberately LAST
+  before financial features; do not propose it.
+- `organization.type` = `internal | individual | enterprise` (mig 0022);
+  ONE staff workspace **"Oversea Sourcing Intelligence"** (slug `osi`,
+  internal plan, all staff enrolled).
+- **Signup forks** Individuel | Organisation (mig 0023): organisation
+  signups get an enterprise workspace named after the company on the
+  seeded **`org_trial`** plan (Free-like, 3 seats) and **NO personal
+  workspace** (Q1 extended; Q3 staff-assisted-only SUPERSEDED).
+  **Organisation names are unique** (case-insensitive, mig 0025).
+- **UC-6 re-interpreted**: removal from your ONLY workspace **deletes the
+  account** (re-register to return); the tenant keeps the work —
+  `request.created_by` / `file.uploaded_by` nullable set-null (mig 0024),
+  displayed via the `created_by_name` snapshot ("Créé par …" survives
+  deletion, mig 0025).
+- **Workspace-owner lifecycle powers**: billing (owner-only when Stripe
+  lands) + **account destruction** — Paramètres "Zone de danger"
+  (typed-name confirm; internal workspace indestructible). ALL account
+  deletions go through **`src/server/account.ts`** (Redis session purge
+  included) — never delete users any other way.
+- **Organisation profile** tab (org info + tax info, mig 0026): owner
+  edits, members read-only.
+- **Staff views scoped**: `/interne/utilisateurs` = the INTERNAL team
+  only; customer ACCOUNTS (individual|organisation tabs) + plan
+  assignment (audience-filtered) live on **`/interne/clients`**; the
+  workspace badge in the top bar is always visible and color-coded
+  (gold internal · emerald enterprise · neutral individual); Imports nav
+  REMOVED entirely.
+- **Notification preferences** shipped (mig 0021; prefs gate ONLY
+  notify.ts; transactional mail never silenceable).
+
+**Dev accounts (all password `osi-demo-1234`, quick-login grouped
+INTERNE/CLIENTS):** staff owner/manager/accountant@osi.dev + buyer@osi.dev
+(individual customer) + the seeded fake customer org **"Atelier Boréal
+Fabrication"** — camille@atelier-boreal.dev (owner) and
+marc@atelier-boreal.dev (buyer, invited, no personal workspace). The seed
+recreates all of it idempotently through the REAL signup/invitation paths.
+
+**Open decisions awaiting the owner:** ① the platform owner-vs-manager
+split (today manager = owner minus finance + store-wipe; PROPOSED:
+owner=configure — plans, source on/off, wipes, finance; manager=operate —
+facilitation, verification, clients, refreshes); ② taxonomy anchor
+(in-house tree is live; HS mapping shipped — formal choice recorded as
+"in-house mapped", revisit only if it pinches).
+
+**Known nits (cosmetic, unfixed):** the workspace badge doesn't appear
+until the next page load after accepting an invitation (switcher fetches
+memberships on mount only); the remove-member button has no
+"this deletes their account" warning copy yet.
+
+**A future prod deploy carries migrations 0017–0026** (all additive or
+rehearsed in dev; 0022 seeds the staff org and enrolls
+yves@overseaimportexports.com automatically; 0018 flips prod's registries
+to verification-role — correct per ADR-001). No new env vars required
+(DATA_GOV_IN_API_KEY remains optional for registry-in). Remember the
+docs-are-a-release-gate rule when that deploy happens.
+
+### Previous session context (2026-08-25/26 — sourcing waves)
 
 **Production is live and healthy at [osi-solutions.com](https://osi-solutions.com), commit `8177522` (deploy #3, 2026-08-26).**
 Deploy #3 shipped the registry-qc wave (file-fed machinery: streamed
@@ -91,11 +176,23 @@ E6 (staff-as-middleman on orders) is deliberately the LAST step before
 financial activities (E8/billing) — do not propose starting it; S6 waits
 with it. First: user management, organisation setup, settings.
 
-**Where to pick up next session (foundation track):**
-① ~~notification preferences~~ ✅ DONE 2026-08-26 (see the E9/E11 entry);
-② **settings/account gaps** (surveyed 2026-08-26): password change in
-Profil, workspace rename (owner), account deletion, create-enterprise-
-workspace flow (Q3 says staff-assisted — revisit), 2FA (E1);
+**Where to pick up next session (foundation track) — updated 2026-08-27:**
+① **remaining settings/account gaps**: password change in Profil ·
+workspace rename (owner) · 2FA (E1) — ~~account deletion~~ ✅ (danger
+zone, ②g) and ~~create-enterprise flow~~ ✅ (signup fork, ②d) are done;
+② **the platform owner-vs-manager split** — owner decision pending (see
+the session digest above: owner=configure / manager=operate proposal);
+③ **E2 audit log** on auth/membership mutations (account destruction and
+role grants now REALLY deserve a trail);
+④ **small follow-ups**: platform-role grants should enroll into the OSI
+org (manual SQL meanwhile) · workspace-badge refresh after invitation
+accept · warning copy on remove-member ("deletes their account");
+⑤ **S4 lazy enrichment** when the foundation track clears; ⑥ **deploy
+when asked** — main is MANY waves ahead of prod (India + all of ADR-001 +
+the whole account model, migrations 0017–0026). Read "Contracts a next
+session must NOT re-derive differently" before writing code.
+
+**History of the foundation waves (2026-08-26/27), newest first:**
 ②b **DONE 2026-08-26 — the staff org + explicit account types** (owner
 decisions): migration **0022** adds `organization.type`
 (`internal | individual | enterprise`, default individual) and seeds the
@@ -184,13 +281,9 @@ counterpart of /interne/utilisateurs. Also fixed: /interne/verification
 un-greyed for managers (real screen since S5c). Gotcha for posterity:
 interpolating a drizzle column into a raw sql`` correlated subquery
 renders it UNQUALIFIED ("id" — ambiguous); qualify identifiers by hand;
-③ the **workspace/organisation design revisit** (recorded at B2: the
-current org model was accepted "to keep moving" — discuss before deep org
-work); ④ **E2 audit log** on auth/membership mutations; ⑤ S4 enrichment
-when the foundation track clears; ⑥ deploy when asked (main is many waves
-ahead of prod: India + ADR-001 S5a/S1/S2/S5b/S5c, migrations 0017–0020).
-Read "Contracts a next session must NOT re-derive differently" before
-writing code.
+~~The workspace/organisation design revisit~~ ✅ HELD 2026-08-26/27 —
+this session WAS the revisit: the account model is now settled and
+implemented (see the digest and the ②b–②g entries above).
 
 ### DECISION GATE — the source enrichment agent — ✅ RESOLVED 2026-08-26
 
@@ -430,6 +523,19 @@ writing any code.
   `research`; Redis is disposable (fail-open, sessions stay in Postgres).
 - **Email verification is NOT enforced at login** — deliberate; flipping
   `requireEmailVerification` is a product decision, not a cleanup.
+- **Account lifecycle (2026-08-26/27)**: user deletions and workspace
+  destruction go ONLY through `src/server/account.ts` (session-cache purge
+  included). Removal from your only workspace deletes the account (UC-6
+  re-interpreted); the tenant keeps the work (`created_by`/`uploaded_by`
+  null out; display uses the `created_by_name` snapshot). The internal
+  workspace is indestructible. `verification_status` is written ONLY by
+  `src/server/verification.ts` (evidence-derived).
+- **Account model (2026-08-26)**: signup forks individual|organization;
+  organisation signups get NO personal workspace; organisation names are
+  unique (case-insensitive, enterprise+internal); plan audience ↔
+  `organization.type` is enforced in `assignPlanFn`; staff see customer
+  ACCOUNTS on /interne/clients, never customer-org users on
+  /interne/utilisateurs.
 - **No prod deploys unless explicitly requested** — dev is the test ground;
   main accumulates.
 - **ADR-001 (accepted 2026-08-26) governs supplier provisioning** —
@@ -508,6 +614,22 @@ Quality gates are `npm test` (vitest, 27 unit tests),
   `docker compose -f docker-compose.dev.yml exec <svc> npm i <pkg> --no-save`
   for web, worker AND worker-research — or rebuild the image (fflate,
   2026-08-25).
+- **NEVER delete a user by raw SQL.** With Redis as better-auth secondary
+  storage, sessions are served from the CACHE — deleting only the rows
+  leaves the deleted account a WORKING session until the cache expires
+  (found live 2026-08-26). All deletions go through
+  `src/server/account.ts` (`deleteUserAccount` / `destroyWorkspace`),
+  which purges the cached tokens. For manual dev surgery:
+  `docker exec osi-redis-1 redis-cli flushall` after the SQL.
+- **Interpolating a drizzle column into a raw sql\`\` correlated subquery
+  renders it UNQUALIFIED** (`"id"` — Postgres rejects it as ambiguous).
+  Hand-qualify identifiers inside sql\`\` subqueries (bit /interne/clients
+  on 2026-08-26).
+- **A signup's session can be created before the user-create hook finishes
+  provisioning the workspace** — active_organization_id lands NULL
+  (observed on an organisation signup). `requireWorkspaceRole` self-heals
+  (adopts the first membership, persists it, purges the cached session);
+  keep that guard when touching auth.
 - **New i18n keys need a dev web-container restart.** `src/i18n/config.ts`
   guards `init` with `i18n.isInitialized`, and the i18next singleton lives in
   the long-running SSR process — vite re-runs the config on locale edits but
