@@ -678,6 +678,14 @@ linking to an empty page.
 > at the end of this section are settled (only Q4, enterprise pricing, stays
 > open as a business call).
 
+> **Made explicit 2026-08-26 (owner):** `organization.type` now carries the
+> account model in the schema — `internal` (the one staff workspace,
+> **"Oversea Sourcing Intelligence"**, slug `osi`, seeded by migration 0022
+> with every platform staff member on the internal plan) · `individual`
+> (personal workspace created at signup) · `enterprise` (a buyer company's
+> shared workspace). A buyer account is individual OR organisation — the
+> signup UX for that choice is the open design item.
+
 #### The idea in one paragraph
 
 OSI becomes a two-tier SaaS: an **Individual account** is what exists today — a

@@ -78,10 +78,19 @@ export const verification = pgTable("verification", {
 
 // ── Workspaces (better-auth organization plugin) ─────────────────────────────
 
+/** Account model made explicit (owner, 2026-08-26):
+ *  - `internal`   — the one staff workspace, "Oversea Sourcing Intelligence"
+ *                   (every platform staff member belongs to it)
+ *  - `individual` — a buyer's personal workspace (created at signup)
+ *  - `enterprise` — a buyer company's shared workspace */
+export const ORGANIZATION_TYPES = ["internal", "individual", "enterprise"] as const;
+export type OrganizationType = (typeof ORGANIZATION_TYPES)[number];
+
 export const organization = pgTable("organization", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
   slug: text("slug").unique(),
+  type: text("type").$type<OrganizationType>().notNull().default("individual"),
   logo: text("logo"),
   metadata: text("metadata"),
   createdAt: timestamp("created_at").notNull().defaultNow(),

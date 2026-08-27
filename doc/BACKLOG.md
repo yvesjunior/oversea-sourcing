@@ -96,6 +96,17 @@ with it. First: user management, organisation setup, settings.
 ② **settings/account gaps** (surveyed 2026-08-26): password change in
 Profil, workspace rename (owner), account deletion, create-enterprise-
 workspace flow (Q3 says staff-assisted — revisit), 2FA (E1);
+②b **DONE 2026-08-26 — the staff org + explicit account types** (owner
+decisions): migration **0022** adds `organization.type`
+(`internal | individual | enterprise`, default individual) and seeds the
+one staff workspace **"Oversea Sourcing Intelligence"** (slug `osi`,
+type internal, internal plan) with every platform staff member (the
+platform owner as workspace owner, other staff as buyers). Existing
+workspaces backfilled `individual` (no enterprise exists yet anywhere).
+*Verified in dev:* 3 staff members seeded, switcher shows the org.
+**Follow-up:** granting a platform role on /interne/utilisateurs should
+also add OSI-org membership (manual SQL meanwhile); signup UX for the
+individual-vs-organisation choice is the open design question;
 ③ the **workspace/organisation design revisit** (recorded at B2: the
 current org model was accepted "to keep moving" — discuss before deep org
 work); ④ **E2 audit log** on auth/membership mutations; ⑤ S4 enrichment
