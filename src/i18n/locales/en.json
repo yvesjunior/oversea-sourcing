@@ -231,7 +231,8 @@
       "discovery": "Discovery",
       "verification": "Verification"
     },
-    "verificationHint": "Verification source (ADR-001) — its store is a local lookup table for per-candidate checks (legal existence, activity). It never feeds matching, never appears in workspace settings, and is refreshed on a slow cadence (~every 6 months)."
+    "verificationHint": "Verification source (ADR-001) — its store is a local lookup table for per-candidate checks (legal existence, activity). It never feeds matching, never appears in workspace settings, and is refreshed on a slow cadence (~every 6 months).",
+    "disabled": "Disabled"
   },
   "user": {
     "role": "Administrator"

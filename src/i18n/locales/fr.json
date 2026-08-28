@@ -231,7 +231,8 @@
       "discovery": "Découverte",
       "verification": "Vérification"
     },
-    "verificationHint": "Source de vérification (ADR-001) — son store est une table de consultation locale pour les contrôles par candidat (existence légale, activité). Elle n’alimente jamais le matching, n’apparaît jamais dans les paramètres des espaces, et se rafraîchit à cadence lente (~tous les 6 mois)."
+    "verificationHint": "Source de vérification (ADR-001) — son store est une table de consultation locale pour les contrôles par candidat (existence légale, activité). Elle n’alimente jamais le matching, n’apparaît jamais dans les paramètres des espaces, et se rafraîchit à cadence lente (~tous les 6 mois).",
+    "disabled": "Désactivée"
   },
   "user": {
     "role": "Administrateur"

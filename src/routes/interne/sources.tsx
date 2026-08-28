@@ -656,16 +656,24 @@ function Sources() {
                   </p>
                 </div>
                 <span className="flex items-center gap-3">
-                  <label className="flex items-center gap-2 text-xs text-muted-foreground">
-                    {t("sourcesAdmin.enabled")}
-                    <Switch
-                      checked={source.enabled}
-                      aria-label={t("sourcesAdmin.enabled")}
-                      onCheckedChange={(enabled) => {
-                        void toggleSourceFn({ data: { id: source.id, enabled } }).then(refresh);
-                      }}
-                    />
-                  </label>
+                  {/* Enable/disable is configuration → platform OWNER only
+                      (2026-08-27); managers see the state, not the switch. */}
+                  {isPlatformOwner ? (
+                    <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                      {t("sourcesAdmin.enabled")}
+                      <Switch
+                        checked={source.enabled}
+                        aria-label={t("sourcesAdmin.enabled")}
+                        onCheckedChange={(enabled) => {
+                          void toggleSourceFn({ data: { id: source.id, enabled } }).then(refresh);
+                        }}
+                      />
+                    </label>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">
+                      {source.enabled ? t("sourcesAdmin.enabled") : t("sourcesAdmin.disabled")}
+                    </span>
+                  )}
                   {isPlatformOwner && (source.storeActive > 0 || source.storeBanned > 0) && (
                     <WipeButton source={source} onDone={refresh} />
                   )}

@@ -10,8 +10,9 @@ export const PLATFORM_FEATURES = {
   finance: ["owner", "accountant"],
   // Spend analytics is an employee surface — hidden from buyers (2026-08-05).
   analytics: ["owner", "manager", "accountant"],
-  // Plans & subscriptions: limits are edited here, so it is ops, not finance.
-  plans: ["owner", "manager"],
+  // Plans & subscriptions (owner decision 2026-08-27: "owner combines all
+  // rights") — money & rules are OWNER territory; managers operate.
+  plans: ["owner"],
   // Platform user management: every account, its workspace, plan and usage.
   users: ["owner", "manager"],
   // Customer accounts by type — individual vs organisation (2026-08-26).

@@ -334,6 +334,10 @@ export const toggleSourceFn = createServerFn({ method: "POST" })
   .handler(async ({ data }): Promise<{ ok: boolean }> => {
     const session = await requireSourceAdmin();
     if (!session) return { ok: false };
+    // Owner-only (2026-08-27): enabling/disabling a source changes what the
+    // whole platform consults — configuration, not operation.
+    const { effectivePlatformRole } = await import("@/server/workspace-guard");
+    if ((await effectivePlatformRole(session)) !== "owner") return { ok: false };
 
     const [{ db }, { eq }, schema] = await Promise.all([
       import("@/database"),

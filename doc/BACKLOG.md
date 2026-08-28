@@ -107,10 +107,9 @@ Fabrication"** — camille@atelier-boreal.dev (owner) and
 marc@atelier-boreal.dev (buyer, invited, no personal workspace). The seed
 recreates all of it idempotently through the REAL signup/invitation paths.
 
-**Open decisions awaiting the owner:** ① the platform owner-vs-manager
-split (today manager = owner minus finance + store-wipe; PROPOSED:
-owner=configure — plans, source on/off, wipes, finance; manager=operate —
-facilitation, verification, clients, refreshes); ② taxonomy anchor
+**Open decisions awaiting the owner:** ① ~~owner-vs-manager split~~
+✅ DECIDED 2026-08-27 (owner combines all rights; manager operate-only —
+②j); ② taxonomy anchor
 (in-house tree is live; HS mapping shipped — formal choice recorded as
 "in-house mapped", revisit only if it pinches).
 
@@ -189,8 +188,8 @@ with it. First: user management, organisation setup, settings.
 ① **remaining settings/account gaps**: password change in Profil ·
 workspace rename (owner) · 2FA (E1) — ~~account deletion~~ ✅ (danger
 zone, ②g) and ~~create-enterprise flow~~ ✅ (signup fork, ②d) are done;
-② **the platform owner-vs-manager split** — owner decision pending (see
-the session digest above: owner=configure / manager=operate proposal);
+② ~~the platform owner-vs-manager split~~ ✅ DECIDED + BUILT 2026-08-27
+(②j: owner combines all rights; manager = operate-only);
 ③ ~~E2 audit log~~ ✅ DONE 2026-08-27 (②i);
 ④ **small follow-ups**: platform-role grants should enroll into the OSI
 org (manual SQL meanwhile) · workspace-badge refresh after invitation
@@ -201,6 +200,18 @@ accept · warning copy on remove-member ("deletes their account");
 differently" before writing code.
 
 **History of the foundation waves (2026-08-26/27), newest first:**
+②j **DONE 2026-08-27 — the owner/manager split, CLOSED** (owner: "owner
+combined all the rights"): the platform OWNER holds everything; the
+MANAGER is operate-only. Owner-exclusive now: **plan limit editing +
+plan assignment (feature `plans` → owner)**, **source enable/disable**
+(toggleSourceFn checks effective role; managers see the state, not the
+switch), store wipe (already), Finance (owner+accountant). Manager
+keeps the operations: facilitation, verification approvals, clients
+view (plan shown as a read-only chip — empty plans list = no select),
+users + audit journal, source refresh/uploads, record/supplier bans,
+analytics. All of it auditable via ②i. *Verified live as Manager:*
+lands in the OSI workspace, no Abonnements nav, static "Activée" text
+instead of the source switch, plan chip on Clients.
 ②i **DONE 2026-08-27 — the audit journal** (owner: "actions are logged,
 keep track of activities — per org, per user"): migration **0027**
 (`audit_log`: actor + workspace stored as FK *and* name snapshot, so

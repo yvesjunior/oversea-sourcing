@@ -70,32 +70,38 @@ function AccountsTable({
                 )}
               </td>
               <td className="py-3 pr-4">
-                {/* Plan assignment lives HERE now (2026-08-27) — it is an
-                    ACCOUNT action; options are audience-compatible with the
-                    account type (assignPlanFn enforces it server-side too). */}
-                <select
-                  aria-label={t("clientsAdmin.plan")}
-                  value={account.planCode ?? "—"}
-                  onChange={(e) => {
-                    void assignPlanFn({
-                      data: { organizationId: account.id, planCode: e.target.value },
-                    }).then(onChanged);
-                  }}
-                  className="h-8 rounded-md border border-input bg-background px-2 text-sm"
-                >
-                  {!account.planCode && <option value="—">—</option>}
-                  {plans
-                    .filter((p) =>
-                      account.type === "enterprise"
-                        ? p.audience !== "individual"
-                        : p.audience !== "organization",
-                    )
-                    .map((p) => (
-                      <option key={p.code} value={p.code}>
-                        {p.name}
-                      </option>
-                    ))}
-                </select>
+                {/* Plan assignment lives HERE (2026-08-27) — an ACCOUNT
+                    action, audience-filtered, and OWNER-only: managers get
+                    an empty plans list and see the read-only chip. */}
+                {plans.length === 0 ? (
+                  <span className="rounded-full bg-secondary px-2 py-0.5 text-xs font-semibold">
+                    {account.planCode ?? t("clientsAdmin.noPlan")}
+                  </span>
+                ) : (
+                  <select
+                    aria-label={t("clientsAdmin.plan")}
+                    value={account.planCode ?? "—"}
+                    onChange={(e) => {
+                      void assignPlanFn({
+                        data: { organizationId: account.id, planCode: e.target.value },
+                      }).then(onChanged);
+                    }}
+                    className="h-8 rounded-md border border-input bg-background px-2 text-sm"
+                  >
+                    {!account.planCode && <option value="—">—</option>}
+                    {plans
+                      .filter((p) =>
+                        account.type === "enterprise"
+                          ? p.audience !== "individual"
+                          : p.audience !== "organization",
+                      )
+                      .map((p) => (
+                        <option key={p.code} value={p.code}>
+                          {p.name}
+                        </option>
+                      ))}
+                  </select>
+                )}
               </td>
               <td className="py-3 pr-4 text-xs tabular-nums">{account.members}</td>
               <td className="py-3 pr-4 text-xs tabular-nums">{account.requestsTotal}</td>
