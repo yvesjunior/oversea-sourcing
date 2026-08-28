@@ -1,7 +1,7 @@
 import { betterAuth } from "better-auth";
 import { APIError, createAuthMiddleware } from "better-auth/api";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { organization } from "better-auth/plugins";
+import { organization, twoFactor } from "better-auth/plugins";
 import { checkSignupPayload } from "@/lib/signup-guard";
 import { orgAc, orgRoles } from "@/lib/org-access";
 import { secondaryStorage } from "@/server/kv";
@@ -156,6 +156,41 @@ export const auth = betterAuth({
         }
       }
     }),
+    // Member management with the ACTOR (2026-08-27, "track even when the
+    // user got deleted"): the org-plugin hooks never receive the acting
+    // session, so the audit rows for these two actions are written here —
+    // where the session lives — merged with the detail the org hook stashed
+    // (previous role, target email; both unrecoverable after the mutation).
+    after: createAuthMiddleware(async (ctx) => {
+      const path = ctx.path;
+      if (path !== "/organization/remove-member" && path !== "/organization/update-member-role")
+        return;
+      type MemberShape = { id: string; userId: string; organizationId: string; role: string };
+      const returned = ctx.context.returned as Record<string, unknown> | undefined;
+      const member = (returned && "member" in returned ? returned["member"] : returned) as
+        MemberShape | undefined;
+      if (!member?.id || !member.organizationId) return; // failed call — no row
+      const action =
+        path === "/organization/remove-member" ? "member.removed" : "member.role_updated";
+      const [{ logAudit, takeAuditContext }, { getSessionFromCtx }] = await Promise.all([
+        import("@/server/audit"),
+        import("better-auth/api"),
+      ]);
+      const stashed = takeAuditContext(`${action}:${member.id}`) ?? {};
+      const session = await getSessionFromCtx(ctx).catch(() => null);
+      await logAudit({
+        actorId: session?.user.id ?? null,
+        actorName: session?.user.name ?? null,
+        organizationId: member.organizationId,
+        organizationName: (stashed["organizationName"] as string | null) ?? null,
+        action,
+        target: (stashed["target"] as string | undefined) ?? member.userId,
+        detail:
+          action === "member.role_updated"
+            ? { from: (stashed["from"] as string | undefined) ?? null, to: member.role }
+            : null,
+      });
+    }),
   },
   ...(isGoogleEnabled
     ? {
@@ -172,9 +207,16 @@ export const auth = betterAuth({
       // validated in the before-hook, consumed by the user-create hook.
       accountType: { type: "string", defaultValue: "individual", input: true },
       companyName: { type: "string", required: false, input: true },
+      // Personal accent theme — set through updateProfileFn only, never by a
+      // signup payload; rides the session so the shell can apply it.
+      themeColor: { type: "string", defaultValue: "gold", input: false },
     },
   },
   plugins: [
+    // 2FA (E1, 2026-08-27) — per-user TOTP, enabled from Paramètres → Profil.
+    // Enable requires the password AND a verified code before the flag flips;
+    // login with the flag on redirects to /2fa (client plugin) for the code.
+    twoFactor({ issuer: "OSI" }),
     organization({
       // Workspace roles: owner | buyer | viewer ("admin" schema-valid but
       // unminted since the 2026-08-23 merge; app guards rank it like buyer).
@@ -222,6 +264,15 @@ export const auth = betterAuth({
           if (role !== "buyer" && role !== "viewer") {
             throw new APIError("BAD_REQUEST", { message: "INVITE_ROLE_NOT_ALLOWED" });
           }
+          // Individual workspaces are one person by definition (owner rule
+          // 2026-08-27): only organisations invite. Enforced here so a
+          // direct endpoint call cannot bypass the hidden UI.
+          const org = await db.query.organization.findFirst({
+            where: eq(schema.organization.id, invitation.organizationId),
+          });
+          if (org?.type === "individual") {
+            throw new APIError("BAD_REQUEST", { message: "INVITE_NOT_ALLOWED_INDIVIDUAL" });
+          }
           const { assertSeatAvailable } = await import("@/server/workspace-guard");
           await assertSeatAvailable(invitation.organizationId, { countPending: true });
         },
@@ -233,10 +284,14 @@ export const auth = betterAuth({
         },
         // E9: tell the inviter their invitation landed.
         afterAcceptInvitation: async ({ invitation, member, organization: org }) => {
+          const joiner = await db.query.user.findFirst({
+            where: eq(schema.user.id, member.userId),
+          });
           {
             const { logAudit } = await import("@/server/audit");
             await logAudit({
               actorId: member.userId,
+              actorName: joiner?.name ?? null,
               organizationId: org.id,
               organizationName: org.name,
               action: "invitation.accepted",
@@ -244,9 +299,6 @@ export const auth = betterAuth({
             });
           }
           const { notifyUser } = await import("@/server/notify");
-          const joiner = await db.query.user.findFirst({
-            where: eq(schema.user.id, member.userId),
-          });
           await notifyUser({
             userId: invitation.inviterId,
             organizationId: org.id,
@@ -271,12 +323,13 @@ export const auth = betterAuth({
             }),
           ]);
           {
-            const { logAudit } = await import("@/server/audit");
-            await logAudit({
-              organizationId: member.organizationId,
-              organizationName: org?.name ?? null,
-              action: "member.removed",
+            // The audit row is written by the root after-hook (which holds
+            // the ACTING session — this hook never sees it); stash what only
+            // this hook can still read: the email dies with a UC-6 deletion.
+            const { stashAuditContext } = await import("@/server/audit");
+            stashAuditContext(`member.removed:${member.id}`, {
               target: removedUser?.email ?? member.userId,
+              organizationName: org?.name ?? null,
             });
           }
           if (remaining || !removedUser || removedUser.platformRole !== "user") return;
@@ -297,20 +350,20 @@ export const auth = betterAuth({
           if (String(newRole) !== "buyer" && String(newRole) !== "viewer") {
             throw new APIError("BAD_REQUEST", { message: "INVITE_ROLE_NOT_ALLOWED" });
           }
-          // Passed validation ⇒ the update proceeds — log the change.
+          // Passed validation ⇒ the update proceeds. The audit row is
+          // written by the root after-hook (it holds the acting session);
+          // stash what is gone by then: the PREVIOUS role.
           const [target, org] = await Promise.all([
             db.query.user.findFirst({ where: eq(schema.user.id, member.userId) }),
             db.query.organization.findFirst({
               where: eq(schema.organization.id, member.organizationId),
             }),
           ]);
-          const { logAudit } = await import("@/server/audit");
-          await logAudit({
-            organizationId: member.organizationId,
-            organizationName: org?.name ?? null,
-            action: "member.role_updated",
+          const { stashAuditContext } = await import("@/server/audit");
+          stashAuditContext(`member.role_updated:${member.id}`, {
             target: target?.email ?? member.userId,
-            detail: { from: member.role, to: String(newRole) },
+            organizationName: org?.name ?? null,
+            from: member.role,
           });
         },
       },

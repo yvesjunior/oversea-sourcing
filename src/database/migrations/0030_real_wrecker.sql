@@ -1,0 +1,1 @@
+ALTER TABLE "user" ADD COLUMN "theme_color" text DEFAULT 'gold' NOT NULL;

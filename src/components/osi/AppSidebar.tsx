@@ -8,6 +8,7 @@ import {
   LogIn,
   LogOut,
   CreditCard,
+  ScrollText,
   Settings,
   ShieldCheck,
   Repeat,
@@ -75,6 +76,8 @@ const itemsInterne: {
   { key: "plans", url: "/interne/plans", icone: CreditCard },
   // Platform user management: accounts, roles, plan assignment (2026-08-23).
   { key: "users", url: "/interne/utilisateurs", icone: UserCog },
+  // The audit journal — own entry since 2026-08-27 (was on Utilisateurs).
+  { key: "logging", url: "/interne/logging", icone: ScrollText },
   // Data-source catalogue: enable/refresh/ban (C1).
   { key: "sources", url: "/interne/sources", icone: Database },
 ];

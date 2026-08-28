@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as R2faRouteImport } from './routes/2fa'
 import { Route as AnalysesRouteImport } from './routes/analyses'
 import { Route as DocumentsRouteImport } from './routes/documents'
 import { Route as FournisseursRouteImport } from './routes/fournisseurs'
@@ -26,6 +27,7 @@ import { Route as DemandesIdRouteImport } from './routes/demandes/$id'
 import { Route as InterneClientsRouteImport } from './routes/interne/clients'
 import { Route as InterneFacilitationRouteImport } from './routes/interne/facilitation'
 import { Route as InterneFinanceRouteImport } from './routes/interne/finance'
+import { Route as InterneLoggingRouteImport } from './routes/interne/logging'
 import { Route as InternePlansRouteImport } from './routes/interne/plans'
 import { Route as InterneSourcesRouteImport } from './routes/interne/sources'
 import { Route as InterneUtilisateursRouteImport } from './routes/interne/utilisateurs'
@@ -38,6 +40,11 @@ import { Route as DemandesIdRapportRouteImport } from './routes/demandes/$id.rap
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const R2faRoute = R2faRouteImport.update({
+  id: '/2fa',
+  path: '/2fa',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AnalysesRoute = AnalysesRouteImport.update({
@@ -120,6 +127,11 @@ const InterneFinanceRoute = InterneFinanceRouteImport.update({
   path: '/interne/finance',
   getParentRoute: () => rootRouteImport,
 } as any)
+const InterneLoggingRoute = InterneLoggingRouteImport.update({
+  id: '/interne/logging',
+  path: '/interne/logging',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const InternePlansRoute = InternePlansRouteImport.update({
   id: '/interne/plans',
   path: '/interne/plans',
@@ -163,6 +175,7 @@ const DemandesIdRapportRoute = DemandesIdRapportRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/2fa': typeof R2faRoute
   '/analyses': typeof AnalysesRoute
   '/documents': typeof DocumentsRoute
   '/fournisseurs': typeof FournisseursRoute
@@ -178,6 +191,7 @@ export interface FileRoutesByFullPath {
   '/interne/clients': typeof InterneClientsRoute
   '/interne/facilitation': typeof InterneFacilitationRoute
   '/interne/finance': typeof InterneFinanceRoute
+  '/interne/logging': typeof InterneLoggingRoute
   '/interne/plans': typeof InternePlansRoute
   '/interne/sources': typeof InterneSourcesRoute
   '/interne/utilisateurs': typeof InterneUtilisateursRoute
@@ -190,6 +204,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/2fa': typeof R2faRoute
   '/analyses': typeof AnalysesRoute
   '/documents': typeof DocumentsRoute
   '/fournisseurs': typeof FournisseursRoute
@@ -205,6 +220,7 @@ export interface FileRoutesByTo {
   '/interne/clients': typeof InterneClientsRoute
   '/interne/facilitation': typeof InterneFacilitationRoute
   '/interne/finance': typeof InterneFinanceRoute
+  '/interne/logging': typeof InterneLoggingRoute
   '/interne/plans': typeof InternePlansRoute
   '/interne/sources': typeof InterneSourcesRoute
   '/interne/utilisateurs': typeof InterneUtilisateursRoute
@@ -218,6 +234,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/2fa': typeof R2faRoute
   '/analyses': typeof AnalysesRoute
   '/documents': typeof DocumentsRoute
   '/fournisseurs': typeof FournisseursRoute
@@ -233,6 +250,7 @@ export interface FileRoutesById {
   '/interne/clients': typeof InterneClientsRoute
   '/interne/facilitation': typeof InterneFacilitationRoute
   '/interne/finance': typeof InterneFinanceRoute
+  '/interne/logging': typeof InterneLoggingRoute
   '/interne/plans': typeof InternePlansRoute
   '/interne/sources': typeof InterneSourcesRoute
   '/interne/utilisateurs': typeof InterneUtilisateursRoute
@@ -247,6 +265,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/2fa'
     | '/analyses'
     | '/documents'
     | '/fournisseurs'
@@ -262,6 +281,7 @@ export interface FileRouteTypes {
     | '/interne/clients'
     | '/interne/facilitation'
     | '/interne/finance'
+    | '/interne/logging'
     | '/interne/plans'
     | '/interne/sources'
     | '/interne/utilisateurs'
@@ -274,6 +294,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/2fa'
     | '/analyses'
     | '/documents'
     | '/fournisseurs'
@@ -289,6 +310,7 @@ export interface FileRouteTypes {
     | '/interne/clients'
     | '/interne/facilitation'
     | '/interne/finance'
+    | '/interne/logging'
     | '/interne/plans'
     | '/interne/sources'
     | '/interne/utilisateurs'
@@ -301,6 +323,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/2fa'
     | '/analyses'
     | '/documents'
     | '/fournisseurs'
@@ -316,6 +339,7 @@ export interface FileRouteTypes {
     | '/interne/clients'
     | '/interne/facilitation'
     | '/interne/finance'
+    | '/interne/logging'
     | '/interne/plans'
     | '/interne/sources'
     | '/interne/utilisateurs'
@@ -329,6 +353,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  R2faRoute: typeof R2faRoute
   AnalysesRoute: typeof AnalysesRoute
   DocumentsRoute: typeof DocumentsRoute
   FournisseursRoute: typeof FournisseursRoute
@@ -344,6 +369,7 @@ export interface RootRouteChildren {
   InterneClientsRoute: typeof InterneClientsRoute
   InterneFacilitationRoute: typeof InterneFacilitationRoute
   InterneFinanceRoute: typeof InterneFinanceRoute
+  InterneLoggingRoute: typeof InterneLoggingRoute
   InternePlansRoute: typeof InternePlansRoute
   InterneSourcesRoute: typeof InterneSourcesRoute
   InterneUtilisateursRoute: typeof InterneUtilisateursRoute
@@ -361,6 +387,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/2fa': {
+      id: '/2fa'
+      path: '/2fa'
+      fullPath: '/2fa'
+      preLoaderRoute: typeof R2faRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/analyses': {
@@ -475,6 +508,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof InterneFinanceRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/interne/logging': {
+      id: '/interne/logging'
+      path: '/interne/logging'
+      fullPath: '/interne/logging'
+      preLoaderRoute: typeof InterneLoggingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/interne/plans': {
       id: '/interne/plans'
       path: '/interne/plans'
@@ -548,6 +588,7 @@ const DemandesIdRouteWithChildren = DemandesIdRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  R2faRoute: R2faRoute,
   AnalysesRoute: AnalysesRoute,
   DocumentsRoute: DocumentsRoute,
   FournisseursRoute: FournisseursRoute,
@@ -563,6 +604,7 @@ const rootRouteChildren: RootRouteChildren = {
   InterneClientsRoute: InterneClientsRoute,
   InterneFacilitationRoute: InterneFacilitationRoute,
   InterneFinanceRoute: InterneFinanceRoute,
+  InterneLoggingRoute: InterneLoggingRoute,
   InternePlansRoute: InternePlansRoute,
   InterneSourcesRoute: InterneSourcesRoute,
   InterneUtilisateursRoute: InterneUtilisateursRoute,

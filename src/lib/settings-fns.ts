@@ -7,7 +7,14 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
 export type SettingsData = {
-  profile: { name: string; email: string; locale: string; emailVerified: boolean };
+  profile: {
+    name: string;
+    email: string;
+    locale: string;
+    emailVerified: boolean;
+    twoFactorEnabled: boolean;
+    themeColor: string;
+  };
   workspace: { id: string; name: string; role: string; type: string };
   subscription: {
     planCode: string;
@@ -133,6 +140,8 @@ export const getSettingsFn = createServerFn({ method: "GET" }).handler(
         email: user.email,
         locale: user.locale ?? "fr",
         emailVerified: user.emailVerified,
+        twoFactorEnabled: user.twoFactorEnabled,
+        themeColor: user.themeColor ?? "gold",
       },
       workspace: {
         id: workspace.id,
@@ -170,6 +179,7 @@ export const updateProfileFn = createServerFn({ method: "POST" })
     z.object({
       name: z.string().trim().min(2).max(80),
       locale: z.enum(["fr", "en"]),
+      themeColor: z.enum(["gold", "emerald", "ocean", "violet", "crimson"]).optional(),
     }),
   )
   .handler(async ({ data }): Promise<{ ok: boolean }> => {
@@ -185,8 +195,23 @@ export const updateProfileFn = createServerFn({ method: "POST" })
 
     await db
       .update(schema.user)
-      .set({ name: data.name, locale: data.locale, updatedAt: new Date() })
+      .set({
+        name: data.name,
+        locale: data.locale,
+        ...(data.themeColor ? { themeColor: data.themeColor } : {}),
+        updatedAt: new Date(),
+      })
       .where(eq(schema.user.id, caller.userId));
+    // The theme rides the session — purge the cached copy so the next
+    // getSession sees the new value without waiting for expiry.
+    const { secondaryStorage } = await import("@/server/kv");
+    if (secondaryStorage && data.themeColor) {
+      const sessions = await db.query.session.findMany({
+        where: eq(schema.session.userId, caller.userId),
+        columns: { token: true },
+      });
+      for (const s of sessions) await secondaryStorage.delete(s.token);
+    }
     return { ok: true };
   });
 
@@ -247,9 +272,15 @@ export const updateSourcingRulesFn = createServerFn({ method: "POST" })
         },
       });
     const { logAudit } = await import("@/server/audit");
+    const workspace = await db.query.organization.findFirst({
+      where: eq(schema.organization.id, caller.workspaceId),
+      columns: { name: true },
+    });
     await logAudit({
       actorId: caller.userId,
+      actorName: caller.userName,
       organizationId: caller.workspaceId,
+      organizationName: workspace?.name ?? null,
       action: "sourcing.updated",
       detail: { countryMode: data.countryMode, countryCodes: data.countryCodes },
     });
@@ -356,9 +387,16 @@ export const updateOrganizationProfileFn = createServerFn({ method: "POST" })
       .values({ id: crypto.randomUUID(), organizationId: caller.workspaceId, ...columns })
       .onConflictDoUpdate({ target: schema.organizationProfile.organizationId, set: columns });
     const { logAudit } = await import("@/server/audit");
+    const { eq } = await import("drizzle-orm");
+    const workspace = await db.query.organization.findFirst({
+      where: eq(schema.organization.id, caller.workspaceId),
+      columns: { name: true },
+    });
     await logAudit({
       actorId: caller.userId,
+      actorName: caller.userName,
       organizationId: caller.workspaceId,
+      organizationName: workspace?.name ?? null,
       action: "org_profile.updated",
     });
     return { ok: true };
@@ -402,4 +440,55 @@ export const destroyWorkspaceFn = createServerFn({ method: "POST" })
       columns: { id: true },
     });
     return { ok: true, selfDeleted: !stillExists };
+  });
+
+/** Workspace rename (E2 gap closed 2026-08-27) — owner-only, enterprise
+ *  workspaces only: personal workspaces are named after the person, and the
+ *  internal OSI workspace's name is product identity. Enterprise names stay
+ *  unique (same rule as the signup fork; the partial unique index of
+ *  migration 0025 is the race-proof backstop). */
+export const renameWorkspaceFn = createServerFn({ method: "POST" })
+  .inputValidator(z.object({ name: z.string().trim().min(2).max(80) }))
+  .handler(async ({ data }): Promise<{ ok: boolean; error?: "name_taken" | "forbidden" }> => {
+    const [{ requireWorkspaceRole }, { getRequest }, { db }, { and, eq, ne, sql }, schema] =
+      await Promise.all([
+        import("@/server/workspace-guard"),
+        import("@tanstack/react-start/server"),
+        import("@/database"),
+        import("drizzle-orm"),
+        import("@/database/schema"),
+      ]);
+    const caller = await requireWorkspaceRole(getRequest().headers, "owner");
+    if (!caller) return { ok: false, error: "forbidden" };
+
+    const workspace = await db.query.organization.findFirst({
+      where: eq(schema.organization.id, caller.workspaceId),
+    });
+    if (!workspace || workspace.type !== "enterprise") return { ok: false, error: "forbidden" };
+    if (workspace.name === data.name) return { ok: true };
+
+    const taken = await db.query.organization.findFirst({
+      where: and(
+        sql`lower(${schema.organization.name}) = ${data.name.toLowerCase()}`,
+        ne(schema.organization.id, workspace.id),
+      ),
+      columns: { id: true },
+    });
+    if (taken) return { ok: false, error: "name_taken" };
+
+    await db
+      .update(schema.organization)
+      .set({ name: data.name })
+      .where(eq(schema.organization.id, workspace.id));
+    const { logAudit } = await import("@/server/audit");
+    await logAudit({
+      actorId: caller.userId,
+      actorName: caller.userName,
+      organizationId: workspace.id,
+      organizationName: data.name,
+      action: "workspace.renamed",
+      target: data.name,
+      detail: { from: workspace.name, to: data.name },
+    });
+    return { ok: true };
   });

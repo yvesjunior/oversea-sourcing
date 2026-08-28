@@ -15,6 +15,7 @@ import { AppShell } from "@/components/osi/AppShell";
 import i18n, { STORAGE_KEY } from "@/i18n/config";
 import { enforceAuth } from "@/lib/auth-guard";
 import { getSessionFn, type SessionData } from "@/lib/session-fns";
+import { applyTheme } from "@/lib/themes";
 
 function NotFoundComponent() {
   return (
@@ -145,6 +146,13 @@ function RootComponent() {
       document.documentElement.lang = stored;
     }
   }, []);
+
+  // Personal accent theme (2026-08-27): follows the signed-in user; applied
+  // post-hydration for the same SSR-stability reason as the language above.
+  const themeColor = (session?.user as { themeColor?: string } | undefined)?.themeColor;
+  useEffect(() => {
+    applyTheme(themeColor);
+  }, [themeColor]);
 
   return (
     <QueryClientProvider client={queryClient}>

@@ -18,7 +18,8 @@
     "plans": "Abonnements",
     "users": "Utilisateurs",
     "sources": "Sources de données",
-    "clients": "Clients"
+    "clients": "Clients",
+    "logging": "Logging"
   },
   "platformRoles": {
     "owner": "Propriétaire plateforme",
@@ -61,7 +62,7 @@
     "transfer": "Transférer la propriété",
     "transferConfirm": "Transférer la propriété de l'espace à {{name}} ? Vous deviendrez acheteur.",
     "remove": "Retirer",
-    "removeConfirm": "Retirer {{name}} de l'espace ? Ses demandes restent dans l'espace.",
+    "removeConfirm": "Retirer {{name}} de l'espace ? Ses demandes restent dans l'espace. Attention : si c'est son seul espace, son compte sera SUPPRIMÉ (il devra se réinscrire).",
     "inviteTitle": "Inviter ou créer un membre",
     "invitePlaceholder": "collegue@entreprise.com",
     "invite": "Inviter",
@@ -84,6 +85,31 @@
     "notifEmail": "E-mail",
     "notifTransactional": "Les e-mails de compte (confirmation d’adresse, réinitialisation de mot de passe, invitations) sont toujours envoyés.",
     "savedShort": "Enregistré ✓",
+    "themeColor": "Couleur du thème",
+    "themeHint": "Votre couleur d’accent personnelle — appliquée sur tous vos appareils.",
+    "passwordTitle": "Changer le mot de passe",
+    "passwordCurrent": "Mot de passe actuel",
+    "passwordNew": "Nouveau mot de passe (8+ caractères)",
+    "passwordConfirm": "Confirmer le nouveau mot de passe",
+    "passwordSubmit": "Changer le mot de passe",
+    "passwordDone": "Mot de passe changé ✓ — vos autres sessions ont été déconnectées.",
+    "passwordWrong": "Mot de passe actuel incorrect.",
+    "passwordFailed": "Échec du changement (compte Google sans mot de passe ?).",
+    "twofaTitle": "Authentification à deux facteurs (2FA)",
+    "twofaOn": "Activée",
+    "twofaOff": "Désactivée",
+    "twofaHint": "Un code de votre application d’authentification (Google Authenticator, 1Password…) sera demandé à chaque connexion.",
+    "twofaSecretLabel": "Clé secrète — saisissez-la dans votre application d’authentification",
+    "twofaBackupLabel": "Codes de secours",
+    "twofaBackupHint": "Conservez-les en lieu sûr : ils ne seront plus jamais affichés. Chacun ne sert qu’une fois.",
+    "twofaConfirm": "Confirmer avec un code",
+    "twofaEnable": "Activer la 2FA",
+    "twofaDisable": "Désactiver la 2FA",
+    "twofaFailed": "Échec — vérifiez le mot de passe ou le code.",
+    "renameTitle": "Renommer l’espace",
+    "renameButton": "Renommer",
+    "renameTaken": "Ce nom d’organisation est déjà pris.",
+    "renameFailed": "Échec du renommage.",
     "notifTypes": {
       "report_ready": "Rapport prêt (une recherche de fournisseurs est terminée)",
       "invitation_accepted": "Invitation acceptée (quelqu’un a rejoint votre espace)"
@@ -133,7 +159,16 @@
     "usedToday": "24 h",
     "usedTotal": "Total",
     "joined": "Inscription",
-    "verified": "E-mail vérifié"
+    "verified": "E-mail vérifié",
+    "grantTitle": "Accorder un rôle plateforme",
+    "grantHint": "La personne rejoint aussi l’espace interne OSI. Réservé au propriétaire plateforme.",
+    "grantButton": "Appliquer",
+    "grantDone": "Rôle appliqué ✓",
+    "grantNotFound": "Aucun compte avec cette adresse.",
+    "grantSelf": "Vous ne pouvez pas modifier votre propre rôle.",
+    "grantFailed": "Échec de l’application du rôle.",
+    "roleConfirm": "Changer le rôle plateforme de {{name}} en « {{role}} » ?",
+    "revokeOption": "— Retirer (client)"
   },
   "sourceNames": {
     "global_web": "Web mondial",
@@ -735,6 +770,13 @@
   },
   "auditAdmin": {
     "title": "Journal d’activité",
+    "subtitle": "Chaque action de cycle de vie et d’administration — par espace, par utilisateur.",
+    "rowsPerPage": "Lignes :",
+    "range": "{{from}}–{{to}} sur {{total}}",
+    "prev": "Précédent",
+    "next": "Suivant",
+    "fromDate": "Du",
+    "toDate": "Au",
     "filterOrg": "Espace",
     "filterActor": "Utilisateur",
     "allOrgs": "Tous les espaces",
@@ -768,6 +810,19 @@
     "source.refresh_triggered": "Mise à jour de source lancée",
     "source.store_wiped": "Store de source purgé",
     "sourcing.updated": "Préférences de sourcing modifiées",
-    "org_profile.updated": "Profil d’organisation modifié"
+    "org_profile.updated": "Profil d’organisation modifié",
+    "workspace.renamed": "Espace renommé",
+    "platform_role.updated": "Rôle plateforme modifié"
+  },
+  "twofa": {
+    "title": "Vérification en deux étapes",
+    "body": "Saisissez le code de votre application d’authentification.",
+    "bodyBackup": "Saisissez l’un de vos codes de secours (usage unique).",
+    "codeLabel": "Code à 6 chiffres",
+    "backupLabel": "Code de secours",
+    "submit": "Vérifier",
+    "failed": "Code invalide — réessayez.",
+    "useBackup": "Utiliser un code de secours",
+    "useTotp": "Utiliser l’application d’authentification"
   }
 }

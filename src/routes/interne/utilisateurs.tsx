@@ -2,18 +2,18 @@
 // 2026-08-27: customer people belong to their own workspace; customer
 // ACCOUNTS + plan assignment live on /interne/clients).
 
-import { useEffect, useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { useState } from "react";
+import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { requirePlatformFeature } from "@/lib/auth-guard";
-import { getAuditLogFn, type AuditLogData } from "@/lib/audit-fns";
-import { getPlatformUsersFn, type PlatformUserView } from "@/lib/user-admin-fns";
+import { getPlatformUsersFn, setPlatformRoleFn, type PlatformUserView } from "@/lib/user-admin-fns";
 
 export const Route = createFileRoute("/interne/utilisateurs")({
   beforeLoad: ({ context }) => requirePlatformFeature(context.session, "users"),
   head: () => ({ meta: [{ title: "Utilisateurs | OSI" }] }),
   loader: async () => ({ users: await getPlatformUsersFn() }),
-  // The audit journal loads client-side (filterable per org / per user).
   component: Utilisateurs,
 });
 
@@ -33,96 +33,77 @@ function RoleBadge({ role }: { role: string }) {
   );
 }
 
-/** The audit journal (owner request 2026-08-27) — every lifecycle/admin
- *  action, filterable PER ORG and PER USER. Writes: src/server/audit.ts. */
-function AuditJournal() {
-  const { t, i18n } = useTranslation();
-  const [data, setData] = useState<AuditLogData | null>(null);
-  const [orgFilter, setOrgFilter] = useState("");
-  const [actorFilter, setActorFilter] = useState("");
+/** Grant a platform role by email (owner-exclusive): granting also enrolls
+ *  the person into the OSI internal workspace — the ②b follow-up closed. */
+function GrantRolePanel({ onChanged }: { onChanged: () => void }) {
+  const { t } = useTranslation();
+  const [email, setEmail] = useState("");
+  const [role, setRole] = useState("manager");
+  const [busy, setBusy] = useState(false);
+  const [status, setStatus] = useState<"idle" | "done" | "not_found" | "self" | "failed">("idle");
 
-  useEffect(() => {
-    void getAuditLogFn({
-      data: {
-        ...(orgFilter ? { organizationId: orgFilter } : {}),
-        ...(actorFilter ? { actorId: actorFilter } : {}),
-      },
-    }).then(setData);
-  }, [orgFilter, actorFilter]);
-
-  const stamp = (iso: string) =>
-    new Date(iso).toLocaleString(i18n.language, { dateStyle: "short", timeStyle: "short" });
+  const grant = async () => {
+    setBusy(true);
+    setStatus("idle");
+    try {
+      const result = await setPlatformRoleFn({
+        data: { email, role: role as "owner" | "manager" | "accountant" },
+      });
+      if (!result.ok) {
+        setStatus(
+          result.error === "not_found" || result.error === "self" ? result.error : "failed",
+        );
+        return;
+      }
+      setStatus("done");
+      setEmail("");
+      onChanged();
+    } finally {
+      setBusy(false);
+    }
+  };
 
   return (
     <section className="card-surface p-6">
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-sm font-semibold">{t("auditAdmin.title")}</h2>
-        <span className="flex flex-wrap gap-2">
-          <select
-            aria-label={t("auditAdmin.filterOrg")}
-            value={orgFilter}
-            onChange={(e) => setOrgFilter(e.target.value)}
-            className="h-8 rounded-md border border-input bg-background px-2 text-xs"
-          >
-            <option value="">{t("auditAdmin.allOrgs")}</option>
-            {(data?.filters.organizations ?? []).map((org) => (
-              <option key={org.id} value={org.id}>
-                {org.name}
-              </option>
-            ))}
-          </select>
-          <select
-            aria-label={t("auditAdmin.filterActor")}
-            value={actorFilter}
-            onChange={(e) => setActorFilter(e.target.value)}
-            className="h-8 rounded-md border border-input bg-background px-2 text-xs"
-          >
-            <option value="">{t("auditAdmin.allActors")}</option>
-            {(data?.filters.actors ?? []).map((actor) => (
-              <option key={actor.id} value={actor.id}>
-                {actor.name}
-              </option>
-            ))}
-          </select>
-        </span>
+      <p className="text-sm font-semibold">{t("usersAdmin.grantTitle")}</p>
+      <p className="mt-1 text-xs text-muted-foreground">{t("usersAdmin.grantHint")}</p>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <Input
+          type="email"
+          value={email}
+          onChange={(e) => {
+            setEmail(e.target.value);
+            setStatus("idle");
+          }}
+          placeholder="personne@entreprise.com"
+          className="h-9 max-w-xs"
+        />
+        <select
+          aria-label={t("usersAdmin.platformRole")}
+          value={role}
+          onChange={(e) => setRole(e.target.value)}
+          className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+        >
+          <option value="manager">{t("platformRoles.manager")}</option>
+          <option value="accountant">{t("platformRoles.accountant")}</option>
+          <option value="owner">{t("platformRoles.owner")}</option>
+        </select>
+        <Button size="sm" disabled={busy || !email.includes("@")} onClick={() => void grant()}>
+          {t("usersAdmin.grantButton")}
+        </Button>
+        {status === "done" && (
+          <span className="text-xs text-emerald-600">{t("usersAdmin.grantDone")}</span>
+        )}
+        {status === "not_found" && (
+          <span className="text-xs text-destructive">{t("usersAdmin.grantNotFound")}</span>
+        )}
+        {status === "self" && (
+          <span className="text-xs text-destructive">{t("usersAdmin.grantSelf")}</span>
+        )}
+        {status === "failed" && (
+          <span className="text-xs text-destructive">{t("usersAdmin.grantFailed")}</span>
+        )}
       </div>
-      {!data || data.rows.length === 0 ? (
-        <p className="text-xs text-muted-foreground">{t("auditAdmin.empty")}</p>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[820px] text-sm">
-            <thead>
-              <tr className="border-b border-border text-left text-xs text-muted-foreground">
-                <th className="pb-2 pr-4 font-medium">{t("auditAdmin.when")}</th>
-                <th className="pb-2 pr-4 font-medium">{t("auditAdmin.actor")}</th>
-                <th className="pb-2 pr-4 font-medium">{t("auditAdmin.action")}</th>
-                <th className="pb-2 pr-4 font-medium">{t("auditAdmin.target")}</th>
-                <th className="pb-2 font-medium">{t("auditAdmin.workspace")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.rows.map((row) => (
-                <tr key={row.id} className="border-b border-border/60">
-                  <td className="py-2 pr-4 text-xs text-muted-foreground">{stamp(row.at)}</td>
-                  <td className="py-2 pr-4 text-xs">{row.actorName ?? "—"}</td>
-                  <td className="py-2 pr-4">
-                    <span
-                      className="rounded-full bg-secondary px-2 py-0.5 text-[10px] font-semibold"
-                      title={row.detail ? JSON.stringify(row.detail) : undefined}
-                    >
-                      {t(`auditActions.${row.action}`, { defaultValue: row.action })}
-                    </span>
-                  </td>
-                  <td className="py-2 pr-4 text-xs">{row.target ?? "—"}</td>
-                  <td className="py-2 text-xs text-muted-foreground">
-                    {row.organizationName ?? "—"}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
     </section>
   );
 }
@@ -130,6 +111,20 @@ function AuditJournal() {
 function Utilisateurs() {
   const { t, i18n } = useTranslation();
   const { users } = Route.useLoaderData();
+  const { session } = Route.useRouteContext();
+  const router = useRouter();
+  const refresh = () => void router.invalidate();
+  const viewerRole = (session?.user as { platformRole?: string } | undefined)?.platformRole;
+  const viewerEmail = session?.user?.email;
+  const isPlatformOwner = viewerRole === "owner";
+
+  const changeRole = async (user: PlatformUserView, role: string) => {
+    if (!window.confirm(t("usersAdmin.roleConfirm", { name: user.name, role }))) return;
+    const result = await setPlatformRoleFn({
+      data: { email: user.email, role: role as "user" | "owner" | "manager" | "accountant" },
+    });
+    if (result.ok) refresh();
+  };
 
   const stamp = (iso: string) =>
     new Date(iso).toLocaleDateString(i18n.language, {
@@ -146,6 +141,8 @@ function Utilisateurs() {
           {t("usersAdmin.subtitle", { count: users.length })}
         </p>
       </header>
+
+      {isPlatformOwner && <GrantRolePanel onChanged={refresh} />}
 
       <section className="card-surface p-6">
         <div className="overflow-x-auto">
@@ -175,7 +172,21 @@ function Utilisateurs() {
                     </p>
                   </td>
                   <td className="py-2.5 pr-4">
-                    <RoleBadge role={user.platformRole} />
+                    {isPlatformOwner && user.email !== viewerEmail ? (
+                      <select
+                        aria-label={t("usersAdmin.platformRole")}
+                        value={user.platformRole}
+                        onChange={(e) => void changeRole(user, e.target.value)}
+                        className="h-8 rounded-md border border-input bg-background px-2 text-xs"
+                      >
+                        <option value="owner">{t("platformRoles.owner")}</option>
+                        <option value="manager">{t("platformRoles.manager")}</option>
+                        <option value="accountant">{t("platformRoles.accountant")}</option>
+                        <option value="user">{t("usersAdmin.revokeOption")}</option>
+                      </select>
+                    ) : (
+                      <RoleBadge role={user.platformRole} />
+                    )}
                   </td>
                   <td className="py-2.5 pr-4 text-muted-foreground">{user.workspaceName ?? "—"}</td>
                   <td className="py-2.5 pr-4 tabular-nums text-muted-foreground">
@@ -191,8 +202,6 @@ function Utilisateurs() {
           </table>
         </div>
       </section>
-
-      <AuditJournal />
     </div>
   );
 }

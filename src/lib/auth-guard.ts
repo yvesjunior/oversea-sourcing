@@ -4,7 +4,7 @@ import type { SessionData } from "@/lib/session-fns";
 
 /** Routes reachable without a session. Everything else is default-deny
  *  (doc/BACKLOG.md — public landing, auth-gated app). */
-const PUBLIC_PATHS = ["/", "/login", "/signup", "/mot-de-passe-oublie", "/reinitialiser"];
+const PUBLIC_PATHS = ["/", "/login", "/signup", "/mot-de-passe-oublie", "/reinitialiser", "/2fa"];
 // /invitation/$id is public by design (B3): the id is the capability, and the
 // invitee needs to see who invited them to what BEFORE having an account.
 const PUBLIC_PREFIXES = ["/api/", "/invitation/"];

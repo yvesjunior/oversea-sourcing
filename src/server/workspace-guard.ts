@@ -65,6 +65,8 @@ export async function requireWorkspaceRole(
   min: RequiredWorkspaceRole,
 ): Promise<{
   userId: string;
+  /** Name snapshot for audit rows — history must survive account deletion. */
+  userName: string;
   workspaceId: string;
   role: string;
   locale: string;
@@ -97,6 +99,7 @@ export async function requireWorkspaceRole(
   if (!membership) return null;
   return {
     userId: session.user.id,
+    userName: session.user.name,
     workspaceId,
     role: membership.role,
     locale: session.user.locale ?? "fr",

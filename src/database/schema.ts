@@ -37,8 +37,29 @@ export const user = pgTable("user", {
   /** Company name typed at an organisation signup (becomes the workspace
    *  name; kept as audit). */
   companyName: text("company_name"),
+  /** 2FA (E1, 2026-08-27) — flipped by the better-auth twoFactor plugin
+   *  only (enable → verify TOTP → true; disable → false). */
+  twoFactorEnabled: boolean("two_factor_enabled").notNull().default(false),
+  /** Personal accent theme (owner request 2026-08-27) — a key of THEMES in
+   *  src/lib/themes.ts; "gold" is the product default. */
+  themeColor: text("theme_color").notNull().default("gold"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+/** better-auth twoFactor plugin storage (E1, 2026-08-27): one row per user
+ *  with 2FA set up — the TOTP secret and hashed backup codes. Never read by
+ *  app code; the plugin owns it entirely. */
+export const twoFactor = pgTable("two_factor", {
+  id: text("id").primaryKey(),
+  secret: text("secret").notNull(),
+  backupCodes: text("backup_codes").notNull(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  verified: boolean("verified").notNull().default(true),
+  failedVerificationCount: integer("failed_verification_count").notNull().default(0),
+  lockedUntil: timestamp("locked_until"),
 });
 
 export const session = pgTable("session", {
@@ -490,12 +511,14 @@ export const auditLog = pgTable(
   {
     id: text("id").primaryKey(),
     at: timestamp("at").notNull().defaultNow(),
-    actorId: text("actor_id").references(() => user.id, { onDelete: "set null" }),
+    /** Deliberately NOT a foreign key (2026-08-27): the id must survive the
+     *  account's deletion so history stays filterable per user forever —
+     *  an FK's set-null erased exactly the trail the journal exists for. */
+    actorId: text("actor_id"),
     /** Snapshot — null only for system-initiated rows. */
     actorName: text("actor_name"),
-    organizationId: text("organization_id").references(() => organization.id, {
-      onDelete: "set null",
-    }),
+    /** Tombstone id, same rule as actor_id — survives workspace destruction. */
+    organizationId: text("organization_id"),
     organizationName: text("organization_name"),
     /** Dot-namespaced: account.deleted, workspace.destroyed, plan.assigned,
      *  supplier.verified, source.toggled, member.removed… */

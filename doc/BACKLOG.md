@@ -12,7 +12,7 @@
 | Epic | Scope | State |
 | --- | --- | --- |
 | **E0** Dev foundations | Postgres, Drizzle, pg-boss, seed | ✅ done |
-| **E1** Auth & users | better-auth, signup, guards, verification, reset | 🟡 2FA open; verification not enforced (deliberate) |
+| **E1** Auth & users | better-auth, signup, guards, verification, reset, **2FA (2026-08-27)** | 🟡 verification not enforced (deliberate) |
 | **E2** Workspaces & tenancy | Roles, invitations, team UI | ✅ Phase B (2026-08-23) — audit-log task open |
 | **E12** Plans & quotas | Full ladder, seats, trial cap, Abonnements | 🟡 billing provider open |
 | **E3** Request core loop | Pipeline, criteria, attachments, dossier | ✅ done |
@@ -23,7 +23,7 @@
 | **E8** Transactions | Milestones, tracking | 🔴 not started (no tables) |
 | **E9** Notifications | In-app + email | 🟡 bell, emitters, **prefs (2026-08-26)** live; E6 templates gated |
 | **E10** Admin surfaces | Verification, imports, ops queue | 🟡 **verification LIVE (S5b/S5c, 2026-08-26)**; imports/ops queue placeholders |
-| **E11** Settings | Profile, sourcing rules | 🟡 Paramètres + **notification prefs (2026-08-26)** live; password change / rename / deletion open |
+| **E11** Settings | Profile, sourcing rules | 🟡 Paramètres + notification prefs live; **password / 2FA / theme / rename (2026-08-27)** live; buyer Abonnement self-service waits for billing |
 
 **MVP1 = E0–E7 + E10.** Definition of done: a real buyer signs up, submits a real
 need, gets a real Top-N (researched + imported suppliers, scored), clicks
@@ -46,19 +46,69 @@ Backup first: `backups/osi-20260827-210338.sql.gz`. Three features:
   Org members were already sealed from org data in personal spaces (B1).
 - **The audit journal** (②i): `audit_log` (mig 0027, FK + name-snapshot
   double storage), emitter `src/server/audit.ts` (the one door), ~20
-  lifecycle/admin actions wired, viewer on /interne/utilisateurs
-  filterable PER ESPACE / PER UTILISATEUR.
+  lifecycle/admin actions wired, viewer filterable PER ESPACE / PER
+  UTILISATEUR — **moved 2026-08-27 to its own nav entry "Logging"
+  (`/interne/logging`, feature `logging`, owner/manager) with range
+  pagination (25/50/100 per page, offset+count server-side — the log is
+  never listed in one shot), cascading org→user filters, and
+  deletion-proof tracking (mig 0028: tombstone ids, no FKs; actor captured
+  on member.removed/.role_updated via a root after-hook)** — see ②i.
 - **Owner/manager split CLOSED** (②j): owner combines ALL rights;
   manager is operate-only (no plan editing/assignment, no source
   enable/disable, no wipe, no Finance). Enforced server-side.
 
-**Updated pick-up list (next session):** ① settings/account small gaps —
-password change in Profil · workspace rename (owner) · 2FA; ② cosmetic
-follow-ups — workspace badge refresh after invitation accept ·
-remove-member warning copy ("deletes their account") · platform-role
-grant should enroll into the OSI org; ③ S4 lazy enrichment (Phase S) when
+**Updated pick-up list (next session):** ① ~~settings/account small
+gaps~~ ✅ ALL DONE 2026-08-27 (②l below: password change · workspace
+rename · 2FA · personal theme color); ② ~~cosmetic follow-ups~~ ✅ DONE
+2026-08-27 (②l: badge refresh · remove-member warning copy · role grant
+enrolls into the OSI org); ③ S4 lazy enrichment (Phase S) when
 foundation feels done; ④ E6 facilitation stays LAST before financial
-features (owner priority). Prod = main = `d603dd7`; docs current.
+features (owner priority). Prod = main = `d603dd7` (deploy #5);
+**main now carries migrations 0028–0030** (audit tombstone ids · 2FA
+tables · theme color) — deploy on request. Docs current.
+
+②l **DONE 2026-08-27 — the foundation-gaps wave** (owner: "remaining
+foundation items, all small… 2fa can be enable on user profile · each
+user has a profile with parameters, personal info and this 2fa thing,
+with password · each user can define its own thematic color"):
+- **Profil is the personal hub now**: name/email/language + **password
+  change** (better-auth `/change-password`, other sessions revoked) +
+  **2FA** (better-auth `twoFactor` plugin, issuer OSI, migration 0029:
+  `two_factor` table + `user.two_factor_enabled`; enable = password →
+  secret + backup codes shown ONCE → a first TOTP code confirms; login
+  with 2FA on redirects to the public bare **/2fa** page — TOTP or
+  backup code; `twoFactorClient` in auth-client does the redirect) +
+  **personal theme color** (migration 0030 `user.theme_color`, 5
+  accents in `src/lib/themes.ts`; styles.css gradients/shadow now
+  derive from `--gold` via color-mix so ONE variable pair retheming
+  works; applied by __root from the session additionalField, saved via
+  updateProfileFn which purges the Redis session cache). *Live-verified:
+  emerald theme applied + survived navigation; password/2FA sections
+  render; the enable/verify password loop needs one manual pass.*
+  Known nuance: the internal workspace badge follows the personal
+  accent (the shield icon still marks it).
+- **Workspace rename** (`renameWorkspaceFn`, enterprise + owner only,
+  unique-name check, audited `workspace.renamed`) — a RenamePanel atop
+  the Organisation tab. *Live-verified as Camille, incl. the audit row.*
+- **Badge refresh** — WorkspaceSwitcher refetches on every navigation
+  (fixes stale badge after invitation accept) and on the
+  `osi:workspaces-changed` window event (fired by rename).
+  *Live-verified: rename updated the badge without a reload.*
+- **Remove-member warning copy** now states the UC-6 account deletion.
+- **Individual workspaces cannot invite** (owner rule 2026-08-27:
+  "individual account cannot invite member, only in a org"): the
+  Utilisateurs tab is hidden on individual workspaces (same treatment
+  as the Organisation tab), and `beforeCreateInvitation` refuses
+  `INVITE_NOT_ALLOWED_INDIVIDUAL` server-side so a direct endpoint call
+  cannot bypass it. *Live-verified: Buyer (individual) has no
+  Utilisateurs tab; Camille (enterprise) keeps it.*
+- **Platform-role grant UI** (`setPlatformRoleFn`, owner-EXCLUSIVE):
+  grant-by-email panel + per-row role select on /interne/utilisateurs;
+  granting **enrolls into the OSI org** (②b follow-up closed), revoking
+  removes that membership, re-points stale sessions and purges the
+  Redis session cache; audited `platform_role.updated` {from,to}.
+  *Live-verified: buyer@osi.dev granted accountant (role + membership +
+  audit) then revoked clean (membership gone, sessions re-pointed).*
 
 
 **One session changed the product's strategy AND its account model —
@@ -251,10 +301,31 @@ supplier.verified/.verification_revoked/.banned/.unbanned,
 source_record.banned/.unbanned, source.enabled/.disabled/
 .refresh_triggered/.store_wiped, sourcing.updated, org_profile.updated.
 (Requests keep their own request_event trail — the journal is lifecycle/
-admin actions.) **Viewer:** "Journal d'activité" on /interne/utilisateurs
-— latest 100, filter selects PER ESPACE and PER UTILISATEUR (options from
-the log itself), action labels via `auditActions.*` i18n with raw-code
-fallback, detail JSON in the tooltip. *Verified live:* source toggle
+admin actions.) **Viewer:** "Journal d'activité" — own nav entry
+**"Logging"** at `/interne/logging` since 2026-08-27 (feature `logging`,
+owner/manager; was a section of /interne/utilisateurs), **range-paginated**
+(25/50/100 rows per page, server-side offset + count — verified live with
+62 rows across two pages), filter selects PER ESPACE and PER UTILISATEUR
+(options from the log itself; **cascading since 2026-08-27** — choosing a
+workspace narrows the user list to ITS actors and resets the user choice),
+action labels via `auditActions.*` i18n with raw-code fallback, detail
+JSON in the tooltip.
+**Deletion-proof since 2026-08-27** (owner: "even when the user got
+deleted we should be able to track"): migration **0028 drops the audit_log
+FKs** — actor_id/organization_id are TOMBSTONE ids that survive account
+deletion and workspace destruction (the FK set-null was erasing exactly
+the trail the journal exists for), display coalesces live name → snapshot.
+Every emitter now writes BOTH name snapshots (`requireWorkspaceRole`
+returns `userName` for this). **member.removed / member.role_updated
+finally carry the ACTOR**: the org-plugin hooks never see the acting
+session, so those two rows are written by a root `hooks.after` in auth.ts
+(session via `getSessionFromCtx`), merged with what only the org hook can
+still read (previous role, target email — gone after the mutation) via the
+`stashAuditContext` seam in server/audit.ts. *Verified live:* Camille
+role-changed then removed Marc (UC-6 deleted his account) → both rows
+carry actor "Camille Tremblay" + org + his email; the org/user filters
+still list them. The stale-fetch race on rapid filter changes is also
+guarded (cancelled-effect flag). *Verified live:* source toggle
 on/off produced two rows with actor + target + timestamps; E2's
 "audit log on auth/membership mutations" is covered and checked off.
 ②h **DONE 2026-08-27 — staff powers follow the internal workspace** (owner

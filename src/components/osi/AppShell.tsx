@@ -4,7 +4,7 @@ import type { SessionData } from "@/lib/session-fns";
 import { AppSidebar } from "./AppSidebar";
 import { TopBar } from "./TopBar";
 
-const BARE_ROUTES = ["/login", "/signup"];
+const BARE_ROUTES = ["/login", "/signup", "/2fa"];
 
 export function AppShell({ session, children }: { session: SessionData; children: ReactNode }) {
   const pathname = useRouterState({ select: (r) => r.location.pathname });

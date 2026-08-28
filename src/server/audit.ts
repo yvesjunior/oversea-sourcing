@@ -41,3 +41,25 @@ export function actorOf(session: { user: { id: string; name: string } }): {
 } {
   return { actorId: session.user.id, actorName: session.user.name };
 }
+
+// ── Cross-hook context stash ─────────────────────────────────────────────────
+// better-auth's organizationHooks receive only the affected records — never
+// the acting session — while the root after-hook has the session but runs
+// after the mutation (the previous role is overwritten, a UC-6 removal has
+// already deleted the user). The org hook therefore stashes what only IT can
+// see, keyed by member id, and the after-hook (same request) picks it up to
+// write ONE audit row carrying both halves. Entries expire in case the
+// endpoint dies between the two.
+
+const auditStash = new Map<string, Record<string, unknown>>();
+
+export function stashAuditContext(key: string, value: Record<string, unknown>): void {
+  auditStash.set(key, value);
+  setTimeout(() => auditStash.delete(key), 30_000).unref?.();
+}
+
+export function takeAuditContext(key: string): Record<string, unknown> | undefined {
+  const value = auditStash.get(key);
+  auditStash.delete(key);
+  return value;
+}

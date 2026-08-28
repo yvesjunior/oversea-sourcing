@@ -9,7 +9,7 @@
 // re-scopes on the next call — the switch itself never carries data across.
 
 import { useEffect, useState } from "react";
-import { useRouter } from "@tanstack/react-router";
+import { useRouter, useRouterState } from "@tanstack/react-router";
 import { Building2, Check, ChevronsUpDown, ShieldCheck, User } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { authClient } from "@/lib/auth-client";
@@ -40,9 +40,18 @@ export function WorkspaceSwitcher() {
   const router = useRouter();
   const [workspaces, setWorkspaces] = useState<WorkspaceSummary[]>([]);
   const [switching, setSwitching] = useState(false);
+  const href = useRouterState({ select: (r) => r.location.href });
 
+  // Refetch on every navigation (an accepted invitation lands on "/" with a
+  // membership the mount-time fetch never saw) and on the explicit signal a
+  // same-page mutation sends (workspace rename).
   useEffect(() => {
     void getMyWorkspacesFn().then(setWorkspaces);
+  }, [href]);
+  useEffect(() => {
+    const refetch = () => void getMyWorkspacesFn().then(setWorkspaces);
+    window.addEventListener("osi:workspaces-changed", refetch);
+    return () => window.removeEventListener("osi:workspaces-changed", refetch);
   }, []);
 
   if (workspaces.length === 0) return null;

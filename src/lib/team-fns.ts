@@ -110,6 +110,7 @@ export const transferOwnershipFn = createServerFn({ method: "POST" })
     const { logAudit } = await import("@/server/audit");
     await logAudit({
       actorId: caller.userId,
+      actorName: caller.userName,
       organizationId: caller.workspaceId,
       organizationName: org?.name ?? null,
       action: "ownership.transferred",

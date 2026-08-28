@@ -637,7 +637,21 @@ facts a future session must not re-derive differently:
   email → link → `email_verified = true` + auto sign-in; forgot → logged
   reset email → link → new password → fresh login with it returned 200.
 
-**Platform roles are granted in the database, never at signup.** `platformRole`
+#### 2FA, password change & personal theme (2026-08-27)
+
+Paramètres → **Profil** is the personal hub: name/language, **password
+change** (better-auth `/change-password`, other sessions revoked), **2FA**
+(better-auth `twoFactor` plugin, issuer OSI — enable shows the TOTP secret +
+one-time backup codes and requires a first code before the flag flips; a
+2FA login lands on the public bare `/2fa` page), and a **personal accent
+theme** (5 palettes in `src/lib/themes.ts`; the stylesheet derives gradients
+and the accent shadow from `--gold` via color-mix, so a theme is one
+variable pair, applied by the root shell from the session).
+
+**Platform roles are granted from `/interne/utilisateurs` (owner-exclusive)
+or in the database — never at signup.** Granting through the UI also enrolls
+the person into the internal OSI workspace; revoking removes that membership
+and re-points their sessions (`setPlatformRoleFn`, audited). `platformRole`
 is declared `input: false`, so a signup payload cannot request it — otherwise
 anyone could register as platform owner:
 
@@ -1241,8 +1255,10 @@ erDiagram
 | `source_record`      | ✅ 2026-08-24 (Phase D, replaced `supplier_source`) — per-source stores of raw candidates: uq(source, dedup_key), candidate fields, payload, `supplier_id` null until **promotion**, status `active\|banned` |
 | `source_run`         | ✅ 2026-08-22 — audit of every collection: trigger `request\|admin`, counts, error (absorbs the planned `import_run`) |
 | `sourcing_rules`     | ✅ 2026-08-22 — activated sources + country origin per workspace; written by Paramètres → Préférences de sourcing (B5) |
+| `audit_log`          | ✅ 2026-08-27 — the activity journal: dot-namespaced action, actor/org stored as **tombstone ids + name snapshots** (no FKs since 0028 — history survives account deletion and workspace destruction); written only through `src/server/audit.ts`; viewer at `/interne/logging` |
+| `two_factor`         | ✅ 2026-08-27 — better-auth twoFactor plugin storage (TOTP secret + backup codes); enable/disable from Paramètres → Profil, login step at `/2fa` |
 
-**Not yet built:** `engagement`, `transaction`, `document`, `audit_log`, and
+**Not yet built:** `engagement`, `transaction`, `document`, and
 the supplier satellites (capabilities, certifications, contacts,
 **`supplier_partner`** — the Recommandé tier and the seam for the future
 supplier-side space). `notification` exists since E9 (2026-08-23).

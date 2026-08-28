@@ -28,12 +28,14 @@ import {
   destroyWorkspaceFn,
   getOrganizationProfileFn,
   getSettingsFn,
+  renameWorkspaceFn,
   updateOrganizationProfileFn,
   updateProfileFn,
   updateSourcingRulesFn,
   type OrganizationProfileData,
   type SettingsData,
 } from "@/lib/settings-fns";
+import { applyTheme, isThemeColor, THEME_KEYS, THEMES, type ThemeColor } from "@/lib/themes";
 
 export const Route = createFileRoute("/parametres")({
   head: () => ({ meta: [{ title: "Paramètres | OSI" }] }),
@@ -96,6 +98,64 @@ function DangerZone({ workspaceName, type }: { workspaceName: string; type: stri
         </Button>
       </div>
       {failed && <p className="mt-2 text-xs text-destructive">{t("settings.dangerFailed")}</p>}
+    </section>
+  );
+}
+
+/** Workspace rename (E2 gap closed 2026-08-27) — enterprise + owner only;
+ *  the top-bar badge refreshes through the osi:workspaces-changed signal. */
+function RenamePanel({ currentName, onRenamed }: { currentName: string; onRenamed: () => void }) {
+  const { t } = useTranslation();
+  const [name, setName] = useState(currentName);
+  const [busy, setBusy] = useState(false);
+  const [status, setStatus] = useState<"idle" | "done" | "taken" | "failed">("idle");
+
+  const rename = async () => {
+    setBusy(true);
+    setStatus("idle");
+    try {
+      const result = await renameWorkspaceFn({ data: { name: name.trim() } });
+      if (!result.ok) {
+        setStatus(result.error === "name_taken" ? "taken" : "failed");
+        return;
+      }
+      setStatus("done");
+      window.dispatchEvent(new Event("osi:workspaces-changed"));
+      onRenamed();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section className="card-surface max-w-xl space-y-3 p-6">
+      <p className="text-sm font-semibold">{t("settings.renameTitle")}</p>
+      <div className="flex flex-wrap items-center gap-2">
+        <Input
+          value={name}
+          onChange={(e) => {
+            setName(e.target.value);
+            setStatus("idle");
+          }}
+          className="h-9 max-w-xs"
+        />
+        <Button
+          size="sm"
+          disabled={busy || name.trim().length < 2 || name.trim() === currentName}
+          onClick={() => void rename()}
+        >
+          {t("settings.renameButton")}
+        </Button>
+        {status === "done" && (
+          <span className="text-xs text-emerald-600">{t("settings.savedShort")}</span>
+        )}
+        {status === "taken" && (
+          <span className="text-xs text-destructive">{t("settings.renameTaken")}</span>
+        )}
+        {status === "failed" && (
+          <span className="text-xs text-destructive">{t("settings.renameFailed")}</span>
+        )}
+      </div>
     </section>
   );
 }
@@ -267,20 +327,27 @@ function ProfilPanel({ data, onSaved }: { data: NonNullable<SettingsData>; onSav
   const { t, i18n } = useTranslation();
   const [name, setName] = useState(data.profile.name);
   const [locale, setLocale] = useState(data.profile.locale as "fr" | "en");
+  const [themeColor, setThemeColor] = useState<ThemeColor>(
+    isThemeColor(data.profile.themeColor) ? data.profile.themeColor : "gold",
+  );
   const [saving, setSaving] = useState(false);
   const [verifySent, setVerifySent] = useState(false);
-  const dirty = name !== data.profile.name || locale !== data.profile.locale;
+  const dirty =
+    name !== data.profile.name ||
+    locale !== data.profile.locale ||
+    themeColor !== data.profile.themeColor;
 
   const save = async () => {
     setSaving(true);
     try {
-      const result = await updateProfileFn({ data: { name, locale } });
+      const result = await updateProfileFn({ data: { name, locale, themeColor } });
       if (result.ok) {
         // The language toggle persists to localStorage; keep both in sync so
         // the next visit (any device: server value, this device: local) agrees.
         void i18n.changeLanguage(locale);
         window.localStorage.setItem(STORAGE_KEY, locale);
         document.documentElement.lang = locale;
+        applyTheme(themeColor);
         onSaved();
       }
     } finally {
@@ -329,9 +396,261 @@ function ProfilPanel({ data, onSaved }: { data: NonNullable<SettingsData>; onSav
           <option value="en">English</option>
         </select>
       </div>
+      <div className="grid gap-1.5">
+        <Label>{t("settings.themeColor")}</Label>
+        <div className="flex items-center gap-2">
+          {THEME_KEYS.map((key) => (
+            <button
+              key={key}
+              type="button"
+              title={THEMES[key].label}
+              aria-label={THEMES[key].label}
+              aria-pressed={themeColor === key}
+              onClick={() => setThemeColor(key)}
+              className={
+                "size-7 rounded-full border-2 transition-transform " +
+                (themeColor === key
+                  ? "scale-110 border-foreground"
+                  : "border-transparent hover:scale-105")
+              }
+              style={{ backgroundColor: THEMES[key].gold }}
+            />
+          ))}
+        </div>
+        <p className="text-xs text-muted-foreground">{t("settings.themeHint")}</p>
+      </div>
       <Button disabled={!dirty || saving} onClick={() => void save()}>
         {t("settings.save")}
       </Button>
+    </section>
+  );
+}
+
+/** Password change (E1 gap closed 2026-08-27) — better-auth's own endpoint;
+ *  other sessions are revoked on success. Google-only accounts have no
+ *  password credential and get the explanatory error. */
+function PasswordPanel() {
+  const { t } = useTranslation();
+  const [current, setCurrent] = useState("");
+  const [next, setNext] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [status, setStatus] = useState<"idle" | "done" | "wrong" | "failed">("idle");
+  const valid = current.length >= 1 && next.length >= 8 && next === confirm;
+
+  const change = async () => {
+    setBusy(true);
+    setStatus("idle");
+    try {
+      const result = await authClient.changePassword({
+        currentPassword: current,
+        newPassword: next,
+        revokeOtherSessions: true,
+      });
+      if (result.error) {
+        setStatus(result.error.status === 400 ? "wrong" : "failed");
+        return;
+      }
+      setStatus("done");
+      setCurrent("");
+      setNext("");
+      setConfirm("");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section className="card-surface max-w-xl space-y-4 p-6">
+      <p className="text-sm font-semibold">{t("settings.passwordTitle")}</p>
+      <div className="grid gap-1.5">
+        <Label htmlFor="pw-current">{t("settings.passwordCurrent")}</Label>
+        <Input
+          id="pw-current"
+          type="password"
+          autoComplete="current-password"
+          value={current}
+          onChange={(e) => setCurrent(e.target.value)}
+        />
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-1.5">
+          <Label htmlFor="pw-new">{t("settings.passwordNew")}</Label>
+          <Input
+            id="pw-new"
+            type="password"
+            autoComplete="new-password"
+            value={next}
+            onChange={(e) => setNext(e.target.value)}
+          />
+        </div>
+        <div className="grid gap-1.5">
+          <Label htmlFor="pw-confirm">{t("settings.passwordConfirm")}</Label>
+          <Input
+            id="pw-confirm"
+            type="password"
+            autoComplete="new-password"
+            value={confirm}
+            onChange={(e) => setConfirm(e.target.value)}
+          />
+        </div>
+      </div>
+      <div className="flex items-center gap-3">
+        <Button size="sm" disabled={!valid || busy} onClick={() => void change()}>
+          {t("settings.passwordSubmit")}
+        </Button>
+        {status === "done" && (
+          <span className="text-xs text-emerald-600">{t("settings.passwordDone")}</span>
+        )}
+        {status === "wrong" && (
+          <span className="text-xs text-destructive">{t("settings.passwordWrong")}</span>
+        )}
+        {status === "failed" && (
+          <span className="text-xs text-destructive">{t("settings.passwordFailed")}</span>
+        )}
+      </div>
+    </section>
+  );
+}
+
+/** 2FA (E1, 2026-08-27) — TOTP through the better-auth twoFactor plugin.
+ *  Enable: password → secret + backup codes shown ONCE → a first code
+ *  confirms before the account flips. Disable: password. */
+function TwoFactorPanel({ enabled, onChanged }: { enabled: boolean; onChanged: () => void }) {
+  const { t } = useTranslation();
+  const [password, setPassword] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const [setup, setSetup] = useState<{ secret: string; backupCodes: string[] } | null>(null);
+  const [code, setCode] = useState("");
+  const [confirmed, setConfirmed] = useState(false);
+
+  const begin = async () => {
+    setBusy(true);
+    setFailed(false);
+    try {
+      const result = await authClient.twoFactor.enable({ password });
+      if (result.error || !result.data) {
+        setFailed(true);
+        return;
+      }
+      const uri = new URL(result.data.totpURI);
+      setSetup({
+        secret: uri.searchParams.get("secret") ?? "",
+        backupCodes: result.data.backupCodes,
+      });
+      setPassword("");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const confirm = async () => {
+    setBusy(true);
+    setFailed(false);
+    try {
+      const result = await authClient.twoFactor.verifyTotp({ code: code.trim() });
+      if (result.error) {
+        setFailed(true);
+        return;
+      }
+      setConfirmed(true);
+      onChanged();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const disable = async () => {
+    setBusy(true);
+    setFailed(false);
+    try {
+      const result = await authClient.twoFactor.disable({ password });
+      if (result.error) {
+        setFailed(true);
+        return;
+      }
+      setPassword("");
+      onChanged();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section className="card-surface max-w-xl space-y-4 p-6">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-sm font-semibold">{t("settings.twofaTitle")}</p>
+        <span
+          className={
+            "rounded-full px-2 py-0.5 text-[10px] font-semibold " +
+            (enabled
+              ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
+              : "bg-secondary text-muted-foreground")
+          }
+        >
+          {t(enabled ? "settings.twofaOn" : "settings.twofaOff")}
+        </span>
+      </div>
+      <p className="text-xs text-muted-foreground">{t("settings.twofaHint")}</p>
+
+      {/* Setup in progress: secret + backup codes, then the confirming code. */}
+      {setup && !enabled && !confirmed ? (
+        <div className="space-y-3">
+          <div className="rounded-lg bg-secondary/60 p-3">
+            <p className="text-xs font-semibold">{t("settings.twofaSecretLabel")}</p>
+            <p className="mt-1 break-all font-mono text-sm">{setup.secret}</p>
+          </div>
+          <div className="rounded-lg bg-secondary/60 p-3">
+            <p className="text-xs font-semibold">{t("settings.twofaBackupLabel")}</p>
+            <p className="mt-1 text-xs text-muted-foreground">{t("settings.twofaBackupHint")}</p>
+            <div className="mt-2 grid grid-cols-2 gap-1 font-mono text-xs sm:grid-cols-3">
+              {setup.backupCodes.map((backupCode) => (
+                <span key={backupCode}>{backupCode}</span>
+              ))}
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Input
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              placeholder="123456"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              className="h-9 max-w-[160px]"
+            />
+            <Button size="sm" disabled={busy || !code.trim()} onClick={() => void confirm()}>
+              {t("settings.twofaConfirm")}
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex flex-wrap items-center gap-2">
+          <Input
+            type="password"
+            autoComplete="current-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder={t("settings.passwordCurrent")}
+            className="h-9 max-w-xs"
+          />
+          {enabled ? (
+            <Button
+              size="sm"
+              variant="destructive"
+              disabled={busy || !password}
+              onClick={() => void disable()}
+            >
+              {t("settings.twofaDisable")}
+            </Button>
+          ) : (
+            <Button size="sm" disabled={busy || !password} onClick={() => void begin()}>
+              {t("settings.twofaEnable")}
+            </Button>
+          )}
+        </div>
+      )}
+      {failed && <p className="text-xs text-destructive">{t("settings.twofaFailed")}</p>}
     </section>
   );
 }
@@ -787,20 +1106,29 @@ function Parametres() {
           <TabsTrigger value="notifications" className={TAB_TRIGGER}>
             {t("settings.tabNotifications")}
           </TabsTrigger>
-          {/* Owner-only content; the tab stays visible-but-disabled for other
-              roles (the app's disabled-not-hidden rule). */}
-          <TabsTrigger value="utilisateurs" className={TAB_TRIGGER} disabled={!isOwner}>
-            {t("settings.tabMembers")}
-          </TabsTrigger>
+          {/* Hidden on individual workspaces (one person by definition —
+              only organisations invite, 2026-08-27); within an organisation
+              the tab stays visible-but-disabled for non-owners (the app's
+              disabled-not-hidden rule). */}
+          {data.workspace.type !== "individual" && (
+            <TabsTrigger value="utilisateurs" className={TAB_TRIGGER} disabled={!isOwner}>
+              {t("settings.tabMembers")}
+            </TabsTrigger>
+          )}
         </TabsList>
         <TabsContent value="profil" className="mt-3 space-y-4">
           <ProfilPanel data={data} onSaved={refresh} />
+          <PasswordPanel />
+          <TwoFactorPanel enabled={data.profile.twoFactorEnabled} onChanged={refresh} />
           {data.workspace.type === "individual" && isOwner && (
             <DangerZone workspaceName={data.workspace.name} type={data.workspace.type} />
           )}
         </TabsContent>
         {data.workspace.type !== "individual" && (
           <TabsContent value="organisation" className="mt-3 space-y-4">
+            {isOwner && data.workspace.type === "enterprise" && (
+              <RenamePanel currentName={data.workspace.name} onRenamed={refresh} />
+            )}
             <OrganizationPanel isOwner={isOwner} />
             {/* Never offered on the internal OSI workspace (server refuses
                 it too) — owner decision 2026-08-26. */}
@@ -818,9 +1146,11 @@ function Parametres() {
         <TabsContent value="notifications" className="mt-3">
           <NotificationsPanel />
         </TabsContent>
-        <TabsContent value="utilisateurs" className="mt-3">
-          {isOwner && <MembersPanel data={data} onSaved={refresh} />}
-        </TabsContent>
+        {data.workspace.type !== "individual" && (
+          <TabsContent value="utilisateurs" className="mt-3">
+            {isOwner && <MembersPanel data={data} onSaved={refresh} />}
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );

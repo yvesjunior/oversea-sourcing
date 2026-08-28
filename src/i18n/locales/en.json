@@ -18,7 +18,8 @@
     "plans": "Subscriptions",
     "users": "Users",
     "sources": "Data sources",
-    "clients": "Customers"
+    "clients": "Customers",
+    "logging": "Logging"
   },
   "platformRoles": {
     "owner": "Platform owner",
@@ -61,7 +62,7 @@
     "transfer": "Transfer ownership",
     "transferConfirm": "Transfer workspace ownership to {{name}}? You will become a buyer.",
     "remove": "Remove",
-    "removeConfirm": "Remove {{name}} from the workspace? Their requests stay with the workspace.",
+    "removeConfirm": "Remove {{name}} from the workspace? Their requests stay with the workspace. Warning: if this is their only workspace, their account will be DELETED (they would have to register again).",
     "inviteTitle": "Invite or create a member",
     "invitePlaceholder": "colleague@company.com",
     "invite": "Invite",
@@ -84,6 +85,31 @@
     "notifEmail": "Email",
     "notifTransactional": "Account emails (address confirmation, password reset, invitations) are always sent.",
     "savedShort": "Saved ✓",
+    "themeColor": "Theme color",
+    "themeHint": "Your personal accent color — applied on all your devices.",
+    "passwordTitle": "Change password",
+    "passwordCurrent": "Current password",
+    "passwordNew": "New password (8+ characters)",
+    "passwordConfirm": "Confirm new password",
+    "passwordSubmit": "Change password",
+    "passwordDone": "Password changed ✓ — your other sessions were signed out.",
+    "passwordWrong": "Current password is incorrect.",
+    "passwordFailed": "Change failed (Google account without a password?).",
+    "twofaTitle": "Two-factor authentication (2FA)",
+    "twofaOn": "Enabled",
+    "twofaOff": "Disabled",
+    "twofaHint": "A code from your authenticator app (Google Authenticator, 1Password…) will be required at every sign-in.",
+    "twofaSecretLabel": "Secret key — enter it in your authenticator app",
+    "twofaBackupLabel": "Backup codes",
+    "twofaBackupHint": "Store them somewhere safe: they will never be shown again. Each works once.",
+    "twofaConfirm": "Confirm with a code",
+    "twofaEnable": "Enable 2FA",
+    "twofaDisable": "Disable 2FA",
+    "twofaFailed": "Failed — check the password or the code.",
+    "renameTitle": "Rename the workspace",
+    "renameButton": "Rename",
+    "renameTaken": "That organisation name is already taken.",
+    "renameFailed": "Rename failed.",
     "notifTypes": {
       "report_ready": "Report ready (a supplier search finished)",
       "invitation_accepted": "Invitation accepted (someone joined your workspace)"
@@ -133,7 +159,16 @@
     "usedToday": "24 h",
     "usedTotal": "Total",
     "joined": "Joined",
-    "verified": "Email verified"
+    "verified": "Email verified",
+    "grantTitle": "Grant a platform role",
+    "grantHint": "The person also joins the internal OSI workspace. Platform owner only.",
+    "grantButton": "Apply",
+    "grantDone": "Role applied ✓",
+    "grantNotFound": "No account with that address.",
+    "grantSelf": "You cannot change your own role.",
+    "grantFailed": "Applying the role failed.",
+    "roleConfirm": "Change {{name}}'s platform role to \"{{role}}\"?",
+    "revokeOption": "— Revoke (customer)"
   },
   "sourceNames": {
     "global_web": "Global Web",
@@ -735,6 +770,13 @@
   },
   "auditAdmin": {
     "title": "Activity journal",
+    "subtitle": "Every lifecycle and admin action — per workspace, per user.",
+    "rowsPerPage": "Rows:",
+    "range": "{{from}}–{{to}} of {{total}}",
+    "prev": "Previous",
+    "next": "Next",
+    "fromDate": "From",
+    "toDate": "To",
     "filterOrg": "Workspace",
     "filterActor": "User",
     "allOrgs": "All workspaces",
@@ -768,6 +810,19 @@
     "source.refresh_triggered": "Source refresh triggered",
     "source.store_wiped": "Source store wiped",
     "sourcing.updated": "Sourcing preferences updated",
-    "org_profile.updated": "Organisation profile updated"
+    "org_profile.updated": "Organisation profile updated",
+    "workspace.renamed": "Workspace renamed",
+    "platform_role.updated": "Platform role changed"
+  },
+  "twofa": {
+    "title": "Two-step verification",
+    "body": "Enter the code from your authenticator app.",
+    "bodyBackup": "Enter one of your backup codes (single use).",
+    "codeLabel": "6-digit code",
+    "backupLabel": "Backup code",
+    "submit": "Verify",
+    "failed": "Invalid code — try again.",
+    "useBackup": "Use a backup code",
+    "useTotp": "Use the authenticator app"
   }
 }
