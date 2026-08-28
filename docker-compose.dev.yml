@@ -24,6 +24,9 @@ services:
       # topology as prod. Fail-open by design (src/server/kv.ts), so web has no
       # hard dependency on it — a dead Redis degrades, never blocks login.
       - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+      # Email-verification enforcement is prod-only (owner, 2026-08-28):
+      # dev accounts are throwaways with no inbox. Default (unset) = enforced.
+      - REQUIRE_EMAIL_VERIFICATION=${REQUIRE_EMAIL_VERIFICATION:-false}
     ports:
       # Same host port as prod (3010). Vite binds 8080 inside the container
       # (Lovable sandbox config) — only the host mapping changes.

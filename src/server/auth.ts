@@ -62,7 +62,10 @@ export const auth = betterAuth({
     // the verification email on the blocked attempt, so pre-enforcement
     // accounts self-heal at their next login. This also closes the
     // free-tier multi-account hole (E12): a trial now costs a real inbox.
-    requireEmailVerification: true,
+    // Default ON (prod-safe); dev opts out (owner: "not for dev" —
+    // REQUIRE_EMAIL_VERIFICATION=false in docker-compose.dev.yml, throwaway
+    // accounts must not need an inbox).
+    requireEmailVerification: process.env["REQUIRE_EMAIL_VERIFICATION"] !== "false",
     // E1 (2026-08-23): password reset by email. The request endpoint answers
     // the same whether the account exists or not (no enumeration), and
     // /forget-password… — request-password-reset is rate limited below.

@@ -142,7 +142,10 @@ VERIFY"):
   the picker's `accept` filter) — they were stored but unreadable, a
   silent lie to the buyer. Re-allow only with a real reader. Readable
   today: PDF, images, TXT, CSV.
-- **Email verification ENFORCED at login** (`requireEmailVerification`
+- **Email verification ENFORCED at login — PROD-ONLY** (owner
+  follow-up: "not for dev" — `REQUIRE_EMAIL_VERIFICATION`, default
+  enforced; docker-compose.dev.yml sets `false`, dev-verified: an
+  unverified account signs straight in) (`requireEmailVerification`
   + `sendOnSignIn` — a blocked attempt re-sends the link, so
   pre-enforcement accounts self-heal). AuthForm: dedicated
   EMAIL_NOT_VERIFIED message (form + quick-login) and a post-signup
