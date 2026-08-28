@@ -126,8 +126,15 @@ features (owner priority). ~~Prod = main = `d603dd7` (deploy #5)~~ —
 **SUPERSEDED: deploys #6 (`67b4b5d`, migs 0028–0030) and #7
 (`31f8a4c`) shipped 2026-08-27; see the 2026-08-27/28 digest above.**
 
-②n **DONE 2026-08-28 (uncommitted) — staff access is DATA: the Rôles &
-accès matrix** (owner pivot: "maybe it should be a role table where we
+②n **DONE 2026-08-28 — staff access is DATA: the Rôles & accès matrix —
+DEPLOYED as #8 (commit `49d6521`, migration 0031; backup
+`backups/osi-20260828-103953.sql.gz`; verified: origin 200, VM on
+`49d6521`, 24 matrix rows seeded, the owner's four manager grants
+re-applied on prod + audited). Also on prod the same day: Henrik
+Bergeron and Renaud Lacoursiere Theroux granted MANAGER (role + OSI-org
+enrollment + audit rows, by SQL on owner request — effective at their
+next sign-in; their personal workspaces stay on Free, the known E12
+item).** (owner pivot: "maybe it should be a role table where we
 can track/activate access for those staff roles, create sub tab in user
 page"):
 - **`platform_permission` table (migration 0031)**: one row per
