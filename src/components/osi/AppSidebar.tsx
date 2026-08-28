@@ -20,7 +20,8 @@ import {
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { authClient } from "@/lib/auth-client";
-import { hasPlatformFeature, type PlatformFeature, type PlatformRole } from "@/lib/roles";
+import { hasSessionFeature } from "@/lib/auth-guard";
+import { type PlatformFeature } from "@/lib/roles";
 import type { SessionData } from "@/lib/session-fns";
 import { cn } from "@/lib/utils";
 
@@ -28,12 +29,11 @@ type NavItem = {
   key: string;
   url: string;
   icone: typeof Home;
-  /** Hidden entirely unless the platform role has this feature. */
+  /** Hidden entirely unless the session's permission set has this feature
+   *  (the Rôles & accès matrix since 2026-08-28). */
   feature?: PlatformFeature;
   /** Shown but greyed and unclickable — the feature exists, it has no data yet. */
   disabled?: boolean;
-  /** Greyed for these platform roles only. Anonymous visitors count as "user". */
-  disabledForRoles?: readonly PlatformRole[];
 };
 
 const items: NavItem[] = [
@@ -51,27 +51,20 @@ const items: NavItem[] = [
   { key: "parametres", url: "/parametres", icone: Settings },
 ];
 
-// Employee features — same dashboard, extra entries per platform role.
-// The ops surfaces are still placeholders, so they are greyed for managers
-// rather than linking to empty pages; the entries stay visible so the role
-// can see what is coming.
+// Employee features — same dashboard, extra entries per the Rôles & accès
+// matrix (2026-08-28): a granted feature is a live link, an ungranted one is
+// hidden. The old per-role greying went with the hardcoded grants.
 const itemsInterne: {
   key: PlatformFeature;
   url: string;
   icone: typeof Home;
-  disabledForRoles?: readonly PlatformRole[];
 }[] = [
-  {
-    key: "facilitation",
-    url: "/interne/facilitation",
-    icone: Handshake,
-    disabledForRoles: ["manager"],
-  },
+  { key: "facilitation", url: "/interne/facilitation", icone: Handshake },
   // Real screen since S5c (2026-08-26) — live for managers too.
   { key: "verification", url: "/interne/verification", icone: ShieldCheck },
   // Customer accounts (individual vs organisation), 2026-08-26.
   { key: "clients", url: "/interne/clients", icone: Briefcase },
-  { key: "finance", url: "/interne/finance", icone: Wallet, disabledForRoles: ["manager"] },
+  { key: "finance", url: "/interne/finance", icone: Wallet },
   // Real screen, not a placeholder — so it stays live for managers.
   { key: "plans", url: "/interne/plans", icone: CreditCard },
   // Platform user management: accounts, roles, plan assignment (2026-08-23).
@@ -103,14 +96,11 @@ export function AppSidebar({
   const { t } = useTranslation();
   const router = useRouter();
   const pathname = useRouterState({ select: (r) => r.location.pathname });
-  const platformRole = (session?.user as { platformRole?: string } | undefined)?.platformRole;
-  const role = (platformRole ?? "user") as PlatformRole;
   const itemsVisible = items.filter(
-    (item) => !item.feature || hasPlatformFeature(platformRole, item.feature),
+    (item) => !item.feature || hasSessionFeature(session, item.feature),
   );
-  const isDisabled = (item: { disabled?: boolean; disabledForRoles?: readonly PlatformRole[] }) =>
-    item.disabled === true || (item.disabledForRoles?.includes(role) ?? false);
-  const interneVisible = itemsInterne.filter((item) => hasPlatformFeature(platformRole, item.key));
+  const isDisabled = (item: { disabled?: boolean }) => item.disabled === true;
+  const interneVisible = itemsInterne.filter((item) => hasSessionFeature(session, item.key));
 
   const seDeconnecter = async () => {
     await authClient.signOut();
@@ -178,20 +168,6 @@ export function AppSidebar({
               const actif = pathname.startsWith(item.url);
               const rowBase =
                 "flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-colors";
-
-              if (isDisabled(item)) {
-                return (
-                  <span
-                    key={item.url}
-                    aria-disabled="true"
-                    title={t("nav.soon")}
-                    className={cn(rowBase, "cursor-not-allowed text-sidebar-foreground/30")}
-                  >
-                    <item.icone className="size-[18px] shrink-0" />
-                    <span className="truncate">{t(`nav.${item.key}`)}</span>
-                  </span>
-                );
-              }
 
               return (
                 <Link

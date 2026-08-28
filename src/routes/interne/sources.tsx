@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CountryTag } from "@/components/osi/CountryTag";
-import { requirePlatformFeature } from "@/lib/auth-guard";
+import { hasSessionFeature, requirePlatformFeature } from "@/lib/auth-guard";
 import { isDynamicSource } from "@/lib/source-kind";
 import {
   getSourceAdminFn,
@@ -513,8 +513,8 @@ function Sources() {
   const router = useRouter();
   const { session } = Route.useRouteContext();
   const sources = Route.useLoaderData();
-  const isPlatformOwner =
-    (session?.user as { platformRole?: string } | undefined)?.platformRole === "owner";
+  const canToggle = hasSessionFeature(session, "sources.toggle");
+  const canWipe = hasSessionFeature(session, "sources.wipe");
   const [selectedId, setSelectedId] = useState<string | null>(sources[0]?.id ?? null);
   const [detail, setDetail] = useState<SourceDetailView | null>(null);
   // Store browser: committed search + page + page size, reset on tab change.
@@ -656,9 +656,9 @@ function Sources() {
                   </p>
                 </div>
                 <span className="flex items-center gap-3">
-                  {/* Enable/disable is configuration → platform OWNER only
-                      (2026-08-27); managers see the state, not the switch. */}
-                  {isPlatformOwner ? (
+                  {/* Enable/disable follows the Rôles & accès matrix
+                      (sources.toggle) — the ungranted see the state only. */}
+                  {canToggle ? (
                     <label className="flex items-center gap-2 text-xs text-muted-foreground">
                       {t("sourcesAdmin.enabled")}
                       <Switch
@@ -674,7 +674,7 @@ function Sources() {
                       {source.enabled ? t("sourcesAdmin.enabled") : t("sourcesAdmin.disabled")}
                     </span>
                   )}
-                  {isPlatformOwner && (source.storeActive > 0 || source.storeBanned > 0) && (
+                  {canWipe && (source.storeActive > 0 || source.storeBanned > 0) && (
                     <WipeButton source={source} onDone={refresh} />
                   )}
                 </span>

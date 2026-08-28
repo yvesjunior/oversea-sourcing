@@ -218,6 +218,13 @@
       "when": 1787883041280,
       "tag": "0030_real_wrecker",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1787924720716,
+      "tag": "0031_sloppy_norrin_radd",
+      "breakpoints": true
     }
   ]
 }

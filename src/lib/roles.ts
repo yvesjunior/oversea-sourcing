@@ -1,6 +1,15 @@
 // One dashboard for everyone — features are added/removed by role
-// (decided 2026-08-04, doc/BACKLOG.md). This file is the single source of
-// truth for which platform role unlocks which employee feature.
+// (decided 2026-08-04, doc/BACKLOG.md).
+//
+// Since 2026-08-28 (owner request) staff access is DATA: the
+// `platform_permission` table says what MANAGER and ACCOUNTANT may do,
+// editable live from /interne/utilisateurs → Rôles & accès. The maps below
+// are the DEFAULTS (used to seed the table and as the fallback for a key
+// with no row). The platform OWNER always has everything — hardcoded, never
+// a row, so the permission system cannot lock out its own owner. Role
+// granting itself is owner-only forever (never in the table). Server-side
+// resolution lives in src/server/permissions.ts; the session ships the
+// resolved set for client gating.
 
 export type PlatformRole = "user" | "owner" | "manager" | "accountant";
 
@@ -24,6 +33,30 @@ export const PLATFORM_FEATURES = {
 } as const satisfies Record<string, readonly PlatformRole[]>;
 
 export type PlatformFeature = keyof typeof PLATFORM_FEATURES;
+
+/** Fine-grained capabilities inside a feature — same permission machinery,
+ *  finer key. Defaults mirror the ②j owner/manager split. */
+export const PLATFORM_CAPABILITIES = {
+  "sources.toggle": [],
+  "sources.wipe": [],
+  "logging.purge": [],
+} as const satisfies Record<string, readonly PlatformRole[]>;
+
+export type PermissionKey = PlatformFeature | keyof typeof PLATFORM_CAPABILITIES;
+
+export const PERMISSION_KEYS = [
+  ...(Object.keys(PLATFORM_FEATURES) as PlatformFeature[]),
+  ...(Object.keys(PLATFORM_CAPABILITIES) as (keyof typeof PLATFORM_CAPABILITIES)[]),
+] as PermissionKey[];
+
+/** The default grant for a key when the table has no row (fresh feature). */
+export function defaultGrant(key: PermissionKey, role: PlatformRole): boolean {
+  const grants: readonly PlatformRole[] =
+    key in PLATFORM_FEATURES
+      ? PLATFORM_FEATURES[key as PlatformFeature]
+      : PLATFORM_CAPABILITIES[key as keyof typeof PLATFORM_CAPABILITIES];
+  return grants.includes(role);
+}
 
 export function isEmployee(role: string | undefined): boolean {
   return role === "owner" || role === "manager" || role === "accountant";

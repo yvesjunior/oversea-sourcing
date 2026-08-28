@@ -2,12 +2,19 @@
 // 2026-08-27: customer people belong to their own workspace; customer
 // ACCOUNTS + plan assignment live on /interne/clients).
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { requirePlatformFeature } from "@/lib/auth-guard";
+import {
+  getPermissionMatrixFn,
+  updatePermissionFn,
+  type PermissionMatrix,
+} from "@/lib/permission-fns";
 import { getPlatformUsersFn, setPlatformRoleFn, type PlatformUserView } from "@/lib/user-admin-fns";
 
 export const Route = createFileRoute("/interne/utilisateurs")({
@@ -108,6 +115,85 @@ function GrantRolePanel({ onChanged }: { onChanged: () => void }) {
   );
 }
 
+/** Rôles & accès (owner request 2026-08-28) — what each STAFF role may do,
+ *  as live switches. The owner column is not here on purpose: the owner
+ *  always has everything, so the matrix cannot lock its own editor out. */
+function RolesAccessPanel() {
+  const { t } = useTranslation();
+  const [matrix, setMatrix] = useState<PermissionMatrix>(null);
+  const [busyKey, setBusyKey] = useState<string | null>(null);
+
+  useEffect(() => {
+    void getPermissionMatrixFn().then(setMatrix);
+  }, []);
+
+  if (!matrix) return <p className="text-sm text-muted-foreground">…</p>;
+
+  const toggle = async (feature: string, role: "manager" | "accountant", enabled: boolean) => {
+    setBusyKey(`${role}:${feature}`);
+    try {
+      const result = await updatePermissionFn({ data: { feature, role, enabled } });
+      if (result.ok) {
+        setMatrix((current) =>
+          current
+            ? {
+                ...current,
+                grants: {
+                  ...current.grants,
+                  [role]: { ...current.grants[role], [feature]: enabled },
+                },
+              }
+            : current,
+        );
+      }
+    } finally {
+      setBusyKey(null);
+    }
+  };
+
+  return (
+    <section className="card-surface p-6">
+      <p className="text-sm font-semibold">{t("permissions.title")}</p>
+      <p className="mt-1 text-xs text-muted-foreground">{t("permissions.hint")}</p>
+      <div className="mt-4 overflow-x-auto">
+        <table className="w-full min-w-[560px] text-sm">
+          <thead>
+            <tr className="border-b border-border text-left text-xs text-muted-foreground">
+              <th className="pb-2 pr-4 font-medium">{t("permissions.capability")}</th>
+              <th className="pb-2 pr-4 font-medium">{t("platformRoles.owner")}</th>
+              <th className="pb-2 pr-4 font-medium">{t("platformRoles.manager")}</th>
+              <th className="pb-2 font-medium">{t("platformRoles.accountant")}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {matrix.keys.map((key) => (
+              <tr key={key} className="border-b border-border/60">
+                <td className="py-2.5 pr-4">
+                  {t(`permissions.keys.${key}`, { defaultValue: key })}
+                </td>
+                <td className="py-2.5 pr-4 text-xs text-muted-foreground">
+                  {t("permissions.always")}
+                </td>
+                {(["manager", "accountant"] as const).map((role) => (
+                  <td key={role} className="py-2.5 pr-4">
+                    <Switch
+                      checked={matrix.grants[role][key] ?? false}
+                      disabled={busyKey === `${role}:${key}`}
+                      aria-label={`${t(`permissions.keys.${key}`, { defaultValue: key })} — ${t(`platformRoles.${role}`)}`}
+                      onCheckedChange={(enabled) => void toggle(key, role, enabled)}
+                    />
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="mt-3 text-xs text-muted-foreground">{t("permissions.note")}</p>
+    </section>
+  );
+}
+
 function Utilisateurs() {
   const { t, i18n } = useTranslation();
   const { users } = Route.useLoaderData();
@@ -142,66 +228,89 @@ function Utilisateurs() {
         </p>
       </header>
 
-      {isPlatformOwner && <GrantRolePanel onChanged={refresh} />}
+      <Tabs defaultValue="equipe">
+        {isPlatformOwner && (
+          <TabsList>
+            <TabsTrigger value="equipe" className="py-1">
+              {t("usersAdmin.tabTeam")}
+            </TabsTrigger>
+            <TabsTrigger value="acces" className="py-1">
+              {t("usersAdmin.tabAccess")}
+            </TabsTrigger>
+          </TabsList>
+        )}
+        <TabsContent value="equipe" className="mt-3 space-y-6">
+          {isPlatformOwner && <GrantRolePanel onChanged={refresh} />}
 
-      <section className="card-surface p-6">
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[760px] text-sm">
-            <thead>
-              <tr className="border-b border-border text-left text-xs text-muted-foreground">
-                <th className="pb-2 pr-4 font-medium">{t("usersAdmin.user")}</th>
-                <th className="pb-2 pr-4 font-medium">{t("usersAdmin.platformRole")}</th>
-                <th className="pb-2 pr-4 font-medium">{t("usersAdmin.workspace")}</th>
-                <th className="pb-2 pr-4 font-medium">{t("usersAdmin.usedToday")}</th>
-                <th className="pb-2 pr-4 font-medium">{t("usersAdmin.usedTotal")}</th>
-                <th className="pb-2 font-medium">{t("usersAdmin.joined")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {users.map((user: PlatformUserView) => (
-                <tr key={user.userId} className="border-b border-border/60">
-                  <td className="py-2.5 pr-4">
-                    <p className="font-medium">{user.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {user.email}
-                      {user.emailVerified && (
-                        <span className="ml-1 text-gold" title={t("usersAdmin.verified")}>
-                          ✓
-                        </span>
-                      )}
-                    </p>
-                  </td>
-                  <td className="py-2.5 pr-4">
-                    {isPlatformOwner && user.email !== viewerEmail ? (
-                      <select
-                        aria-label={t("usersAdmin.platformRole")}
-                        value={user.platformRole}
-                        onChange={(e) => void changeRole(user, e.target.value)}
-                        className="h-8 rounded-md border border-input bg-background px-2 text-xs"
-                      >
-                        <option value="owner">{t("platformRoles.owner")}</option>
-                        <option value="manager">{t("platformRoles.manager")}</option>
-                        <option value="accountant">{t("platformRoles.accountant")}</option>
-                        <option value="user">{t("usersAdmin.revokeOption")}</option>
-                      </select>
-                    ) : (
-                      <RoleBadge role={user.platformRole} />
-                    )}
-                  </td>
-                  <td className="py-2.5 pr-4 text-muted-foreground">{user.workspaceName ?? "—"}</td>
-                  <td className="py-2.5 pr-4 tabular-nums text-muted-foreground">
-                    {user.usedToday}
-                  </td>
-                  <td className="py-2.5 pr-4 tabular-nums text-muted-foreground">
-                    {user.usedTotal}
-                  </td>
-                  <td className="py-2.5 text-xs text-muted-foreground">{stamp(user.createdAt)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
+          <section className="card-surface p-6">
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[760px] text-sm">
+                <thead>
+                  <tr className="border-b border-border text-left text-xs text-muted-foreground">
+                    <th className="pb-2 pr-4 font-medium">{t("usersAdmin.user")}</th>
+                    <th className="pb-2 pr-4 font-medium">{t("usersAdmin.platformRole")}</th>
+                    <th className="pb-2 pr-4 font-medium">{t("usersAdmin.workspace")}</th>
+                    <th className="pb-2 pr-4 font-medium">{t("usersAdmin.usedToday")}</th>
+                    <th className="pb-2 pr-4 font-medium">{t("usersAdmin.usedTotal")}</th>
+                    <th className="pb-2 font-medium">{t("usersAdmin.joined")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {users.map((user: PlatformUserView) => (
+                    <tr key={user.userId} className="border-b border-border/60">
+                      <td className="py-2.5 pr-4">
+                        <p className="font-medium">{user.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {user.email}
+                          {user.emailVerified && (
+                            <span className="ml-1 text-gold" title={t("usersAdmin.verified")}>
+                              ✓
+                            </span>
+                          )}
+                        </p>
+                      </td>
+                      <td className="py-2.5 pr-4">
+                        {isPlatformOwner && user.email !== viewerEmail ? (
+                          <select
+                            aria-label={t("usersAdmin.platformRole")}
+                            value={user.platformRole}
+                            onChange={(e) => void changeRole(user, e.target.value)}
+                            className="h-8 rounded-md border border-input bg-background px-2 text-xs"
+                          >
+                            <option value="owner">{t("platformRoles.owner")}</option>
+                            <option value="manager">{t("platformRoles.manager")}</option>
+                            <option value="accountant">{t("platformRoles.accountant")}</option>
+                            <option value="user">{t("usersAdmin.revokeOption")}</option>
+                          </select>
+                        ) : (
+                          <RoleBadge role={user.platformRole} />
+                        )}
+                      </td>
+                      <td className="py-2.5 pr-4 text-muted-foreground">
+                        {user.workspaceName ?? "—"}
+                      </td>
+                      <td className="py-2.5 pr-4 tabular-nums text-muted-foreground">
+                        {user.usedToday}
+                      </td>
+                      <td className="py-2.5 pr-4 tabular-nums text-muted-foreground">
+                        {user.usedTotal}
+                      </td>
+                      <td className="py-2.5 text-xs text-muted-foreground">
+                        {stamp(user.createdAt)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </TabsContent>
+        {isPlatformOwner && (
+          <TabsContent value="acces" className="mt-3">
+            <RolesAccessPanel />
+          </TabsContent>
+        )}
+      </Tabs>
     </div>
   );
 }

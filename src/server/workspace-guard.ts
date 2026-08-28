@@ -145,3 +145,13 @@ export async function assertSeatAvailable(
     throw new APIError("FORBIDDEN", { message: "SEAT_LIMIT_REACHED" });
   }
 }
+
+/** One-call permission check for server fns (2026-08-28): effective role →
+ *  the Rôles & accès matrix (owner always passes; see server/permissions.ts). */
+export async function effectiveHasPermission(
+  session: Parameters<typeof effectivePlatformRole>[0],
+  permission: import("@/lib/roles").PermissionKey,
+): Promise<boolean> {
+  const { roleHasPermission } = await import("@/server/permissions");
+  return roleHasPermission(await effectivePlatformRole(session), permission);
+}

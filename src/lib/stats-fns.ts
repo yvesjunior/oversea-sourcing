@@ -141,13 +141,13 @@ const EMPTY_ANALYTICS: AnalyticsData = {
  *  aggregate — metrics without a table are returned as null, never invented. */
 export const getAnalyticsFn = createServerFn({ method: "GET" }).handler(
   async (): Promise<AnalyticsData> => {
-    const [{ auth }, { getRequest }, { hasPlatformFeature }] = await Promise.all([
+    const [{ auth }, { getRequest }] = await Promise.all([
       import("@/server/auth"),
       import("@tanstack/react-start/server"),
-      import("@/lib/roles"),
     ]);
     const session = await auth.api.getSession({ headers: getRequest().headers });
-    if (!session || !hasPlatformFeature(session.user.platformRole, "analytics")) {
+    const { effectiveHasPermission } = await import("@/server/workspace-guard");
+    if (!session || !(await effectiveHasPermission(session, "analytics"))) {
       return EMPTY_ANALYTICS;
     }
 

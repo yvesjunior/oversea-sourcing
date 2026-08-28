@@ -671,10 +671,18 @@ control) · `manager` (ops) · `accountant` (finance) · `user` (regular buyer,
 default).
 
 **One dashboard for everyone** — there is no separate admin app. Every user gets
-the same shell; features are added or removed by role, mapped in
-[`src/lib/roles.ts`](src/lib/roles.ts). Buyers see their own workspace only;
-`owner`/`manager` see all sourcing dossiers; `accountant` is **forbidden** from
-buyers' dossiers — their domain is finance.
+the same shell. **Staff access is DATA since 2026-08-28**: what `manager` and
+`accountant` may do lives in the `platform_permission` table (migration 0031),
+toggled live by the platform owner from `/interne/utilisateurs` → **Rôles &
+accès** (12 capabilities: the 9 features + source toggle, store wipe, journal
+purge; every flip audited). The **owner always has everything** — hardcoded,
+never a row, so the matrix cannot lock out its own editor — and **role
+granting stays owner-only forever**. [`src/lib/roles.ts`](src/lib/roles.ts)
+holds the keys and the fallback defaults; `src/server/permissions.ts` resolves
+(30s cache); the session ships the resolved set so nav and route guards follow
+automatically, while server fns re-check per call. Buyers see their own
+workspace only; `owner`/`manager` see all sourcing dossiers; `accountant` is
+**forbidden** from buyers' dossiers — their domain is finance.
 
 Employee surfaces split into **"Vue globale"** / **"Mes données"** via the shared
 `EmployeeTabs` component.

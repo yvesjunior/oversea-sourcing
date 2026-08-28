@@ -47,16 +47,15 @@ export type VerificationQueueRow = {
 
 /** owner|manager only — same feature gate as the route (roles.ts). */
 async function requireVerificationStaff() {
-  const [{ auth }, { getRequest }, { hasPlatformFeature }] = await Promise.all([
+  const [{ auth }, { getRequest }] = await Promise.all([
     import("@/server/auth"),
     import("@tanstack/react-start/server"),
-    import("@/lib/roles"),
   ]);
   const session = await auth.api.getSession({ headers: getRequest().headers });
   if (!session) return null;
   // Staff powers only from the internal workspace (2026-08-27).
-  const { effectivePlatformRole } = await import("@/server/workspace-guard");
-  if (!hasPlatformFeature(await effectivePlatformRole(session), "verification")) return null;
+  const { effectiveHasPermission } = await import("@/server/workspace-guard");
+  if (!(await effectiveHasPermission(session, "verification"))) return null;
   return session;
 }
 

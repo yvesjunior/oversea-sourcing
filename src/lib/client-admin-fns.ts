@@ -20,16 +20,15 @@ export type CustomerAccountView = {
 
 export const getCustomerAccountsFn = createServerFn({ method: "GET" }).handler(
   async (): Promise<CustomerAccountView[]> => {
-    const [{ auth }, { getRequest }, { hasPlatformFeature }] = await Promise.all([
+    const [{ auth }, { getRequest }] = await Promise.all([
       import("@/server/auth"),
       import("@tanstack/react-start/server"),
-      import("@/lib/roles"),
     ]);
     const session = await auth.api.getSession({ headers: getRequest().headers });
     if (!session) return [];
     // Staff powers only from the internal workspace (2026-08-27).
-    const { effectivePlatformRole } = await import("@/server/workspace-guard");
-    if (!hasPlatformFeature(await effectivePlatformRole(session), "clients")) return [];
+    const { effectiveHasPermission } = await import("@/server/workspace-guard");
+    if (!(await effectiveHasPermission(session, "clients"))) return [];
 
     const [{ db }, { desc, ne, sql }, schema] = await Promise.all([
       import("@/database"),

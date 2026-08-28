@@ -126,6 +126,40 @@ features (owner priority). ~~Prod = main = `d603dd7` (deploy #5)~~ —
 **SUPERSEDED: deploys #6 (`67b4b5d`, migs 0028–0030) and #7
 (`31f8a4c`) shipped 2026-08-27; see the 2026-08-27/28 digest above.**
 
+②n **DONE 2026-08-28 (uncommitted) — staff access is DATA: the Rôles &
+accès matrix** (owner pivot: "maybe it should be a role table where we
+can track/activate access for those staff roles, create sub tab in user
+page"):
+- **`platform_permission` table (migration 0031)**: one row per
+  capability × staff role (manager | accountant), seeded with the
+  pre-2026-08-28 hardcoded behavior. Keys = the 9 nav features + 3
+  fine-grained capabilities (`sources.toggle`, `sources.wipe`,
+  `logging.purge`). **The OWNER is never a row — always has everything
+  (no self-lockout); role granting stays owner-only hardcoded forever**
+  (a manager who can grant roles can promote himself).
+- **Resolution**: `src/server/permissions.ts` (30s in-process cache,
+  busted on update; missing row falls back to the roles.ts defaults).
+  Server fns check via `effectiveHasPermission(session, key)`
+  (workspace-guard); the session ships the resolved set
+  (`platformFeatures`) so nav + route guards follow automatically
+  (`hasSessionFeature` in auth-guard). The old per-role nav greying
+  (disabledForRoles) is gone — granted = live link, ungranted = hidden.
+- **UI**: /interne/utilisateurs now has sub-tabs **Équipe | Rôles &
+  accès** (matrix visible to the owner only); every toggle writes a
+  `permission.updated` audit row.
+- **Three pre-existing raw-role bugs fixed in the sweep** (checked
+  `user.platformRole` instead of the effective role, violating ②h):
+  store wipe (source-admin-fns), analytics (stats-fns), and
+  /api/source-upload.
+- **Owner's four grants applied as data (dev)**: manager now has
+  facilitation (nav un-greyed — the page has the real ops list),
+  finance, plans (Abonnements edit + assignment) and sources.toggle.
+  *Live-verified as Manager: all 8 INTERNE entries live, the source
+  enable/disable switch renders; grants + audit rows in the DB.* NOTE:
+  prod gets the matrix at the next deploy — its seed carries the OLD
+  defaults, so re-flip the four switches on prod after deploying (or
+  ask for it with the deploy).
+
 ②m **DONE 2026-08-27 — journal lifecycle + org-owner access — DEPLOYED
 as #7 (commit `31f8a4c`, code-only, no migrations; backup
 `backups/osi-20260827-234130.sql.gz`; verified: origin 200, VM on

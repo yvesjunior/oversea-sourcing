@@ -1,5 +1,5 @@
 import { redirect } from "@tanstack/react-router";
-import { hasPlatformFeature, type PlatformFeature } from "@/lib/roles";
+import { type PermissionKey } from "@/lib/roles";
 import type { SessionData } from "@/lib/session-fns";
 
 /** Routes reachable without a session. Everything else is default-deny
@@ -26,9 +26,15 @@ export function enforceAuth(session: SessionData, pathname: string, href: string
 
 /** Route guard for employee features (shared dashboard, role-gated).
  *  Buyers hitting an internal URL are sent home — the feature simply
- *  doesn't exist for them. */
-export function requirePlatformFeature(session: SessionData, feature: PlatformFeature): void {
-  if (!hasPlatformFeature(session?.user.platformRole, feature)) {
+ *  doesn't exist for them. Reads the session's resolved permission set
+ *  (the Rôles & accès matrix, 2026-08-28) — server fns re-derive. */
+export function requirePlatformFeature(session: SessionData, feature: PermissionKey): void {
+  if (!hasSessionFeature(session, feature)) {
     throw redirect({ to: "/" });
   }
+}
+
+/** Client-side convenience over the session's resolved permission set. */
+export function hasSessionFeature(session: SessionData, feature: PermissionKey): boolean {
+  return session?.platformFeatures?.includes(feature) ?? false;
 }

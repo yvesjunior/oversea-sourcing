@@ -26,16 +26,15 @@ export type PlatformUserView = {
 
 /** owner|manager only — the feature gate lives in src/lib/roles.ts. */
 async function requireUserAdmin() {
-  const [{ auth }, { getRequest }, { hasPlatformFeature }] = await Promise.all([
+  const [{ auth }, { getRequest }] = await Promise.all([
     import("@/server/auth"),
     import("@tanstack/react-start/server"),
-    import("@/lib/roles"),
   ]);
   const session = await auth.api.getSession({ headers: getRequest().headers });
   if (!session) return null;
   // Staff powers only from the internal workspace (2026-08-27).
-  const { effectivePlatformRole } = await import("@/server/workspace-guard");
-  if (!hasPlatformFeature(await effectivePlatformRole(session), "users")) return null;
+  const { effectiveHasPermission } = await import("@/server/workspace-guard");
+  if (!(await effectiveHasPermission(session, "users"))) return null;
   return session;
 }
 

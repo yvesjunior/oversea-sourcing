@@ -169,7 +169,9 @@
     "grantSelf": "You cannot change your own role.",
     "grantFailed": "Applying the role failed.",
     "roleConfirm": "Change {{name}}'s platform role to \"{{role}}\"?",
-    "revokeOption": "— Revoke (customer)"
+    "revokeOption": "— Revoke (customer)",
+    "tabTeam": "Team",
+    "tabAccess": "Roles & access"
   },
   "sourceNames": {
     "global_web": "Global Web",
@@ -817,7 +819,8 @@
     "org_profile.updated": "Organisation profile updated",
     "workspace.renamed": "Workspace renamed",
     "platform_role.updated": "Platform role changed",
-    "log.purged": "Journal purged"
+    "log.purged": "Journal purged",
+    "permission.updated": "Role access changed"
   },
   "twofa": {
     "title": "Two-step verification",
@@ -829,5 +832,26 @@
     "failed": "Invalid code — try again.",
     "useBackup": "Use a backup code",
     "useTotp": "Use the authenticator app"
+  },
+  "permissions": {
+    "title": "Roles & access",
+    "hint": "What each internal role can do — effective on the next action, audited. The platform owner always has everything; role granting stays owner-only.",
+    "capability": "Capability",
+    "always": "always ✓",
+    "note": "A revoked access disappears from the nav on the next load and is refused server-side immediately (cache ≤ 30 s).",
+    "keys": {
+      "facilitation": "Facilitation",
+      "verification": "Supplier verification",
+      "finance": "Finance",
+      "analytics": "Analytics",
+      "plans": "Subscriptions — limits & assignment",
+      "users": "Users (internal team)",
+      "clients": "Customers",
+      "sources": "Data sources",
+      "logging": "Activity journal (all workspaces)",
+      "sources.toggle": "Enable / disable a source",
+      "sources.wipe": "Wipe a source store",
+      "logging.purge": "Purge the journal (> 3 months)"
+    }
   }
 }

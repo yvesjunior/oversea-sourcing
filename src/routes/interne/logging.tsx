@@ -10,7 +10,7 @@ import { useTranslation } from "react-i18next";
 import { AuditJournal } from "@/components/osi/AuditJournal";
 import { Button } from "@/components/ui/button";
 import { AUDIT_RETENTION_MONTHS, purgeAuditLogFn } from "@/lib/audit-fns";
-import { requirePlatformFeature } from "@/lib/auth-guard";
+import { hasSessionFeature, requirePlatformFeature } from "@/lib/auth-guard";
 
 export const Route = createFileRoute("/interne/logging")({
   beforeLoad: ({ context }) => requirePlatformFeature(context.session, "logging"),
@@ -22,8 +22,7 @@ export const Route = createFileRoute("/interne/logging")({
 function Logging() {
   const { t } = useTranslation();
   const { session } = Route.useRouteContext();
-  const isOwner =
-    (session?.user as { platformRole?: string } | undefined)?.platformRole === "owner";
+  const canPurge = hasSessionFeature(session, "logging.purge");
   const [refreshTick, setRefreshTick] = useState(0);
   const [purging, setPurging] = useState(false);
   const [purged, setPurged] = useState<number | null>(null);
@@ -49,7 +48,7 @@ function Logging() {
           <h1 className="font-display text-2xl font-semibold">{t("auditAdmin.title")}</h1>
           <p className="mt-1 text-sm text-muted-foreground">{t("auditAdmin.subtitle")}</p>
         </div>
-        {isOwner && (
+        {canPurge && (
           <span className="flex items-center gap-2">
             {purged !== null && (
               <span className="text-xs text-muted-foreground">

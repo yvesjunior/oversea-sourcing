@@ -169,7 +169,9 @@
     "grantSelf": "Vous ne pouvez pas modifier votre propre rôle.",
     "grantFailed": "Échec de l’application du rôle.",
     "roleConfirm": "Changer le rôle plateforme de {{name}} en « {{role}} » ?",
-    "revokeOption": "— Retirer (client)"
+    "revokeOption": "— Retirer (client)",
+    "tabTeam": "Équipe",
+    "tabAccess": "Rôles & accès"
   },
   "sourceNames": {
     "global_web": "Web mondial",
@@ -817,7 +819,8 @@
     "org_profile.updated": "Profil d’organisation modifié",
     "workspace.renamed": "Espace renommé",
     "platform_role.updated": "Rôle plateforme modifié",
-    "log.purged": "Journal purgé"
+    "log.purged": "Journal purgé",
+    "permission.updated": "Accès de rôle modifié"
   },
   "twofa": {
     "title": "Vérification en deux étapes",
@@ -829,5 +832,26 @@
     "failed": "Code invalide — réessayez.",
     "useBackup": "Utiliser un code de secours",
     "useTotp": "Utiliser l’application d’authentification"
+  },
+  "permissions": {
+    "title": "Rôles & accès",
+    "hint": "Ce que chaque rôle interne peut faire — effectif à la prochaine action, journalisé. Le propriétaire plateforme a toujours tout ; l'attribution des rôles lui reste réservée.",
+    "capability": "Capacité",
+    "always": "toujours ✓",
+    "note": "Un accès retiré disparaît de la navigation au prochain chargement et est refusé côté serveur immédiatement (cache ≤ 30 s).",
+    "keys": {
+      "facilitation": "Facilitation",
+      "verification": "Vérification fournisseurs",
+      "finance": "Finance",
+      "analytics": "Analyses",
+      "plans": "Abonnements — limites & assignation",
+      "users": "Utilisateurs (équipe interne)",
+      "clients": "Clients",
+      "sources": "Sources de données",
+      "logging": "Journal d'activité (tous les espaces)",
+      "sources.toggle": "Activer / désactiver une source",
+      "sources.wipe": "Purger le store d'une source",
+      "logging.purge": "Purger le journal (> 3 mois)"
+    }
   }
 }

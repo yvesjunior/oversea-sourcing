@@ -85,16 +85,15 @@ export type SourceDetailView = {
 
 /** owner|manager only — the feature gate lives in src/lib/roles.ts. */
 async function requireSourceAdmin() {
-  const [{ auth }, { getRequest }, { hasPlatformFeature }] = await Promise.all([
+  const [{ auth }, { getRequest }] = await Promise.all([
     import("@/server/auth"),
     import("@tanstack/react-start/server"),
-    import("@/lib/roles"),
   ]);
   const session = await auth.api.getSession({ headers: getRequest().headers });
   if (!session) return null;
   // Staff powers only from the internal workspace (2026-08-27).
-  const { effectivePlatformRole } = await import("@/server/workspace-guard");
-  if (!hasPlatformFeature(await effectivePlatformRole(session), "sources")) return null;
+  const { effectiveHasPermission } = await import("@/server/workspace-guard");
+  if (!(await effectiveHasPermission(session, "sources"))) return null;
   return session;
 }
 
@@ -336,8 +335,8 @@ export const toggleSourceFn = createServerFn({ method: "POST" })
     if (!session) return { ok: false };
     // Owner-only (2026-08-27): enabling/disabling a source changes what the
     // whole platform consults — configuration, not operation.
-    const { effectivePlatformRole } = await import("@/server/workspace-guard");
-    if ((await effectivePlatformRole(session)) !== "owner") return { ok: false };
+    const { effectiveHasPermission } = await import("@/server/workspace-guard");
+    if (!(await effectiveHasPermission(session, "sources.toggle"))) return { ok: false };
 
     const [{ db }, { eq }, schema] = await Promise.all([
       import("@/database"),
@@ -444,7 +443,8 @@ export const wipeSourceStoreFn = createServerFn({ method: "POST" })
   .inputValidator(z.object({ dataSourceId: z.string() }))
   .handler(async ({ data }): Promise<{ ok: boolean; deleted?: number }> => {
     const session = await requireSourceAdmin();
-    if (!session || session.user.platformRole !== "owner") return { ok: false };
+    const { effectiveHasPermission: canWipe } = await import("@/server/workspace-guard");
+    if (!session || !(await canWipe(session, "sources.wipe"))) return { ok: false };
 
     const [{ db }, { eq }, schema] = await Promise.all([
       import("@/database"),

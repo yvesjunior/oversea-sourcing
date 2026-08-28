@@ -62,10 +62,9 @@ export const getAuditLogFn = createServerFn({ method: "GET" })
     }),
   )
   .handler(async ({ data }): Promise<AuditLogData> => {
-    const [{ auth }, { getRequest }, { hasPlatformFeature }] = await Promise.all([
+    const [{ auth }, { getRequest }] = await Promise.all([
       import("@/server/auth"),
       import("@tanstack/react-start/server"),
-      import("@/lib/roles"),
     ]);
     const session = await auth.api.getSession({ headers: getRequest().headers });
     if (!session) return EMPTY;
@@ -79,10 +78,10 @@ export const getAuditLogFn = createServerFn({ method: "GET" })
     // the internal workspace) read everything; otherwise the OWNER of an
     // organisation workspace reads their own org's rows only — the scope is
     // FORCED server-side, whatever organizationId the client sent.
-    const { effectivePlatformRole, requireWorkspaceRole } =
+    const { effectiveHasPermission, requireWorkspaceRole } =
       await import("@/server/workspace-guard");
     let forcedOrgId: string | null = null;
-    if (!hasPlatformFeature(await effectivePlatformRole(session), "logging")) {
+    if (!(await effectiveHasPermission(session, "logging"))) {
       const caller = await requireWorkspaceRole(getRequest().headers, "owner");
       if (!caller) return EMPTY;
       const workspace = await db.query.organization.findFirst({
@@ -190,8 +189,8 @@ export const purgeAuditLogFn = createServerFn({ method: "POST" }).handler(
     ]);
     const session = await auth.api.getSession({ headers: getRequest().headers });
     if (!session) return { ok: false, deleted: 0 };
-    const { effectivePlatformRole } = await import("@/server/workspace-guard");
-    if ((await effectivePlatformRole(session)) !== "owner") return { ok: false, deleted: 0 };
+    const { effectiveHasPermission } = await import("@/server/workspace-guard");
+    if (!(await effectiveHasPermission(session, "logging.purge"))) return { ok: false, deleted: 0 };
 
     const [{ db }, { lt }, schema] = await Promise.all([
       import("@/database"),

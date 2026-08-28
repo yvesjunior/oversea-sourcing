@@ -1,7 +1,11 @@
 import { createServerFn } from "@tanstack/react-start";
 import type { Auth } from "@/server/auth"; // type-only: erased at compile time
+import type { PermissionKey } from "@/lib/roles";
 
-export type SessionData = Auth["$Infer"]["Session"] | null;
+/** The session the client sees, extended with the resolved staff permission
+ *  set (2026-08-28) — presentation only, server fns re-derive per call. */
+export type SessionData =
+  (Auth["$Infer"]["Session"] & { platformFeatures: PermissionKey[] }) | null;
 
 // Server-only modules are dynamically imported INSIDE handlers: the Start
 // compiler extracts handler bodies into the server bundle, so `src/server/**`
@@ -24,7 +28,15 @@ export const getSessionFn = createServerFn({ method: "GET" }).handler(
     // this field is presentation, never authority.
     const { effectivePlatformRole } = await import("@/server/workspace-guard");
     const effective = await effectivePlatformRole(session);
-    return { ...session, user: { ...session.user, platformRole: effective } };
+    // Staff permissions are data since 2026-08-28 — ship the resolved set so
+    // nav and route guards follow the Rôles & accès matrix automatically.
+    const { grantedFeatures } = await import("@/server/permissions");
+    const platformFeatures = await grantedFeatures(effective);
+    return {
+      ...session,
+      user: { ...session.user, platformRole: effective },
+      platformFeatures,
+    };
   },
 );
 

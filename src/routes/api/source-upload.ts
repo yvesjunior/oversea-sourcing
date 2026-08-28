@@ -12,13 +12,13 @@ export const Route = createFileRoute("/api/source-upload")({
   server: {
     handlers: {
       PUT: async ({ request }) => {
-        const [{ auth }, { hasPlatformFeature }, storage] = await Promise.all([
+        const [{ auth }, { effectiveHasPermission }, storage] = await Promise.all([
           import("@/server/auth"),
-          import("@/lib/roles"),
+          import("@/server/workspace-guard"),
           import("@/server/storage"),
         ]);
         const session = await auth.api.getSession({ headers: request.headers });
-        if (!session || !hasPlatformFeature(session.user.platformRole, "sources")) {
+        if (!session || !(await effectiveHasPermission(session, "sources"))) {
           return Response.json({ error: "forbidden" }, { status: 403 });
         }
 

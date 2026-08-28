@@ -6,6 +6,7 @@ import {
   jsonb,
   pgSequence,
   pgTable,
+  primaryKey,
   text,
   timestamp,
   uniqueIndex,
@@ -505,6 +506,28 @@ export const sanctionEntry = pgTable(
 // trail). Actor and workspace are stored twice on purpose: the FK for
 // filtering while the row's subject exists, the NAME SNAPSHOT so history
 // survives account deletion and workspace destruction.
+
+// ── Staff role permissions (owner request 2026-08-28) ───────────────────────
+// What each STAFF role (manager | accountant) may do is a row, editable live
+// from /interne/utilisateurs → Rôles & accès — the platform OWNER always has
+// everything and is deliberately NOT in this table (a permission system that
+// can lock out its own owner is a footgun). Keys are the PLATFORM_FEATURES
+// plus fine-grained capabilities (sources.toggle, sources.wipe,
+// logging.purge) — see src/lib/roles.ts. Role granting is owner-only forever
+// and never appears here.
+
+export const platformPermission = pgTable(
+  "platform_permission",
+  {
+    /** Feature or capability key — see PERMISSION_KEYS in src/lib/roles.ts. */
+    feature: text("feature").notNull(),
+    role: text("role").notNull(),
+    enabled: boolean("enabled").notNull().default(false),
+    updatedBy: text("updated_by"),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (table) => [primaryKey({ columns: [table.feature, table.role] })],
+);
 
 export const auditLog = pgTable(
   "audit_log",
