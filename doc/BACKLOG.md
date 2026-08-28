@@ -133,8 +133,11 @@ features (owner priority). ~~Prod = main = `d603dd7` (deploy #5)~~ —
 **SUPERSEDED: deploys #6 (`67b4b5d`, migs 0028–0030) and #7
 (`31f8a4c`) shipped 2026-08-27; see the 2026-08-27/28 digest above.**
 
-②o **DONE 2026-08-28 (uncommitted) — source categories surfaced + S4
-deferred + small polish**: ① `/interne/sources` tabs grouped into
+②o **DONE 2026-08-28 — source categories surfaced + S4 deferred + small
+polish — DEPLOYED as #9 (commit `5eb82cb`, code-only, no migrations;
+backup `backups/osi-20260828-131325.sql.gz`; verified: origin 200, VM
+on `5eb82cb`, five containers up; no prod behavior change on
+verification checks — its registries are disabled and empty)**: ① `/interne/sources` tabs grouped into
 **Recherche | Vérification** (the S5a `data_source.role`, now visible;
 label "Découverte" renamed "Recherche"; no schema change) — doctrine in
 the pick-up list ④: free-only BoL joins SEARCH when found, global_web
