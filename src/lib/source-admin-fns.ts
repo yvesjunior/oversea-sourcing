@@ -344,6 +344,16 @@ export const toggleSourceFn = createServerFn({ method: "POST" })
       .update(schema.dataSource)
       .set({ enabled: data.enabled, updatedAt: new Date() })
       .where(eq(schema.dataSource.id, data.id));
+    const source = await db.query.dataSource.findFirst({
+      where: eq(schema.dataSource.id, data.id),
+      columns: { code: true },
+    });
+    const { logAudit, actorOf } = await import("@/server/audit");
+    await logAudit({
+      ...actorOf(session),
+      action: data.enabled ? "source.enabled" : "source.disabled",
+      target: source?.code ?? data.id,
+    });
     return { ok: true };
   });
 
@@ -412,6 +422,12 @@ export const triggerSourceRefreshFn = createServerFn({ method: "POST" })
       ...(data.fileKey ? { scope: { fileKey: data.fileKey } } : {}),
     });
     await enqueueAdminRefresh(runId);
+    const { logAudit, actorOf } = await import("@/server/audit");
+    await logAudit({
+      ...actorOf(session),
+      action: "source.refresh_triggered",
+      target: source.code,
+    });
     return { ok: true };
   });
 
@@ -444,6 +460,17 @@ export const wipeSourceStoreFn = createServerFn({ method: "POST" })
       status: "succeeded",
       scope: { action: "wipe", deleted: deleted.length },
       completedAt: new Date(),
+    });
+    const wiped = await db.query.dataSource.findFirst({
+      where: eq(schema.dataSource.id, data.dataSourceId),
+      columns: { code: true },
+    });
+    const { logAudit, actorOf } = await import("@/server/audit");
+    await logAudit({
+      ...actorOf(session),
+      action: "source.store_wiped",
+      target: wiped?.code ?? data.dataSourceId,
+      detail: { deleted: deleted.length },
     });
     return { ok: true, deleted: deleted.length };
   });
@@ -479,6 +506,17 @@ export const setRecordStatusFn = createServerFn({ method: "POST" })
           : { status: "active", bannedBy: null, bannedReason: null },
       )
       .where(eq(schema.sourceRecord.id, data.recordId));
+    const record = await db.query.sourceRecord.findFirst({
+      where: eq(schema.sourceRecord.id, data.recordId),
+      columns: { name: true },
+    });
+    const { logAudit, actorOf } = await import("@/server/audit");
+    await logAudit({
+      ...actorOf(session),
+      action: data.action === "ban" ? "source_record.banned" : "source_record.unbanned",
+      target: record?.name ?? data.recordId,
+      ...(data.action === "ban" ? { detail: { reason: data.reason } } : {}),
+    });
     return { ok: true };
   });
 
@@ -513,5 +551,16 @@ export const setSupplierBanFn = createServerFn({ method: "POST" })
           : { bannedAt: null, bannedBy: null, bannedReason: null },
       )
       .where(eq(schema.supplier.id, data.supplierId));
+    const banned = await db.query.supplier.findFirst({
+      where: eq(schema.supplier.id, data.supplierId),
+      columns: { name: true },
+    });
+    const { logAudit, actorOf } = await import("@/server/audit");
+    await logAudit({
+      ...actorOf(session),
+      action: data.action === "ban" ? "supplier.banned" : "supplier.unbanned",
+      target: banned?.name ?? data.supplierId,
+      ...(data.action === "ban" ? { detail: { reason: data.reason } } : {}),
+    });
     return { ok: true };
   });

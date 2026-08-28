@@ -12,16 +12,28 @@ import { secondaryStorage } from "@/server/kv";
 /** Delete a user account and purge their cached sessions. The caller is
  *  responsible for the POLICY (only users with no remaining membership and
  *  platform_role 'user' are ever auto-deleted); this owns the MECHANICS. */
-export async function deleteUserAccount(userId: string): Promise<void> {
-  const sessions = await db.query.session.findMany({
-    where: eq(schema.session.userId, userId),
-    columns: { token: true },
-  });
+export async function deleteUserAccount(
+  userId: string,
+  actor?: { actorId: string; actorName: string },
+): Promise<void> {
+  const [sessions, user] = await Promise.all([
+    db.query.session.findMany({
+      where: eq(schema.session.userId, userId),
+      columns: { token: true },
+    }),
+    db.query.user.findFirst({ where: eq(schema.user.id, userId) }),
+  ]);
   await db.delete(schema.user).where(eq(schema.user.id, userId));
   if (secondaryStorage) {
     for (const s of sessions) await secondaryStorage.delete(s.token);
     await secondaryStorage.delete(`active-sessions-${userId}`);
   }
+  const { logAudit } = await import("@/server/audit");
+  await logAudit({
+    ...(actor ?? {}),
+    action: "account.deleted",
+    target: user?.email ?? userId,
+  });
 }
 
 /**
@@ -35,7 +47,10 @@ export async function deleteUserAccount(userId: string): Promise<void> {
  *
  * Returns the number of user accounts deleted alongside the workspace.
  */
-export async function destroyWorkspace(workspaceId: string): Promise<number | null> {
+export async function destroyWorkspace(
+  workspaceId: string,
+  actor?: { actorId: string; actorName: string },
+): Promise<number | null> {
   const workspace = await db.query.organization.findFirst({
     where: eq(schema.organization.id, workspaceId),
   });
@@ -47,6 +62,14 @@ export async function destroyWorkspace(workspaceId: string): Promise<number | nu
   });
 
   await db.delete(schema.organization).where(eq(schema.organization.id, workspaceId));
+  const { logAudit } = await import("@/server/audit");
+  await logAudit({
+    ...(actor ?? {}),
+    organizationName: workspace.name,
+    action: "workspace.destroyed",
+    target: workspace.name,
+    detail: { type: workspace.type, members: members.length },
+  });
 
   let deletedUsers = 0;
   for (const { userId } of members) {
@@ -55,7 +78,7 @@ export async function destroyWorkspace(workspaceId: string): Promise<number | nu
       db.query.member.findFirst({ where: eq(schema.member.userId, userId) }),
     ]);
     if (!user || remaining || user.platformRole !== "user") continue;
-    await deleteUserAccount(userId);
+    await deleteUserAccount(userId, actor);
     deletedUsers += 1;
   }
   console.log(

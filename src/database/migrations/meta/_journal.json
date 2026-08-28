@@ -190,6 +190,13 @@
       "when": 1787801166402,
       "tag": "0026_parallel_hex",
       "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1787877742067,
+      "tag": "0027_normal_emma_frost",
+      "breakpoints": true
     }
   ]
 }

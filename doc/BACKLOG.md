@@ -191,8 +191,7 @@ workspace rename (owner) · 2FA (E1) — ~~account deletion~~ ✅ (danger
 zone, ②g) and ~~create-enterprise flow~~ ✅ (signup fork, ②d) are done;
 ② **the platform owner-vs-manager split** — owner decision pending (see
 the session digest above: owner=configure / manager=operate proposal);
-③ **E2 audit log** on auth/membership mutations (account destruction and
-role grants now REALLY deserve a trail);
+③ ~~E2 audit log~~ ✅ DONE 2026-08-27 (②i);
 ④ **small follow-ups**: platform-role grants should enroll into the OSI
 org (manual SQL meanwhile) · workspace-badge refresh after invitation
 accept · warning copy on remove-member ("deletes their account");
@@ -202,6 +201,24 @@ accept · warning copy on remove-member ("deletes their account");
 differently" before writing code.
 
 **History of the foundation waves (2026-08-26/27), newest first:**
+②i **DONE 2026-08-27 — the audit journal** (owner: "actions are logged,
+keep track of activities — per org, per user"): migration **0027**
+(`audit_log`: actor + workspace stored as FK *and* name snapshot, so
+history survives account deletion and workspace destruction; indexed per
+org / per actor / by time). Emitter `src/server/audit.ts` (`logAudit` —
+failure-tolerant, one door). **Wired actions:** account.created/.deleted,
+workspace.destroyed, member.removed/.role_updated, invitation.created/
+.accepted, ownership.transferred, plan.assigned/.updated,
+supplier.verified/.verification_revoked/.banned/.unbanned,
+source_record.banned/.unbanned, source.enabled/.disabled/
+.refresh_triggered/.store_wiped, sourcing.updated, org_profile.updated.
+(Requests keep their own request_event trail — the journal is lifecycle/
+admin actions.) **Viewer:** "Journal d'activité" on /interne/utilisateurs
+— latest 100, filter selects PER ESPACE and PER UTILISATEUR (options from
+the log itself), action labels via `auditActions.*` i18n with raw-code
+fallback, detail JSON in the tooltip. *Verified live:* source toggle
+on/off produced two rows with actor + target + timestamps; E2's
+"audit log on auth/membership mutations" is covered and checked off.
 ②h **DONE 2026-08-27 — staff powers follow the internal workspace** (owner
 decision: "staff in their personal workspace should not have access to
 global view" — and org members already can't reach org data from personal
@@ -1334,7 +1351,9 @@ feeds C3/C4 value (Recommandé requires Vérifié)
 - [ ] Tenancy scoping utility — every query filtered by workspace_id (make the safe path the easy path)
 - [ ] Invitations: send (email), accept (join flow), revoke
 - [ ] Team management UI in Paramètres (list, invite, change role, remove)
-- [ ] Audit log writes on auth/membership mutations
+- [x] **Audit log — BUILT 2026-08-27** (see ②i in Resume here: audit_log
+      table + emitter + journal on /interne/utilisateurs, per org / per
+      user)
 
 ### E3 — Requests core loop
 

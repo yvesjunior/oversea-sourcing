@@ -165,5 +165,20 @@ export const reviewSupplierFn = createServerFn({ method: "POST" })
       data.action,
       data.note,
     );
+    const [{ db }, { eq }, schema, { logAudit, actorOf }] = await Promise.all([
+      import("@/database"),
+      import("drizzle-orm"),
+      import("@/database/schema"),
+      import("@/server/audit"),
+    ]);
+    const supplier = await db.query.supplier.findFirst({
+      where: eq(schema.supplier.id, data.supplierId),
+      columns: { name: true },
+    });
+    await logAudit({
+      ...actorOf(session),
+      action: data.action === "approve" ? "supplier.verified" : "supplier.verification_revoked",
+      target: supplier?.name ?? data.supplierId,
+    });
     return { ok: true };
   });

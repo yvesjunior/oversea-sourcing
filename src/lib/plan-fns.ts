@@ -166,6 +166,21 @@ export const updatePlanFn = createServerFn({ method: "POST" })
         updatedAt: new Date(),
       })
       .where(eq(schema.plan.id, data.id));
+    const updated = await db.query.plan.findFirst({ where: eq(schema.plan.id, data.id) });
+    const { logAudit, actorOf } = await import("@/server/audit");
+    await logAudit({
+      ...actorOf(session),
+      action: "plan.updated",
+      target: updated?.code ?? data.id,
+      detail: {
+        requestsPerDay: data.requestsPerDay,
+        maxRequestsTotal: data.maxRequestsTotal,
+        maxMembers: data.maxMembers,
+        quotaScope: data.quotaScope,
+        suppliersReturned: data.suppliersReturned,
+        modelTier: data.modelTier,
+      },
+    });
     return { ok: true };
   });
 
@@ -217,5 +232,13 @@ export const assignPlanFn = createServerFn({ method: "POST" })
         target: schema.subscription.organizationId,
         set: { planId: plan.id, status: "active", updatedAt: new Date() },
       });
+    const { logAudit, actorOf } = await import("@/server/audit");
+    await logAudit({
+      ...actorOf(session),
+      organizationId: workspace.id,
+      organizationName: workspace.name,
+      action: "plan.assigned",
+      target: plan.code,
+    });
     return { ok: true };
   });

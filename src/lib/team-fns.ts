@@ -103,5 +103,17 @@ export const transferOwnershipFn = createServerFn({ method: "POST" })
         );
       await tx.update(schema.member).set({ role: "owner" }).where(eq(schema.member.id, target.id));
     });
+    const [newOwner, org] = await Promise.all([
+      db.query.user.findFirst({ where: eq(schema.user.id, data.toUserId) }),
+      db.query.organization.findFirst({ where: eq(schema.organization.id, caller.workspaceId) }),
+    ]);
+    const { logAudit } = await import("@/server/audit");
+    await logAudit({
+      actorId: caller.userId,
+      organizationId: caller.workspaceId,
+      organizationName: org?.name ?? null,
+      action: "ownership.transferred",
+      target: newOwner?.email ?? data.toUserId,
+    });
     return { ok: true };
   });

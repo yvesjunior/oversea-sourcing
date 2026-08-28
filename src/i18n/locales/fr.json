@@ -731,5 +731,42 @@
   },
   "common": {
     "deletedUser": "Utilisateur supprimé"
+  },
+  "auditAdmin": {
+    "title": "Journal d’activité",
+    "filterOrg": "Espace",
+    "filterActor": "Utilisateur",
+    "allOrgs": "Tous les espaces",
+    "allActors": "Tous les utilisateurs",
+    "when": "Quand",
+    "actor": "Acteur",
+    "action": "Action",
+    "target": "Cible",
+    "workspace": "Espace",
+    "empty": "Aucune activité enregistrée pour l’instant."
+  },
+  "auditActions": {
+    "account.created": "Compte créé",
+    "account.deleted": "Compte supprimé",
+    "workspace.destroyed": "Espace détruit",
+    "member.removed": "Membre retiré",
+    "member.role_updated": "Rôle du membre modifié",
+    "invitation.created": "Invitation envoyée",
+    "invitation.accepted": "Invitation acceptée",
+    "ownership.transferred": "Propriété transférée",
+    "plan.assigned": "Abonnement assigné",
+    "plan.updated": "Limites du plan modifiées",
+    "supplier.verified": "Fournisseur vérifié (Vérifié OSI)",
+    "supplier.verification_revoked": "Vérification retirée",
+    "supplier.banned": "Fournisseur banni (global)",
+    "supplier.unbanned": "Fournisseur débanni",
+    "source_record.banned": "Fiche source bannie",
+    "source_record.unbanned": "Fiche source débannie",
+    "source.enabled": "Source activée",
+    "source.disabled": "Source désactivée",
+    "source.refresh_triggered": "Mise à jour de source lancée",
+    "source.store_wiped": "Store de source purgé",
+    "sourcing.updated": "Préférences de sourcing modifiées",
+    "org_profile.updated": "Profil d’organisation modifié"
   }
 }

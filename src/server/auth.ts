@@ -191,6 +191,18 @@ export const auth = betterAuth({
         const link = `${baseURL}/invitation/${data.id}`;
         const workspace = data.organization.name;
         const inviter = data.inviter.user.name || data.inviter.user.email;
+        {
+          const { logAudit } = await import("@/server/audit");
+          await logAudit({
+            actorId: data.inviter.user.id,
+            actorName: inviter,
+            organizationId: data.organization.id,
+            organizationName: workspace,
+            action: "invitation.created",
+            target: data.email,
+            detail: { role: String(data.role) },
+          });
+        }
         // Bilingual body: the invitee's locale is unknown until they have an
         // account, and FR is the product default.
         await sendMail({
@@ -221,6 +233,16 @@ export const auth = betterAuth({
         },
         // E9: tell the inviter their invitation landed.
         afterAcceptInvitation: async ({ invitation, member, organization: org }) => {
+          {
+            const { logAudit } = await import("@/server/audit");
+            await logAudit({
+              actorId: member.userId,
+              organizationId: org.id,
+              organizationName: org.name,
+              action: "invitation.accepted",
+              target: invitation.email,
+            });
+          }
           const { notifyUser } = await import("@/server/notify");
           const joiner = await db.query.user.findFirst({
             where: eq(schema.user.id, member.userId),
@@ -241,10 +263,22 @@ export const auth = betterAuth({
         // user who still belongs somewhere (an individual invited into an
         // org and removed later simply falls back to their own workspace).
         afterRemoveMember: async ({ member }) => {
-          const [remaining, removedUser] = await Promise.all([
+          const [remaining, removedUser, org] = await Promise.all([
             db.query.member.findFirst({ where: eq(schema.member.userId, member.userId) }),
             db.query.user.findFirst({ where: eq(schema.user.id, member.userId) }),
+            db.query.organization.findFirst({
+              where: eq(schema.organization.id, member.organizationId),
+            }),
           ]);
+          {
+            const { logAudit } = await import("@/server/audit");
+            await logAudit({
+              organizationId: member.organizationId,
+              organizationName: org?.name ?? null,
+              action: "member.removed",
+              target: removedUser?.email ?? member.userId,
+            });
+          }
           if (remaining || !removedUser || removedUser.platformRole !== "user") return;
           // Deletion mechanics (incl. the Redis session purge) live in ONE
           // place: src/server/account.ts.
@@ -263,6 +297,21 @@ export const auth = betterAuth({
           if (String(newRole) !== "buyer" && String(newRole) !== "viewer") {
             throw new APIError("BAD_REQUEST", { message: "INVITE_ROLE_NOT_ALLOWED" });
           }
+          // Passed validation ⇒ the update proceeds — log the change.
+          const [target, org] = await Promise.all([
+            db.query.user.findFirst({ where: eq(schema.user.id, member.userId) }),
+            db.query.organization.findFirst({
+              where: eq(schema.organization.id, member.organizationId),
+            }),
+          ]);
+          const { logAudit } = await import("@/server/audit");
+          await logAudit({
+            organizationId: member.organizationId,
+            organizationName: org?.name ?? null,
+            action: "member.role_updated",
+            target: target?.email ?? member.userId,
+            detail: { from: member.role, to: String(newRole) },
+          });
         },
       },
     }),
@@ -321,6 +370,18 @@ export const auth = betterAuth({
           // when it ran. Applies to every signup route, social included.
           // Organisations start on org_trial (Free-like, 3 seats); the free
           // fallback keeps a missing row from silently unlimiting anyone.
+          {
+            const { logAudit } = await import("@/server/audit");
+            await logAudit({
+              actorId: newUser.id,
+              actorName: newUser.name,
+              organizationId: orgId,
+              organizationName: workspaceName,
+              action: "account.created",
+              target: newUser.email,
+              detail: { accountType: isOrganisation ? "organization" : "individual" },
+            });
+          }
           const planCode = isOrganisation ? "org_trial" : "free";
           const trialPlan =
             (await db.query.plan.findFirst({ where: eq(schema.plan.code, planCode) })) ??

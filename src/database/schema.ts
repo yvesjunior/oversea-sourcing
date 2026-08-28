@@ -479,6 +479,38 @@ export const sanctionEntry = pgTable(
   ],
 );
 
+// ── Audit log (owner request 2026-08-27) — who did what, per org, per user ──
+// Lifecycle and admin actions only (requests have their own request_event
+// trail). Actor and workspace are stored twice on purpose: the FK for
+// filtering while the row's subject exists, the NAME SNAPSHOT so history
+// survives account deletion and workspace destruction.
+
+export const auditLog = pgTable(
+  "audit_log",
+  {
+    id: text("id").primaryKey(),
+    at: timestamp("at").notNull().defaultNow(),
+    actorId: text("actor_id").references(() => user.id, { onDelete: "set null" }),
+    /** Snapshot — null only for system-initiated rows. */
+    actorName: text("actor_name"),
+    organizationId: text("organization_id").references(() => organization.id, {
+      onDelete: "set null",
+    }),
+    organizationName: text("organization_name"),
+    /** Dot-namespaced: account.deleted, workspace.destroyed, plan.assigned,
+     *  supplier.verified, source.toggled, member.removed… */
+    action: text("action").notNull(),
+    /** Human-readable subject (an email, a supplier name, a plan code…). */
+    target: text("target"),
+    detail: jsonb("detail").$type<Record<string, unknown>>(),
+  },
+  (table) => [
+    index("audit_log_at_idx").on(table.at),
+    index("audit_log_org_idx").on(table.organizationId, table.at),
+    index("audit_log_actor_idx").on(table.actorId, table.at),
+  ],
+);
+
 // ── Notifications (E9, 2026-08-23) — in-app inbox, one row per recipient ─────
 // Same i18n pattern as request_event: `type` + `params` are rendered
 // client-side with the user's language, so a notification created in FR reads

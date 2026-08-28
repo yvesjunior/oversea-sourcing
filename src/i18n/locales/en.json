@@ -731,5 +731,42 @@
   },
   "common": {
     "deletedUser": "Deleted user"
+  },
+  "auditAdmin": {
+    "title": "Activity journal",
+    "filterOrg": "Workspace",
+    "filterActor": "User",
+    "allOrgs": "All workspaces",
+    "allActors": "All users",
+    "when": "When",
+    "actor": "Actor",
+    "action": "Action",
+    "target": "Target",
+    "workspace": "Workspace",
+    "empty": "No activity recorded yet."
+  },
+  "auditActions": {
+    "account.created": "Account created",
+    "account.deleted": "Account deleted",
+    "workspace.destroyed": "Workspace destroyed",
+    "member.removed": "Member removed",
+    "member.role_updated": "Member role changed",
+    "invitation.created": "Invitation sent",
+    "invitation.accepted": "Invitation accepted",
+    "ownership.transferred": "Ownership transferred",
+    "plan.assigned": "Plan assigned",
+    "plan.updated": "Plan limits updated",
+    "supplier.verified": "Supplier verified (Vérifié OSI)",
+    "supplier.verification_revoked": "Verification withdrawn",
+    "supplier.banned": "Supplier banned (global)",
+    "supplier.unbanned": "Supplier unbanned",
+    "source_record.banned": "Source record banned",
+    "source_record.unbanned": "Source record unbanned",
+    "source.enabled": "Source enabled",
+    "source.disabled": "Source disabled",
+    "source.refresh_triggered": "Source refresh triggered",
+    "source.store_wiped": "Source store wiped",
+    "sourcing.updated": "Sourcing preferences updated",
+    "org_profile.updated": "Organisation profile updated"
   }
 }

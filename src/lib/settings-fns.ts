@@ -246,6 +246,13 @@ export const updateSourcingRulesFn = createServerFn({ method: "POST" })
           updatedAt: new Date(),
         },
       });
+    const { logAudit } = await import("@/server/audit");
+    await logAudit({
+      actorId: caller.userId,
+      organizationId: caller.workspaceId,
+      action: "sourcing.updated",
+      detail: { countryMode: data.countryMode, countryCodes: data.countryCodes },
+    });
     return { ok: true };
   });
 
@@ -348,6 +355,12 @@ export const updateOrganizationProfileFn = createServerFn({ method: "POST" })
       .insert(schema.organizationProfile)
       .values({ id: crypto.randomUUID(), organizationId: caller.workspaceId, ...columns })
       .onConflictDoUpdate({ target: schema.organizationProfile.organizationId, set: columns });
+    const { logAudit } = await import("@/server/audit");
+    await logAudit({
+      actorId: caller.userId,
+      organizationId: caller.workspaceId,
+      action: "org_profile.updated",
+    });
     return { ok: true };
   });
 
@@ -375,7 +388,12 @@ export const destroyWorkspaceFn = createServerFn({ method: "POST" })
     if (data.confirmName.trim() !== workspace.name) return { ok: false, selfDeleted: false };
 
     const { destroyWorkspace } = await import("@/server/account");
-    const deleted = await destroyWorkspace(caller.workspaceId);
+    const actorName = (await db.query.user.findFirst({ where: eq(schema.user.id, caller.userId) }))
+      ?.name;
+    const deleted = await destroyWorkspace(caller.workspaceId, {
+      actorId: caller.userId,
+      actorName: actorName ?? caller.userId,
+    });
     if (deleted === null) return { ok: false, selfDeleted: false };
 
     // Did the caller's own account go with it? (No remaining user row.)
