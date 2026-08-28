@@ -341,13 +341,26 @@ export const auth = betterAuth({
     },
     session: {
       create: {
-        // New sessions start in the user's first workspace.
+        // New sessions start in the user's first workspace — except staff
+        // (2026-08-27): they land in the INTERNAL workspace, since platform
+        // powers only exist while standing there (effectivePlatformRole);
+        // personal is a deliberate switch away.
         before: async (newSession) => {
-          const membership = await db.query.member.findFirst({
-            where: eq(schema.member.userId, newSession.userId),
-          });
+          const memberships = await db
+            .select({
+              organizationId: schema.member.organizationId,
+              type: schema.organization.type,
+            })
+            .from(schema.member)
+            .innerJoin(
+              schema.organization,
+              eq(schema.organization.id, schema.member.organizationId),
+            )
+            .where(eq(schema.member.userId, newSession.userId));
+          const internal = memberships.find((m) => m.type === "internal");
+          const active = internal ?? memberships[0] ?? null;
           return {
-            data: { ...newSession, activeOrganizationId: membership?.organizationId ?? null },
+            data: { ...newSession, activeOrganizationId: active?.organizationId ?? null },
           };
         },
       },

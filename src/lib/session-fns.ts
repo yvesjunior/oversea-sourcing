@@ -15,7 +15,16 @@ export const getSessionFn = createServerFn({ method: "GET" }).handler(
       import("@/server/auth"),
       import("@tanstack/react-start/server"),
     ]);
-    return auth.api.getSession({ headers: getRequest().headers });
+    const session = await auth.api.getSession({ headers: getRequest().headers });
+    if (!session) return null;
+    // The client sees the EFFECTIVE role (2026-08-27): staff powers exist
+    // only while standing in the internal workspace, so all client-side
+    // gating (sidebar, Vue globale tabs, route guards) follows the badge
+    // with zero per-component logic. Server fns re-derive it themselves —
+    // this field is presentation, never authority.
+    const { effectivePlatformRole } = await import("@/server/workspace-guard");
+    const effective = await effectivePlatformRole(session);
+    return { ...session, user: { ...session.user, platformRole: effective } };
   },
 );
 

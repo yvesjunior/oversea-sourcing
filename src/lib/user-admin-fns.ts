@@ -31,7 +31,10 @@ async function requireUserAdmin() {
     import("@/lib/roles"),
   ]);
   const session = await auth.api.getSession({ headers: getRequest().headers });
-  if (!session || !hasPlatformFeature(session.user.platformRole, "users")) return null;
+  if (!session) return null;
+  // Staff powers only from the internal workspace (2026-08-27).
+  const { effectivePlatformRole } = await import("@/server/workspace-guard");
+  if (!hasPlatformFeature(await effectivePlatformRole(session), "users")) return null;
   return session;
 }
 

@@ -70,7 +70,10 @@ export const getAllRequestsFn = createServerFn({ method: "GET" }).handler(
       import("@/database/schema"),
     ]);
     const session = await auth.api.getSession({ headers: getRequest().headers });
-    if (!session || !canSeeAllRequests(session.user.platformRole)) return [];
+    if (!session) return [];
+    // Staff powers only from the internal workspace (2026-08-27).
+    const { effectivePlatformRole } = await import("@/server/workspace-guard");
+    if (!canSeeAllRequests(await effectivePlatformRole(session))) return [];
     const ownWorkspaceId = session.session.activeOrganizationId;
 
     const { sql } = await import("drizzle-orm");
@@ -397,7 +400,11 @@ export const getRequestDetailFn = createServerFn({ method: "GET" })
     if (!row) return null;
 
     const isOwn = row.organizationId === workspaceId;
-    if (!isOwn && !canSeeAllRequests(session.user.platformRole)) return null;
+    if (!isOwn) {
+      // Cross-tenant read: staff powers only from the internal workspace.
+      const { effectivePlatformRole } = await import("@/server/workspace-guard");
+      if (!canSeeAllRequests(await effectivePlatformRole(session))) return null;
+    }
 
     let workspaceName: string | null = null;
     if (!isOwn) {
@@ -633,7 +640,8 @@ export const getRequestFn = createServerFn({ method: "GET" })
     });
     if (!row) return null;
 
-    const seesAll = canSeeAllRequests(session.user.platformRole);
+    const { effectivePlatformRole } = await import("@/server/workspace-guard");
+    const seesAll = canSeeAllRequests(await effectivePlatformRole(session));
     const isOwn = row.organizationId === workspaceId;
     if (!isOwn && !seesAll) return null;
 

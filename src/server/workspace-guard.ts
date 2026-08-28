@@ -19,6 +19,29 @@ export type WorkspaceMembership = {
   role: string;
 };
 
+/**
+ * The caller's EFFECTIVE platform role (owner decision 2026-08-27): staff
+ * powers exist only while STANDING IN the internal workspace — the gold
+ * badge is the powers. In a personal (or any customer) workspace, a staff
+ * member is exactly a buyer: no INTERNE menu, no Vue globale, no
+ * cross-tenant reads. Feed this to hasPlatformFeature/canSeeAllRequests
+ * instead of the raw user.platformRole.
+ */
+export async function effectivePlatformRole(session: {
+  user: { platformRole?: string | null | undefined };
+  session: { activeOrganizationId?: string | null | undefined };
+}): Promise<string> {
+  const role = session.user.platformRole ?? "user";
+  if (role === "user") return "user";
+  const workspaceId = session.session.activeOrganizationId;
+  if (!workspaceId) return "user";
+  const workspace = await db.query.organization.findFirst({
+    where: eq(schema.organization.id, workspaceId),
+    columns: { type: true },
+  });
+  return workspace?.type === "internal" ? role : "user";
+}
+
 /** The caller's membership in a workspace, iff it grants at least `min`. */
 export async function requireMember(
   userId: string,

@@ -91,7 +91,10 @@ async function requireSourceAdmin() {
     import("@/lib/roles"),
   ]);
   const session = await auth.api.getSession({ headers: getRequest().headers });
-  if (!session || !hasPlatformFeature(session.user.platformRole, "sources")) return null;
+  if (!session) return null;
+  // Staff powers only from the internal workspace (2026-08-27).
+  const { effectivePlatformRole } = await import("@/server/workspace-guard");
+  if (!hasPlatformFeature(await effectivePlatformRole(session), "sources")) return null;
   return session;
 }
 

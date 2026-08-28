@@ -26,7 +26,10 @@ export const getCustomerAccountsFn = createServerFn({ method: "GET" }).handler(
       import("@/lib/roles"),
     ]);
     const session = await auth.api.getSession({ headers: getRequest().headers });
-    if (!session || !hasPlatformFeature(session.user.platformRole, "clients")) return [];
+    if (!session) return [];
+    // Staff powers only from the internal workspace (2026-08-27).
+    const { effectivePlatformRole } = await import("@/server/workspace-guard");
+    if (!hasPlatformFeature(await effectivePlatformRole(session), "clients")) return [];
 
     const [{ db }, { desc, ne, sql }, schema] = await Promise.all([
       import("@/database"),

@@ -62,6 +62,9 @@ export const getSuppliersFn = createServerFn({ method: "GET" }).handler(
       import("@/database/schema"),
     ]);
     const session = await auth.api.getSession({ headers: getRequest().headers });
+    // Staff powers only from the internal workspace (2026-08-27).
+    const { effectivePlatformRole } = await import("@/server/workspace-guard");
+    const effectiveRole = session ? await effectivePlatformRole(session) : "user";
     if (!session) return EMPTY;
 
     const rows = await db
@@ -85,7 +88,7 @@ export const getSuppliersFn = createServerFn({ method: "GET" }).handler(
       .orderBy(desc(schema.supplier.confidenceScore), asc(schema.supplier.name));
 
     const suppliers = rows.map((row) =>
-      gateDiscovery(row, session.session.activeOrganizationId, session.user.platformRole),
+      gateDiscovery(row, session.session.activeOrganizationId, effectiveRole),
     );
     return { suppliers, total: suppliers.length };
   },
@@ -103,6 +106,9 @@ export const getMyMatchedSuppliersFn = createServerFn({ method: "GET" }).handler
       import("@/database/schema"),
     ]);
     const session = await auth.api.getSession({ headers: getRequest().headers });
+    // Staff powers only from the internal workspace (2026-08-27).
+    const { effectivePlatformRole } = await import("@/server/workspace-guard");
+    const effectiveRole = session ? await effectivePlatformRole(session) : "user";
     const workspaceId = session?.session.activeOrganizationId;
     if (!session || !workspaceId) return EMPTY;
 
@@ -127,7 +133,7 @@ export const getMyMatchedSuppliersFn = createServerFn({ method: "GET" }).handler
       .groupBy(schema.supplier.id, schema.request.organizationId)
       .orderBy(desc(schema.supplier.confidenceScore), asc(schema.supplier.name));
 
-    const suppliers = rows.map((row) => gateDiscovery(row, workspaceId, session.user.platformRole));
+    const suppliers = rows.map((row) => gateDiscovery(row, workspaceId, effectiveRole));
     return { suppliers, total: suppliers.length };
   },
 );

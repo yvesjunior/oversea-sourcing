@@ -46,7 +46,10 @@ async function requirePlanAdmin() {
     import("@/lib/roles"),
   ]);
   const session = await auth.api.getSession({ headers: getRequest().headers });
-  if (!session || !hasPlatformFeature(session.user.platformRole, "plans")) return null;
+  if (!session) return null;
+  // Staff powers only from the internal workspace (2026-08-27).
+  const { effectivePlatformRole } = await import("@/server/workspace-guard");
+  if (!hasPlatformFeature(await effectivePlatformRole(session), "plans")) return null;
   return session;
 }
 

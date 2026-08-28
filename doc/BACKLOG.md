@@ -202,6 +202,22 @@ accept · warning copy on remove-member ("deletes their account");
 differently" before writing code.
 
 **History of the foundation waves (2026-08-26/27), newest first:**
+②h **DONE 2026-08-27 — staff powers follow the internal workspace** (owner
+decision: "staff in their personal workspace should not have access to
+global view" — and org members already can't reach org data from personal
+spaces, by the B1 scoping). One concept: **`effectivePlatformRole`**
+(workspace-guard) — your platform role only exists while STANDING IN the
+internal workspace; anywhere else you are exactly a buyer. Client side:
+getSessionFn ships the EFFECTIVE role (presentation only — every server fn
+re-derives), so sidebar/INTERNE/Vue globale/route guards all follow the
+badge with zero per-component logic. Server sweep: sources/users/
+verification/clients/plans admin fns + getAllRequestsFn + both foreign
+dossier reads + global stats + supplier discovery gate + /api/files
+cross-tenant read. Staff sessions now DEFAULT to the internal workspace
+at login (personal = a deliberate switch). *Verified live:* Owner login →
+lands in the gold OSI org with INTERNE; switch to personal → INTERNE and
+Vue globale gone, direct /interne/clients bounces home; switch back →
+restored.
 ②b **DONE 2026-08-26 — the staff org + explicit account types** (owner
 decisions): migration **0022** adds `organization.type`
 (`internal | individual | enterprise`, default individual) and seeds the
