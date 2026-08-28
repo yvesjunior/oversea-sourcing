@@ -111,8 +111,11 @@ export function WorkspaceSwitcher() {
               <span className="min-w-0">
                 <span className="block truncate text-sm font-medium">{workspace.name}</span>
                 <span className="block text-xs text-muted-foreground">
-                  {t(`workspaceTypes.${workspace.type}`)} ·{" "}
-                  {t(`workspaceRoles.${workspace.role}`, { defaultValue: workspace.role })}
+                  {/* A personal workspace has exactly one member — its owner.
+                      Naming the role there says nothing (owner, 2026-08-28). */}
+                  {workspace.type === "individual"
+                    ? t(`workspaceTypes.${workspace.type}`)
+                    : `${t(`workspaceTypes.${workspace.type}`)} · ${t(`workspaceRoles.${workspace.role}`, { defaultValue: workspace.role })}`}
                 </span>
               </span>
             </span>

@@ -513,9 +513,14 @@ function Sources() {
   const router = useRouter();
   const { session } = Route.useRouteContext();
   const sources = Route.useLoaderData();
+  // Search sources first, then verification — the tab groups follow.
+  const orderedSources = [
+    ...sources.filter((s) => s.role === "discovery"),
+    ...sources.filter((s) => s.role !== "discovery"),
+  ];
   const canToggle = hasSessionFeature(session, "sources.toggle");
   const canWipe = hasSessionFeature(session, "sources.wipe");
-  const [selectedId, setSelectedId] = useState<string | null>(sources[0]?.id ?? null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detail, setDetail] = useState<SourceDetailView | null>(null);
   // Store browser: committed search + page + page size, reset on tab change.
   const [searchInput, setSearchInput] = useState("");
@@ -584,20 +589,34 @@ function Sources() {
         <p className="mt-1 text-sm text-muted-foreground">{t("sourcesAdmin.subtitle")}</p>
       </header>
 
-      {/* One tab per catalogue source (same pattern as Paramètres/Abonnements);
-          the old overview table's controls live in each tab's panel header. */}
-      <Tabs value={selectedId ?? sources[0]?.id ?? ""} onValueChange={selectTab}>
-        <TabsList>
-          {sources.map((source) => (
-            <TabsTrigger key={source.id} value={source.id} className={TAB_TRIGGER}>
-              {/* Names render through i18n by code; the DB name (French) is
-                  the fallback for sources without a translation yet. */}
-              {t(`sourceNames.${source.code}`, { defaultValue: source.name })}
-              {source.runningRuns > 0 && (
-                <span className="ml-1.5 inline-block size-1.5 animate-pulse rounded-full bg-current" />
-              )}
-            </TabsTrigger>
-          ))}
+      {/* One tab per catalogue source, grouped by CATEGORY (owner request
+          2026-08-28): sources for SEARCH (discovery role — feed matching)
+          and sources for VERIFICATION (registries — per-candidate checks,
+          never matched). The old overview table's controls live in each
+          tab's panel header. */}
+      <Tabs value={selectedId ?? orderedSources[0]?.id ?? ""} onValueChange={selectTab}>
+        <TabsList className="h-auto flex-wrap gap-1">
+          {(["discovery", "verification"] as const).map((role) => {
+            const group = orderedSources.filter((s) => s.role === role);
+            if (group.length === 0) return null;
+            return (
+              <span key={role} className="flex flex-wrap items-center gap-1">
+                <span className="px-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                  {t(`sourcesAdmin.roles.${role}`)}
+                </span>
+                {group.map((source) => (
+                  <TabsTrigger key={source.id} value={source.id} className={TAB_TRIGGER}>
+                    {/* Names render through i18n by code; the DB name (French)
+                        is the fallback for sources without a translation yet. */}
+                    {t(`sourceNames.${source.code}`, { defaultValue: source.name })}
+                    {source.runningRuns > 0 && (
+                      <span className="ml-1.5 inline-block size-1.5 animate-pulse rounded-full bg-current" />
+                    )}
+                  </TabsTrigger>
+                ))}
+              </span>
+            );
+          })}
         </TabsList>
 
         {sources.map((source) => (

@@ -266,10 +266,10 @@
     "confirm": "Confirm",
     "cancel": "Cancel",
     "roles": {
-      "discovery": "Discovery",
+      "discovery": "Search",
       "verification": "Verification"
     },
-    "verificationHint": "Verification source (ADR-001) — its store is a local lookup table for per-candidate checks (legal existence, activity). It never feeds matching, never appears in workspace settings, and is refreshed on a slow cadence (~every 6 months).",
+    "verificationHint": "Verification source (ADR-001) — its store is a local lookup table for per-candidate checks (legal existence, activity). It never feeds matching and never appears in workspace settings. Enabled = used automatically everywhere (2026-08-28 rule): the switch above is the only control — disabled, nobody consults it. Refreshed on a slow cadence (~every 6 months).",
     "disabled": "Disabled"
   },
   "user": {

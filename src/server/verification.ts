@@ -45,12 +45,17 @@ type CheckResult = {
 async function checkExistence(supplier: SupplierRow): Promise<CheckResult> {
   if (!supplier.dedupKey) return { status: "inconclusive", result: { reason: "no_dedup_key" } };
 
+  // Platform-enabled verification sources ONLY (owner rule 2026-08-28: an
+  // enabled verification source is used by default everywhere — so the
+  // switch is the owner's single control; a disabled one is consulted by
+  // nobody). Workspaces never see or choose these (S5a).
   const verificationSources = await db
     .select({ id: schema.dataSource.id, code: schema.dataSource.code })
     .from(schema.dataSource)
     .where(
       and(
         eq(schema.dataSource.role, "verification"),
+        eq(schema.dataSource.enabled, true),
         eq(schema.dataSource.countryCode, supplier.countryCode.toUpperCase()),
       ),
     );

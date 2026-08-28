@@ -98,12 +98,18 @@ Key redirections versus the sections below:
 - **Discovery grows demand-first over genuinely FREE sources only** —
   **owner constraint (2026-08-26): no paid subscription to any data
   provider, ever; do not align any design with one.** Customs/BoL data —
-  the ADR's original discovery backbone — is therefore **closed** (the
-  2026-08-26 investigation found no free route; every access path is
-  paid). `global_web` carries discovery, including the China corridor; new
-  connectors are added only when a genuinely free, licensed source exists
-  for a corridor buyers need. The availability-driven registry roadmap
-  (Companies House → SIRENE → BRREG) stays retired.
+  the ADR's original discovery backbone — is **closed for the US routes**
+  (the 2026-08-26 investigation found every US access path paid), but the
+  category stays open: **owner doctrine 2026-08-28 — bills-of-lading data
+  joins the SEARCH category wherever a genuinely free route exists (free
+  bulk or free API), in any jurisdiction.** `global_web` is and stays the
+  DEFAULT search source, carrying discovery including the China corridor;
+  new connectors are added only when a genuinely free, licensed source
+  exists for a corridor buyers need. The availability-driven registry
+  roadmap (Companies House → SIRENE → BRREG) stays retired. Since
+  2026-08-28 `/interne/sources` presents the catalogue as the two
+  categories — **Recherche** (search — feeds matching) and
+  **Vérification** (registries — never matched).
 - **Enrichment is lazy**: the ~3×N candidates a live request surfaces get a
   site-scrape + evidence-cited capability profile; keyword-scoped batches
   are the staff-aimed secondary; store-sized enrichment batches do not

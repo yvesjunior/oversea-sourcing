@@ -61,16 +61,23 @@ session, both verified; migrations through 0030 applied everywhere.**
   password once; run 2FA enable → confirm code → sign out →
   /2fa sign-in (everything else is live-verified; agents cannot type
   passwords).
-② **S4 lazy enrichment — plan presented, AWAITING three owner calls**:
-  inline-before-matching vs enrich-after-report · cap = 3×N candidates
-  only or also a dollar ceiling · thin-records-only (recommended) vs
-  re-enrich everything. Flow diagram shown 2026-08-28; seams in the
-  resolved decision gate + Phase S task S4.
+② ~~S4 lazy enrichment~~ **DEFERRED 2026-08-28** (design review with the
+  owner: its driver died with S5a — see the Phase S entry for the
+  revive triggers). **Next substantial step: the E6 facilitation design
+  discussion** (MVP1 blocker, the real moat per ADR-001's deal loop).
 ③ Small offer on the table: persist `usage` + `estimated_cost` onto
   `research_run` (one migration) so per-request spend survives log
-  rotation — worth landing before enrichment adds a second spender.
-④ Then the usual order: S4 build → E6 facilitation design discussion
-  (still LAST before financial features — owner priority).
+  rotation.
+④ **Source doctrine (owner, 2026-08-28)**: sources are presented as two
+  categories — **SEARCH** (feed matching; `global_web` is and stays the
+  default) and **VERIFICATION** (registries; per-candidate checks,
+  never matched). **Bills-of-lading/customs data joins the SEARCH
+  category wherever a genuinely FREE route exists (free bulk or free
+  API — the no-paid-data constraint stands unchanged);** the US routes
+  investigated 2026-08-26 are all paid → still closed, but the category
+  is open to free BoL routes in other jurisdictions when found.
+  /interne/sources now groups its tabs by category (Recherche |
+  Vérification); the role label "Découverte" was renamed "Recherche".
 
 **Known nit:** the internal workspace badge follows the user's personal
 accent theme (the shield icon still marks it) — pin it to gold if that
@@ -125,6 +132,26 @@ foundation feels done; ④ E6 facilitation stays LAST before financial
 features (owner priority). ~~Prod = main = `d603dd7` (deploy #5)~~ —
 **SUPERSEDED: deploys #6 (`67b4b5d`, migs 0028–0030) and #7
 (`31f8a4c`) shipped 2026-08-27; see the 2026-08-27/28 digest above.**
+
+②o **DONE 2026-08-28 (uncommitted) — source categories surfaced + S4
+deferred + small polish**: ① `/interne/sources` tabs grouped into
+**Recherche | Vérification** (the S5a `data_source.role`, now visible;
+label "Découverte" renamed "Recherche"; no schema change) — doctrine in
+the pick-up list ④: free-only BoL joins SEARCH when found, global_web
+stays the default; ② **S4 enrichment DEFERRED** after a design review
+with the owner (see the Phase S entry — driver died with S5a; revive
+triggers recorded); ③ the workspace switcher no longer names the role
+on individual workspaces (always the owner — zero information);
+④ **verification sources honor their platform switch** (owner rule
+2026-08-28: "if a verification datasource is enabled in the platform it
+is used by default everywhere, user has no control"): `checkExistence`
+now consults ENABLED verification sources only — the catalogue switch
+is the owner's single control (it previously ignored `enabled` and read
+any warmed store); workspaces still never see or choose them (S5a).
+Dev consequence: CA+QC enabled → their checks unchanged; SG/JP/IN
+disabled → their countries read `country_not_covered` until switched
+on. Prod unchanged (all registries disabled AND stores empty). The
+/interne/sources verification explainer states the rule.
 
 ②n **DONE 2026-08-28 — staff access is DATA: the Rôles & accès matrix —
 DEPLOYED as #8 (commit `49d6521`, migration 0031; backup
@@ -1421,12 +1448,22 @@ derived from edges, never set by hand.
 - [ ] **S3 · Category/activity-code retrieval** — replaces the name-only
       big-store ILIKE prefilter for discovery stores: criteria/category →
       activity-code mapping (NIC, SSIC, QC activity classes), zero AI cost.
-- [ ] **S4 · Lazy per-request enrichment** — enrich the ~3×N candidates a
-      live request surfaces (site scrape → evidence-cited capability
-      profile); keyword-scoped batches as the staff-aimed secondary. Seams
-      (from the resolved gate above): `enrich` job on the research queue,
-      agent module beside `ai/research.ts`, enrichment fields +
-      `enriched_at` on `source_record`, per-run audit with token cost.
+- [ ] **S4 · Lazy per-request enrichment — ⏸️ DEFERRED (owner + design
+      review, 2026-08-28: "is it really a good idea" → no, not now).**
+      The original driver died with S5a: bare registry records no longer
+      enter matching (verification role), and `global_web` — the only
+      search source — returns candidates WITH descriptions, so the
+      thin-candidate population S4 exists for is near-empty today, while
+      the cost (~$0.15–0.45/request at 3×N) would dwarf research itself
+      (~$0.07). **Revive triggers**: a search source that returns bare
+      names (e.g. a free BoL connector), or evidence from real requests
+      that profiles are too thin (matching misses, buyer feedback).
+      Cheapest first slice when revived: enrich only the presented Top-N
+      (N, not 3×N), AFTER the report, as profile-deepening + tier-2
+      capability evidence. Original seams still apply: `enrich` job on
+      the research queue, agent module beside `ai/research.ts`,
+      enrichment fields + `enriched_at` on `source_record`, per-run
+      audit with token cost.
 - [ ] **S5 · Verification battery + source roles** (customs connector
       REMOVED from scope — see below).
       **Customs access investigated 2026-08-26 → CLOSED** (README §9
