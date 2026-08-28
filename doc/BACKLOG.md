@@ -34,6 +34,33 @@ downloads the PDF report.
 
 ### Session digest 2026-08-26/27 — read this first
 
+**EVENING WAVE (2026-08-27) — DEPLOYED AS #5, commit `d603dd7`,
+migration 0027, verified (origin 200, audit_log live, data intact —
+9 users / 67 suppliers / 8 requests; prod signups are happening).**
+Backup first: `backups/osi-20260827-210338.sql.gz`. Three features:
+- **Staff powers follow the internal workspace** (`effectivePlatformRole`
+  in workspace-guard — the ONLY way to gate staff powers server-side;
+  never test raw `user.platformRole`). Staff sessions default to the OSI
+  workspace at login; in any other workspace a staff member is exactly a
+  buyer (no INTERNE, no Vue globale, cross-tenant reads refused).
+  Org members were already sealed from org data in personal spaces (B1).
+- **The audit journal** (②i): `audit_log` (mig 0027, FK + name-snapshot
+  double storage), emitter `src/server/audit.ts` (the one door), ~20
+  lifecycle/admin actions wired, viewer on /interne/utilisateurs
+  filterable PER ESPACE / PER UTILISATEUR.
+- **Owner/manager split CLOSED** (②j): owner combines ALL rights;
+  manager is operate-only (no plan editing/assignment, no source
+  enable/disable, no wipe, no Finance). Enforced server-side.
+
+**Updated pick-up list (next session):** ① settings/account small gaps —
+password change in Profil · workspace rename (owner) · 2FA; ② cosmetic
+follow-ups — workspace badge refresh after invitation accept ·
+remove-member warning copy ("deletes their account") · platform-role
+grant should enroll into the OSI org; ③ S4 lazy enrichment (Phase S) when
+foundation feels done; ④ E6 facilitation stays LAST before financial
+features (owner priority). Prod = main = `d603dd7`; docs current.
+
+
 **One session changed the product's strategy AND its account model —
 and it is LIVE: DEPLOYED TO PROD 2026-08-27 (deploy #4, commit `52b1827`,
 migrations 0017–0026 applied cleanly).** 26 commits past the tag
