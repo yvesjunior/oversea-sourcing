@@ -82,8 +82,10 @@ features (owner priority). Prod = main = `d603dd7` (deploy #5);
 **main now carries migrations 0028–0030** (audit tombstone ids · 2FA
 tables · theme color) — deploy on request. Docs current.
 
-②m **DONE 2026-08-27 (post-deploy #6, uncommitted) — journal lifecycle +
-org-owner access** (owner rules: "we can delete a log older than 3
+②m **DONE 2026-08-27 — journal lifecycle + org-owner access — DEPLOYED
+as #7 (commit `31f8a4c`, code-only, no migrations; backup
+`backups/osi-20260827-234130.sql.gz`; verified: origin 200, VM on
+`31f8a4c`, five containers up, internal plan on cheap tier)** (owner rules: "we can delete a log older than 3
 month" · "platform owner can see all logs, but org owner is limited to
 his own org related logs"):
 - **Purge**: `purgeAuditLogFn` (platform-owner-EXCLUSIVE) deletes
