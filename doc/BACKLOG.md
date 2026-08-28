@@ -34,6 +34,21 @@ downloads the PDF report.
 
 ### Session digest 2026-08-26/27 — read this first
 
+**DEPLOY #6 (2026-08-27 evening, commit `67b4b5d`, migrations
+0028–0030) — the ②l foundation wave is LIVE.** Backup first:
+`backups/osi-20260827-225516.sql.gz` (31M). Verified on prod: public
+origin 200 · five containers up (migrate exited clean) · `two_factor`
+table + `user.two_factor_enabled`/`theme_color` present ·
+`audit_log` has ZERO foreign keys (tombstone ids live) · data intact
+(9 users / 9 orgs / 67 suppliers / 7 requests). The request count
+dropped 8→7 since deploy #5 — **the prod audit journal itself explained
+it**: the platform owner destroyed their own personal workspace at
+21:07 (request cascaded, then re-registered) and verified a supplier at
+21:11 — the journal's first real catch. Rollback = `git checkout
+1436e0e` + rebuild + restore if needed. NOTE for the owner: prod logins
+now honor 2FA once enabled; the enable/verify loop still wants one
+manual pass (recorded in ②l).
+
 **EVENING WAVE (2026-08-27) — DEPLOYED AS #5, commit `d603dd7`,
 migration 0027, verified (origin 200, audit_log live, data intact —
 9 users / 67 suppliers / 8 requests; prod signups are happening).**
