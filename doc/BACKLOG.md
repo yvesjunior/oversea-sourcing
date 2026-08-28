@@ -133,8 +133,10 @@ features (owner priority). ~~Prod = main = `d603dd7` (deploy #5)~~ —
 **SUPERSEDED: deploys #6 (`67b4b5d`, migs 0028–0030) and #7
 (`31f8a4c`) shipped 2026-08-27; see the 2026-08-27/28 digest above.**
 
-②p **DONE 2026-08-28 (uncommitted) — upload block + email-verification
-enforcement** (owner: "BLOCK THEM" · "AT REGISTRATION EMAIL SHOULD
+②p **DONE 2026-08-28 — upload block + email-verification enforcement —
+DEPLOYED as #10 (commit `10998d9`, code-only; backup taken pre-deploy;
+verified: origin 200, VM on `10998d9`, five containers up, auth endpoint
+answering normally)** (owner: "BLOCK THEM" · "AT REGISTRATION EMAIL SHOULD
 VERIFY"):
 - **`.docx`/`.xlsx` refused at upload** (server MIME allowlist → 415 +
   the picker's `accept` filter) — they were stored but unreadable, a
