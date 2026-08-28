@@ -34,6 +34,7 @@
     "tabSubscription": "Abonnement",
     "tabSourcing": "Préférences de sourcing",
     "tabMembers": "Utilisateurs",
+    "tabJournal": "Journal",
     "name": "Nom complet",
     "email": "Adresse e-mail",
     "language": "Langue",
@@ -777,6 +778,9 @@
     "next": "Suivant",
     "fromDate": "Du",
     "toDate": "Au",
+    "purgeButton": "Purger (> {{months}} mois)",
+    "purgeConfirm": "Supprimer définitivement toutes les entrées de plus de {{months}} mois ? Les entrées récentes sont conservées.",
+    "purgeDone": "{{count}} entrée(s) supprimée(s)",
     "filterOrg": "Espace",
     "filterActor": "Utilisateur",
     "allOrgs": "Tous les espaces",
@@ -812,7 +816,8 @@
     "sourcing.updated": "Préférences de sourcing modifiées",
     "org_profile.updated": "Profil d’organisation modifié",
     "workspace.renamed": "Espace renommé",
-    "platform_role.updated": "Rôle plateforme modifié"
+    "platform_role.updated": "Rôle plateforme modifié",
+    "log.purged": "Journal purgé"
   },
   "twofa": {
     "title": "Vérification en deux étapes",

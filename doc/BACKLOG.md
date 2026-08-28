@@ -82,6 +82,31 @@ features (owner priority). Prod = main = `d603dd7` (deploy #5);
 **main now carries migrations 0028–0030** (audit tombstone ids · 2FA
 tables · theme color) — deploy on request. Docs current.
 
+②m **DONE 2026-08-27 (post-deploy #6, uncommitted) — journal lifecycle +
+org-owner access** (owner rules: "we can delete a log older than 3
+month" · "platform owner can see all logs, but org owner is limited to
+his own org related logs"):
+- **Purge**: `purgeAuditLogFn` (platform-owner-EXCLUSIVE) deletes
+  entries older than `AUDIT_RETENTION_MONTHS = 3` — the recent window is
+  never deletable; the purge writes its own `log.purged` row (count +
+  cutoff). Button on /interne/logging. *Live-verified: two seeded
+  4/5-month rows deleted, recent kept, purge row written.*
+- **Two access tiers on `getAuditLogFn`**: platform staff (feature
+  `logging`) read everything; otherwise the OWNER of a non-individual
+  workspace reads THEIR org's rows — scope FORCED server-side (any
+  client-sent organizationId is overridden), actor options scoped too.
+  Surface: Paramètres → **Journal** tab (non-individual, owner-gated
+  disabled-not-hidden), reusing the extracted
+  `src/components/osi/AuditJournal.tsx` (the /interne/logging route
+  keeps the org filter + purge). *Live-verified: Camille sees exactly
+  Atelier's 4 rows, no OSI-internal rows, no org filter, no purge.*
+- Old-log coverage note (owner): pre-journal history is NOT expected —
+  no backfill; emitters only cover actions from when they shipped.
+- **Internal plan → cheap tier** (owner, 2026-08-27): staff test
+  requests run on haiku (~$0.07 vs ~$0.20/request) — a plans-are-rows
+  live UPDATE applied on dev AND prod, README table updated. Editable
+  anytime from Abonnements.
+
 ②l **DONE 2026-08-27 — the foundation-gaps wave** (owner: "remaining
 foundation items, all small… 2fa can be enable on user profile · each
 user has a profile with parameters, personal info and this 2fa thing,

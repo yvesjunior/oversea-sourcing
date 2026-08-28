@@ -526,7 +526,7 @@ gets is an `UPDATE` from `/interne/plans`, live on the next request, no deploy.
 | Seats (`max_members`) | 1 | 1 | 5 | 0 = custom | 0 |
 | Quota scope | per user | per user | pooled | pooled | pooled |
 | Suppliers returned | 5 | 10 | 20 | 20 | 10 |
-| Model tier | `cheap` | `best` | `best` | `best` | `best` |
+| Model tier | `cheap` | `best` | `best` | `best` | `cheap` |
 
 `0` means unlimited so the internal plan needs no special case, and an accidental
 `0` reads as "no cap" rather than silently locking every buyer out. A workspace

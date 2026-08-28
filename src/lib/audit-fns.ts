@@ -69,22 +69,36 @@ export const getAuditLogFn = createServerFn({ method: "GET" })
     ]);
     const session = await auth.api.getSession({ headers: getRequest().headers });
     if (!session) return EMPTY;
-    // Staff powers only from the internal workspace (2026-08-27).
-    const { effectivePlatformRole } = await import("@/server/workspace-guard");
-    if (!hasPlatformFeature(await effectivePlatformRole(session), "logging")) {
-      return EMPTY;
-    }
-
     const [{ db }, { and, count, desc, eq, gte, isNotNull, lte, sql }, schema] = await Promise.all([
       import("@/database"),
       import("drizzle-orm"),
       import("@/database/schema"),
     ]);
 
+    // Two access tiers (owner rule 2026-08-27): platform staff (standing in
+    // the internal workspace) read everything; otherwise the OWNER of an
+    // organisation workspace reads their own org's rows only — the scope is
+    // FORCED server-side, whatever organizationId the client sent.
+    const { effectivePlatformRole, requireWorkspaceRole } =
+      await import("@/server/workspace-guard");
+    let forcedOrgId: string | null = null;
+    if (!hasPlatformFeature(await effectivePlatformRole(session), "logging")) {
+      const caller = await requireWorkspaceRole(getRequest().headers, "owner");
+      if (!caller) return EMPTY;
+      const workspace = await db.query.organization.findFirst({
+        where: eq(schema.organization.id, caller.workspaceId),
+        columns: { type: true },
+      });
+      // Individual workspaces are one person — no journal surface for them.
+      if (!workspace || workspace.type === "individual") return EMPTY;
+      forcedOrgId = caller.workspaceId;
+    }
+    const orgScope = forcedOrgId ?? data.organizationId;
+
     const page = data.page ?? 0;
     const pageSize = data.pageSize ?? AUDIT_PAGE_SIZE_DEFAULT;
     const conditions = [
-      ...(data.organizationId ? [eq(schema.auditLog.organizationId, data.organizationId)] : []),
+      ...(orgScope ? [eq(schema.auditLog.organizationId, orgScope)] : []),
       ...(data.actorId ? [eq(schema.auditLog.actorId, data.actorId)] : []),
       ...(data.from ? [gte(schema.auditLog.at, new Date(data.from))] : []),
       ...(data.to ? [lte(schema.auditLog.at, new Date(data.to))] : []),
@@ -137,11 +151,8 @@ export const getAuditLogFn = createServerFn({ method: "GET" })
         .from(schema.auditLog)
         .leftJoin(schema.user, eq(schema.user.id, schema.auditLog.actorId))
         .where(
-          data.organizationId
-            ? and(
-                isNotNull(schema.auditLog.actorId),
-                eq(schema.auditLog.organizationId, data.organizationId),
-              )
+          orgScope
+            ? and(isNotNull(schema.auditLog.actorId), eq(schema.auditLog.organizationId, orgScope))
             : isNotNull(schema.auditLog.actorId),
         ),
     ]);
@@ -163,3 +174,43 @@ export const getAuditLogFn = createServerFn({ method: "GET" })
       filters: { organizations: clean(orgs), actors: clean(actors) },
     };
   });
+
+/** Only entries older than this are purgeable (owner rule 2026-08-27) —
+ *  the recent window is always kept. */
+export const AUDIT_RETENTION_MONTHS = 3;
+
+/** Purge journal entries older than 3 months (owner-EXCLUSIVE — destructive
+ *  ops are owner territory, like the store wipe). The purge itself writes an
+ *  audit row, so the journal always says when it was trimmed and by whom. */
+export const purgeAuditLogFn = createServerFn({ method: "POST" }).handler(
+  async (): Promise<{ ok: boolean; deleted: number }> => {
+    const [{ auth }, { getRequest }] = await Promise.all([
+      import("@/server/auth"),
+      import("@tanstack/react-start/server"),
+    ]);
+    const session = await auth.api.getSession({ headers: getRequest().headers });
+    if (!session) return { ok: false, deleted: 0 };
+    const { effectivePlatformRole } = await import("@/server/workspace-guard");
+    if ((await effectivePlatformRole(session)) !== "owner") return { ok: false, deleted: 0 };
+
+    const [{ db }, { lt }, schema] = await Promise.all([
+      import("@/database"),
+      import("drizzle-orm"),
+      import("@/database/schema"),
+    ]);
+    const cutoff = new Date();
+    cutoff.setMonth(cutoff.getMonth() - AUDIT_RETENTION_MONTHS);
+    const deleted = await db
+      .delete(schema.auditLog)
+      .where(lt(schema.auditLog.at, cutoff))
+      .returning({ id: schema.auditLog.id });
+
+    const { logAudit, actorOf } = await import("@/server/audit");
+    await logAudit({
+      ...actorOf(session),
+      action: "log.purged",
+      detail: { deleted: deleted.length, cutoff: cutoff.toISOString() },
+    });
+    return { ok: true, deleted: deleted.length };
+  },
+);

@@ -23,6 +23,7 @@ import {
   NOTIFICATION_TYPES,
   type NotificationPrefs,
 } from "@/lib/notification-types";
+import { AuditJournal } from "@/components/osi/AuditJournal";
 import { transferOwnershipFn } from "@/lib/team-fns";
 import {
   destroyWorkspaceFn,
@@ -1115,6 +1116,13 @@ function Parametres() {
               {t("settings.tabMembers")}
             </TabsTrigger>
           )}
+          {/* The org owner's journal (2026-08-27): same table as the staff
+              Logging screen, server-scoped to THIS workspace. */}
+          {data.workspace.type !== "individual" && (
+            <TabsTrigger value="journal" className={TAB_TRIGGER} disabled={!isOwner}>
+              {t("settings.tabJournal")}
+            </TabsTrigger>
+          )}
         </TabsList>
         <TabsContent value="profil" className="mt-3 space-y-4">
           <ProfilPanel data={data} onSaved={refresh} />
@@ -1149,6 +1157,11 @@ function Parametres() {
         {data.workspace.type !== "individual" && (
           <TabsContent value="utilisateurs" className="mt-3">
             {isOwner && <MembersPanel data={data} onSaved={refresh} />}
+          </TabsContent>
+        )}
+        {data.workspace.type !== "individual" && (
+          <TabsContent value="journal" className="mt-3">
+            {isOwner && <AuditJournal showOrgFilter={false} />}
           </TabsContent>
         )}
       </Tabs>

@@ -34,6 +34,7 @@
     "tabSubscription": "Subscription",
     "tabSourcing": "Sourcing preferences",
     "tabMembers": "Users",
+    "tabJournal": "Activity log",
     "name": "Full name",
     "email": "Email address",
     "language": "Language",
@@ -777,6 +778,9 @@
     "next": "Next",
     "fromDate": "From",
     "toDate": "To",
+    "purgeButton": "Purge (> {{months}} months)",
+    "purgeConfirm": "Permanently delete every entry older than {{months}} months? Recent entries are kept.",
+    "purgeDone": "{{count}} entrie(s) deleted",
     "filterOrg": "Workspace",
     "filterActor": "User",
     "allOrgs": "All workspaces",
@@ -812,7 +816,8 @@
     "sourcing.updated": "Sourcing preferences updated",
     "org_profile.updated": "Organisation profile updated",
     "workspace.renamed": "Workspace renamed",
-    "platform_role.updated": "Platform role changed"
+    "platform_role.updated": "Platform role changed",
+    "log.purged": "Journal purged"
   },
   "twofa": {
     "title": "Two-step verification",
