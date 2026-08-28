@@ -57,6 +57,12 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
     minPasswordLength: 8,
+    // ENFORCED since 2026-08-28 (owner: "at registration email should
+    // verify") — an unverified account cannot sign in; better-auth re-sends
+    // the verification email on the blocked attempt, so pre-enforcement
+    // accounts self-heal at their next login. This also closes the
+    // free-tier multi-account hole (E12): a trial now costs a real inbox.
+    requireEmailVerification: true,
     // E1 (2026-08-23): password reset by email. The request endpoint answers
     // the same whether the account exists or not (no enumeration), and
     // /forget-password… — request-password-reset is rate limited below.
@@ -76,12 +82,15 @@ export const auth = betterAuth({
     },
   },
   // E1 (2026-08-23): verification email on every email/password signup.
-  // DELIBERATELY NOT ENFORCED at login (requireEmailVerification stays off):
-  // prod has real unverified users, and locking them out would be a breaking
-  // change — enforcement is a future product decision, the flag is recorded.
-  // Google arrivals are verified by Google already (email_verified = true).
+  // ENFORCED at login since 2026-08-28 (owner decision — see
+  // requireEmailVerification above; the flag stayed off from 2026-08-23 to
+  // 2026-08-28 while prod testers were unverified). Google arrivals are
+  // verified by Google already (email_verified = true).
   emailVerification: {
     sendOnSignUp: true,
+    // With enforcement on, a blocked sign-in re-sends the link (2026-08-28) —
+    // pre-enforcement accounts self-heal at their next login attempt.
+    sendOnSignIn: true,
     autoSignInAfterVerification: true,
     sendVerificationEmail: async ({ user, url }) => {
       const { sendMail } = await import("@/server/mail");

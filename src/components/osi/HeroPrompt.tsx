@@ -415,7 +415,7 @@ export function HeroPrompt({ user }: { user: HeroUser }) {
                 ref={fileInputRef}
                 type="file"
                 multiple
-                accept=".pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xls,.xlsx,.txt,.csv"
+                accept=".pdf,.png,.jpg,.jpeg,.webp,.txt,.csv"
                 className="hidden"
                 onChange={(e) => {
                   onFilesPicked(e.target.files);

@@ -5,15 +5,15 @@ import { createFileRoute } from "@tanstack/react-router";
 // handler does its own session + tenancy checks (own workspace only).
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
+// Readable formats ONLY (owner rule 2026-08-28): Word/Excel used to be
+// accepted at upload but attachments.ts cannot read them — a stored file the
+// pipeline silently skips is a lie to the buyer. Blocked until a reader
+// exists; export the spec sheet as PDF/CSV instead.
 const ALLOWED_MIME = new Set([
   "application/pdf",
   "image/png",
   "image/jpeg",
   "image/webp",
-  "application/msword",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  "application/vnd.ms-excel",
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   "text/plain",
   "text/csv",
 ]);

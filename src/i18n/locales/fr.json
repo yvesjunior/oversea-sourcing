@@ -313,7 +313,9 @@
     "companyName": "Nom de l’entreprise",
     "companyNamePlaceholder": "ex. Nordik Manufacturing inc.",
     "errorCompanyTaken": "Ce nom d’organisation est déjà utilisé.",
-    "errorCompanyRequired": "Saisissez le nom de votre organisation."
+    "errorCompanyRequired": "Saisissez le nom de votre organisation.",
+    "errorUnverified": "Adresse e-mail non vérifiée — un e-mail de confirmation vient de vous être renvoyé. Cliquez le lien puis reconnectez-vous.",
+    "signupVerifyNotice": "Compte créé ✓ — un e-mail de confirmation vous a été envoyé. Cliquez le lien pour activer votre compte, puis connectez-vous."
   },
   "resetPwd": {
     "forgotTitle": "Mot de passe oublié",

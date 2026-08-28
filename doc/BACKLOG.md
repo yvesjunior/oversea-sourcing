@@ -12,7 +12,7 @@
 | Epic | Scope | State |
 | --- | --- | --- |
 | **E0** Dev foundations | Postgres, Drizzle, pg-boss, seed | ✅ done |
-| **E1** Auth & users | better-auth, signup, guards, verification, reset, **2FA (2026-08-27)** | 🟡 verification not enforced (deliberate) |
+| **E1** Auth & users | better-auth, signup, guards, verification, reset, **2FA (2026-08-27)**, **verification ENFORCED (2026-08-28)** | ✅ done |
 | **E2** Workspaces & tenancy | Roles, invitations, team UI | ✅ Phase B (2026-08-23) + audit journal (2026-08-27); invites are organisation-only |
 | **E12** Plans & quotas | Full ladder, seats, trial cap, Abonnements | 🟡 billing provider open |
 | **E3** Request core loop | Pipeline, criteria, attachments, dossier | ✅ done |
@@ -132,6 +132,26 @@ foundation feels done; ④ E6 facilitation stays LAST before financial
 features (owner priority). ~~Prod = main = `d603dd7` (deploy #5)~~ —
 **SUPERSEDED: deploys #6 (`67b4b5d`, migs 0028–0030) and #7
 (`31f8a4c`) shipped 2026-08-27; see the 2026-08-27/28 digest above.**
+
+②p **DONE 2026-08-28 (uncommitted) — upload block + email-verification
+enforcement** (owner: "BLOCK THEM" · "AT REGISTRATION EMAIL SHOULD
+VERIFY"):
+- **`.docx`/`.xlsx` refused at upload** (server MIME allowlist → 415 +
+  the picker's `accept` filter) — they were stored but unreadable, a
+  silent lie to the buyer. Re-allow only with a real reader. Readable
+  today: PDF, images, TXT, CSV.
+- **Email verification ENFORCED at login** (`requireEmailVerification`
+  + `sendOnSignIn` — a blocked attempt re-sends the link, so
+  pre-enforcement accounts self-heal). AuthForm: dedicated
+  EMAIL_NOT_VERIFIED message (form + quick-login) and a post-signup
+  "check your inbox" notice (no session until verified). The seed marks
+  demo accounts verified (quick-login would die otherwise) — dev DB
+  updated the same way. *Live-verified END TO END in dev:* unverified
+  buyer → blocked with the right message → verification mail logged →
+  link followed → flag flipped → login succeeds. **Prod impact on
+  deploy: existing unverified testers will be blocked once, get the
+  email, click, continue** — closes the E12 free-tier multi-account
+  hole (a trial now costs a real inbox).
 
 ②o **DONE 2026-08-28 — source categories surfaced + S4 deferred + small
 polish — DEPLOYED as #9 (commit `5eb82cb`, code-only, no migrations;
@@ -829,8 +849,9 @@ writing any code.
 - **Containers never call each other** — Postgres (rows + pg-boss) is the
   only meeting point; worker owns `pipeline`+sweep, worker-research owns
   `research`; Redis is disposable (fail-open, sessions stay in Postgres).
-- **Email verification is NOT enforced at login** — deliberate; flipping
-  `requireEmailVerification` is a product decision, not a cleanup.
+- **Email verification IS enforced at login since 2026-08-28** (owner
+  decision) — `requireEmailVerification` + `sendOnSignIn` in auth.ts;
+  blocked attempts re-send the link; the seed verifies demo accounts.
 - **Account lifecycle (2026-08-26/27)**: user deletions and workspace
   destruction go ONLY through `src/server/account.ts` (session-cache purge
   included). Removal from your only workspace deletes the account (UC-6
@@ -1056,7 +1077,12 @@ and `/documents` render showcase constants and are disabled in the nav.
   `src/server/verification.ts`. Suppliers now actually earn `pending` (+5)
   through the automated battery; `verified` (+12) waits for the E10 staff
   review surface (human_review rows)
-- ⚠️ `.docx` / `.xlsx` attachments are accepted at upload but cannot be read
+- ✅ **Fixed 2026-08-28 (owner: "BLOCK THEM"): `.docx`/`.xlsx` are refused
+  at upload** — they were accepted but `attachments.ts` cannot read them,
+  so the pipeline silently skipped a file the buyer thought counted. Both
+  gates: the `/api/upload` MIME allowlist (415) and the file picker's
+  `accept` filter. Re-allow only when a Word/Excel reader exists
+  (readable today: PDF, images, TXT, CSV)
 - ⚠️ `/transactions` still renders showcase constants from `src/data/osi.ts`
   (`etapesTransaction`). Analytics is DB-backed now, so `kpisAnalyses`,
   `repartition`, `categories` and `tendance` in that file are **dead code**

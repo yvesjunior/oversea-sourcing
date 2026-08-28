@@ -614,10 +614,13 @@ facts a future session must not re-derive differently:
   route; `autoSignInAfterVerification: true` signs the user in and lands them
   on `/`. A **resend** lives in Paramètres → Profil (unverified users see
   "renvoyer l'e-mail" → `authClient.sendVerificationEmail`).
-- **Verification is recorded, NOT enforced** — `requireEmailVerification`
-  stays off *deliberately*: prod has real unverified accounts (`renaud819@…`)
-  and locking them out would be a breaking change. Turning enforcement on is
-  a one-line product decision for later; do not flip it casually.
+- **Verification is ENFORCED at login since 2026-08-28** (owner: "at
+  registration email should verify") — an unverified account cannot sign
+  in; the blocked attempt re-sends the verification link
+  (`sendOnSignIn: true`), so pre-enforcement accounts self-heal at their
+  next login. This closes the free-tier multi-account hole (a trial now
+  costs a real inbox). Demo accounts are seed-verified; Google arrivals
+  are verified already.
 - **Password reset**: login page carries "Mot de passe oublié ?" →
   `/mot-de-passe-oublie` (public) → `authClient.requestPasswordReset({ email,
   redirectTo: "/reinitialiser" })`. The page answers **the same whether the
@@ -1351,7 +1354,8 @@ unless asked: `./scripts/addons.sh [--remote] <profile>`.
   same instant both read the count, both pass, and both insert — reproduced at
   2 rows against a limit of 1. Fix is an advisory lock on the workspace id around
   check-and-insert
-- ⬜ Email verification (needs a provider), 2FA, error tracking
+- ✅ Email verification ENFORCED at login (2026-08-28) · ✅ 2FA opt-in per user (2026-08-27)
+- ⬜ Error tracking
 
 ---
 

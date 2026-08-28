@@ -60,6 +60,16 @@ async function main() {
   await seedCustomerOrg();
   await seedSuppliers();
   await seedRequests();
+  // requireEmailVerification is enforced (2026-08-28): demo accounts have no
+  // real inbox, so the seed verifies them directly — quick-login must work.
+  const { like, or } = await import("drizzle-orm");
+  await db
+    .update(schema.user)
+    .set({ emailVerified: true })
+    .where(
+      or(like(schema.user.email, "%@osi.dev"), like(schema.user.email, "%@atelier-boreal.dev")),
+    );
+  console.log("~ demo accounts marked email-verified (enforcement is on)");
   console.log("Seed done. Password for all accounts: " + PASSWORD);
   process.exit(0);
 }

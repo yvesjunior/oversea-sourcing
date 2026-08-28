@@ -55,6 +55,7 @@ export function AuthForm({
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [verifyNotice, setVerifyNotice] = useState(false);
   // Honeypot: hidden from people, irresistible to form-filling bots. Server
   // rejects any signup that arrives with it set (src/server/signup-guard.ts).
   const [honeypot, setHoneypot] = useState("");
@@ -88,16 +89,27 @@ export function AuthForm({
         setError(
           result.error.status === 429
             ? t("auth.errorRateLimit")
-            : message.includes("COMPANY_NAME_TAKEN")
-              ? t("auth.errorCompanyTaken")
-              : message.includes("COMPANY_NAME_REQUIRED")
-                ? t("auth.errorCompanyRequired")
-                : code.includes("ALREADY_EXISTS")
-                  ? t("auth.errorExists")
-                  : code.includes("INVALID") || result.error.status === 401
-                    ? t("auth.errorInvalid")
-                    : t("auth.errorGeneric"),
+            : code.includes("EMAIL_NOT_VERIFIED")
+              ? // Enforcement (2026-08-28): the blocked attempt just re-sent
+                // the verification email — tell the user to go click it.
+                t("auth.errorUnverified")
+              : message.includes("COMPANY_NAME_TAKEN")
+                ? t("auth.errorCompanyTaken")
+                : message.includes("COMPANY_NAME_REQUIRED")
+                  ? t("auth.errorCompanyRequired")
+                  : code.includes("ALREADY_EXISTS")
+                    ? t("auth.errorExists")
+                    : code.includes("INVALID") || result.error.status === 401
+                      ? t("auth.errorInvalid")
+                      : t("auth.errorGeneric"),
         );
+        return;
+      }
+      if (mode === "signup") {
+        // requireEmailVerification (2026-08-28): a fresh signup has no usable
+        // session until the emailed link is clicked — don't navigate into the
+        // auth gate, say what to do next.
+        setVerifyNotice(true);
         return;
       }
       await router.invalidate();
@@ -126,7 +138,13 @@ export function AuthForm({
         password: "osi-demo-1234",
       });
       if (result.error) {
-        setError(result.error.status === 429 ? t("auth.errorRateLimit") : t("auth.errorGeneric"));
+        setError(
+          result.error.status === 429
+            ? t("auth.errorRateLimit")
+            : (result.error.code ?? "").includes("EMAIL_NOT_VERIFIED")
+              ? t("auth.errorUnverified")
+              : t("auth.errorGeneric"),
+        );
         return;
       }
       await router.invalidate();
@@ -260,6 +278,11 @@ export function AuthForm({
         </div>
 
         {error && <p className="text-sm text-destructive">{error}</p>}
+        {verifyNotice && (
+          <p className="rounded-lg bg-emerald-500/10 p-3 text-sm text-emerald-700 dark:text-emerald-400">
+            {t("auth.signupVerifyNotice")}
+          </p>
+        )}
 
         <Button type="submit" variant="gold" size="lg" className="w-full" disabled={pending}>
           {pending
