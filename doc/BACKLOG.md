@@ -13,7 +13,7 @@
 | --- | --- | --- |
 | **E0** Dev foundations | Postgres, Drizzle, pg-boss, seed | ✅ done |
 | **E1** Auth & users | better-auth, signup, guards, verification, reset, **2FA (2026-08-27)** | 🟡 verification not enforced (deliberate) |
-| **E2** Workspaces & tenancy | Roles, invitations, team UI | ✅ Phase B (2026-08-23) — audit-log task open |
+| **E2** Workspaces & tenancy | Roles, invitations, team UI | ✅ Phase B (2026-08-23) + audit journal (2026-08-27); invites are organisation-only |
 | **E12** Plans & quotas | Full ladder, seats, trial cap, Abonnements | 🟡 billing provider open |
 | **E3** Request core loop | Pipeline, criteria, attachments, dossier | ✅ done |
 | **E4** Supplier data | **Web research**, dedup, directory, sources admin | 🟡 **ADR-001 pivot (2026-08-26) → Phase S**; import/merge open |
@@ -30,9 +30,53 @@ need, gets a real Top-N (researched + imported suppliers, scored), clicks
 *Engager*, OSI ops sees it in the queue, the buyer sees "connected", and
 downloads the PDF report.
 
-## Resume here (last session: 2026-08-26/27 — the ADR-001 + account-model marathon)
+## Resume here (last session: 2026-08-27/28 — the logging + foundation-gaps session)
 
-### Session digest 2026-08-26/27 — read this first
+### Session digest 2026-08-27/28 — read this first
+
+**Prod = main = `31f8a4c` (deploy #7) + docs `cdc6031`. Two deploys this
+session, both verified; migrations through 0030 applied everywhere.**
+
+**What shipped (details in ②l / ②m below):**
+- **Deploy #6** (`67b4b5d`, migs 0028–0030): the Logging surface
+  (own nav entry, range pagination, cascading org→user + time-range
+  filters), deletion-proof audit (tombstone ids — history survives
+  account/workspace deletion; actor captured on member actions), the
+  Profil personal hub (password change · **2FA** · personal accent
+  theme), workspace rename with live badge refresh, owner-exclusive
+  platform-role grant that enrolls into the OSI org, and
+  **individual workspaces cannot invite** (org-only, both layers).
+- **Deploy #7** (`31f8a4c`, code-only): journal **purge** (owner-only,
+  entries older than `AUDIT_RETENTION_MONTHS = 3`, self-auditing) and
+  **two-tier journal access** — staff see all on /interne/logging; an
+  organisation's OWNER sees their own org's rows on Paramètres →
+  Journal (scope forced server-side; shared AuditJournal component).
+- **Live plan edit (no deploy)**: internal plan `model_tier → cheap`
+  on dev AND prod (~$0.07 vs ~$0.20 per staff test request).
+- Measured per-request AI cost (6 real dev runs, cheap tier): ~30k in /
+  ~1.3k out tokens, 3–5 searches, **≈ $0.07–0.09 all-in**; store-hits $0.
+
+**Pick-up list (next session):**
+① **Owner's manual pass** on the password-gated flows: change a
+  password once; run 2FA enable → confirm code → sign out →
+  /2fa sign-in (everything else is live-verified; agents cannot type
+  passwords).
+② **S4 lazy enrichment — plan presented, AWAITING three owner calls**:
+  inline-before-matching vs enrich-after-report · cap = 3×N candidates
+  only or also a dollar ceiling · thin-records-only (recommended) vs
+  re-enrich everything. Flow diagram shown 2026-08-28; seams in the
+  resolved decision gate + Phase S task S4.
+③ Small offer on the table: persist `usage` + `estimated_cost` onto
+  `research_run` (one migration) so per-request spend survives log
+  rotation — worth landing before enrichment adds a second spender.
+④ Then the usual order: S4 build → E6 facilitation design discussion
+  (still LAST before financial features — owner priority).
+
+**Known nit:** the internal workspace badge follows the user's personal
+accent theme (the shield icon still marks it) — pin it to gold if that
+ever bothers.
+
+### Previous session digest 2026-08-26/27
 
 **DEPLOY #6 (2026-08-27 evening, commit `67b4b5d`, migrations
 0028–0030) — the ②l foundation wave is LIVE.** Backup first:
@@ -78,9 +122,9 @@ rename · 2FA · personal theme color); ② ~~cosmetic follow-ups~~ ✅ DONE
 2026-08-27 (②l: badge refresh · remove-member warning copy · role grant
 enrolls into the OSI org); ③ S4 lazy enrichment (Phase S) when
 foundation feels done; ④ E6 facilitation stays LAST before financial
-features (owner priority). Prod = main = `d603dd7` (deploy #5);
-**main now carries migrations 0028–0030** (audit tombstone ids · 2FA
-tables · theme color) — deploy on request. Docs current.
+features (owner priority). ~~Prod = main = `d603dd7` (deploy #5)~~ —
+**SUPERSEDED: deploys #6 (`67b4b5d`, migs 0028–0030) and #7
+(`31f8a4c`) shipped 2026-08-27; see the 2026-08-27/28 digest above.**
 
 ②m **DONE 2026-08-27 — journal lifecycle + org-owner access — DEPLOYED
 as #7 (commit `31f8a4c`, code-only, no migrations; backup

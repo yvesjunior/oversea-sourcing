@@ -766,6 +766,10 @@ is non-breaking, but nothing grants it and guards rank it like `buyer`.
 
 Rules that keep this simple:
 
+- **Only organisations invite** (owner rule 2026-08-27): an individual
+  workspace is one person by definition — the Utilisateurs tab is hidden
+  there and `beforeCreateInvitation` refuses server-side
+  (`INVITE_NOT_ALLOWED_INDIVIDUAL`).
 - **Exactly one `owner` per workspace.** Ownership transfers, it does not fork.
   (Transfer is an owner-only action; the previous owner becomes `buyer`.)
 - Roles are per-workspace: the same user can be `owner` of their personal
@@ -1255,7 +1259,7 @@ erDiagram
 | `source_record`      | ✅ 2026-08-24 (Phase D, replaced `supplier_source`) — per-source stores of raw candidates: uq(source, dedup_key), candidate fields, payload, `supplier_id` null until **promotion**, status `active\|banned` |
 | `source_run`         | ✅ 2026-08-22 — audit of every collection: trigger `request\|admin`, counts, error (absorbs the planned `import_run`) |
 | `sourcing_rules`     | ✅ 2026-08-22 — activated sources + country origin per workspace; written by Paramètres → Préférences de sourcing (B5) |
-| `audit_log`          | ✅ 2026-08-27 — the activity journal: dot-namespaced action, actor/org stored as **tombstone ids + name snapshots** (no FKs since 0028 — history survives account deletion and workspace destruction); written only through `src/server/audit.ts`; viewer at `/interne/logging` |
+| `audit_log`          | ✅ 2026-08-27 — the activity journal: dot-namespaced action, actor/org stored as **tombstone ids + name snapshots** (no FKs since 0028 — history survives account deletion and workspace destruction); written only through `src/server/audit.ts`. Two viewers: `/interne/logging` (staff, all workspaces, purge > 3 months owner-only) and Paramètres → Journal (an organisation's owner, server-forced to their org) |
 | `two_factor`         | ✅ 2026-08-27 — better-auth twoFactor plugin storage (TOTP secret + backup codes); enable/disable from Paramètres → Profil, login step at `/2fa` |
 
 **Not yet built:** `engagement`, `transaction`, `document`, and
