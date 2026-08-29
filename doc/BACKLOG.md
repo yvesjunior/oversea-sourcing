@@ -32,11 +32,21 @@ real need, gets a real Top-N, **OSI solicits quotes, the buyer accepts one, the
 required contracts are signed by every mandatory party, and the commande is
 tracked to delivery** — with the PDF report available throughout.
 
-## Resume here (last session: 2026-08-29 — the portal brief + deploys #12 to #18)
+## Resume here (last session: 2026-08-29 — the portal brief + deploys #12 to #19)
 
 ### Session digest 2026-08-29 — the portal brief, and deploy #12
 
-**DEPLOY #18 IS LIVE — commit `2374713`, migration 0036** — cross-language
+**DEPLOY #19 IS LIVE — commit `c149858`, migration 0037.** Backup:
+`backups/osi-20260829-153712.sql.gz`. Carries **P1 + P2 + P3** — the
+transaction spine, soumissions (buyer picks → OSI solicits → staff record),
+comparison and acceptance opening the dossier — plus the **per-request
+country origin** and the 24-corridor helper. Verified on prod:
+`request.country_codes` present, origin 200, five containers up, Soumissions
+live in the nav, the country field rendering, data intact (10 users · 67
+suppliers · 8 requests · 0 quotes · 0 deals — prod has not run the new flow
+yet, as expected).
+
+**DEPLOY #18 — commit `2374713`, migration 0036** — cross-language
 criteria (`request_criterion.value_en` + the shared `translation_memory`), so
 a French request reaches English-listed company information. Backup:
 `backups/osi-20260829-141936.sql.gz`. Verified on prod: column and table
