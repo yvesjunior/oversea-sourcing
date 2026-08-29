@@ -925,7 +925,8 @@
       "value": "Valeur",
       "status": "Statut",
       "signatures": "Signatures",
-      "date": "Date"
+      "date": "Date",
+      "account": "Compte client"
     },
     "status": {
       "draft": "Brouillon",
@@ -997,5 +998,9 @@
       "closed": "Clôturé",
       "cancelled": "Annulé"
     }
+  },
+  "accountFilter": {
+    "label": "Compte",
+    "all": "Tous les comptes ({{count}})"
   }
 }

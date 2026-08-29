@@ -41,6 +41,10 @@ export type ContractView = {
   dealId: string;
   dealTitle: string;
   supplierName: string;
+  /** The customer account this contract belongs to — staff lists carry every
+   *  account at once, so a row has to name its own. Filtering keys on the id. */
+  organizationId: string;
+  organizationName: string;
   amountCents: number | null;
   currency: string | null;
   incoterm: string | null;
@@ -63,7 +67,14 @@ export type ContractView = {
 /** A dossier whose required contracts have not been drafted yet. Surfaced so
  *  staff cannot silently MISS one the mapping requires — they may add a
  *  contract it did not predict, but not forget one it did. */
-export type PendingDeal = { id: string; title: string; supplierName: string; missing: number };
+export type PendingDeal = {
+  id: string;
+  title: string;
+  supplierName: string;
+  missing: number;
+  organizationId: string;
+  organizationName: string;
+};
 
 export type ContractListResult = {
   contracts: ContractView[];
@@ -80,7 +91,7 @@ export type ContractListResult = {
 function toView(
   contract: typeof import("@/database/schema").contract.$inferSelect,
   parties: (typeof import("@/database/schema").contractParty.$inferSelect)[],
-  deal: { title: string; supplierName: string },
+  deal: { title: string; supplierName: string; organizationName: string },
   callerUserId: string,
   now: Date,
 ): ContractView {
@@ -94,6 +105,8 @@ function toView(
     dealId: contract.dealId,
     dealTitle: deal.title,
     supplierName: deal.supplierName,
+    organizationId: contract.organizationId,
+    organizationName: deal.organizationName,
     amountCents: contract.amountCents,
     currency: contract.currency,
     incoterm: contract.incoterm,
@@ -166,9 +179,14 @@ export const getContractsFn = createServerFn({ method: "GET" }).handler(
 
     // Staff see every workspace's contracts; a buyer sees their own.
     const rows = await db
-      .select({ contract: schema.contract, deal: schema.deal })
+      .select({
+        contract: schema.contract,
+        deal: schema.deal,
+        organizationName: schema.organization.name,
+      })
       .from(schema.contract)
       .innerJoin(schema.deal, eq(schema.deal.id, schema.contract.dealId))
+      .innerJoin(schema.organization, eq(schema.organization.id, schema.contract.organizationId))
       .where(canDraft ? undefined : eq(schema.contract.organizationId, caller.workspaceId))
       .orderBy(desc(schema.contract.createdAt));
     // Which dossiers still owe contracts — staff only, and computed from the
@@ -176,15 +194,25 @@ export const getContractsFn = createServerFn({ method: "GET" }).handler(
     let pendingDeals: PendingDeal[] = [];
     if (canDraft) {
       const { missingContracts } = await import("@/lib/contract-types");
-      const deals = await db.query.deal.findMany();
+      const deals = await db
+        .select({ deal: schema.deal, organizationName: schema.organization.name })
+        .from(schema.deal)
+        .innerJoin(schema.organization, eq(schema.organization.id, schema.deal.organizationId));
       const drafted = await db.query.contract.findMany({
         columns: { dealId: true, type: true },
       });
       pendingDeals = deals
-        .map((deal) => {
+        .map(({ deal, organizationName }) => {
           const existing = drafted.filter((c) => c.dealId === deal.id).map((c) => c.type);
           const missing = missingContracts(["buyer", "osi", "supplier"], existing).length;
-          return { id: deal.id, title: deal.title, supplierName: deal.supplierName, missing };
+          return {
+            id: deal.id,
+            title: deal.title,
+            supplierName: deal.supplierName,
+            missing,
+            organizationId: deal.organizationId,
+            organizationName,
+          };
         })
         .filter((d) => d.missing > 0);
     }
@@ -209,7 +237,13 @@ export const getContractsFn = createServerFn({ method: "GET" }).handler(
     const now = new Date();
     return {
       contracts: rows.map((r) =>
-        toView(r.contract, byContract.get(r.contract.id) ?? [], r.deal, caller.userId, now),
+        toView(
+          r.contract,
+          byContract.get(r.contract.id) ?? [],
+          { ...r.deal, organizationName: r.organizationName },
+          caller.userId,
+          now,
+        ),
       ),
       pendingDeals,
       canDraft,

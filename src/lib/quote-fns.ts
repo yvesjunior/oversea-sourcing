@@ -17,6 +17,11 @@ export type QuoteView = {
   id: string;
   requestId: string;
   requestTitle: string;
+  /** The customer account this quote belongs to. Staff lists carry every
+   *  account at once, so the row has to name its own — and the filter keys on
+   *  the id, never the name. */
+  organizationId: string;
+  organizationName: string;
   supplierId: string | null;
   supplierName: string;
   status: QuoteStatus;
@@ -49,12 +54,15 @@ export type QuoteListResult = {
 function toView(
   quote: typeof import("@/database/schema").quote.$inferSelect,
   requestTitle: string,
+  organizationName: string,
 ): QuoteView {
   const responded = quote.respondedAt;
   return {
     id: quote.id,
     requestId: quote.requestId,
     requestTitle,
+    organizationId: quote.organizationId,
+    organizationName,
     supplierId: quote.supplierId,
     supplierName: quote.supplierName,
     status: quote.status,
@@ -190,14 +198,19 @@ export const getMyQuotesFn = createServerFn({ method: "GET" }).handler(
     const canRecord = session ? await effectiveHasPermission(session, "deals") : false;
 
     const rows = await db
-      .select({ quote: schema.quote, title: schema.request.title })
+      .select({
+        quote: schema.quote,
+        title: schema.request.title,
+        workspaceName: schema.organization.name,
+      })
       .from(schema.quote)
       .innerJoin(schema.request, eq(schema.request.id, schema.quote.requestId))
+      .innerJoin(schema.organization, eq(schema.organization.id, schema.quote.organizationId))
       .where(eq(schema.quote.organizationId, caller.workspaceId))
       .orderBy(desc(schema.quote.requestedAt));
 
     return {
-      quotes: rows.map((r) => toView(r.quote, r.title)),
+      quotes: rows.map((r) => toView(r.quote, r.title, r.workspaceName)),
       canRecord,
       // A viewer seat is read-only: they may look, not solicit or accept.
       canAct: caller.role !== "viewer",
@@ -214,7 +227,7 @@ export const getMyQuotesFn = createServerFn({ method: "GET" }).handler(
  * emailed — which is the whole job. Same shape as `getAllRequestsFn`.
  */
 export const getAllQuotesFn = createServerFn({ method: "GET" }).handler(
-  async (): Promise<{ quotes: (QuoteView & { workspaceName: string })[]; canRecord: boolean }> => {
+  async (): Promise<{ quotes: QuoteView[]; canRecord: boolean }> => {
     const [{ effectiveHasPermission }, { auth }, { getRequest }, { db }, { desc, eq }, schema] =
       await Promise.all([
         import("@/server/workspace-guard"),
@@ -245,7 +258,7 @@ export const getAllQuotesFn = createServerFn({ method: "GET" }).handler(
       .orderBy(desc(schema.quote.requestedAt));
 
     return {
-      quotes: rows.map((r) => ({ ...toView(r.quote, r.title), workspaceName: r.workspaceName })),
+      quotes: rows.map((r) => toView(r.quote, r.title, r.workspaceName)),
       canRecord: true,
     };
   },
@@ -267,9 +280,14 @@ export const getQuotesForRequestFn = createServerFn({ method: "GET" })
     if (!caller) return [];
 
     const rows = await db
-      .select({ quote: schema.quote, title: schema.request.title })
+      .select({
+        quote: schema.quote,
+        title: schema.request.title,
+        workspaceName: schema.organization.name,
+      })
       .from(schema.quote)
       .innerJoin(schema.request, eq(schema.request.id, schema.quote.requestId))
+      .innerJoin(schema.organization, eq(schema.organization.id, schema.quote.organizationId))
       .where(
         and(
           eq(schema.quote.requestId, data.requestId),
@@ -278,7 +296,7 @@ export const getQuotesForRequestFn = createServerFn({ method: "GET" })
       )
       .orderBy(asc(schema.quote.requestedAt));
 
-    return rows.map((r) => toView(r.quote, r.title));
+    return rows.map((r) => toView(r.quote, r.title, r.workspaceName));
   });
 
 /**

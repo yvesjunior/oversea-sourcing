@@ -925,7 +925,8 @@
       "value": "Value",
       "status": "Status",
       "signatures": "Signatures",
-      "date": "Date"
+      "date": "Date",
+      "account": "Client account"
     },
     "status": {
       "draft": "Draft",
@@ -997,5 +998,9 @@
       "closed": "Closed",
       "cancelled": "Cancelled"
     }
+  },
+  "accountFilter": {
+    "label": "Account",
+    "all": "All accounts ({{count}})"
   }
 }

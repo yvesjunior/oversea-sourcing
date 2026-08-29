@@ -14,6 +14,12 @@ import { useRouter } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { draftContractsFn, getContractsFn, type ContractView } from "@/lib/contract-fns";
 import type { ContractFilter } from "@/lib/deal-status";
+import {
+  AccountFilter,
+  accountOptions,
+  filterByAccount,
+  ALL_ACCOUNTS,
+} from "@/components/osi/AccountFilter";
 import { formatDay } from "@/lib/instant";
 import { cn } from "@/lib/utils";
 
@@ -80,9 +86,14 @@ function Contrats() {
   const [drafting, setDrafting] = useState<string | null>(null);
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>("tous");
   const [query, setQuery] = useState("");
+  // Staff stand in the internal workspace and see every account's contracts;
+  // a buyer sees one account and is never offered the control.
+  const [account, setAccount] = useState<string>(ALL_ACCOUNTS);
+  const accounts = canDraft ? accountOptions(contracts) : [];
+  const inAccount = canDraft ? filterByAccount(contracts, account) : contracts;
 
   const term = query.trim().toLowerCase();
-  const shown = contracts.filter((contract) => {
+  const shown = inAccount.filter((contract) => {
     if (filter !== "tous" && contract.filter !== filter) return false;
     if (!term) return true;
     // Brief §3.1: search by number, company, supplier, type or project.
@@ -92,8 +103,10 @@ function Contrats() {
       .includes(term);
   });
 
+  // Counts follow the selected account — a tab promising "Actifs (7)" while
+  // the list can only show that account's two would be a lie.
   const countFor = (key: (typeof FILTERS)[number]) =>
-    key === "tous" ? contracts.length : contracts.filter((c) => c.filter === key).length;
+    key === "tous" ? inAccount.length : inAccount.filter((c) => c.filter === key).length;
 
   return (
     <div className="space-y-6 pt-6">
@@ -106,11 +119,11 @@ function Contrats() {
         </div>
       </header>
 
-      {canDraft && pendingDeals.length > 0 && (
+      {canDraft && filterByAccount(pendingDeals, account).length > 0 && (
         <section className="card-surface border-gold/40 p-4">
           <p className="text-xs text-muted-foreground">{t("contrats.pendingHint")}</p>
           <ul className="mt-3 space-y-2">
-            {pendingDeals.map((deal) => (
+            {filterByAccount(pendingDeals, account).map((deal) => (
               <li
                 key={deal.id}
                 className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 rounded-lg border border-border px-4 py-2.5"
@@ -118,7 +131,7 @@ function Contrats() {
                 <span className="min-w-0 truncate text-sm">
                   {deal.title}
                   <span className="ml-2 text-[11px] text-muted-foreground">
-                    {deal.supplierName}
+                    {deal.organizationName} · {deal.supplierName}
                   </span>
                 </span>
                 <Button
@@ -138,6 +151,15 @@ function Contrats() {
             ))}
           </ul>
         </section>
+      )}
+
+      {canDraft && (
+        <AccountFilter
+          options={accounts}
+          value={account}
+          onChange={setAccount}
+          total={contracts.length}
+        />
       )}
 
       <div className="flex flex-wrap items-center gap-2">
@@ -179,6 +201,7 @@ function Contrats() {
               <tr className="border-b border-border text-left text-[11px] uppercase tracking-wide text-muted-foreground">
                 <th className="px-4 py-3 font-medium">{t("contrats.col.number")}</th>
                 <th className="px-4 py-3 font-medium">{t("contrats.col.subject")}</th>
+                {canDraft && <th className="px-4 py-3 font-medium">{t("contrats.col.account")}</th>}
                 <th className="px-4 py-3 font-medium">{t("contrats.col.parties")}</th>
                 <th className="px-4 py-3 font-medium">{t("contrats.col.value")}</th>
                 <th className="px-4 py-3 font-medium">{t("contrats.col.status")}</th>
@@ -209,6 +232,13 @@ function Contrats() {
                       {t(`contrats.type.${contract.type}`)}
                     </span>
                   </td>
+                  {canDraft && (
+                    <td className="max-w-[160px] px-4 py-3 text-muted-foreground">
+                      <span className="block truncate" title={contract.organizationName}>
+                        {contract.organizationName}
+                      </span>
+                    </td>
+                  )}
                   <td className="px-4 py-3 tabular-nums text-muted-foreground">
                     {contract.parties.length}
                   </td>

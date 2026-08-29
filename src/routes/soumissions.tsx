@@ -21,6 +21,12 @@ import {
   type QuoteView,
 } from "@/lib/quote-fns";
 import { EmployeeTabs } from "@/components/osi/EmployeeTabs";
+import {
+  AccountFilter,
+  accountOptions,
+  filterByAccount,
+  ALL_ACCOUNTS,
+} from "@/components/osi/AccountFilter";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/soumissions")({
@@ -203,7 +209,7 @@ function Soumissions() {
         <EmployeeTabs
           globalCount={all.quotes.length}
           mineCount={mine.quotes.length}
-          global={<QuoteList quotes={all.quotes} canRecord />}
+          global={<StaffQuotes quotes={all.quotes} />}
           mine={
             <QuoteList quotes={mine.quotes} canRecord={mine.canRecord} canAccept={mine.canAct} />
           }
@@ -215,15 +221,40 @@ function Soumissions() {
   );
 }
 
+/** The ops queue, narrowable to one customer account (owner 2026-08-29).
+ *  Staff see every account's soumissions at once, which is right for a queue
+ *  and useless when the question is "where are we with account X". */
+function StaffQuotes({ quotes }: { quotes: QuoteView[] }) {
+  const [account, setAccount] = useState<string>(ALL_ACCOUNTS);
+  const options = accountOptions(quotes);
+  const shown = filterByAccount(quotes, account);
+
+  return (
+    <div className="space-y-5">
+      <AccountFilter
+        options={options}
+        value={account}
+        onChange={setAccount}
+        total={quotes.length}
+      />
+      <QuoteList quotes={shown} canRecord showAccount />
+    </div>
+  );
+}
+
 function QuoteList({
   quotes,
   canRecord,
   canAccept = false,
+  showAccount = false,
 }: {
   quotes: QuoteView[];
   canRecord: boolean;
   /** Only the buyer commits their company to a supplier — never staff. */
   canAccept?: boolean;
+  /** Staff lists span accounts, so each dossier names its owner. A buyer has
+   *  exactly one account and does not need to be told which. */
+  showAccount?: boolean;
 }) {
   const { t, i18n } = useTranslation();
   const router = useRouter();
@@ -274,6 +305,9 @@ function QuoteList({
                 #{requestId} — {list[0]?.requestTitle}
                 <ChevronRight className="size-4 opacity-0 transition-opacity group-hover:opacity-100" />
               </Link>
+              {showAccount && list[0] && (
+                <p className="mt-1 text-xs text-muted-foreground">{list[0].organizationName}</p>
+              )}
 
               {list.filter((q) => q.status === "received").length > 1 && canAccept && (
                 <p className="mt-2 text-xs text-muted-foreground">{t("soumissions.compareHint")}</p>

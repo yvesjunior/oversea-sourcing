@@ -1131,6 +1131,16 @@ writing any code.
   `suppressHydrationWarning` is NOT the fix (it leaves the server's UTC text
   on screen); it stays correct only for the relative "il y a 6 minutes" on
   DossierCard, where the drift is seconds.
+- **Staff lists name their account and can be narrowed to one**
+  (owner 2026-08-29): staff stand in the internal workspace and their "Vue
+  globale" carries every customer at once, which is right for a queue and
+  useless when the question is "where are we with account X". Every
+  cross-tenant staff list therefore carries `organizationId` +
+  `organizationName` on its rows and uses `AccountFilter` — the control keys
+  on the ID (names are only unique by convention), lists ONLY accounts present
+  in the data, hides itself below two, and any counts shown beside it must
+  follow the selection or they promise rows the list cannot show. A buyer
+  never sees it: one account, nothing to choose.
 - **No prod deploys unless explicitly requested** — dev is the test ground;
   main accumulates.
 - **ADR-001 (accepted 2026-08-26) governs supplier provisioning** —
