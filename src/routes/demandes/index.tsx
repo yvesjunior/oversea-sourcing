@@ -92,7 +92,14 @@ function Demandes() {
           runs on mount, so a draft returning from the auth gate must find the
           component alive even when the section is collapsed. */}
       <div id="nouvelle-demande" className={cn(!formOpen && "hidden")}>
-        <HeroPrompt user={session?.user ?? null} variant="embedded" />
+        <HeroPrompt
+          user={session?.user ?? null}
+          variant="embedded"
+          // A draft coming back from the auth gate must be VISIBLE: it is no
+          // longer submitted automatically, so the buyer has to see it to
+          // press the button.
+          onDraftRestored={() => setFormOpen(true)}
+        />
       </div>
 
       {employee ? (

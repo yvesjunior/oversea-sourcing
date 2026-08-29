@@ -404,7 +404,8 @@
       "categorySearch": "Rechercher une catégorie…",
       "categoryNone": "Aucune catégorie trouvée"
     },
-    "dashboardSubtitle": "Voici un aperçu de vos activités d'approvisionnement."
+    "dashboardSubtitle": "Voici un aperçu de vos activités d'approvisionnement.",
+    "draftRestored": "Votre saisie a été conservée — vérifiez-la puis lancez la recherche."
   },
   "stats": {
     "activeRequests": "Demandes actives",

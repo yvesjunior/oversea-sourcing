@@ -60,6 +60,37 @@ const EMPTY_FIELDS: FormFields = {
   details: "",
 };
 
+/** A draft older than this is DISCARDED, never restored (owner 2026-08-29).
+ *  Someone who typed a need and walked away has not asked us to spend a
+ *  research pass on it days later. */
+const DRAFT_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+
+type StoredDraft = { fields: FormFields; savedAt: number };
+
+/** Read the draft, dropping it when it is stale or unreadable. Accepts the
+ *  pre-2026-08-29 shape (bare fields, no timestamp): those restore once and
+ *  are rewritten with a timestamp on the next save. */
+function readDraft(): FormFields | null {
+  const raw = window.localStorage.getItem(DRAFT_KEY);
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as Partial<StoredDraft> & Partial<FormFields>;
+    if (typeof parsed.savedAt === "number" && Date.now() - parsed.savedAt > DRAFT_MAX_AGE_MS) {
+      window.localStorage.removeItem(DRAFT_KEY);
+      return null;
+    }
+    const fields = (parsed.fields ?? parsed) as Partial<FormFields>;
+    return { ...EMPTY_FIELDS, ...fields };
+  } catch {
+    window.localStorage.removeItem(DRAFT_KEY);
+    return null;
+  }
+}
+
+function writeDraft(fields: FormFields): void {
+  window.localStorage.setItem(DRAFT_KEY, JSON.stringify({ fields, savedAt: Date.now() }));
+}
+
 function splitCertifications(input: string): string[] {
   return input
     .split(/[,;]+/)
@@ -68,7 +99,18 @@ function splitCertifications(input: string): string[] {
     .slice(0, 12);
 }
 
-export function HeroPrompt({ user, variant = "hero" }: { user: HeroUser; variant?: HeroVariant }) {
+export function HeroPrompt({
+  user,
+  variant = "hero",
+  onDraftRestored,
+}: {
+  user: HeroUser;
+  variant?: HeroVariant;
+  /** Fired when a saved draft was put back in the form, so a page that keeps
+   *  the form collapsed can open it — a restored draft nobody can see is
+   *  worse than no draft at all. */
+  onDraftRestored?: () => void;
+}) {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const [fields, setFields] = useState<FormFields>(EMPTY_FIELDS);
@@ -76,6 +118,7 @@ export function HeroPrompt({ user, variant = "hero" }: { user: HeroUser; variant
   const [submitting, setSubmitting] = useState(false);
   const [invalid, setInvalid] = useState(false);
   const [blockedAlert, setBlockedAlert] = useState<{ title: string; message: string } | null>(null);
+  const [restored, setRestored] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const loggedIn = user !== null;
   const prenom = user?.name?.split(" ")[0];
@@ -194,61 +237,38 @@ export function HeroPrompt({ user, variant = "hero" }: { user: HeroUser; variant
           attachmentsPending: hasFiles,
         },
       });
-      if (
-        !handleCreateResult(created, () =>
-          window.localStorage.setItem(DRAFT_KEY, JSON.stringify(f)),
-        )
-      )
-        return;
+      if (!handleCreateResult(created, () => writeDraft(f))) return;
       await finishCreate(created.id, attachments);
     } finally {
       setSubmitting(false);
     }
   };
 
-  /** Legacy path: a plain-text draft saved before the structured form shipped
-   *  still auto-creates through the free-text intake after login. */
-  const submitLegacyText = async (text: string) => {
-    if (!text.trim() || submitting) return;
-    setBlockedAlert(null);
-    setSubmitting(true);
-    try {
-      const created = await createRequestFn({ data: { description: text } });
-      if (!handleCreateResult(created, () => window.localStorage.setItem(LEGACY_DRAFT_KEY, text)))
-        return;
-      await finishCreate(created.id, []);
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  // Restore a draft that survived the login/signup redirect (auth gate) —
-  // once authenticated, the request is created automatically (no retyping).
+  // Restore a draft that survived the login/signup redirect — and STOP there.
+  //
+  // It used to auto-submit (owner 2026-08-29: "if not, cancel it, do not run,
+  // so we will not spend some token"). Two things were wrong with that: the
+  // draft had no expiry, so a need typed and abandoned days earlier fired a
+  // paid research pass the next time that person signed in; and since the
+  // form also mounts on /demandes, where it is collapsed by default, it could
+  // fire from a surface the user could not even see. Spending money is now an
+  // act the buyer performs: their input comes back, they press the button.
   useEffect(() => {
+    if (!loggedIn) return;
     const legacy = window.localStorage.getItem(LEGACY_DRAFT_KEY);
     if (legacy) {
+      window.localStorage.removeItem(LEGACY_DRAFT_KEY);
       setFields((current) => ({ ...current, details: legacy }));
-      if (loggedIn) {
-        // Remove BEFORE the async create: guards StrictMode double-effects.
-        window.localStorage.removeItem(LEGACY_DRAFT_KEY);
-        void submitLegacyText(legacy);
-      }
+      setRestored(true);
+      onDraftRestored?.();
       return;
     }
-    const draft = window.localStorage.getItem(DRAFT_KEY);
+    const draft = readDraft();
     if (!draft) return;
-    try {
-      const parsed = { ...EMPTY_FIELDS, ...(JSON.parse(draft) as Partial<FormFields>) };
-      setFields(parsed);
-      if (loggedIn) {
-        window.localStorage.removeItem(DRAFT_KEY);
-        if (parsed.categoryId && parsed.product.trim().length >= 2) {
-          void submitStructured(parsed, []);
-        }
-      }
-    } catch {
-      window.localStorage.removeItem(DRAFT_KEY);
-    }
+    window.localStorage.removeItem(DRAFT_KEY);
+    setFields(draft);
+    setRestored(true);
+    onDraftRestored?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loggedIn]);
 
@@ -261,7 +281,7 @@ export function HeroPrompt({ user, variant = "hero" }: { user: HeroUser; variant
     setInvalid(false);
     if (!loggedIn) {
       // The auth gate: preserve the whole form, send to login, restore after.
-      window.localStorage.setItem(DRAFT_KEY, JSON.stringify(fields));
+      writeDraft(fields);
       // Return to /demandes, not "/": since 2026-08-29 the signed-in home is
       // the dashboard and no longer renders this form — and the draft-resume
       // effect below only runs where the form is mounted. Landing anywhere
@@ -481,6 +501,11 @@ export function HeroPrompt({ user, variant = "hero" }: { user: HeroUser; variant
               <p className="mt-0.5 text-sm text-muted-foreground">{blockedAlert.message}</p>
             </div>
           </div>
+        )}
+        {restored && (
+          <p className="mt-3 text-xs text-gold" role="status">
+            {t("home.draftRestored")}
+          </p>
         )}
         {!loggedIn && <p className="mt-3 text-xs text-muted-foreground">{t("auth.gateHint")}</p>}
       </div>

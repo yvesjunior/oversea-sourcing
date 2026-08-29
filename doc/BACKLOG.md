@@ -1107,6 +1107,38 @@ Quality gates are `npm test` (vitest, 27 unit tests),
   the guard skips re-init, so SSR renders raw keys (and every hydration fails)
   until `docker restart` of the web container. Cost an hour on 2026-08-24.
 
+### A pending draft never spends money on its own (owner rule, 2026-08-29)
+
+**Owner:** *"when a request is launched without the user being logged in, we
+cannot continue it until the user is logged; if not, cancel it, do not run, so
+we will not spend some token."*
+
+An anonymous visitor could never create a request — `createRequestFn` and
+`startRequestPipelineFn` both refuse without a session. The hole was on the
+**resume** side: `HeroPrompt` auto-SUBMITTED the saved draft the moment a
+logged-in user mounted the form. Two consequences, both real:
+
+- the draft had **no expiry**, so a need typed and abandoned days earlier
+  fired a paid research pass at that person's next sign-in (dev request #3030
+  "ccx" is exactly that: a throwaway anonymous input that ran a full pipeline
+  on login);
+- since 2026-08-29 the form also mounts on `/demandes`, where it is
+  **collapsed by default** — so it could fire from a surface the user could
+  not even see, and they would just find themselves on a new dossier.
+
+**The rule now (do not undo):** a restored draft is **put back in the form and
+left there**. Concretely — drafts carry a `savedAt` and anything older than
+**24 h is discarded**; the restore effect fills the fields, shows
+`home.draftRestored`, and calls `onDraftRestored` so `/demandes` **opens the
+collapsed form** (a restored draft nobody can see is worse than none); and
+nothing is submitted until the buyer presses the button. `submitLegacyText`
+was deleted with the auto-submit — a legacy plain-text draft now lands in the
+details field and leaves through the normal path.
+
+*Verified live in dev:* anonymous need → auth gate → login → the form opened
+with the input and the notice, **and the request count did not move** (9 → 9,
+zero tokens); pressing the button then created #3031 normally.
+
 ### ~~Hydration breaks once a visitor picks a language~~ ✅ FIXED 2026-08-29
 
 **The defect (found and fixed the same day).** Deterministic before the fix —
@@ -1668,7 +1700,7 @@ derived from edges, never set by hand.
       parse-criteria.ts, unit-tested); title = product; invalid category
       ids stored null, never trusted into cache keys. Auth-gate draft is
       the whole form as JSON (`osi-draft-besoin-v2`); a legacy plain-text
-      draft still auto-creates through the free-text path. *Verified live
+      draft is restored into the details field the same way. *Verified live
       in dev end to end:* form → suggestion picked "Pompes" → request
       #3024 with `category_id=pumps`, 3 user-source criteria rows, pipeline
       store-hit (pool 42 — promoted suppliers only, registries absent per
@@ -1947,7 +1979,9 @@ feeds C3/C4 value (Recommandé requires Vérifié)
 - [x] Route guards: `/` public (anonymous = hero + value props; logged-in = personal
       dashboard); all other app routes require auth
 - [x] **“Lancer l’analyse IA” auth gate**: anonymous click → preserve the typed draft →
-      login/signup → auto-create the request and resume the flow (no retyping)
+      login/signup → the draft comes BACK IN THE FORM and the buyer presses
+      the button (no retyping, but no automatic spend either — owner
+      2026-08-29; drafts expire after 24 h)
 - [ ] User profile: name, locale (persist language server-side, sync with the existing toggle)
 - [ ] `platform_role` on users; guard helper `requireStaff()`
 - [x] **Signup abuse controls** (2026-08-16) — before this, 12 consecutive POSTs
@@ -1981,7 +2015,7 @@ feeds C3/C4 value (Recommandé requires Vérifié)
 ### E3 — Requests core loop
 
 - [x] `requests` CRUD + status state machine (guarded transitions in `src/lib/request-status.ts` + `src/server/requests.ts`, launchedAt/completedAt timestamps, request_event trail)
-- [x] Hero prompt → creates request (sequence ids from 3000; draft→received + extraction job; post-auth draft auto-creates)
+- [x] Hero prompt → creates request (sequence ids from 3000; draft→received + extraction job; a post-auth draft is RESTORED into the form, never auto-submitted — see the 2026-08-29 entry)
 - [x] File upload endpoint + storage adapter (`/api/upload`, `/api/files/$id`, local volume behind S3-shaped `src/server/storage.ts`)
 - [x] **Criteria at intake** — the pre-search AI analysis was **removed entirely (decided 2026-08-05)**: an ℹ️ info helper on the hero prompt guides buyers to structured input, and `src/server/parse-criteria.ts` parses criteria synchronously at creation (zero tokens). Requests go **straight to supplier search** — no pause, no `AI_PROMPT_ANALYSIS` flag. Legacy `analyzing` dossiers keep a manual launch button.
 - [x] Criteria review/edit UI (add/remove/edit) — editable on the dossier until it closes

@@ -33,7 +33,11 @@ workspaces from day one. Payments are **track-only**; escrow is deferred.
 
 **Public landing, gated action.** `/` needs no login — anyone can type their
 need. Clicking *Lancer la recherche* is the auth gate: the draft is preserved
-across login/signup and the request is created automatically afterwards. Every
+across login/signup and comes back in the form — the buyer presses the button
+themselves. It is deliberately NOT created automatically (owner 2026-08-29:
+*"if not, cancel it, do not run, so we will not spend some token"*): a research
+pass costs money, so launching one stays an act the buyer performs. Drafts
+older than **24 h are discarded**, never resurrected. Every
 other route requires auth.
 
 ### Supplier data strategy (hybrid)

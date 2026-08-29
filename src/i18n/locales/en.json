@@ -404,7 +404,8 @@
       "categorySearch": "Search a category…",
       "categoryNone": "No category found"
     },
-    "dashboardSubtitle": "Here's an overview of your sourcing activity."
+    "dashboardSubtitle": "Here's an overview of your sourcing activity.",
+    "draftRestored": "Your input was kept — check it, then start the search."
   },
   "stats": {
     "activeRequests": "Active requests",
