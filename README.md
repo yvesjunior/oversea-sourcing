@@ -679,6 +679,22 @@ UPDATE "user" SET platform_role = 'owner' WHERE email = '…';
 The change takes effect on the next sign-in, since the role is read from the
 session established at login.
 
+### The platform workspace cannot be deleted
+
+Two guards, because one was not enough. `destroyWorkspace` refuses an
+`internal` workspace, and so does a `beforeDeleteOrganization` hook on the
+better-auth organization plugin — which ships its own `POST
+/organization/delete`, reaches the adapter with no app code in the path, and
+is available to any `owner` (our owner role inherits `ownerAc`, which carries
+`organization: ["delete"]`). Guarding only our own function left the workspace
+one API call from deletion; that was verified against a throwaway
+internal-typed workspace before the hook existed, and re-verified after.
+
+The general rule it stands for: **a "this cannot happen" guarantee about a
+workspace belongs in an `organizationHook`**, where both the plugin's routes
+and ours pass through — the same reasoning that puts the seat cap there.
+Deleting a user never deletes an organisation, so there is no cascade path.
+
 ### The platform workspace holds no customer data
 
 OSI's own workspace (`organization.type = "internal"`) exists for internal

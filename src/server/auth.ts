@@ -267,6 +267,34 @@ export const auth = betterAuth({
         });
       },
       organizationHooks: {
+        /**
+         * OSI's own workspace cannot be deleted (owner rule, 2026-08-29).
+         *
+         * `destroyWorkspace` in src/server/account.ts already refused it, and
+         * that was NOT enough: the organization plugin ships its own
+         * `POST /organization/delete`, our `owner` role inherits `ownerAc`
+         * (which carries `organization: ["delete"]`), and that route calls
+         * the adapter directly — no app code in the path. Verified against a
+         * throwaway internal-typed workspace on 2026-08-29: HTTP 200, the row
+         * and its members gone. "Indestructible" was true of our own path
+         * only.
+         *
+         * So the guard lives HERE, inside the plugin flow, exactly like the
+         * seat cap below: it is the only place both routes pass through.
+         * Deleting the internal workspace would take staff memberships, the
+         * permission matrix and every internal-scoped row with it, and no UI
+         * offers it — which is precisely why the endpoint had to be closed
+         * rather than merely unlinked.
+         */
+        beforeDeleteOrganization: async ({ organization: org }) => {
+          const row = await db.query.organization.findFirst({
+            where: eq(schema.organization.id, org.id),
+            columns: { type: true },
+          });
+          if (row?.type === "internal") {
+            throw new APIError("FORBIDDEN", { message: "INTERNAL_WORKSPACE_NOT_DELETABLE" });
+          }
+        },
         // Seat cap (B8): members + pending invitations may not exceed the
         // plan's max_members (0 = unlimited). Enforced INSIDE the plugin flow
         // so a direct call to the auth endpoint cannot bypass it.

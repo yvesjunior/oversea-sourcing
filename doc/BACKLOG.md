@@ -1106,7 +1106,18 @@ writing any code.
   included). Removal from your only workspace deletes the account (UC-6
   re-interpreted); the tenant keeps the work (`created_by`/`uploaded_by`
   null out; display uses the `created_by_name` snapshot). The internal
-  workspace is indestructible. `verification_status` is written ONLY by
+  workspace is indestructible — enforced in TWO places since 2026-08-29,
+  because one was never enough: `destroyWorkspace` refuses it, AND the
+  `beforeDeleteOrganization` org-plugin hook does. The plugin ships its own
+  `POST /organization/delete`, our `owner` role inherits `ownerAc`
+  (`organization: ["delete"]`), and that route reaches the adapter with no app
+  code in the path. Verified as a real hole on a throwaway internal-typed
+  workspace — HTTP 200, row and members gone — then closed and re-verified
+  (403 `INTERNAL_WORKSPACE_NOT_DELETABLE`, while an ordinary workspace still
+  deletes). Deleting a user never deletes an organisation, so there is no
+  cascade path. **Any future "cannot be X-ed" rule about a workspace belongs
+  in an organizationHook, not only in our own fn** — the plugin's endpoints
+  are as public as ours. `verification_status` is written ONLY by
   `src/server/verification.ts` (evidence-derived).
 - **Account model (2026-08-26)**: signup forks individual|organization;
   organisation signups get NO personal workspace; organisation names are
