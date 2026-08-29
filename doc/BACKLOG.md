@@ -1069,19 +1069,48 @@ Quality gates are `npm test` (vitest, 27 unit tests),
   the guard skips re-init, so SSR renders raw keys (and every hydration fails)
   until `docker restart` of the web container. Cost an hour on 2026-08-24.
 
-### Known defect — SSR hydration mismatch on the dashboard (found 2026-08-29)
+### Known defect — hydration breaks once a visitor picks a language (2026-08-29)
 
-**Pre-existing and ON PROD** — reproduced on the `deploy-11-baseline` tag
-(= deploy #11), so it predates the portal work and was NOT introduced by it.
-The browser console carries `Hydration failed because the server rendered text
-…` on `/` whenever dossier cards are present. Prime suspect: the **relative
-timestamps** on `DossierCard` ("Mis à jour il y a 6 minutes") — the server
-renders one instant, the client hydrates at another, and the two strings
-differ. React then discards the server HTML and re-renders that subtree
-client-side: the page looks right, which is why it went unnoticed, but SSR is
-silently wasted there and the error masks any real hydration bug that lands
-later. Not fixed — needs a stable rendering (format on the client after mount,
-or send a pre-formatted string from the loader).
+**Real, on prod, and NOT fixed in this deploy.** Deterministic reproduction —
+same server, no restarts between the two runs:
+
+| `localStorage["osi-lang"]` | fresh tab loads any page |
+| --- | --- |
+| absent | clean |
+| `"en"` | `Hydration failed because the server rendered text…` |
+
+**Mechanism.** `src/i18n/config.ts` initialises the i18next singleton with
+`lng: DEFAULT_LANGUAGE`, and `__root.tsx` applies the visitor's stored choice
+in a `useEffect` — the comment there says this "keeps SSR markup stable and
+avoids mismatches", and that reasoning is what fails. React 19 hydrates
+progressively: the root's effect can fire while child subtrees are still
+hydrating, `changeLanguage` makes react-i18next re-render its subscribers,
+and those children then hydrate French server HTML against English client
+output. Timing-dependent, which is why it looks intermittent. The cost is not
+cosmetic — React discards the server HTML and re-renders the whole root on
+the client, so SSR is silently wasted for every user who has ever touched the
+language toggle.
+
+**The fix is not a one-liner and was deliberately NOT rushed into deploy #12:
+the language has to reach the SERVER** so SSR renders it directly — a cookie
+(works for anonymous visitors too, unlike `user.locale`) read during the
+request, plus a **per-request i18next instance** (`createInstance()` +
+`I18nextProvider`) because the current module singleton is shared across
+concurrent SSR renders and `changeLanguage` on it would leak between users.
+Once SSR renders the right language, the post-hydration switch in `__root`
+disappears entirely.
+
+**Investigation notes so nobody re-runs it:** it is NOT the relative
+timestamps on `DossierCard` (that guard stayed as prophylaxis, see below) and
+it is NOT an artifact of restarting the dev container. Two traps cost time
+here: the browser console buffer is **per tab and survives navigation**, so
+one stale error looks like it reproduces everywhere — always open a NEW tab
+before concluding; and a probe reading `window.__hyd` returns `[]` when the
+probe was never installed, which reads exactly like "no errors".
+
+`DossierCard` keeps `suppressHydrationWarning` on its relative timestamp:
+that mismatch is real in principle (server and client format at different
+instants) and it costs one attribute.
 
 ### Live data (do not assume it is disposable)
 

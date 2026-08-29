@@ -9,6 +9,13 @@ import { StatusPill } from "./StatusPill";
 
 export function DossierCard({ demande }: { demande: RequestSummary }) {
   const { t, i18n } = useTranslation();
+  // A relative timestamp is computed from the CURRENT time, so the server and
+  // the browser format it at two different instants — cross a minute boundary
+  // and the strings differ, which is a hydration mismatch by construction.
+  // Cheap to prevent, and the standard React answer for timestamps: allow the
+  // text to differ on this one element. A label a few seconds stale is
+  // invisible; React discarding the server HTML is not. (Prophylactic — this
+  // has not been observed in the wild, see doc/BACKLOG.md 2026-08-29.)
   const maj = formatDistanceToNow(new Date(demande.updatedAt), {
     addSuffix: true,
     locale: i18n.language === "fr" ? fr : enUS,
@@ -48,7 +55,9 @@ export function DossierCard({ demande }: { demande: RequestSummary }) {
         )}
         <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-t border-border pt-3">
           <span className="text-xs text-muted-foreground">{t("dossier.updated")}</span>
-          <span className="text-xs text-muted-foreground">{maj}</span>
+          <span className="text-xs text-muted-foreground" suppressHydrationWarning>
+            {maj}
+          </span>
         </div>
         {/* Attribution inside a shared workspace — the snapshot survives the
             creator's account deletion (UC-6 re-interpretation). */}
