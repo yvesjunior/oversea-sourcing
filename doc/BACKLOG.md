@@ -32,11 +32,14 @@ real need, gets a real Top-N, **OSI solicits quotes, the buyer accepts one, the
 required contracts are signed by every mandatory party, and the commande is
 tracked to delivery** — with the PDF report available throughout.
 
-## Resume here (last session: 2026-08-29 — the portal brief + deploys #12 to #15)
+## Resume here (last session: 2026-08-29 — the portal brief + deploys #12 to #16)
 
 ### Session digest 2026-08-29 — the portal brief, and deploy #12
 
-**DEPLOY #15 IS LIVE — commit `1cccd7e`, code-only, no migrations** (a
+**DEPLOY #16 IS LIVE — commit `cf83c39`, code-only** — pending drafts expire
+after **1 h** (owner, same day). Backup: `backups/osi-20260829-122252.sql.gz`.
+
+**DEPLOY #15 — commit `1cccd7e`, code-only, no migrations** (a
 pending draft never spends money on its own). Backup first:
 `backups/osi-20260829-120827.sql.gz`. Verified ON PROD: origin 200, five
 containers up, VM on `1cccd7e`, data intact (10 users · 11 orgs · 8 requests ·
