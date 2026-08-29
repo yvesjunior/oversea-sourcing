@@ -32,11 +32,19 @@ real need, gets a real Top-N, **OSI solicits quotes, the buyer accepts one, the
 required contracts are signed by every mandatory party, and the commande is
 tracked to delivery** — with the PDF report available throughout.
 
-## Resume here (last session: 2026-08-29 — the portal brief + deploys #12, #13, #14)
+## Resume here (last session: 2026-08-29 — the portal brief + deploys #12 to #15)
 
 ### Session digest 2026-08-29 — the portal brief, and deploy #12
 
-**DEPLOY #14 IS LIVE — commit `0508475`, migration 0032** (the two designs).
+**DEPLOY #15 IS LIVE — commit `1cccd7e`, code-only, no migrations** (a
+pending draft never spends money on its own). Backup first:
+`backups/osi-20260829-120827.sql.gz`. Verified ON PROD: origin 200, five
+containers up, VM on `1cccd7e`, data intact (10 users · 11 orgs · 8 requests ·
+67 suppliers · 40 matches), and the anonymous landing still carries the intake
+form + the gate hint — the auth gate is intact, it simply no longer submits
+for the buyer.
+
+**DEPLOY #14 — commit `0508475`, migration 0032** (the two designs).
 Backup first: `backups/osi-20260829-114957.sql.gz` (31M). Verified ON PROD:
 `user.design` column present with default `light`; origin 200; data intact
 (10 users · 11 orgs · 8 requests · 67 suppliers · 40 matches); and the two
