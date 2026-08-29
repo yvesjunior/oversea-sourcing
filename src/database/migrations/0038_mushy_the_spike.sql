@@ -1,0 +1,1 @@
+ALTER TABLE "contract" ADD COLUMN "content" jsonb;

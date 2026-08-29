@@ -7,10 +7,12 @@
 // The signature ACTIONS themselves (sign in-platform, upload a countersigned
 // PDF, send a reminder) are P6. This is the surface they land on.
 
-import { createFileRoute, Link, notFound } from "@tanstack/react-router";
-import { ArrowLeft } from "lucide-react";
+import { useState } from "react";
+import { createFileRoute, Link, notFound, useRouter } from "@tanstack/react-router";
+import { ArrowLeft, RefreshCw } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { getContractsFn, type ContractView } from "@/lib/contract-fns";
+import { Button } from "@/components/ui/button";
+import { getContractsFn, regenerateContractContentFn, type ContractView } from "@/lib/contract-fns";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/contrats/$id")({
@@ -21,7 +23,7 @@ export const Route = createFileRoute("/contrats/$id")({
     const result = await getContractsFn();
     const contract = result.contracts.find((c) => c.id === params.id);
     if (!contract) throw notFound();
-    return { contract };
+    return { contract, canDraft: result.canDraft };
   },
   component: ContractDetail,
 });
@@ -45,7 +47,12 @@ function Field({ label, value }: { label: string; value: string }) {
 
 function ContractDetail() {
   const { t, i18n } = useTranslation();
-  const { contract } = Route.useLoaderData() as { contract: ContractView };
+  const { contract, canDraft } = Route.useLoaderData() as {
+    contract: ContractView;
+    canDraft: boolean;
+  };
+  const router = useRouter();
+  const [redrafting, setRedrafting] = useState(false);
 
   const money =
     contract.amountCents === null
@@ -107,6 +114,64 @@ function ContractDetail() {
             <dd className="mt-0.5 truncate text-sm font-medium">{contract.dealTitle}</dd>
           </div>
         </dl>
+      </section>
+
+      <section className="card-surface p-6">
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-4">
+          <div className="min-w-0">
+            <h2 className="text-base font-semibold">
+              {contract.content ? contract.content.title : t("contrats.document")}
+            </h2>
+            {contract.content && (
+              /* The language the DOCUMENT is, not the one the reader picked:
+                 what was signed is what was signed. */
+              <p className="mt-1 text-[11px] uppercase tracking-wide text-muted-foreground">
+                {t("contrats.documentLocale", {
+                  lang: t(`contrats.lang.${contract.content.locale}`),
+                })}
+              </p>
+            )}
+          </div>
+          {/* Re-drafting is refused past `draft` on the server too — the
+              button hiding is a courtesy, not the rule. */}
+          {canDraft && contract.status === "draft" && (
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={redrafting}
+              onClick={() => {
+                setRedrafting(true);
+                void regenerateContractContentFn({ data: { contractId: contract.id } })
+                  .then(() => router.invalidate())
+                  .finally(() => setRedrafting(false));
+              }}
+            >
+              <RefreshCw className={cn("size-3.5", redrafting && "animate-spin")} />
+              {t("contrats.redraft")}
+            </Button>
+          )}
+        </div>
+
+        {contract.status === "draft" && (
+          <p className="mt-4 rounded-lg border border-gold/40 bg-gold-soft px-4 py-2.5 text-xs text-muted-foreground">
+            {t("contrats.draftNotice")}
+          </p>
+        )}
+
+        {contract.content === null ? (
+          <p className="mt-4 text-sm text-muted-foreground">{t("contrats.noContent")}</p>
+        ) : (
+          <div className="mt-5 space-y-5">
+            {contract.content.sections.map((section) => (
+              <article key={section.heading}>
+                <h3 className="text-sm font-semibold">{section.heading}</h3>
+                <p className="mt-1.5 whitespace-pre-line text-sm leading-relaxed text-muted-foreground">
+                  {section.body}
+                </p>
+              </article>
+            ))}
+          </div>
+        )}
       </section>
 
       <section className="card-surface p-6">

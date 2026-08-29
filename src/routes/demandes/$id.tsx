@@ -16,6 +16,11 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { useTranslation } from "react-i18next";
 import { requestQuotesFn } from "@/lib/quote-fns";
+import {
+  draftContractsFn,
+  getRequestDealStatusFn,
+  type RequestDealStatus,
+} from "@/lib/contract-fns";
 import { ScoreRing } from "@/components/osi/ScoreRing";
 import { Timeline, type Etape } from "@/components/osi/Timeline";
 import { CountryTag } from "@/components/osi/CountryTag";
@@ -70,10 +75,14 @@ export const Route = createFileRoute("/demandes/$id")({
     ],
   }),
   // Real request from the DB (workspace-scoped); unknown ids go back to the list.
-  loader: async ({ params }): Promise<RequestDetail> => {
+  loader: async ({ params }) => {
     const demande = await getRequestDetailFn({ data: { id: params.id } });
     if (!demande) throw redirect({ to: "/demandes" });
-    return demande;
+    // P5 — the dossier says whether the transaction it opened still owes a
+    // required contract. Same mapping as the drafting fn, so the two cannot
+    // disagree; it returns an empty shape when no offer has been accepted.
+    const dossier = await getRequestDealStatusFn({ data: { requestId: params.id } });
+    return { demande, dossier };
   },
   component: DemandeDetail,
 });
@@ -88,7 +97,11 @@ const etapesFlux = [
 function DemandeDetail() {
   const { t, i18n } = useTranslation();
   const router = useRouter();
-  const demande = Route.useLoaderData() as RequestDetail;
+  const { demande, dossier } = Route.useLoaderData() as {
+    demande: RequestDetail;
+    dossier: RequestDealStatus;
+  };
+  const [drafting, setDrafting] = useState(false);
   const dateLocale = i18n.language === "fr" ? fr : enUS;
 
   const stepIndex = pipelineIndex(demande.status);
@@ -314,6 +327,84 @@ function DemandeDetail() {
         </section>
 
         <div className="space-y-6">
+          {/* P5 — the dossier de transaction, once an offer is accepted. The
+              missing-contract warning lives HERE and not only on /contrats:
+              the gap belongs where the work is, and the buyer should see it
+              too, not just whoever opens the contract centre. */}
+          {dossier.deal && (
+            <section className="card-surface p-6">
+              <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-4">
+                <div className="min-w-0">
+                  <h2 className="truncate text-base font-semibold">{t("dealBox.title")}</h2>
+                  <p className="mt-1 truncate text-sm text-muted-foreground">
+                    {dossier.deal.supplierName}
+                  </p>
+                </div>
+                <span className="rounded-full border border-border px-3 py-1 text-[11px] font-semibold">
+                  {t(`dealBox.status.${dossier.deal.status}`)}
+                </span>
+              </div>
+
+              {dossier.contracts.length > 0 && (
+                <ul className="mt-4 space-y-2">
+                  {dossier.contracts.map((contract) => (
+                    <li
+                      key={contract.id}
+                      className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 rounded-lg border border-border px-4 py-2.5"
+                    >
+                      <Link
+                        to="/contrats/$id"
+                        params={{ id: contract.id }}
+                        className="min-w-0 truncate text-sm hover:text-gold"
+                      >
+                        <span className="font-mono text-xs font-semibold text-gold">
+                          {contract.number}
+                        </span>
+                        <span className="ml-2 text-muted-foreground">
+                          {t(`contrats.type.${contract.type}`)}
+                        </span>
+                      </Link>
+                      <span className="shrink-0 tabular-nums text-xs text-muted-foreground">
+                        {contract.signed} / {contract.requiredSignatures}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              {dossier.missing.length > 0 && (
+                <div className="mt-4 rounded-lg border border-gold/40 bg-gold-soft px-4 py-3">
+                  <p className="text-xs text-muted-foreground">
+                    {t("dealBox.missing", { count: dossier.missing.length })}
+                  </p>
+                  <ul className="mt-2 space-y-1">
+                    {dossier.missing.map((type) => (
+                      <li key={type} className="text-xs font-medium">
+                        · {t(`contrats.type.${type}`)}
+                      </li>
+                    ))}
+                  </ul>
+                  {dossier.canDraft && (
+                    <Button
+                      variant="gold"
+                      size="sm"
+                      className="mt-3"
+                      disabled={drafting}
+                      onClick={() => {
+                        setDrafting(true);
+                        void draftContractsFn({ data: { dealId: dossier.deal!.id } })
+                          .then(() => router.invalidate())
+                          .finally(() => setDrafting(false));
+                      }}
+                    >
+                      {t("contrats.draft")} ({dossier.missing.length})
+                    </Button>
+                  )}
+                </div>
+              )}
+            </section>
+          )}
+
           {showSuppliers && (
             <section className="card-surface p-6">
               <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4">

@@ -1192,10 +1192,12 @@ the capability/certification satellite tables exist.
 
 ## 2b · From the report to a delivered order (Phase P)
 
-> **Status: P1-P4 BUILT and live on prod** (deploy #20, 2026-08-29) — the
-> schema spine (migration 0033), soumissions, comparison & acceptance, and
-> the contract centre. **P5-P11 remain**: templates, signatures, commandes,
-> documents, paiements, messages, rapports. Decision
+> **Status: P1-P4 live on prod** (deploy #20, 2026-08-29) — the schema spine
+> (migration 0033), soumissions, comparison & acceptance, and the contract
+> centre. **P5 is built and not yet deployed** (migration 0038): contract
+> templates, and the missing-contract gap surfaced on the dossier.
+> **P6-P11 remain**: signatures, commandes, documents, paiements, messages,
+> rapports. Decision
 > record: [ADR-002](doc/adr/ADR-002-transaction-and-contract-centre.md)
 > (accepted). Plan: **Phase P** in [doc/BACKLOG.md](doc/BACKLOG.md). The
 > owner-validated parcours is drawn step by step in the companion artifact
@@ -1246,6 +1248,20 @@ a future change that breaks one should fail, not drift.
 - **Money is an integer plus a currency, never converted** (`amount_cents` +
   `currency`) — there is no rate source, so multi-currency totals would be a
   lie.
+- **A contract's TEXT is frozen at draft time, not derived at read time**
+  (`contract.content`, P5). This is the one place a stored copy is right:
+  everything else derived on read is a fact about the present, while a
+  contract records what the parties were shown. Editing
+  `src/lib/contract-templates.ts` must never rewrite a signed document, so
+  the template version travels with the text and re-drafting is refused once
+  a contract leaves `draft`.
+- **A contract is written in ONE language — the request's, not the reader's.**
+  A timeline event re-reads in whatever locale you use; an instrument does
+  not. The fiche says which language the document is in, in the language you
+  are reading the app in.
+- **A term nobody recorded renders as `[à compléter]`**, never as a plausible
+  default — the same honesty rule that makes an unmatched numeric criterion
+  `unverifiable` rather than a miss.
 
 ### Signatures: two mechanisms, chosen by who the party IS
 

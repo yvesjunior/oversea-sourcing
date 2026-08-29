@@ -1049,6 +1049,25 @@ export type ContractStatus = (typeof CONTRACT_STATUSES)[number];
  *  platform-global, the same trick request_id_seq uses. */
 export const contractNumberSeq = pgSequence("contract_number_seq", { startWith: "1" });
 
+/** One clause of a drafted contract. */
+export type ContractSection = { heading: string; body: string };
+
+/** The contract's TEXT, rendered once at draft time from
+ *  src/lib/contract-templates.ts and then frozen (P5).
+ *
+ *  Stored rather than derived — the one place in this codebase where that is
+ *  right. Everything else derived-at-read-time is a fact about the present
+ *  (a filter, a signature count); this is a record of what the parties were
+ *  shown. Editing a template must never rewrite a contract already signed,
+ *  so the version that produced the text travels with it. `locale` is the
+ *  language the document IS, not the language the reader wants. */
+export type ContractContent = {
+  version: number;
+  locale: "fr" | "en";
+  title: string;
+  sections: ContractSection[];
+};
+
 export const contract = pgTable(
   "contract",
   {
@@ -1068,6 +1087,9 @@ export const contract = pgTable(
     currency: text("currency"),
     incoterm: text("incoterm"),
     paymentTerms: text("payment_terms"),
+    /** The rendered document (P5) — frozen at draft time. Null on contracts
+     *  drafted before P5; the fiche offers staff a re-draft while `draft`. */
+    content: jsonb("content").$type<ContractContent>(),
     /** Échéance. "Expired" is derived at READ time from this, no cron — the
      *  same rule the Recommandé tier follows. */
     dueAt: timestamp("due_at"),

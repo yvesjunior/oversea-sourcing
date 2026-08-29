@@ -973,6 +973,29 @@
       "status": "Status",
       "action": "Action"
     },
-    "pendingHint": "These dossiers are still missing their required contracts."
+    "pendingHint": "These dossiers are still missing their required contracts.",
+    "document": "Document",
+    "documentLocale": "Document drawn up in {{lang}}",
+    "lang": {
+      "fr": "French",
+      "en": "English"
+    },
+    "draftNotice": "Draft pre-filled from the accepted quotation. Review and adjust before sending — this text is not legal advice.",
+    "noContent": "No text was generated for this contract.",
+    "redraft": "Regenerate text"
+  },
+  "dealBox": {
+    "title": "Transaction file",
+    "missing": "Mandatory contract(s) missing: {{count}}",
+    "status": {
+      "open": "Open",
+      "contracting": "Contracting",
+      "in_production": "In production",
+      "shipping": "Shipping",
+      "delivered": "Delivered",
+      "reviewed": "Reviewed",
+      "closed": "Closed",
+      "cancelled": "Cancelled"
+    }
   }
 }

@@ -973,6 +973,29 @@
       "status": "Statut",
       "action": "Action"
     },
-    "pendingHint": "Ces dossiers attendent leurs contrats obligatoires."
+    "pendingHint": "Ces dossiers attendent leurs contrats obligatoires.",
+    "document": "Document",
+    "documentLocale": "Document rédigé en {{lang}}",
+    "lang": {
+      "fr": "français",
+      "en": "anglais"
+    },
+    "draftNotice": "Brouillon pré-rempli à partir de la soumission acceptée. À relire et à ajuster avant envoi — ce texte n'est pas un avis juridique.",
+    "noContent": "Aucun texte n'a été généré pour ce contrat.",
+    "redraft": "Régénérer le texte"
+  },
+  "dealBox": {
+    "title": "Dossier de transaction",
+    "missing": "Contrat(s) obligatoire(s) manquant(s) : {{count}}",
+    "status": {
+      "open": "Ouvert",
+      "contracting": "Contractualisation",
+      "in_production": "En production",
+      "shipping": "En transit",
+      "delivered": "Livré",
+      "reviewed": "Évalué",
+      "closed": "Clôturé",
+      "cancelled": "Annulé"
+    }
   }
 }

@@ -98,6 +98,11 @@ quotes · 0 deals · 0 contracts — prod has still not run the new flow, as at
   the parties table, `src/lib/contract-types.ts` mapping parties → required
   contracts, numbering `OSI-2026-0001`.
 
+- **P5 · templates + gap surfacing** (mig 0038) *(built, NOT deployed)* — the
+  two v1 contracts render their own text, frozen at draft time in the
+  request's language; a missing mandatory contract now shows on the dossier,
+  visible to the buyer, actionable only by staff.
+
 Also shipped outside Phase P: **per-request country origin** (mig 0037) with a
 24-corridor helper; the **relevance gate** and its product-first refinement;
 **English-first search**; the **bilingual pool** and **cross-language
@@ -105,10 +110,7 @@ criteria**.
 
 #### 4 · What REMAINS, in order
 
-1. **P5 · templates + required-contract surfacing.** The mapping exists
-   (`contract-types.ts`); what is missing is pre-filled template *content* and
-   surfacing a missing required contract on the dossier itself rather than
-   only on the contracts list.
+1. **Deploy P5** (migration 0038) — built and verified in dev, NOT deployed.
 2. **P6 · signatures — the two mechanisms.** `in_platform` for parties with a
    `user_id` (buyer, OSI) recording IP + user agent; `manual_upload` for
    parties without an account (staff upload the countersigned PDF into
@@ -143,6 +145,17 @@ criteria**.
   a one-off backfill is ~$0.02 if cross-language reuse matters sooner.
 - ⚠️ Page `<title>`s are static French strings in each route's `head()` and do
   not follow the language.
+- 🐞 **`/demandes/$id` hydration mismatch — PRE-EXISTING, live on prod.**
+  The dossier timeline formats timestamps with `format(new Date(…), "d MMM ·
+  HH:mm")`, which the server renders in the container's **UTC** and the
+  browser re-renders in the visitor's zone (18:29 vs 14:29 on an EDT
+  machine), so React throws "Hydration failed". Confirmed by stashing the P5
+  work and reproducing on `754ae36` — the deployed commit — and it fires on
+  a request with no deal, so it is nothing to do with Phase P. Same class as
+  the DossierCard fix in `95812c8`, which only covered the card. The real fix
+  is a shared rule for rendering an instant (fixed zone, or client-only),
+  applied everywhere — worth doing as its own change rather than inside a
+  feature commit.
 
 #### 6 · Lessons this session paid for — do not re-learn them
 
@@ -2395,7 +2408,44 @@ in the browser before committing; deploy only when the owner asks.
       `2/4` and sits in « À signer »; one with an élapsed `due_at` shows
       « Expirés » **without any write**; a signed one shows « Complétés ».
 
-- [ ] **P5 · Required-contract derivation + templates.**
+- [x] **P5 · Templates + required-contract surfacing — BUILT 2026-08-29**
+      (migration **0038**, `contract.content`).
+      `src/lib/contract-templates.ts` renders the two v1 types in FR and EN
+      from the deal AND the accepted quote (payment terms, quantity, MOQ and
+      lead time live on the quote, not the deal — the draft fn now loads
+      both). 10 unit tests.
+      **Two rules that look like they break the house style, and do not:**
+      • **The rendered text is STORED, not derived.** Everything else derived
+        at read time is a fact about the present (a filter, a signature
+        count); a contract is a record of what the parties were shown.
+        Editing a template must never rewrite something already signed, so
+        `renderContract` runs ONCE at draft time and the result is frozen in
+        `contract.content` with the `version` that produced it.
+      • **It is rendered in ONE language, not the reader's.** A timeline
+        re-reads in your locale; a contract does not. The document's language
+        comes from `request.locale`, and the fiche labels it
+        (« Document rédigé en anglais » while the UI stays French).
+      A missing term renders as `[à compléter]`, never as a plausible
+      default — a contract that invents a payment term is worse than one
+      showing a line to fill.
+      **Re-drafting is refused past `draft`** (server-side, not just hidden
+      in the UI): once sent, the text is what the parties saw.
+      **The gap now surfaces on the DOSSIER** (`/demandes/$id`), not only on
+      `/contrats`: the buyer sees which mandatory contracts are missing, and
+      only staff get the « Préparer » button. Same `missingContracts` mapping
+      as the drafting fn, so warning and action cannot disagree.
+      *Verified live, both roles:* a pre-P5 contract showed « Aucun texte »
+      then rendered its 7 clauses on re-draft, with the quote's 60-day lead
+      time and `[à compléter]` where the quote held nothing; flipping the
+      request to `en` produced an English document inside a French interface;
+      deleting a required contract put the warning on the dossier for the
+      buyer WITHOUT a button and for staff WITH one; drafting from the
+      dossier re-created it with its text already frozen.
+      **Not built, deliberately:** staff adding a contract type the mapping
+      did not predict. All five extra types from brief §5 are still deferred,
+      so there is nothing to pick from — it lands with them.
+
+- [ ] ~~**P5 · Required-contract derivation + templates.**~~
       *Parcours step 11 (the automatic half). Depends on: P4.*
 
       New `src/lib/contract-types.ts` — a **typed module, not a table** (the

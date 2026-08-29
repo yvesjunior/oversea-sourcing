@@ -8,7 +8,13 @@
 
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import type { ContractPartyRole, ContractStatus, ContractType } from "@/database/schema";
+import type {
+  ContractContent,
+  ContractPartyRole,
+  ContractStatus,
+  ContractType,
+} from "@/database/schema";
+import { isStaleContent, type TemplateLocale } from "@/lib/contract-templates";
 import { contractFilter, signatureProgress, type ContractFilter } from "@/lib/deal-status";
 
 export type PartyView = {
@@ -41,6 +47,12 @@ export type ContractView = {
   paymentTerms: string | null;
   dueAt: string | null;
   createdAt: string;
+  /** The rendered document, frozen at draft time (P5). Null on a contract
+   *  drafted before templates existed. */
+  content: ContractContent | null;
+  /** True when `content` was rendered from an older template wording — staff
+   *  may re-draft, but only while the contract is still a draft. */
+  contentStale: boolean;
   /** Derived, not stored. */
   filter: ContractFilter;
   signed: number;
@@ -88,6 +100,8 @@ function toView(
     paymentTerms: contract.paymentTerms,
     dueAt: contract.dueAt ? contract.dueAt.toISOString() : null,
     createdAt: contract.createdAt.toISOString(),
+    content: contract.content,
+    contentStale: isStaleContent(contract.content),
     filter: contractFilter(contract, parties, now),
     signed: progress.signed,
     requiredSignatures: progress.required,
@@ -239,8 +253,22 @@ export const draftContractsFn = createServerFn({ method: "POST" })
     const existing = await db.query.contract.findMany({
       where: eq(schema.contract.dealId, deal.id),
     });
+    // The accepted offer carries terms the deal row does not keep: payment
+    // terms, quantity, MOQ, lead time. They were agreed there, so the
+    // template quotes them rather than inventing them.
+    const quote = deal.quoteId
+      ? await db.query.quote.findFirst({ where: eq(schema.quote.id, deal.quoteId) })
+      : undefined;
+    // The document's language is the REQUEST's, not the reader's — see the
+    // header of contract-templates.ts. A contract is an instrument, not a
+    // timeline entry that re-reads in whatever locale you happen to use.
+    const request = deal.requestId
+      ? await db.query.request.findFirst({ where: eq(schema.request.id, deal.requestId) })
+      : undefined;
+    const locale: TemplateLocale = request?.locale === "en" ? "en" : "fr";
 
     const { missingContracts, formatContractNumber } = await import("@/lib/contract-types");
+    const { renderContract } = await import("@/lib/contract-templates");
     // The buyer and OSI always exist; the supplier comes from the deal.
     const roles: ContractPartyRole[] = ["buyer", "osi", "supplier"];
     const todo = missingContracts(
@@ -256,9 +284,10 @@ export const draftContractsFn = createServerFn({ method: "POST" })
         .execute<{ n: string }>(sql`select nextval('contract_number_seq')::text as n`)
         .then((r) => r.rows as { n: string }[]);
       const contractId = crypto.randomUUID();
+      const number = formatContractNumber(Number(seq?.n ?? 0), year);
       await db.insert(schema.contract).values({
         id: contractId,
-        number: formatContractNumber(Number(seq?.n ?? 0), year),
+        number,
         dealId: deal.id,
         organizationId: deal.organizationId,
         type: spec.type,
@@ -269,6 +298,24 @@ export const draftContractsFn = createServerFn({ method: "POST" })
         amountCents: deal.amountCents,
         currency: deal.currency,
         incoterm: deal.incoterm,
+        paymentTerms: quote?.paymentTerms ?? null,
+        // Rendered ONCE and frozen (P5). Re-rendering later would rewrite a
+        // document the parties may already have read.
+        content: renderContract(spec.type, locale, {
+          number,
+          date: new Date(),
+          buyerName: workspace?.name ?? "Client",
+          osiName: "Oversea Sourcing Intelligence",
+          supplierName: deal.supplierName,
+          dealTitle: deal.title,
+          amountCents: deal.amountCents,
+          currency: deal.currency,
+          incoterm: deal.incoterm,
+          paymentTerms: quote?.paymentTerms ?? null,
+          leadTimeDays: quote?.leadTimeDays ?? null,
+          quantity: quote?.quantity ?? null,
+          moq: quote?.moq ?? null,
+        }),
         createdBy: session.user.id,
         createdByName: session.user.name,
       });
@@ -309,4 +356,191 @@ export const draftContractsFn = createServerFn({ method: "POST" })
     const { recordDealEvent } = await import("@/server/deals");
     await recordDealEvent(deal.id, deal.organizationId, "contracts.drafted", { count: created });
     return { ok: true, created };
+  });
+
+/**
+ * Re-render a DRAFT contract's text from the current template (P5).
+ *
+ * Deliberately refused on anything past `draft`: once a contract has been
+ * sent, the text is what the parties were shown, and re-rendering it would
+ * quietly replace the document under them. That is the same reasoning that
+ * makes the content stored rather than derived in the first place — so the
+ * guard lives here, on the only writer, rather than in the UI.
+ */
+export const regenerateContractContentFn = createServerFn({ method: "POST" })
+  .inputValidator(z.object({ contractId: z.string().min(1) }))
+  .handler(async ({ data }): Promise<{ ok: boolean; reason?: string }> => {
+    const [{ effectiveHasPermission }, { auth }, { getRequest }, { db }, { eq }, schema] =
+      await Promise.all([
+        import("@/server/workspace-guard"),
+        import("@/server/auth"),
+        import("@tanstack/react-start/server"),
+        import("@/database"),
+        import("drizzle-orm"),
+        import("@/database/schema"),
+      ]);
+    const headers = getRequest().headers;
+    const session = await auth.api.getSession({ headers });
+    if (!session || !(await effectiveHasPermission(session, "contracts"))) {
+      return { ok: false, reason: "forbidden" };
+    }
+
+    const contract = await db.query.contract.findFirst({
+      where: eq(schema.contract.id, data.contractId),
+    });
+    if (!contract) return { ok: false, reason: "not_found" };
+    if (contract.status !== "draft") return { ok: false, reason: "not_draft" };
+
+    const deal = await db.query.deal.findFirst({ where: eq(schema.deal.id, contract.dealId) });
+    if (!deal) return { ok: false, reason: "not_found" };
+    const workspace = await db.query.organization.findFirst({
+      where: eq(schema.organization.id, deal.organizationId),
+    });
+    const quote = deal.quoteId
+      ? await db.query.quote.findFirst({ where: eq(schema.quote.id, deal.quoteId) })
+      : undefined;
+    const request = deal.requestId
+      ? await db.query.request.findFirst({ where: eq(schema.request.id, deal.requestId) })
+      : undefined;
+    const locale: TemplateLocale = request?.locale === "en" ? "en" : "fr";
+
+    const { renderContract } = await import("@/lib/contract-templates");
+    const content = renderContract(contract.type, locale, {
+      number: contract.number,
+      date: contract.createdAt,
+      buyerName: workspace?.name ?? "Client",
+      osiName: "Oversea Sourcing Intelligence",
+      supplierName: deal.supplierName,
+      dealTitle: deal.title,
+      amountCents: deal.amountCents,
+      currency: deal.currency,
+      incoterm: deal.incoterm,
+      paymentTerms: quote?.paymentTerms ?? null,
+      leadTimeDays: quote?.leadTimeDays ?? null,
+      quantity: quote?.quantity ?? null,
+      moq: quote?.moq ?? null,
+    });
+
+    await db
+      .update(schema.contract)
+      .set({
+        content,
+        paymentTerms: quote?.paymentTerms ?? contract.paymentTerms,
+        updatedAt: new Date(),
+      })
+      .where(eq(schema.contract.id, contract.id));
+
+    // On the contract's OWN trail, not audit_log: this changes what the
+    // document says, which is exactly the kind of fact that must outlive the
+    // three-month journal purge.
+    await db.insert(schema.contractEvent).values({
+      id: crypto.randomUUID(),
+      contractId: contract.id,
+      type: "contract.redrafted",
+      actorId: session.user.id,
+      actorName: session.user.name,
+      detail: { version: content.version, locale: content.locale },
+    });
+    return { ok: true };
+  });
+
+/** What a request's dossier knows about its contracts. Null `deal` means the
+ *  buyer has not accepted an offer yet, and the dossier shows nothing. */
+export type RequestDealStatus = {
+  deal: { id: string; title: string; supplierName: string; status: string } | null;
+  contracts: {
+    id: string;
+    number: string;
+    type: ContractType;
+    status: ContractStatus;
+    signed: number;
+    requiredSignatures: number;
+  }[];
+  /** Required types with no contract yet — the gap the dossier surfaces. */
+  missing: ContractType[];
+  canDraft: boolean;
+};
+
+/**
+ * The contract state of one request's dossier (P5).
+ *
+ * The contracts list already shows staff which dossiers owe contracts. This
+ * puts the same fact where the work actually happens — on the dossier — so a
+ * missing required contract is visible to the buyer too, not only to whoever
+ * happens to open /contrats. The mapping is the SAME `missingContracts` the
+ * drafting fn uses, so the warning and the draft button cannot disagree.
+ */
+export const getRequestDealStatusFn = createServerFn({ method: "GET" })
+  .inputValidator(z.object({ requestId: z.string().min(1) }))
+  .handler(async ({ data }): Promise<RequestDealStatus> => {
+    const [
+      { requireWorkspaceRole, effectiveHasPermission },
+      { auth },
+      { getRequest },
+      { db },
+      { eq, inArray },
+      schema,
+    ] = await Promise.all([
+      import("@/server/workspace-guard"),
+      import("@/server/auth"),
+      import("@tanstack/react-start/server"),
+      import("@/database"),
+      import("drizzle-orm"),
+      import("@/database/schema"),
+    ]);
+    const headers = getRequest().headers;
+    const caller = await requireWorkspaceRole(headers, "viewer");
+    const session = await auth.api.getSession({ headers });
+    const empty: RequestDealStatus = { deal: null, contracts: [], missing: [], canDraft: false };
+    if (!caller || !session) return empty;
+
+    const canDraft = await effectiveHasPermission(session, "contracts");
+
+    const deal = await db.query.deal.findFirst({
+      where: eq(schema.deal.requestId, data.requestId),
+    });
+    if (!deal) return { ...empty, canDraft };
+    // Staff stand in the internal workspace, so scope to the caller's own
+    // workspace only when they are NOT staff — the ops-half rule P2 learned.
+    if (!canDraft && deal.organizationId !== caller.workspaceId) return { ...empty, canDraft };
+
+    const contracts = await db.query.contract.findMany({
+      where: eq(schema.contract.dealId, deal.id),
+    });
+    const parties = contracts.length
+      ? await db.query.contractParty.findMany({
+          where: inArray(
+            schema.contractParty.contractId,
+            contracts.map((c) => c.id),
+          ),
+        })
+      : [];
+
+    const { missingContracts } = await import("@/lib/contract-types");
+    const missing = missingContracts(
+      ["buyer", "osi", "supplier"],
+      contracts.map((c) => c.type),
+    ).map((spec) => spec.type);
+
+    return {
+      deal: {
+        id: deal.id,
+        title: deal.title,
+        supplierName: deal.supplierName,
+        status: deal.status,
+      },
+      contracts: contracts.map((contract) => {
+        const progress = signatureProgress(parties.filter((p) => p.contractId === contract.id));
+        return {
+          id: contract.id,
+          number: contract.number,
+          type: contract.type,
+          status: contract.status,
+          signed: progress.signed,
+          requiredSignatures: progress.required,
+        };
+      }),
+      missing,
+      canDraft,
+    };
   });
