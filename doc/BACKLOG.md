@@ -1186,6 +1186,18 @@ writing any code.
   `suppressHydrationWarning` is NOT the fix (it leaves the server's UTC text
   on screen); it stays correct only for the relative "il y a 6 minutes" on
   DossierCard, where the drift is seconds.
+- **A session opens in the user's PERSONAL workspace when they have one**
+  (owner 2026-08-29, `databaseHooks.session.create.before` in auth.ts) — staff
+  included. This **reverses the 2026-08-27 rule** ("staff land in the internal
+  workspace; personal is a deliberate switch away"), and the reversal follows
+  from the rule below it: the platform workspace now holds no customer data,
+  so opening a session there drops staff into the one place they cannot file a
+  need or act as a buyer. The elevated view becomes the deliberate act — you
+  switch INTO OSI's workspace to do OSI's work. Fallback order is personal →
+  internal → first membership, so an organisation signup (which never gets a
+  personal workspace) still lands in its own org. Applied at session creation
+  ONLY: the switcher writes `activeOrganizationId` on the session row, and
+  re-deciding later would undo it.
 - **OSI's own workspace holds NO customer data** (owner 2026-08-29): the
   platform workspace is for internal action only. `createRequestFn` refuses
   with `internal_workspace` when the active workspace's type is `internal`

@@ -495,10 +495,23 @@ export const auth = betterAuth({
     },
     session: {
       create: {
-        // New sessions start in the user's first workspace — except staff
-        // (2026-08-27): they land in the INTERNAL workspace, since platform
-        // powers only exist while standing there (effectivePlatformRole);
-        // personal is a deliberate switch away.
+        // A new session starts in the user's PERSONAL workspace when they have
+        // one (owner, 2026-08-29) — staff included.
+        //
+        // This REVERSES the 2026-08-27 rule ("staff land in the internal
+        // workspace, personal is a deliberate switch away"), and the reversal
+        // is the point: the platform workspace now holds no customer data at
+        // all, so opening a session there puts staff in the one place they
+        // cannot file a need, look at their own dossiers, or act as a buyer.
+        // Landing personal makes the elevated view the deliberate act instead
+        // — you switch INTO OSI's workspace to do OSI's work.
+        //
+        // An individual workspace has exactly one member by construction
+        // (only organisations may invite), so "an individual workspace this
+        // user belongs to" is always their own.
+        //
+        // Only at session creation: switching workspaces persists on the
+        // session row, and re-deciding later would undo the switcher.
         before: async (newSession) => {
           const memberships = await db
             .select({
@@ -511,8 +524,12 @@ export const auth = betterAuth({
               eq(schema.organization.id, schema.member.organizationId),
             )
             .where(eq(schema.member.userId, newSession.userId));
+          const personal = memberships.find((m) => m.type === "individual");
+          // No personal workspace: an organisation signup never gets one, and
+          // staff-only accounts may not have one either — they keep landing
+          // where they always did.
           const internal = memberships.find((m) => m.type === "internal");
-          const active = internal ?? memberships[0] ?? null;
+          const active = personal ?? internal ?? memberships[0] ?? null;
           return {
             data: { ...newSession, activeOrganizationId: active?.organizationId ?? null },
           };
