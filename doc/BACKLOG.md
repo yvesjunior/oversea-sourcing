@@ -1108,6 +1108,14 @@ writing any code.
   modules behind `src/server/sources/types.ts`; dedup/provenance/confidence
   applied ONLY in `src/server/research.ts`; source+country scope are hard
   match-time filters; effective sources = enabled ∩ activated (null = all).
+- **Clearing "the store" is two different acts.** `source_record` is mostly
+  VERIFICATION registries, not discovery: on 2026-08-29 prod held 393 474
+  registry-ca rows against 67 `global_web` ones, dev 1.8 M registry rows
+  against 108. Only the **discovery** store can make a search warm, so a cold
+  research test needs `ds.role = 'discovery'` deleted and nothing else.
+  Wiping the registries would disable the existence check in the verification
+  battery until re-pulled — and the QC/JP stores are **staff file uploads**,
+  so for those it is not a re-pull, it is data loss.
 - **Two source kinds** (2026-08-24, `src/lib/source-kind.ts`): dynamic
   (`global_web`) is fed ONLY through requests — never admin-triggered;
   static (`registry`/`import`) is admin-triggered as a FULL PULL, no scope —
@@ -1204,6 +1212,18 @@ writing any code.
   *Verified by calling the fns from both workspaces as the same staff user:
   platform → directory 2 · all requests 1; personal → every one of directory,
   matched, all-requests, all-quotes and contracts returns 0.*
+  **"Involved" is wider than "shortlisted"** (owner 2026-08-29: *"buyer sees
+  what is linked to them somehow"*). `getLinkedSuppliersFn` unions FOUR traces
+  — matched on one of their requests · asked for a quote · the accepted deal ·
+  a party to one of their contracts. The last three are load-bearing, not
+  decoration: **matching is delete-then-insert**, so a re-run replaces the
+  `match` rows and a supplier the buyer already solicited — or signed a
+  contract with — would silently disappear while their quote still pointed at
+  it. Supplier references are nullable on quote/deal/contract_party (the
+  tombstone rule), so nulls are filtered before the lookup.
+  *Verified in dev with three suppliers: one matched, one linked ONLY by a
+  quote, one unrelated with the HIGHEST confidence score. The buyer saw the
+  first two and not the third.*
 - **Staff lists name their account and can be narrowed to one**
   (owner 2026-08-29): staff stand in the internal workspace and their "Vue
   globale" carries every customer at once, which is right for a queue and

@@ -9,7 +9,7 @@ import { applyListFilters, ListFiltersBar, useListFilters } from "@/components/o
 import type { Risque } from "@/data/osi";
 import type { RiskLevel } from "@/database/schema";
 import { canSeeAllRequests } from "@/lib/roles";
-import { getMyMatchedSuppliersFn, getSuppliersFn, type SupplierView } from "@/lib/supplier-fns";
+import { getLinkedSuppliersFn, getSuppliersFn, type SupplierView } from "@/lib/supplier-fns";
 
 const RISK_LABEL: Record<RiskLevel, Risque> = {
   low: "Faible",
@@ -38,7 +38,7 @@ export const Route = createFileRoute("/fournisseurs")({
   // Real supplier directory (platform-global dataset) + the caller's own
   // shortlisted suppliers for the employee "Mes données" tab.
   loader: async () => {
-    const [directory, mine] = await Promise.all([getSuppliersFn(), getMyMatchedSuppliersFn()]);
+    const [directory, mine] = await Promise.all([getSuppliersFn(), getLinkedSuppliersFn()]);
     return { directory, mine };
   },
   component: Fournisseurs,
