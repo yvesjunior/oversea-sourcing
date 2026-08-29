@@ -43,6 +43,7 @@ function makeCriterion(overrides: Partial<CriterionRow> = {}): CriterionRow {
     unit: null,
     required: false,
     source: "ai",
+    isPrimary: false,
     position: 0,
     createdAt: new Date(),
     ...overrides,
@@ -179,6 +180,66 @@ describe("relevance is a gate, not a component", () => {
     ];
     const breakdown = scoreSupplier(makeSupplier(), numericOnly);
     expect(breakdown.checkableCount).toBe(0);
+    expect(isRelevant(breakdown)).toBe(true);
+  });
+});
+
+// ── The product is the gate (owner 2026-08-29) ──────────────────────────────
+// "Certification is just a supplementary criterion, product is the first."
+
+describe("the product criterion decides, not any criterion", () => {
+  const need: CriterionRow[] = [
+    makeCriterion({
+      id: "p1",
+      category: "other",
+      label: "Besoin",
+      value: "cartes électroniques",
+      required: true,
+      isPrimary: true,
+    }),
+    makeCriterion({
+      id: "p2",
+      category: "certification",
+      label: "Certifications",
+      value: "ISO 9001",
+      required: true,
+    }),
+  ];
+
+  it("a near-universal certification alone is NOT a match", () => {
+    // This is the loophole the looser gate left open: ISO 9001 says nothing
+    // about whether they make the product.
+    const anyone = makeSupplier({
+      name: "Pompes Générales",
+      description: "Fabricant de pompes centrifuges, certifié ISO 9001",
+    });
+    const breakdown = scoreSupplier(anyone, need);
+    expect(breakdown.matchedCount).toBe(1); // the cert DID match…
+    expect(breakdown.primaryMatched).toBe(false); // …but not the product
+    expect(isRelevant(breakdown)).toBe(false);
+  });
+
+  it("the product matching is enough, with or without the certification", () => {
+    const real = makeSupplier({
+      name: "PCB Nord",
+      description: "Assemblage de cartes électroniques pour l'industrie",
+    });
+    const breakdown = scoreSupplier(real, need);
+    expect(breakdown.primaryMatched).toBe(true);
+    expect(isRelevant(breakdown)).toBe(true);
+  });
+
+  it("falls back to any-criterion when the request names no product", () => {
+    // Legacy free-text intake produces no primary row; the looser rule is the
+    // best that intake can support.
+    const legacy: CriterionRow[] = [
+      makeCriterion({ id: "l1", category: "certification", value: "ISO 9001", required: true }),
+    ];
+    const breakdown = scoreSupplier(
+      makeSupplier({ description: "Atelier certifié ISO 9001" }),
+      legacy,
+    );
+    expect(breakdown.primaryMatched).toBeNull();
     expect(isRelevant(breakdown)).toBe(true);
   });
 });

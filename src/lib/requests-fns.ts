@@ -326,6 +326,7 @@ export const createRequestFn = createServerFn({ method: "POST" })
           unit: criterion.unit,
           required: criterion.required,
           source: data.structured ? ("user" as const) : ("ai" as const),
+          isPrimary: criterion.isPrimary === true,
           position: index,
         })),
       );

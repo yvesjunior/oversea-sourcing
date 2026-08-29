@@ -225,6 +225,16 @@ export const requestCriterion = pgTable(
     required: boolean("required").notNull().default(false),
     /** ai = extracted by the gateway · user = added/edited by the buyer */
     source: text("source").$type<"ai" | "user">().notNull().default("ai"),
+    /** THE product row — the primary matching signal (owner 2026-08-29:
+     *  "certification is just a supplementary criterion, product is the
+     *  first"). Set by the structured form on the product criterion only.
+     *  An explicit flag rather than a guess from the label (which is
+     *  translated) or from position 0 (which is ordering, not meaning).
+     *  When a request has one, the relevance gate requires IT to match —
+     *  a supplier evidencing only a near-universal certification is not a
+     *  match. Legacy free-text requests have none and fall back to
+     *  "at least one criterion". */
+    isPrimary: boolean("is_primary").notNull().default(false),
     position: integer("position").notNull().default(0),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },

@@ -1235,13 +1235,30 @@ matching 1 of 1 checkable criterion. Across every `match` row in the
 database, **zero** were written with `matchedCount = 0`. 6 new unit tests
 (73 total) including the exact #2540 shape.
 
-**Known residual, deliberately not taken:** the gate asks for at least ONE
-matched criterion, and the structured form makes certifications a criterion —
-so a supplier matching only a near-universal "ISO 9001" while missing the
-product still passes. Tightening to "the product criterion must match" is the
-next refinement; it was not done because the product value is free text and a
-stricter gate risks empty Top-Ns on a bilingual corpus. Revisit if real
-requests show it.
+**Closed the same day — THE PRODUCT IS THE GATE** (owner: *"certification is
+just a supplementary criterion, product is the first"*). The first cut asked
+for at least ONE matched criterion, which let a supplier through on a
+near-universal certification alone. Now: `request_criterion.is_primary`
+(migration **0034**) marks the ONE product row the structured form produces —
+an explicit flag, deliberately not a guess from the label (translated) or
+from position 0 (ordering, not meaning) — and `isRelevant` requires **that
+row** to match when the request has one. Requests with no primary row (legacy
+free-text intake) keep the looser rule; that is the best that intake
+supports.
+
+The obvious objection — a strict product gate emptying the Top-N when a
+French product string meets an English supplier description — is answered by
+the design, not by loosening the gate: an empty relevant set fails
+store-first, the request goes to live research, and the agent writes its
+descriptions in the buyer's language. The system corrects itself instead of
+showing junk.
+
+*Verified live:* request #3033, "courroies transporteuses caoutchouc" +
+"ISO 9001". The pool held five ISO-9001-certified suppliers (Southwest
+Thermal, AST Bearings, Labbe Process Equipment, Shanghai Shuntu, SOMEFLU) —
+every one of which matches the certification criterion and would have passed
+the looser gate. **All five excluded**; the Top-5 came back as five conveyor
+belt manufacturers, `primaryMatched: true`, 2 of 2 criteria matched.
 
 ### ~~Hydration breaks once a visitor picks a language~~ ✅ FIXED 2026-08-29
 

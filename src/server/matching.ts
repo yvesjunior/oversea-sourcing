@@ -64,6 +64,9 @@ export type ScoreBreakdown = {
   checkableCount: number;
   /** How many of those the supplier's own text actually evidences. */
   matchedCount: number;
+  /** Did the PRODUCT criterion match? null when the request has no checkable
+   *  primary row (legacy free-text intake, or a numeric-only product). */
+  primaryMatched: boolean | null;
 };
 
 type CriterionRow = typeof schema.requestCriterion.$inferSelect;
@@ -138,6 +141,13 @@ export function scoreSupplier(supplier: Scoreable, criteria: CriterionRow[]): Sc
 
   const criteriaPoints = Math.round(CRITERIA_WEIGHT * coverage);
   const matchedCount = weighed.filter((c) => c.outcome === "matched").length;
+  // The product row, when the request has one and it is checkable at all.
+  const primary = criteria.findIndex((c) => c.isPrimary);
+  const primaryOutcome = primary >= 0 ? scored[primary]?.outcome : undefined;
+  const primaryMatched =
+    primaryOutcome === undefined || primaryOutcome === "unverifiable"
+      ? null
+      : primaryOutcome === "matched";
   const confidencePoints = Math.round((supplier.confidenceScore / 100) * CONFIDENCE_WEIGHT);
   const verificationPoints = VERIFICATION_POINTS[supplier.verificationStatus] ?? 0;
   const riskPenalty = RISK_PENALTY[supplier.riskLevel] ?? 0;
@@ -157,6 +167,7 @@ export function scoreSupplier(supplier: Scoreable, criteria: CriterionRow[]): Sc
     total,
     checkableCount: weighed.length,
     matchedCount,
+    primaryMatched,
   };
 }
 
@@ -183,9 +194,25 @@ export function scoreSupplier(supplier: Scoreable, criteria: CriterionRow[]): Sc
  * still ranks on quality. `countQualifyingCandidates` treats that case
  * separately: it must never satisfy store-first, or an unjudgeable request
  * would be answered from the pool without ever searching.
+ *
+ * THE PRODUCT IS THE GATE when the request names one (owner 2026-08-29:
+ * "certification is just a supplementary criterion, product is the first").
+ * Asking for merely ANY matched criterion let a supplier through on a
+ * near-universal certification alone — "ISO 9001" says nothing about whether
+ * they make the thing. Requests from the structured form always carry a
+ * primary row; legacy free-text ones do not, and fall back to the looser
+ * "at least one criterion" rule, which is the best that intake supports.
+ *
+ * The obvious worry — that a strict product gate empties the Top-N when a
+ * French product string meets an English supplier description — is handled
+ * by the design rather than by loosening the gate: an empty relevant set
+ * fails store-first, which sends the request to live research, and the agent
+ * writes its descriptions in the buyer's own language. The system corrects
+ * itself instead of showing junk.
  */
 export function isRelevant(breakdown: ScoreBreakdown): boolean {
   if (breakdown.checkableCount === 0) return true;
+  if (breakdown.primaryMatched !== null) return breakdown.primaryMatched;
   return breakdown.matchedCount > 0;
 }
 

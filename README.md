@@ -1063,12 +1063,23 @@ the capability/certification satellite tables exist.
 > electronics need that produced pumps under the old code returned five PCB
 > assemblers at 75 %, each matching 1 of 1 checkable criterion.
 >
-> **Known residual:** the gate asks for *at least one* matched criterion, and
-> the structured form makes certifications a criterion — so a supplier
-> matching only a near-universal cert ("ISO 9001") while missing the product
-> still passes. Tightening to "the product criterion must match" is the next
-> refinement, deliberately not taken yet: the product string is free text and
-> a stricter gate risks empty Top-Ns on a bilingual corpus.
+> **The PRODUCT is the gate** (owner 2026-08-29: *"certification is just a
+> supplementary criterion, product is the first"*). Asking for merely *any*
+> matched criterion let a supplier through on a near-universal certification
+> alone — "ISO 9001" says nothing about whether they make the thing. The
+> structured form marks its product row `request_criterion.is_primary`
+> (migration 0034 — an explicit flag, never a guess from the translated label
+> or from position 0), and when a request has one, **that row must match**.
+> Legacy free-text requests carry no primary row and fall back to the looser
+> "at least one criterion", which is the best that intake supports.
+>
+> The worry that a strict product gate empties the Top-N — a French product
+> string meeting an English supplier description — is answered by the design
+> rather than by loosening the gate: an empty relevant set fails store-first,
+> the request goes to live research, and the agent writes its descriptions in
+> the buyer's own language. *Verified live:* a conveyor-belt request carrying
+> "ISO 9001" excluded all five ISO-9001-certified pool suppliers (heat
+> exchangers, bearings, pumps) and returned five belt manufacturers.
 
 ---
 

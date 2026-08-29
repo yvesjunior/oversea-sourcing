@@ -11,6 +11,10 @@ export type ParsedCriterion = {
   value: string;
   unit: string | null;
   required: boolean;
+  /** True on the ONE product row the structured form produces — the primary
+   *  matching signal the relevance gate keys on. Never set by the regex
+   *  parser: free text has no field that is reliably "the product". */
+  isPrimary?: boolean;
 };
 
 const MATERIAL_WORDS =
@@ -69,13 +73,17 @@ export function structuredCriteria(need: StructuredNeed, locale: string): Parsed
   const criteria: ParsedCriterion[] = [];
 
   // The product is the primary matching signal — required, like a criterion
-  // the supplier's text must evidence.
+  // the supplier's text must evidence. `isPrimary` makes that explicit to the
+  // matcher: the relevance gate requires THIS row to match, because a
+  // supplier evidencing only "ISO 9001" has not shown it makes the product
+  // (owner 2026-08-29).
   criteria.push({
     category: "other",
     label: labels.need,
     value: need.product.trim().slice(0, 120),
     unit: null,
     required: true,
+    isPrimary: true,
   });
   if (need.material?.trim()) {
     criteria.push({
