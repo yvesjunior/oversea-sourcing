@@ -32,136 +32,141 @@ real need, gets a real Top-N, **OSI solicits quotes, the buyer accepts one, the
 required contracts are signed by every mandatory party, and the commande is
 tracked to delivery** — with the PDF report available throughout.
 
-## Resume here (last session: 2026-08-29 — the portal brief + deploys #12 to #19)
+## Resume here (last session: 2026-08-29 — the portal brief, 8 deploys, P1-P4)
 
-### Session digest 2026-08-29 — the portal brief, and deploy #12
+### START HERE — handoff, 2026-08-29
 
-**DEPLOY #19 IS LIVE — commit `c149858`, migration 0037.** Backup:
-`backups/osi-20260829-153712.sql.gz`. Carries **P1 + P2 + P3** — the
-transaction spine, soumissions (buyer picks → OSI solicits → staff record),
-comparison and acceptance opening the dossier — plus the **per-request
-country origin** and the 24-corridor helper. Verified on prod:
-`request.country_codes` present, origin 200, five containers up, Soumissions
-live in the nav, the country field rendering, data intact (10 users · 67
-suppliers · 8 requests · 0 quotes · 0 deals — prod has not run the new flow
-yet, as expected).
+**Prod = `c149858` (deploy #19). One commit is built, tested and NOT deployed:
+`139f19e` (P4, the contract centre) — code-only, no migration.**
+Rollback point for the whole day: tag `deploy-11-baseline`.
 
-**DEPLOY #18 — commit `2374713`, migration 0036** — cross-language
-criteria (`request_criterion.value_en` + the shared `translation_memory`), so
-a French request reaches English-listed company information. Backup:
-`backups/osi-20260829-141936.sql.gz`. Verified on prod: column and table
-present, origin 200, data intact.
+Read in this order before writing code: **[ADR-002](adr/ADR-002-transaction-and-contract-centre.md)**
+(accepted) → the **Phase P** header and its "How to read these tasks" note →
+**"Contracts a next session must NOT re-derive differently"**. The
+owner-validated 16-step parcours is the artifact linked from the ADR.
 
-**DEPLOY #17 — commit `bf62dac`, migrations 0033-0035.** Backup:
-`backups/osi-20260829-135858.sql.gz`. Carries the **P1 transaction spine**
-(six tables + `contract_number_seq`, no UI yet), the **relevance gate** and
-its **product-first** refinement, and **English-first search + the bilingual
-pool**. Verified ON PROD: six spine tables present, `request_criterion.is_primary`
-and `supplier.description_en` present, the `quote_one_accepted_per_request_uq`
-partial index in place, origin 200, five containers up, data intact (10 users ·
-11 orgs · 8 requests · 67 suppliers · 40 matches).
+---
 
-**Buyer-visible change to watch:** search results are now gated on relevance,
-so a Top-N may return **fewer than N** rather than padding with suppliers that
-match nothing. That is intended — an empty relevant set sends the request to
-live research instead of showing junk.
+#### 1 · What the day changed, in one paragraph
 
-**DEPLOY #16 — commit `cf83c39`, code-only** — pending drafts expire
-after **1 h** (owner, same day). Backup: `backups/osi-20260829-122252.sql.gz`.
+The morning was a design pass on the owner's `.docx` brief for the **Portail
+entreprise B2B**; the afternoon built the first four phases of it. OSI no
+longer stops at `report_ready`: a buyer now picks which of their Top-N to
+approach, OSI solicits them, staff record the offers, the buyer compares and
+accepts one, that opens a **dossier de transaction**, and the contracts it
+requires are drafted with their parties and a signature indicator. Along the
+way the search itself was repaired — relevance became a gate rather than a
+score component — and both the search and the pool became bilingual.
 
-**DEPLOY #15 — commit `1cccd7e`, code-only, no migrations** (a
-pending draft never spends money on its own). Backup first:
-`backups/osi-20260829-120827.sql.gz`. Verified ON PROD: origin 200, five
-containers up, VM on `1cccd7e`, data intact (10 users · 11 orgs · 8 requests ·
-67 suppliers · 40 matches), and the anonymous landing still carries the intake
-form + the gate hint — the auth gate is intact, it simply no longer submits
-for the buyer.
+#### 2 · Deploys (all verified on prod, backup taken before each)
 
-**DEPLOY #14 — commit `0508475`, migration 0032** (the two designs).
-Backup first: `backups/osi-20260829-114957.sql.gz` (31M). Verified ON PROD:
-`user.design` column present with default `light`; origin 200; data intact
-(10 users · 11 orgs · 8 requests · 67 suppliers · 40 matches); and the two
-preference cookies compose correctly at the SSR layer —
-`<html lang="fr">` with no cookie, `<html lang="en" class="dark">` under
-`Cookie: osi-design=dark; osi-lang=en`. **Existing users are unaffected until
-they touch the switch: light is the default.**
+| # | Commit | Migrations | What |
+|---|---|---|---|
+| 12 | `95812c8` | — | intake form moved to `/demandes`; home became the dashboard; merged nav (15 → 20 entries) |
+| 13 | `2565e64` | — | **i18n hydration fix** — language server-rendered from a cookie |
+| 14 | `0508475` | 0032 | **two designs**, light/dark, switchable from the header |
+| 15 | `1cccd7e` | — | a pending draft never spends money on its own |
+| 16 | `cf83c39` | — | drafts expire after 1 h |
+| 17 | `bf62dac` | 0033-0035 | P1 spine · **relevance gate** · English-first search + bilingual pool |
+| 18 | `2374713` | 0036 | cross-language criteria (`value_en` + `translation_memory`) |
+| 19 | `c149858` | 0037 | **P1 + P2 + P3** + per-request country origin |
 
-**DEPLOY #13 — commit `2565e64`, code-only, no migrations** (the
-i18n hydration fix). Backup first: `backups/osi-20260829-113209.sql.gz`.
-Verified ON PROD: `https://osi-solutions.com/` serves French nav with no
-cookie and **English nav under `Cookie: osi-lang=en`**, `<html lang>` follows
-in both, five containers up. That is the defect fixed at the source — SSR now
-renders the visitor's language instead of switching after hydration.
+#### 3 · Phase P — what is DONE
 
-**DEPLOY #12 — commit `95812c8`, code-only, no migrations.** Backup
-first: `backups/osi-20260829-112247.sql.gz` (31M). Verified on prod: public
-origin 200 · five containers up (migrate exited clean) · the merged nav
-rendered by prod SSR (Tableau de bord · Demandes · Fournisseurs · Soumissions ·
-Contrats · Commandes · Documents · Paiements · Messages · Rapports ·
-Paramètres) · the anonymous landing keeps the hero + intake form · data intact
-(10 users · 11 orgs · 8 requests · 67 suppliers · 40 matches).
-**Rollback = `git checkout deploy-11-baseline` + rebuild on the VM** (the tag
-marks deploy #11, the pre-session state).
+- **P1 · spine** (mig 0033) — `quote` · `deal` · `deal_event` · `contract` ·
+  `contract_party` · `contract_event` + `contract_number_seq`, and the pure
+  state machines in `src/lib/deal-status.ts` (21 tests).
+- **P2 · soumissions** — the buyer ticks suppliers on their Top-N, staff send
+  and record. `/soumissions`, `src/lib/quote-fns.ts`, `src/server/deals.ts`.
+- **P3 · comparison & acceptance** — one transaction: quote accepted, siblings
+  declined, deal opened, matches `selected`/`rejected`, timeline + audit.
+- **P4 · contract centre** *(committed, NOT deployed)* — `/contrats` list with
+  the five derived filters and the N/M indicator, `/contrats/$id` fiche with
+  the parties table, `src/lib/contract-types.ts` mapping parties → required
+  contracts, numbering `OSI-2026-0001`.
 
-**What shipped:** the intake form moved to `/demandes` (P0 ③), home became the
-dashboard (P0 ②), the merged navigation — 15 entries → 20, unbuilt ones greyed
-with no route (P0 ④) — `Analyses` moved into the INTERNE block, and a
-`suppressHydrationWarning` guard on the dossier timestamp.
+Also shipped outside Phase P: **per-request country origin** (mig 0037) with a
+24-corridor helper; the **relevance gate** and its product-first refinement;
+**English-first search**; the **bilingual pool** and **cross-language
+criteria**.
 
-**The language-toggle hydration defect** was diagnosed after deploy #12 and
-**fixed in deploy #13 the same day** — cookie + one i18n instance per
-language + server-side resolution. Full write-up under
-"~~Hydration breaks once a visitor picks a language~~ ✅ FIXED" below.
+#### 4 · What REMAINS, in order
 
-**Where a NEW SESSION should start.** ADR-002 is accepted and **P1 is built**
-(migration 0033: quote · deal · deal_event · contract · contract_party ·
-contract_event, plus the state machines in `src/lib/deal-status.ts` with 21
-unit tests). No UI exists for any of it yet.
+1. **Deploy `139f19e`** (P4) — code-only, no migration.
+2. **P5 · templates + required-contract surfacing.** The mapping exists
+   (`contract-types.ts`); what is missing is pre-filled template *content* and
+   surfacing a missing required contract on the dossier itself rather than
+   only on the contracts list.
+3. **P6 · signatures — the two mechanisms.** `in_platform` for parties with a
+   `user_id` (buyer, OSI) recording IP + user agent; `manual_upload` for
+   parties without an account (staff upload the countersigned PDF into
+   `signed_file_id`). Both write the same `contract_party` row and a
+   `contract_event`; recompute status with `statusFromSignatures()`, never by
+   hand. Create `src/server/esign.ts` as the vendor seam for the EXTERNAL path
+   only, first implementation `manual`. Gate on `contracts.sign`. The fiche's
+   Action column currently says "Signature — bientôt" — that is where it goes.
+4. **P7 · commandes** (needs a new `order_milestone` table — designed then,
+   not now) · **P8 · documents** (BLOCKED, see gaps) · **P9 · paiements** ·
+   **P10 · messages** · **P11 · rapports**.
+5. **Phase R · custom staff roles** — a new owner ask, NOT sized, and not a
+   prerequisite for anything in Phase P.
 
-Read in this order: **ADR-002** → the **Phase P** header and its "How to read
-these tasks" note → **"Contracts a next session must NOT re-derive
-differently"**. Then pick up **P2** (the buyer's supplier selection), which is
-written to be executed cold.
+#### 5 · Gaps and open questions a next session must not lose
 
-**Two things belong before P2 lands, and neither is Phase P work:**
-- ~~pick-up item ⓪, the search relevance gate~~ ✅ **FIXED 2026-08-29** (see
-  "Relevance is a gate" in README §2 and the entry below). Verified live:
-  the electronics need that returned pump companies at 41 % now returns five
-  PCB assemblers at 75 %.
-- **the `osi-uploads` volume is in no backup** (`scripts/backup.sh` dumps
-  Postgres only). Blocking for **P8**, not for P2 — but it must be fixed
-  before any signed contract is stored.
+- ❗ **The `osi-uploads` volume is in NO backup** (`scripts/backup.sh` dumps
+  Postgres only). **Blocking for P8** — no signed contract may be stored
+  before this is fixed.
+- ❗ **No document retention policy**, and `storage.deleteFile` is never called
+  on user files, so deleting a request orphans its bytes.
+- ❓ **Three parcours questions still unanswered by the owner:** may OSI nudge
+  a buyer who never picks suppliers (step 05)? is signature-before-deposit the
+  right order (step 12)? who updates production milestones (step 14) — every
+  update is an email then a manual entry, which is the real cost of "no
+  supplier access".
+- ❓ **The « économies » tile cannot be computed honestly** — nothing holds a
+  baseline price. Either capture a target price at intake or drop the tile.
+- ❓ **Plan dimension**: nothing stops a Free-trial workspace reaching
+  contracts and payments.
+- ⚠️ **~40 suppliers predate the bilingual pool** and have no `description_en`;
+  a one-off backfill is ~$0.02 if cross-language reuse matters sooner.
+- ⚠️ Page `<title>`s are static French strings in each route's `head()` and do
+  not follow the language.
 
-**P0 is DONE** (deploys #12 and #14). The only piece deliberately left is
-**enriching the dashboard toward the brief's mockup** (dépenses chart,
-activités récentes) — cosmetic, and it belongs with the Tableau de bord work
-rather than the shell.
+#### 6 · Lessons this session paid for — do not re-learn them
 
-**The design pass (docs only, no code):**
-- [doc/briefs/portail-entreprise.md](briefs/portail-entreprise.md) — the brief
-  transcribed into the repo (it existed only on the owner's Desktop).
-- [ADR-002](adr/ADR-002-transaction-and-contract-centre.md) — the transaction
-  dossier & contract centre. **Status: PROPOSED, awaiting owner validation.**
-- **Phase P** below — the implementation plan, P1…P11 plus its gates.
+- **Every Phase P surface needs its OPS HALF.** Quotes live in the buyer's
+  workspace while staff stand in the internal one, so the first cut of
+  `/soumissions` showed staff an empty page and they could not do their job.
+  `getAllQuotesFn` + `EmployeeTabs` fixed it; `getContractsFn` was written
+  that way from the start. Unit tests cannot catch this — sign in as Owner.
+- **The browser console buffer is per tab and survives navigation.** One stale
+  hydration error looked like it reproduced everywhere, including on a tag
+  checkout, and produced two confidently wrong diagnoses. Open a NEW tab
+  before concluding anything from the console.
+- **Reading a debug global that was never installed returns `[]`**, which
+  reads exactly like "no errors".
+- **`npm run db:migrate` from the host cannot reach the database** — it
+  reports success and changes nothing. Run it inside the container:
+  `docker compose -f docker-compose.dev.yml exec -T web npm run db:migrate`.
+- **A justification can be plausible and false.** The cross-language work was
+  first justified with Singapore's 613k English registry descriptions —
+  registries are verification-role and never enter matching. Corrected in the
+  code comments and docs rather than left to mislead.
 
-**The one thing a future session must not get wrong:** the brief brings a NEW
-process, and the old E6 facilitation design is **retired, not extended** (owner,
-2026-08-29). There is no `engagement` entity, no "Engager" button, no ops queue,
-no "connected" state. The process is `demande → fournisseurs → soumissions →
-acceptation → dossier de transaction → contrats → commande → livraison`, and a
-**quote (soumission) is the unit of facilitation**. Suppliers and
-sub-contractors have **NO platform access** — parties are rows, staff mediate
-everything by email.
+#### 7 · Owner decisions taken today (all implemented)
 
-**Two hard gaps this surfaced, neither of them design questions:**
-- ❗ `scripts/backup.sh` dumps Postgres only — **the `osi-uploads` volume is not
-  backed up anywhere.** Tolerable for re-uploadable spec sheets; not for signed
-  contracts. Must be fixed before P8.
-- ❗ No document retention policy, and `storage.deleteFile` is never called on
-  user files (bytes orphan when a request is deleted).
+Facilitation first (reversing "foundation before facilitation") · the E6/E8
+sketches retired, a **quote is the unit of facilitation** · **no supplier
+platform access** — parties are rows, staff mediate · **the buyer picks** who
+to solicit · **no splitting** (one accepted offer per request, enforced by a
+partial unique index) · **closure is two acts** (buyer validates and rates,
+then staff close; `delivered → closed` is illegal) · contracts v1 = two types
+· signing is a permission key, owner-only by default · **no e-signature
+vendor** (in-platform for accounts, manual upload for the rest) · two designs,
+user-switchable · drafts expire after 1 h and never auto-spend · search in
+English first · **request country overrides org, falls back when unset**.
 
-**Still the next CODE task, unchanged:** pick-up item ⓪, the search relevance
-gate — quotes solicited off an irrelevant Top-N are the wrong quotes.
+---
 
 ### Previous session digest (2026-08-27/28 — the logging + foundation-gaps session)
 
