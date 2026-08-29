@@ -32,11 +32,17 @@ real need, gets a real Top-N, **OSI solicits quotes, the buyer accepts one, the
 required contracts are signed by every mandatory party, and the commande is
 tracked to delivery** — with the PDF report available throughout.
 
-## Resume here (last session: 2026-08-29 — the portal brief + deploys #12 to #17)
+## Resume here (last session: 2026-08-29 — the portal brief + deploys #12 to #18)
 
 ### Session digest 2026-08-29 — the portal brief, and deploy #12
 
-**DEPLOY #17 IS LIVE — commit `bf62dac`, migrations 0033-0035.** Backup:
+**DEPLOY #18 IS LIVE — commit `2374713`, migration 0036** — cross-language
+criteria (`request_criterion.value_en` + the shared `translation_memory`), so
+a French request reaches English-listed company information. Backup:
+`backups/osi-20260829-141936.sql.gz`. Verified on prod: column and table
+present, origin 200, data intact.
+
+**DEPLOY #17 — commit `bf62dac`, migrations 0033-0035.** Backup:
 `backups/osi-20260829-135858.sql.gz`. Carries the **P1 transaction spine**
 (six tables + `contract_number_seq`, no UI yet), the **relevance gate** and
 its **product-first** refinement, and **English-first search + the bilingual
