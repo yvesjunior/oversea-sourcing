@@ -32,12 +32,13 @@ real need, gets a real Top-N, **OSI solicits quotes, the buyer accepts one, the
 required contracts are signed by every mandatory party, and the commande is
 tracked to delivery** — with the PDF report available throughout.
 
-## Resume here (last session: 2026-08-29 — the portal brief, 8 deploys, P1-P4)
+## Resume here (last session: 2026-08-29 — the portal brief, 9 deploys, P1-P4)
 
 ### START HERE — handoff, 2026-08-29
 
-**Prod = `c149858` (deploy #19). One commit is built, tested and NOT deployed:
-`139f19e` (P4, the contract centre) — code-only, no migration.**
+**Prod = `754ae36` (deploy #20). Nothing is built and undeployed — main and
+prod are the same commit.** The contract centre (P4) went out with #20,
+code-only, no migration.
 Rollback point for the whole day: tag `deploy-11-baseline`.
 
 Read in this order before writing code: **[ADR-002](adr/ADR-002-transaction-and-contract-centre.md)**
@@ -70,6 +71,18 @@ score component — and both the search and the pool became bilingual.
 | 17 | `bf62dac` | 0033-0035 | P1 spine · **relevance gate** · English-first search + bilingual pool |
 | 18 | `2374713` | 0036 | cross-language criteria (`value_en` + `translation_memory`) |
 | 19 | `c149858` | 0037 | **P1 + P2 + P3** + per-request country origin |
+| 20 | `754ae36` | — | **P4 · the contract centre** — `/contrats` list + fiche, derived filters, N/M indicator, `OSI-2026-0000` numbering |
+
+**Deploy #20 verification** — backup `backups/osi-20260829-160239.sql.gz`
+(31 M) taken first. Migrate exited 0 with nothing to apply (P4 is code-only);
+five containers up; `/` returns 200 over the tunnel and no error line appears
+in the web log since restart. The P4 chunks are present in the deployed build
+(`.output/server/_ssr/contrats-*.mjs` and `.output/public/assets/contrats-*.js`)
+— worth checking that way, because the auth guard 307s an unknown route
+exactly as it 307s a real one, so an HTTP probe cannot tell a shipped route
+from a missing one. Data intact: 10 users · 67 suppliers · 8 requests · 0
+quotes · 0 deals · 0 contracts — prod has still not run the new flow, as at
+\#19.
 
 #### 3 · Phase P — what is DONE
 
@@ -80,7 +93,7 @@ score component — and both the search and the pool became bilingual.
   and record. `/soumissions`, `src/lib/quote-fns.ts`, `src/server/deals.ts`.
 - **P3 · comparison & acceptance** — one transaction: quote accepted, siblings
   declined, deal opened, matches `selected`/`rejected`, timeline + audit.
-- **P4 · contract centre** *(committed, NOT deployed)* — `/contrats` list with
+- **P4 · contract centre** *(live, deploy #20)* — `/contrats` list with
   the five derived filters and the N/M indicator, `/contrats/$id` fiche with
   the parties table, `src/lib/contract-types.ts` mapping parties → required
   contracts, numbering `OSI-2026-0001`.
@@ -92,12 +105,11 @@ criteria**.
 
 #### 4 · What REMAINS, in order
 
-1. **Deploy `139f19e`** (P4) — code-only, no migration.
-2. **P5 · templates + required-contract surfacing.** The mapping exists
+1. **P5 · templates + required-contract surfacing.** The mapping exists
    (`contract-types.ts`); what is missing is pre-filled template *content* and
    surfacing a missing required contract on the dossier itself rather than
    only on the contracts list.
-3. **P6 · signatures — the two mechanisms.** `in_platform` for parties with a
+2. **P6 · signatures — the two mechanisms.** `in_platform` for parties with a
    `user_id` (buyer, OSI) recording IP + user agent; `manual_upload` for
    parties without an account (staff upload the countersigned PDF into
    `signed_file_id`). Both write the same `contract_party` row and a
@@ -105,10 +117,10 @@ criteria**.
    hand. Create `src/server/esign.ts` as the vendor seam for the EXTERNAL path
    only, first implementation `manual`. Gate on `contracts.sign`. The fiche's
    Action column currently says "Signature — bientôt" — that is where it goes.
-4. **P7 · commandes** (needs a new `order_milestone` table — designed then,
+3. **P7 · commandes** (needs a new `order_milestone` table — designed then,
    not now) · **P8 · documents** (BLOCKED, see gaps) · **P9 · paiements** ·
    **P10 · messages** · **P11 · rapports**.
-5. **Phase R · custom staff roles** — a new owner ask, NOT sized, and not a
+4. **Phase R · custom staff roles** — a new owner ask, NOT sized, and not a
    prerequisite for anything in Phase P.
 
 #### 5 · Gaps and open questions a next session must not lose

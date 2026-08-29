@@ -15,9 +15,12 @@ Live at **[osi-solutions.com](https://osi-solutions.com)** · TanStack Start
 >
 > **Working today:** the full request loop — criteria (typed *and* from attached
 > spec sheets) → real web research → shared supplier pool → criteria-aware
-> ranking → printable report, with per-workspace plans and daily quotas.
-> **Not built:** facilitation (engagements), transactions, documents,
-> and the supplier import pipeline.
+> ranking → printable report, with per-workspace plans and daily quotas — and
+> the first half of facilitation: the buyer solicits quotes, compares the
+> offers, accepts one, and the dossier opens with its required contracts
+> drafted (Phase P1-P4, live on prod since deploy #20).
+> **Not built:** signatures, commandes and milestones, documents, paiements,
+> messages, and the supplier import pipeline.
 
 Built with [Lovable](https://lovable.dev)
 ([editor](https://lovable.dev/projects/a2274c53-10c7-432f-8ad5-d1aeff813df3));
@@ -1189,7 +1192,10 @@ the capability/certification satellite tables exist.
 
 ## 2b · From the report to a delivered order (Phase P)
 
-> **Status: schema BUILT 2026-08-29 (migration 0033); no UI yet.** Decision
+> **Status: P1-P4 BUILT and live on prod** (deploy #20, 2026-08-29) — the
+> schema spine (migration 0033), soumissions, comparison & acceptance, and
+> the contract centre. **P5-P11 remain**: templates, signatures, commandes,
+> documents, paiements, messages, rapports. Decision
 > record: [ADR-002](doc/adr/ADR-002-transaction-and-contract-centre.md)
 > (accepted). Plan: **Phase P** in [doc/BACKLOG.md](doc/BACKLOG.md). The
 > owner-validated parcours is drawn step by step in the companion artifact
