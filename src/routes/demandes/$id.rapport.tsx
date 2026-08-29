@@ -18,6 +18,7 @@ import { ScoreRing } from "@/components/osi/ScoreRing";
 import type { Risque } from "@/data/osi";
 import type { RiskLevel } from "@/database/schema";
 import { getRequestDetailFn, type RequestDetail } from "@/lib/requests-fns";
+import { formatDayTime } from "@/lib/instant";
 
 const RISK_LABEL: Record<RiskLevel, Risque> = {
   low: "Faible",
@@ -43,7 +44,7 @@ function Rapport() {
   const dateLocale = i18n.language === "fr" ? fr : enUS;
 
   const stamp = (iso: string | null) =>
-    iso ? format(new Date(iso), "d MMMM yyyy · HH:mm", { locale: dateLocale }) : "—";
+    iso ? formatDayTime(iso, i18n.language, { month: "long" }) : "—";
 
   const researchEvent = demande.events.find((e) => e.type === "research.completed");
   const storeHitEvent = demande.events.find((e) => e.type === "research.store_hit");

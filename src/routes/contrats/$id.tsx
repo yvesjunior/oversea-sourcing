@@ -13,6 +13,7 @@ import { ArrowLeft, RefreshCw } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { getContractsFn, regenerateContractContentFn, type ContractView } from "@/lib/contract-fns";
+import { formatDay } from "@/lib/instant";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/contrats/$id")({
@@ -65,13 +66,7 @@ function ContractDetail() {
         : (contract.amountCents / 100).toLocaleString(i18n.language);
 
   const date = (iso: string | null) =>
-    iso
-      ? new Date(iso).toLocaleDateString(i18n.language, {
-          day: "numeric",
-          month: "long",
-          year: "numeric",
-        })
-      : t("contrats.noDue");
+    iso ? formatDay(iso, i18n.language, "long") : t("contrats.noDue");
 
   return (
     <div className="space-y-6 pt-6">

@@ -12,6 +12,7 @@ import { EmptySection } from "@/components/osi/EmptySection";
 import { requirePlatformFeature } from "@/lib/auth-guard";
 import { assignPlanFn, getPlanAdminFn } from "@/lib/plan-fns";
 import { getCustomerAccountsFn, type CustomerAccountView } from "@/lib/client-admin-fns";
+import { formatDay } from "@/lib/instant";
 
 export const Route = createFileRoute("/interne/clients")({
   head: () => ({
@@ -106,11 +107,7 @@ function AccountsTable({
               <td className="py-3 pr-4 text-xs tabular-nums">{account.members}</td>
               <td className="py-3 pr-4 text-xs tabular-nums">{account.requestsTotal}</td>
               <td className="py-3 text-xs text-muted-foreground">
-                {new Date(account.createdAt).toLocaleDateString(i18n.language, {
-                  day: "numeric",
-                  month: "short",
-                  year: "numeric",
-                })}
+                {formatDay(account.createdAt, i18n.language)}
               </td>
             </tr>
           ))}

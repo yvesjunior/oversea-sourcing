@@ -1621,6 +1621,25 @@ string in a component; add a key and use `t(...)`. The toggle is in the top bar.
 Country names fall back to `Intl.DisplayNames`, so a supplier from any country
 renders correctly without a translation entry.
 
+### Timestamps are pinned to one zone (fixed 2026-08-29 — do not undo)
+
+Every instant goes through `src/lib/instant.ts`, which formats it in
+`OSI_TIME_ZONE` on the server and in the browser alike. The web container has
+no `TZ`, so it thinks in UTC while the visitor's browser does not: a timestamp
+formatted without an explicit zone renders "18:29" on the server and "14:29"
+in the browser, which is a hydration mismatch by construction — React then
+throws away the server HTML for that subtree. It bites date-only stamps too,
+since 01:30 UTC is the previous day in Toronto.
+
+Rendering the viewer's local zone after mount was considered and rejected: the
+SSR pass must still emit the fixed zone to hydrate cleanly, so every timestamp
+would visibly jump by the offset a moment after load. These stamps record when
+OSI's system did something, and a stable operational clock reads better than a
+flickering one. `suppressHydrationWarning` is not a substitute — it silences
+the warning while leaving the wrong hour on screen; it remains right only for
+the relative "updated 6 minutes ago" on `DossierCard`, where the drift is
+seconds.
+
 ### The language is server-rendered (fixed 2026-08-29 — do not undo)
 
 The choice lives in a **cookie**, not `localStorage`, and it is resolved

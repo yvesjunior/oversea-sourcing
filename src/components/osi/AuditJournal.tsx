@@ -13,6 +13,7 @@ import {
   getAuditLogFn,
   type AuditLogData,
 } from "@/lib/audit-fns";
+import { formatShortDateTime } from "@/lib/instant";
 
 export function AuditJournal({
   showOrgFilter,
@@ -56,8 +57,7 @@ export function AuditJournal({
     };
   }, [orgFilter, actorFilter, fromDate, toDate, page, pageSize, refreshTick]);
 
-  const stamp = (iso: string) =>
-    new Date(iso).toLocaleString(i18n.language, { dateStyle: "short", timeStyle: "short" });
+  const stamp = (iso: string) => formatShortDateTime(iso, i18n.language);
 
   return (
     <section className="card-surface p-6">

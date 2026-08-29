@@ -14,6 +14,7 @@ import { useRouter } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { draftContractsFn, getContractsFn, type ContractView } from "@/lib/contract-fns";
 import type { ContractFilter } from "@/lib/deal-status";
+import { formatDay } from "@/lib/instant";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/contrats/")({
@@ -228,11 +229,7 @@ function Contrats() {
                     <SignatureCount contract={contract} />
                   </td>
                   <td className="px-4 py-3 text-xs text-muted-foreground">
-                    {new Date(contract.createdAt).toLocaleDateString(i18n.language, {
-                      day: "numeric",
-                      month: "short",
-                      year: "numeric",
-                    })}
+                    {formatDay(contract.createdAt, i18n.language)}
                   </td>
                 </tr>
               ))}

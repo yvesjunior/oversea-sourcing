@@ -33,6 +33,7 @@ import type { Risque } from "@/data/osi";
 import type { RiskLevel } from "@/database/schema";
 import { cancelRequestFn, getRequestDetailFn, type RequestDetail } from "@/lib/requests-fns";
 import { isInFlight, PIPELINE_ORDER, pipelineIndex, progressPct } from "@/lib/request-status";
+import { formatDayTime } from "@/lib/instant";
 import { cn } from "@/lib/utils";
 
 /**
@@ -120,9 +121,7 @@ function DemandeDetail() {
   // Timeline: the 5 pipeline stages × recorded status.* events.
   const statusEventDate = (status: string): string | null => {
     const event = demande.events.find((e) => e.type === `status.${status}`);
-    return event
-      ? format(new Date(event.createdAt), "d MMM yyyy · HH:mm", { locale: dateLocale })
-      : null;
+    return event ? formatDayTime(event.createdAt, i18n.language) : null;
   };
   const etapesTimeline: Etape[] = PIPELINE_ORDER.map((step, index) => {
     const date = statusEventDate(step.status);
@@ -312,9 +311,7 @@ function DemandeDetail() {
                 {activity.map((event) => (
                   <li key={event.id} className="flex items-baseline gap-2 text-xs">
                     <span className="shrink-0 tabular-nums text-[10px] text-muted-foreground">
-                      {format(new Date(event.createdAt), "d MMM · HH:mm", {
-                        locale: dateLocale,
-                      })}
+                      {formatDayTime(event.createdAt, i18n.language, { withYear: false })}
                     </span>
                     <span className="min-w-0 text-muted-foreground">
                       {t(`events.${event.type.replace(".", "_")}`, event.params)}

@@ -28,6 +28,7 @@ import {
   type SourceRunView,
 } from "@/lib/source-admin-fns";
 import { cn } from "@/lib/utils";
+import { formatDay, formatShortDateTime } from "@/lib/instant";
 
 export const Route = createFileRoute("/interne/sources")({
   beforeLoad: ({ context }) => requirePlatformFeature(context.session, "sources"),
@@ -42,15 +43,6 @@ const POLL_MS = 5_000;
 /** Active-tab styling shared with Paramètres/Abonnements. */
 const TAB_TRIGGER =
   "py-1 data-[state=active]:bg-gold-gradient data-[state=active]:text-gold-foreground data-[state=active]:shadow-gold";
-
-/** The catalogue is SSR'd and the container's timezone (UTC) is not the
- *  browser's — a server-formatted TIME never survives hydration. Timestamps
- *  render only after mount. */
-function useMounted(): boolean {
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
-  return mounted;
-}
 
 function RunPill({ status }: { status: SourceRunView["status"] }) {
   const { t } = useTranslation();
@@ -252,8 +244,7 @@ function RefreshForm({ source, onDone }: { source: SourceCatalogueView; onDone: 
 
 function RunsTable({ runs }: { runs: SourceRunView[] }) {
   const { t, i18n } = useTranslation();
-  const stamp = (iso: string) =>
-    new Date(iso).toLocaleString(i18n.language, { dateStyle: "short", timeStyle: "short" });
+  const stamp = (iso: string) => formatShortDateTime(iso, i18n.language);
 
   if (runs.length === 0) {
     return <p className="text-xs text-muted-foreground">{t("sourcesAdmin.noRuns")}</p>;
@@ -318,12 +309,7 @@ function RunsTable({ runs }: { runs: SourceRunView[] }) {
 
 function StoreTable({ detail, onChanged }: { detail: SourceDetailView; onChanged: () => void }) {
   const { t, i18n } = useTranslation();
-  const stamp = (iso: string) =>
-    new Date(iso).toLocaleDateString(i18n.language, {
-      day: "numeric",
-      month: "short",
-      year: "numeric",
-    });
+  const stamp = (iso: string) => formatDay(iso, i18n.language);
 
   if (detail.records.length === 0) {
     return <p className="text-xs text-muted-foreground">{t("sourcesAdmin.emptyStore")}</p>;
@@ -576,11 +562,10 @@ function Sources() {
     return () => clearInterval(timer);
   }, [anyRunning, refresh]);
 
-  const mounted = useMounted();
-  const stamp = (iso: string) =>
-    mounted
-      ? new Date(iso).toLocaleString(i18n.language, { dateStyle: "short", timeStyle: "short" })
-      : "…";
+  // Was guarded behind a mounted flag because the container renders UTC and
+  // the browser did not — src/lib/instant.ts pins the zone on both sides now,
+  // so this can be server-rendered like everything else.
+  const stamp = (iso: string) => formatShortDateTime(iso, i18n.language);
 
   return (
     <div className="space-y-6 pt-6">

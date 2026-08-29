@@ -145,17 +145,19 @@ criteria**.
   a one-off backfill is ~$0.02 if cross-language reuse matters sooner.
 - ⚠️ Page `<title>`s are static French strings in each route's `head()` and do
   not follow the language.
-- 🐞 **`/demandes/$id` hydration mismatch — PRE-EXISTING, live on prod.**
-  The dossier timeline formats timestamps with `format(new Date(…), "d MMM ·
-  HH:mm")`, which the server renders in the container's **UTC** and the
-  browser re-renders in the visitor's zone (18:29 vs 14:29 on an EDT
-  machine), so React throws "Hydration failed". Confirmed by stashing the P5
-  work and reproducing on `754ae36` — the deployed commit — and it fires on
-  a request with no deal, so it is nothing to do with Phase P. Same class as
-  the DossierCard fix in `95812c8`, which only covered the card. The real fix
-  is a shared rule for rendering an instant (fixed zone, or client-only),
-  applied everywhere — worth doing as its own change rather than inside a
-  feature commit.
+- ✅ **`/demandes/$id` hydration mismatch — FIXED 2026-08-29**
+  (`src/lib/instant.ts`). The dossier timeline formatted timestamps with no
+  explicit zone, so the server rendered the container's **UTC** and the
+  browser re-rendered the visitor's zone (18:29 vs 14:29 on an EDT machine)
+  and React threw "Hydration failed", discarded the server HTML and
+  re-rendered the subtree client-side. Confirmed pre-existing by stashing the
+  P5 work and reproducing on `754ae36`; it fired on a request with no deal,
+  so it was never Phase P's. **Every instant is now formatted in one pinned
+  zone (`OSI_TIME_ZONE`) on both sides** — the mismatch is impossible by
+  construction rather than patched per component. It hit DATE-ONLY renderings
+  too: 01:30 UTC is the previous day in Toronto. The `useMounted` workaround
+  on `/interne/sources` (which rendered `…` until hydration, and whose comment
+  already named this exact cause) is gone with it.
 
 #### 6 · Lessons this session paid for — do not re-learn them
 
@@ -1111,6 +1113,15 @@ writing any code.
   `user_id` signs `in_platform`; a party without an account is
   `manual_upload` by staff. No e-sign vendor is bought; `src/server/esign.ts`
   is the seam for the EXTERNAL path only.
+- **Every instant is formatted through `src/lib/instant.ts`** (2026-08-29),
+  which pins `OSI_TIME_ZONE` on the server and in the browser alike. Never
+  call `toLocaleDateString` / `toLocaleString` / date-fns `format` on a
+  timestamp directly: the web container has no TZ (so it is UTC), the
+  visitor's browser does, and the two strings differ — that is a hydration
+  mismatch by construction, and on a date-only stamp it names the wrong day.
+  `suppressHydrationWarning` is NOT the fix (it leaves the server's UTC text
+  on screen); it stays correct only for the relative "il y a 6 minutes" on
+  DossierCard, where the drift is seconds.
 - **No prod deploys unless explicitly requested** — dev is the test ground;
   main accumulates.
 - **ADR-001 (accepted 2026-08-26) governs supplier provisioning** —

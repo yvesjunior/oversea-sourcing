@@ -20,6 +20,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { formatInstant } from "@/lib/instant";
 
 export function NotificationBell() {
   const { t, i18n } = useTranslation();
@@ -37,7 +38,7 @@ export function NotificationBell() {
   const markAll = () => void markNotificationsReadFn({ data: {} }).then(load);
 
   const stamp = (iso: string) =>
-    new Date(iso).toLocaleString(i18n.language, {
+    formatInstant(iso, i18n.language, {
       day: "numeric",
       month: "short",
       hour: "2-digit",

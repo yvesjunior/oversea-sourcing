@@ -21,6 +21,7 @@ import {
   type VerificationQueueRow,
 } from "@/lib/verification-fns";
 import { cn } from "@/lib/utils";
+import { formatDay } from "@/lib/instant";
 
 export const Route = createFileRoute("/interne/verification")({
   head: () => ({
@@ -48,7 +49,7 @@ function EvidenceChip({ row }: { row: EvidenceView }) {
     row.source ? `${t("verificationAdmin.source")}: ${row.source}` : null,
     d.registryName ?? null,
     d.snapshotAt
-      ? `${t("verificationAdmin.snapshot")}: ${new Date(d.snapshotAt).toLocaleDateString(i18n.language)}`
+      ? `${t("verificationAdmin.snapshot")}: ${formatDay(d.snapshotAt, i18n.language)}`
       : null,
     d.reason ? t(`verificationAdmin.reasons.${d.reason}`) : null,
     d.siteStatus !== undefined ? `HTTP ${d.siteStatus}` : null,
@@ -56,7 +57,7 @@ function EvidenceChip({ row }: { row: EvidenceView }) {
     d.youngDomain ? t("verificationAdmin.youngDomain") : null,
     d.reviewedBy ? `${t("verificationAdmin.reviewedBy")}: ${d.reviewedBy}` : null,
     d.matches ? d.matches.map((m) => `${m.name} (${m.program ?? "?"})`).join(" · ") : null,
-    new Date(row.checkedAt).toLocaleDateString(i18n.language),
+    formatDay(row.checkedAt, i18n.language),
   ]
     .filter(Boolean)
     .join(" · ");

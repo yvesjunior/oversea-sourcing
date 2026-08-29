@@ -16,6 +16,7 @@ import {
   type PermissionMatrix,
 } from "@/lib/permission-fns";
 import { getPlatformUsersFn, setPlatformRoleFn, type PlatformUserView } from "@/lib/user-admin-fns";
+import { formatDay } from "@/lib/instant";
 
 export const Route = createFileRoute("/interne/utilisateurs")({
   beforeLoad: ({ context }) => requirePlatformFeature(context.session, "users"),
@@ -212,12 +213,7 @@ function Utilisateurs() {
     if (result.ok) refresh();
   };
 
-  const stamp = (iso: string) =>
-    new Date(iso).toLocaleDateString(i18n.language, {
-      day: "numeric",
-      month: "short",
-      year: "numeric",
-    });
+  const stamp = (iso: string) => formatDay(iso, i18n.language);
 
   return (
     <div className="space-y-6 pt-6">

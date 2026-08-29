@@ -28,6 +28,7 @@
 // quote — into a document a human then edits, rather than to be authoritative.
 
 import type { ContractContent, ContractSection, ContractType } from "@/database/schema";
+import { formatInstant } from "@/lib/instant";
 
 /** Bump when a template's WORDING changes, so a contract can always be traced
  *  to the text that produced it. Contracts drafted under an older version
@@ -82,7 +83,10 @@ function formatMoney(
 }
 
 function formatDate(date: Date, locale: TemplateLocale): string {
-  return date.toLocaleDateString(locale === "fr" ? "fr-CA" : "en-CA", {
+  // Pinned like every other instant in the app (src/lib/instant.ts): a
+  // contract drafted at 21:00 in Montréal must not be dated the next day
+  // because the container thinks in UTC.
+  return formatInstant(date, locale === "fr" ? "fr-CA" : "en-CA", {
     day: "numeric",
     month: "long",
     year: "numeric",

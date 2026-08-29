@@ -30,6 +30,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { createRequestFn, startRequestPipelineFn } from "@/lib/requests-fns";
 import { categoryLabel, suggestCategory } from "@/lib/taxonomy";
 import { cn } from "@/lib/utils";
+import { formatInstant } from "@/lib/instant";
 
 /** The corridors OSI actually sources from, for the country-code helper — the
  *  major manufacturing origins plus the buyer's own market and the European
@@ -240,7 +241,7 @@ export function HeroPrompt({
                 limit: created.limit,
                 plan: created.planName,
                 when: created.resetAt
-                  ? new Date(created.resetAt).toLocaleString(i18n.language, {
+                  ? formatInstant(created.resetAt, i18n.language, {
                       hour: "2-digit",
                       minute: "2-digit",
                       day: "numeric",
