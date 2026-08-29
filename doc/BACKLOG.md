@@ -1136,7 +1136,7 @@ logged-in user mounted the form. Two consequences, both real:
 
 **The rule now (do not undo):** a restored draft is **put back in the form and
 left there**. Concretely — drafts carry a `savedAt` and anything older than
-**24 h is discarded**; the restore effect fills the fields, shows
+**1 h is discarded**; the restore effect fills the fields, shows
 `home.draftRestored`, and calls `onDraftRestored` so `/demandes` **opens the
 collapsed form** (a restored draft nobody can see is worse than none); and
 nothing is submitted until the buyer presses the button. `submitLegacyText`
@@ -1146,6 +1146,14 @@ details field and leaves through the normal path.
 *Verified live in dev:* anonymous need → auth gate → login → the form opened
 with the input and the notice, **and the request count did not move** (9 → 9,
 zero tokens); pressing the button then created #3031 normally.
+
+**Expiry is 1 h** (owner, same day — tightened from the initial 24 h). Worth
+knowing, because two rules meet here: **prod enforces email verification at
+login**, so a brand-new visitor's trip is type → sign up → wait for the mail →
+click → sign in. Someone who does not check their inbox within the hour loses
+the draft and retypes. That is the owner's call and the safe direction (a
+stale draft costs money, a retype costs a minute); revisit if signup feedback
+says otherwise.
 
 ### ~~Hydration breaks once a visitor picks a language~~ ✅ FIXED 2026-08-29
 
@@ -1989,7 +1997,7 @@ feeds C3/C4 value (Recommandé requires Vérifié)
 - [x] **“Lancer l’analyse IA” auth gate**: anonymous click → preserve the typed draft →
       login/signup → the draft comes BACK IN THE FORM and the buyer presses
       the button (no retyping, but no automatic spend either — owner
-      2026-08-29; drafts expire after 24 h)
+      2026-08-29; drafts expire after 1 h)
 - [ ] User profile: name, locale (persist language server-side, sync with the existing toggle)
 - [ ] `platform_role` on users; guard helper `requireStaff()`
 - [x] **Signup abuse controls** (2026-08-16) — before this, 12 consecutive POSTs

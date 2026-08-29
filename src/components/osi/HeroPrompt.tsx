@@ -60,10 +60,11 @@ const EMPTY_FIELDS: FormFields = {
   details: "",
 };
 
-/** A draft older than this is DISCARDED, never restored (owner 2026-08-29).
- *  Someone who typed a need and walked away has not asked us to spend a
- *  research pass on it days later. */
-const DRAFT_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+/** A draft older than this is DISCARDED, never restored (owner 2026-08-29,
+ *  tightened to one hour the same day). Someone who typed a need and walked
+ *  away has not asked us to keep it: the draft exists to carry a buyer across
+ *  the login/signup gate, and that trip takes minutes, not days. */
+const DRAFT_MAX_AGE_MS = 60 * 60 * 1000;
 
 type StoredDraft = { fields: FormFields; savedAt: number };
 

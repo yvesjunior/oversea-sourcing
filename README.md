@@ -37,7 +37,8 @@ across login/signup and comes back in the form — the buyer presses the button
 themselves. It is deliberately NOT created automatically (owner 2026-08-29:
 *"if not, cancel it, do not run, so we will not spend some token"*): a research
 pass costs money, so launching one stays an act the buyer performs. Drafts
-older than **24 h are discarded**, never resurrected. Every
+older than **1 h are discarded**, never resurrected — the draft exists to
+carry someone across the login gate, not to be kept. Every
 other route requires auth.
 
 ### Supplier data strategy (hybrid)
