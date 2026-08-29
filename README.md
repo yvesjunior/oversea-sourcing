@@ -1043,6 +1043,47 @@ reads **both**. Same call, no extra cost.
   request language: a false negative costs a whole research pass, a false
   positive is bounded because the tokens still have to match.
 
+### Criteria are matched in both languages too
+
+**Owner, 2026-08-29:** *"some company information is listed in English, so
+let's make sure a request written in French can select those also when
+applicable… we are optimizing cost."* Storing supplier text in two languages
+fixed one direction. This fixes the other.
+
+The matcher reads a supplier's **name and descriptor** as well as its
+description, and those are English far more often than not even for companies
+described in French — *Abbott Ball Company*, *Auburn Bearing & Manufacturing*,
+*AST Bearings* (53 of 56 supplier names in the dev pool are plain ASCII). A
+French criterion cannot reach any of it, and since the product criterion is a
+**gate**, unreachable means invisible, not merely ranked lower.
+
+So `request_criterion.value_en` (migration 0036) carries an English form,
+filled by the worker before store-first and matching, and
+`criterionMatches` accepts **either** form. Both are the buyer's own
+requirement said two ways, so this widens reach without loosening what counts
+as a match — the tokens still have to be there. A wrong translation costs
+reach; it can never un-match what the native form matched.
+
+**The money, since that was the question.** Measured on a real request:
+429 input + 14 output tokens on the cheap model = **$0.0005**. A research pass
+is **~$0.07** — 140× more. And `translation_memory` (same migration) caches
+every term platform-wide, so a term is paid for once, ever, and the
+per-request figure trends to zero.
+
+A free translation API would save at most ~$0.05 per hundred requests while
+risking the expensive failure: this is trade vocabulary, where generic MT
+slips ("joints toriques" → *toric joints*, when the industry says **O-rings**;
+"courroies transporteuses" → *transporting belts*, not **conveyor belts**).
+One wrong term empties the relevant set and triggers an avoidable research
+pass — ~$0.07, or more than 140 translations. **Here the accurate option is
+also the cheap one.** *Verified:* "roulements a billes acier chrome" →
+"ball bearings chrome steel".
+
+> Registries are **not** the reason for this. Registry stores are
+> verification-role under ADR-001 and never enter matching, so Singapore's
+> ~613k English activity descriptions are not what it buys. The reach is over
+> discovery-role text: names, descriptors, and `global_web`.
+
 ### Attachments are read, not just stored
 
 A sourcing need often lives in a spec sheet rather than a textarea. Text/CSV are

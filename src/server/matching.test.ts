@@ -44,6 +44,7 @@ function makeCriterion(overrides: Partial<CriterionRow> = {}): CriterionRow {
     unit: null,
     required: false,
     source: "ai",
+    valueEn: null,
     isPrimary: false,
     position: 0,
     createdAt: new Date(),
@@ -301,5 +302,90 @@ describe("matching reads both languages", () => {
       descriptionEn: "Manufacturer of rubber conveyor belts",
     });
     expect(isRelevant(scoreSupplier(bilingual, frenchNeed))).toBe(true);
+  });
+});
+
+// ── A French request reaching English-listed companies (2026-08-29) ─────────
+// Most company information out there is in English — Singapore's registry
+// alone holds ~613k English activity descriptions. Since the product
+// criterion is a GATE, a French criterion that cannot reach English text does
+// not merely rank a supplier lower: it makes them invisible.
+
+describe("criteria match in either language", () => {
+  const englishOnlySupplier = makeSupplier({
+    name: "Sinoconve Belt Co.",
+    // As a registry or an English-language site would list it.
+    description: "Manufacturer of rubber conveyor belts and industrial belting",
+    descriptionEn: null,
+  });
+
+  it("a French criterion alone cannot reach English company information", () => {
+    const french: CriterionRow[] = [
+      makeCriterion({
+        id: "f1",
+        category: "other",
+        label: "Besoin",
+        value: "courroies transporteuses",
+        required: true,
+        isPrimary: true,
+        valueEn: null,
+      }),
+    ];
+    expect(isRelevant(scoreSupplier(englishOnlySupplier, french))).toBe(false);
+  });
+
+  it("with its English form it does", () => {
+    const translated: CriterionRow[] = [
+      makeCriterion({
+        id: "f2",
+        category: "other",
+        label: "Besoin",
+        value: "courroies transporteuses",
+        required: true,
+        isPrimary: true,
+        valueEn: "conveyor belts",
+      }),
+    ];
+    const breakdown = scoreSupplier(englishOnlySupplier, translated);
+    expect(breakdown.primaryMatched).toBe(true);
+    expect(isRelevant(breakdown)).toBe(true);
+  });
+
+  it("the native form still wins on its own text — translation only ADDS reach", () => {
+    const frenchSupplier = makeSupplier({
+      description: "Producteur de courroies transporteuses en caoutchouc",
+    });
+    const both: CriterionRow[] = [
+      makeCriterion({
+        id: "f3",
+        category: "other",
+        label: "Besoin",
+        value: "courroies transporteuses",
+        required: true,
+        isPrimary: true,
+        valueEn: "conveyor belts",
+      }),
+    ];
+    expect(scoreSupplier(frenchSupplier, both).primaryMatched).toBe(true);
+  });
+
+  it("a wrong translation cannot un-match what the native form matched", () => {
+    // The failure mode worth guarding: either form matching is enough, so a
+    // bad translation costs reach, never a correct match.
+    const frenchSupplier = makeSupplier({
+      description: "Producteur de courroies transporteuses",
+    });
+    const bad: CriterionRow[] = [
+      makeCriterion({
+        id: "f4",
+        category: "other",
+        label: "Besoin",
+        value: "courroies transporteuses",
+        required: true,
+        isPrimary: true,
+        valueEn: "transporting straps",
+      }),
+    ];
+    expect(scoreSupplier(frenchSupplier, bad).primaryMatched).toBe(true);
   });
 });

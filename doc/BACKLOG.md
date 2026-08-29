@@ -1205,6 +1205,56 @@ the draft and retypes. That is the owner's call and the safe direction (a
 stale draft costs money, a retype costs a minute); revisit if signup feedback
 says otherwise.
 
+### Cross-language criteria — a French request reaches English text (2026-08-29)
+
+**Owner:** *"some company information is listed in English, so let's make sure
+a request written in French can select those also when applicable… we are
+optimizing cost"* (clarified: cost = **money**, not latency).
+
+The bilingual pool (0035) let an English request reach French-discovered
+companies. This is the other direction, and the everyday case is blunter than
+it sounds: **the matcher reads a supplier's NAME and DESCRIPTOR**, and those
+are English far more often than not — 53 of 56 supplier names in the dev pool
+are plain ASCII ("Auburn Bearing & Manufacturing"). A French criterion cannot
+reach them, and the product criterion is a GATE, so unreachable means
+INVISIBLE.
+
+**Built:** `request_criterion.value_en` + a platform-wide `translation_memory`
+(migration **0036**); `src/server/ai/translate.ts` (batched, cheap model,
+trade-vocabulary prompt, failure-tolerant); `src/server/criteria-translation.ts`
+(cache-first, called by the worker BEFORE store-first and matching, since both
+need it); `criterionMatches` accepts either form.
+
+**The money, measured on a real request:** 429 in + 14 out tokens =
+**$0.0005**, against ~$0.07 for a research pass — **140×**. Cached terms cost
+$0. A free MT API would save ~$0.05 per hundred requests while risking the
+expensive failure: a wrong trade term ("joints toriques" → *toric joints*
+rather than **O-rings**) empties the relevant set and triggers an avoidable
+research pass — one miss costs more than 140 translations. The accurate option
+is the cheap one.
+
+Rules to keep:
+- **Either form matching is enough** — a bad translation costs reach, never a
+  correct match. Unit-tested.
+- **Never fatal**: a failed translation leaves `value_en` null and matching
+  falls back to native values.
+- **English requests skip it entirely** (their values are already the English
+  form) — no spend at all.
+- **The memory is deliberately NOT workspace-scoped**: a translation of
+  "joints toriques" is nobody's private data, and sharing it is what makes the
+  cache worth having.
+
+**Correction worth recording:** an earlier draft of this justified the work
+with Singapore's ~613k English registry descriptions. That is wrong —
+registry stores are verification-role under ADR-001 and **never enter
+matching**. The reach this buys is over discovery-role text only: names,
+descriptors and `global_web`.
+
+*Verified live:* request #3035, "roulements a billes acier chrome" →
+"ball bearings chrome steel", stored in the memory for reuse. 4 unit tests
+(83 total) including the regression — an English-only supplier is invisible to
+a French criterion, and visible the moment `value_en` exists.
+
 ### English-first search + a bilingual pool (owner, 2026-08-29)
 
 **Owner:** *"when we are receiving a request we should be looking into English

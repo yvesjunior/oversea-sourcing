@@ -253,6 +253,13 @@
       "when": 1788025825825,
       "tag": "0035_colossal_shinko_yamashiro",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1788026538489,
+      "tag": "0036_secret_paibok",
+      "breakpoints": true
     }
   ]
 }

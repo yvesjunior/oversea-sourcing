@@ -110,8 +110,8 @@ function searchableText(supplier: Scoreable): string {
  * description saying "échangeurs à plaques en acier inoxydable 316L", and a
  * certification list "ISO 9001, ATEX" should match on either.
  */
-function criterionMatches(supplierTokens: Set<string>, criterion: CriterionRow): boolean {
-  const wanted = tokens(criterion.value);
+function matchesValue(supplierTokens: Set<string>, value: string): boolean {
+  const wanted = tokens(value);
   if (wanted.length === 0) return false;
   // Tokens carrying a digit are the discriminating half of a spec: "ISO 9001"
   // and "ISO 8573" differ only in the number, and a ratio that ignores it
@@ -122,6 +122,25 @@ function criterionMatches(supplierTokens: Set<string>, criterion: CriterionRow):
   if (strong.some((token) => !supplierTokens.has(token))) return false;
   const hits = wanted.filter((token) => supplierTokens.has(token)).length;
   return hits / wanted.length >= 0.5;
+}
+
+/**
+ * Does the supplier's text evidence this criterion, in EITHER language?
+ *
+ * Company information is listed in English far more often than in French
+ * (Singapore's registry: ~613k English activity descriptions), so a French
+ * criterion alone would never reach it — and since the product criterion is
+ * now a gate, "never reach it" means the supplier is invisible, not merely
+ * ranked lower. `value_en` is filled by the worker before matching
+ * (src/server/criteria-translation.ts).
+ *
+ * Either form matching is enough. Both are the buyer's own requirement said
+ * two ways, so this widens reach without loosening what counts as a match:
+ * the tokens still have to be there.
+ */
+function criterionMatches(supplierTokens: Set<string>, criterion: CriterionRow): boolean {
+  if (matchesValue(supplierTokens, criterion.value)) return true;
+  return criterion.valueEn ? matchesValue(supplierTokens, criterion.valueEn) : false;
 }
 
 export function scoreSupplier(supplier: Scoreable, criteria: CriterionRow[]): ScoreBreakdown {

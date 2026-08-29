@@ -155,7 +155,7 @@ const RESEARCH_SYSTEM = [
   "",
   "SEARCH IN ENGLISH FIRST. The buyer may write in French; the manufacturing web",
   "does not. Translate their need into the English trade terms the industry",
-  "actually uses (\"courroies transporteuses\" → \"conveyor belts\") and spend your",
+  'actually uses ("courroies transporteuses" → "conveyor belts") and spend your',
   "first and most searches there — that is where the global supplier base is.",
   "Search the buyer's own language afterwards, and only when a local supplier base",
   "genuinely matters for this need. Searching their language first buys a fraction",

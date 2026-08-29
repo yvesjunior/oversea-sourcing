@@ -68,6 +68,12 @@ async function handlePipeline({ requestId }: PipelineJob, enqueue: Enqueue): Pro
       where: eq(schema.match.requestId, requestId),
     });
     if (!existing) {
+      // Give the criteria their English form BEFORE store-first and matching:
+      // both need it, because most company information out there is listed in
+      // English and a French criterion alone cannot reach it. Cached, cheap,
+      // and failure-tolerant — a failure just means native-only matching.
+      const { ensureCriteriaTranslated } = await import("@/server/criteria-translation");
+      await ensureCriteriaTranslated(requestId, request.locale);
       const coverage = await evaluateStoreCoverage(requestId, orgId);
       if (researchEnabled()) {
         const priorRun = await db.query.researchRun.findFirst({

@@ -225,6 +225,14 @@ export const requestCriterion = pgTable(
     required: boolean("required").notNull().default(false),
     /** ai = extracted by the gateway · user = added/edited by the buyer */
     source: text("source").$type<"ai" | "user">().notNull().default("ai"),
+    /** The value in English (2026-08-29). Company information is listed in
+     *  English far more often than in French — Singapore's registry alone
+     *  holds 613k English activity descriptions — so a French request must
+     *  be able to reach it. Translating 1.4M store records is not an option;
+     *  translating a handful of criteria per request is one cheap call.
+     *  Null when the request is already English, or when translation failed
+     *  (never fatal: matching falls back to the native value alone). */
+    valueEn: text("value_en"),
     /** THE product row — the primary matching signal (owner 2026-08-29:
      *  "certification is just a supplementary criterion, product is the
      *  first"). Set by the structured form on the product criterion only.
@@ -239,6 +247,36 @@ export const requestCriterion = pgTable(
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (table) => [index("request_criterion_request_idx").on(table.requestId)],
+);
+
+/** Translation memory (2026-08-29) — the cost optimisation that makes
+ *  cross-language matching effectively free after the first time.
+ *
+ *  Industrial vocabulary repeats hard across requests ("acier inoxydable
+ *  316L", "ISO 9001", "courroies transporteuses"), so the same handful of
+ *  terms would otherwise be paid for again on every request. Keyed on the
+ *  exact source text + target language; a hit costs one indexed lookup and
+ *  no tokens at all.
+ *
+ *  Deliberately NOT scoped to a workspace: a translation of "joints toriques"
+ *  is not anyone's private data, and sharing it is what makes the cache
+ *  worth having. */
+export const translationMemory = pgTable(
+  "translation_memory",
+  {
+    id: text("id").primaryKey(),
+    /** Lower-cased, trimmed source text — the cache key. */
+    source: text("source").notNull(),
+    sourceLang: text("source_lang").notNull(),
+    targetLang: text("target_lang").notNull(),
+    translated: text("translated").notNull(),
+    /** How many requests this entry has saved a call on. */
+    hits: integer("hits").notNull().default(0),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("translation_memory_uq").on(table.source, table.sourceLang, table.targetLang),
+  ],
 );
 
 /** Per-request AI chat (E3). */
