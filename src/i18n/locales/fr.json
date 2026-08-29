@@ -338,13 +338,14 @@
     "submit": "Enregistrer le mot de passe"
   },
   "topbar": {
-    "downloads": "Téléchargements",
     "notifications": "Notifications",
     "openMenu": "Ouvrir le menu",
     "navTitle": "Navigation OSI",
     "switchLanguage": "Changer de langue",
     "switchWorkspace": "Changer d'espace",
-    "profileMenu": "Menu du profil"
+    "profileMenu": "Menu du profil",
+    "designDark": "Passer au design sombre",
+    "designLight": "Passer au design clair"
   },
   "workspaceRoles": {
     "owner": "Propriétaire",

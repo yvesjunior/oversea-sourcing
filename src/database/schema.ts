@@ -44,6 +44,12 @@ export const user = pgTable("user", {
   /** Personal accent theme (owner request 2026-08-27) — a key of THEMES in
    *  src/lib/themes.ts; "gold" is the product default. */
   themeColor: text("theme_color").notNull().default("gold"),
+  /** Which of the two DESIGNS this person uses — `light` (the original) or
+   *  `dark` (the portal brief's noir/anthracite identity). Owner decision
+   *  2026-08-29: both are kept and the user switches between them. Follows
+   *  the account across devices; the `osi-design` cookie is what each browser
+   *  sends so the SERVER can render it (see src/lib/themes.ts). */
+  design: text("design").notNull().default("light"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });

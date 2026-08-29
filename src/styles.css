@@ -85,7 +85,10 @@
 
   --gold: oklch(0.72 0.11 85);
   --gold-foreground: oklch(0.99 0 0);
-  --gold-soft: oklch(0.95 0.035 88);
+  /* Derived, never stored: an accent must read on BOTH designs, and a stored
+     near-white tint is a glaring block on the dark ground. themes.ts sets
+     only --gold; this follows it. */
+  --gold-soft: color-mix(in oklch, var(--gold) 16%, white);
 
   --success: oklch(0.68 0.14 162);
   --success-foreground: oklch(0.99 0 0);
@@ -114,23 +117,54 @@
   --sidebar-ring: oklch(0.72 0.11 85);
 }
 
+/* DESIGN 2 — the portal brief's identity (§8), applied as `dark` on <html> by
+   the server so there is no flash and no hydration mismatch. The brief's own
+   hex values are used verbatim for the neutrals; the accent stays on the
+   --gold axis so the five personal palettes work here too.
+
+   Three levels of ground, which the flat pair before this did not give:
+   sidebar #0B0B0B (the rail) < background #111111 (the page) < card #1E1E1E
+   (raised surfaces). Without that, a dark sidebar on a dark page dissolved
+   into it. */
 .dark {
-  --background: oklch(0.16 0 0);
-  --foreground: oklch(0.97 0 0);
-  --card: oklch(0.21 0 0);
-  --card-foreground: oklch(0.97 0 0);
-  --popover: oklch(0.21 0 0);
-  --popover-foreground: oklch(0.97 0 0);
-  --primary: oklch(0.97 0 0);
-  --primary-foreground: oklch(0.17 0 0);
-  --secondary: oklch(0.26 0 0);
-  --secondary-foreground: oklch(0.97 0 0);
-  --muted: oklch(0.26 0 0);
-  --muted-foreground: oklch(0.7 0.01 265);
-  --accent: oklch(0.28 0.02 88);
-  --accent-foreground: oklch(0.97 0 0);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
+  --background: #111111;
+  --foreground: #e6e6e6;
+  --card: #1e1e1e;
+  --card-foreground: #e6e6e6;
+  --popover: #1e1e1e;
+  --popover-foreground: #e6e6e6;
+
+  --primary: #e6e6e6;
+  --primary-foreground: #111111;
+  --secondary: #202020;
+  --secondary-foreground: #e6e6e6;
+  --muted: #202020;
+  /* Warm-biased grey: a neutral one reads cold beside the gold accent. */
+  --muted-foreground: oklch(0.68 0.012 80);
+  --accent: #262320;
+  --accent-foreground: #e6e6e6;
+
+  /* A dark tint of whatever accent is active — never the light near-white. */
+  --gold-soft: color-mix(in oklch, var(--gold) 22%, #111111);
+
+  /* Semantic colours are lightened: the light-mode values sit too dark on
+     #111111 to read as status. */
+  --success: oklch(0.74 0.14 162);
+  --warning: oklch(0.82 0.13 78);
+  --destructive: oklch(0.68 0.19 25);
+
+  --border: oklch(1 0 0 / 12%);
+  --input: oklch(1 0 0 / 16%);
+
+  /* The rail sits UNDER the page rather than beside it. */
+  --sidebar: #0b0b0b;
+  --sidebar-foreground: #e6e6e6;
+  --sidebar-primary: #24211c;
+  --sidebar-accent: #1a1a1a;
+  --sidebar-border: oklch(1 0 0 / 8%);
+
+  /* Card shadows are invisible on a dark ground — a hairline does the work. */
+  --shadow-card: 0 1px 0 oklch(1 0 0 / 6%);
 }
 
 @layer base {
@@ -161,7 +195,11 @@
 }
 
 @utility bg-gold-gradient {
-  background-image: linear-gradient(100deg, var(--gold), color-mix(in oklch, var(--gold) 88%, black));
+  background-image: linear-gradient(
+    100deg,
+    var(--gold),
+    color-mix(in oklch, var(--gold) 88%, black)
+  );
 }
 
 @utility card-surface {

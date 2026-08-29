@@ -7,6 +7,7 @@ import {
   resolveLanguage,
   type Language,
 } from "@/i18n/config";
+import { DEFAULT_DESIGN, designFromCookie, resolveDesign, type Design } from "@/lib/themes";
 
 /** The session the client sees, extended with the resolved staff permission
  *  set (2026-08-28) — presentation only, server fns re-derive per call. */
@@ -21,7 +22,7 @@ export type SessionData =
  *  along (2026-08-29) because it is resolved from the request cookie, which
  *  only the server can read — and SSR must render in it, or hydration breaks
  *  (see src/i18n/config.ts). One round trip, not two. */
-export type RootContext = { session: SessionData; lang: Language };
+export type RootContext = { session: SessionData; lang: Language; design: Design };
 
 /** Session (user + session) for the current request — null when anonymous —
  *  plus the language this request must be rendered in.
@@ -34,11 +35,20 @@ export const getSessionFn = createServerFn({ method: "GET" }).handler(
       import("@tanstack/react-start/server"),
     ]);
     const headers = getRequest().headers;
-    const cookieLang = languageFromCookie(headers.get("cookie"));
+    const cookie = headers.get("cookie");
+    const cookieLang = languageFromCookie(cookie);
+    const cookieDesign = designFromCookie(cookie);
     const session = await auth.api.getSession({ headers });
-    if (!session) return { session: null, lang: cookieLang ?? DEFAULT_LANGUAGE };
-    const lang =
-      cookieLang ?? resolveLanguage((session.user as { locale?: string }).locale ?? null);
+    if (!session) {
+      return {
+        session: null,
+        lang: cookieLang ?? DEFAULT_LANGUAGE,
+        design: cookieDesign ?? DEFAULT_DESIGN,
+      };
+    }
+    const account = session.user as { locale?: string; design?: string };
+    const lang = cookieLang ?? resolveLanguage(account.locale ?? null);
+    const design = cookieDesign ?? resolveDesign(account.design ?? null);
     // The client sees the EFFECTIVE role (2026-08-27): staff powers exist
     // only while standing in the internal workspace, so all client-side
     // gating (sidebar, Vue globale tabs, route guards) follows the badge
@@ -57,6 +67,7 @@ export const getSessionFn = createServerFn({ method: "GET" }).handler(
         platformFeatures,
       },
       lang,
+      design,
     };
   },
 );

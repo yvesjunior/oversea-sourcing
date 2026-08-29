@@ -338,13 +338,14 @@
     "submit": "Save password"
   },
   "topbar": {
-    "downloads": "Downloads",
     "notifications": "Notifications",
     "openMenu": "Open menu",
     "navTitle": "OSI navigation",
     "switchLanguage": "Switch language",
     "switchWorkspace": "Switch workspace",
-    "profileMenu": "Profile menu"
+    "profileMenu": "Profile menu",
+    "designDark": "Switch to dark design",
+    "designLight": "Switch to light design"
   },
   "workspaceRoles": {
     "owner": "Owner",

@@ -174,12 +174,49 @@ export const getSettingsFn = createServerFn({ method: "GET" }).handler(
 );
 
 /** The caller edits their own profile — name and language (server-persisted). */
+/** Persist the DESIGN chosen from the header (2026-08-29). Its own fn rather
+ *  than updateProfileFn: the toggle knows the design and nothing else, and
+ *  should not have to round-trip a whole profile to save one field. The
+ *  cookie is what the SERVER reads on the next request — this is what makes
+ *  the choice follow the person to another device. Anonymous visitors keep
+ *  the cookie alone and never call this. */
+export const setDesignFn = createServerFn({ method: "POST" })
+  .inputValidator(z.object({ design: z.enum(["light", "dark"]) }))
+  .handler(async ({ data }): Promise<{ ok: boolean }> => {
+    const [{ requireWorkspaceRole }, { getRequest }, { db }, { eq }, schema] = await Promise.all([
+      import("@/server/workspace-guard"),
+      import("@tanstack/react-start/server"),
+      import("@/database"),
+      import("drizzle-orm"),
+      import("@/database/schema"),
+    ]);
+    const caller = await requireWorkspaceRole(getRequest().headers, "viewer");
+    if (!caller) return { ok: false };
+    await db
+      .update(schema.user)
+      .set({ design: data.design, updatedAt: new Date() })
+      .where(eq(schema.user.id, caller.userId));
+    // The design rides the session — purge the cached copy so the next
+    // getSessionFn sees the new value without waiting for expiry (same rule
+    // as the accent in updateProfileFn below).
+    const { secondaryStorage } = await import("@/server/kv");
+    if (secondaryStorage) {
+      const sessions = await db.query.session.findMany({
+        where: eq(schema.session.userId, caller.userId),
+        columns: { token: true },
+      });
+      for (const row of sessions) await secondaryStorage.delete(row.token);
+    }
+    return { ok: true };
+  });
+
 export const updateProfileFn = createServerFn({ method: "POST" })
   .inputValidator(
     z.object({
       name: z.string().trim().min(2).max(80),
       locale: z.enum(["fr", "en"]),
       themeColor: z.enum(["gold", "emerald", "ocean", "violet", "crimson"]).optional(),
+      design: z.enum(["light", "dark"]).optional(),
     }),
   )
   .handler(async ({ data }): Promise<{ ok: boolean }> => {
@@ -199,13 +236,14 @@ export const updateProfileFn = createServerFn({ method: "POST" })
         name: data.name,
         locale: data.locale,
         ...(data.themeColor ? { themeColor: data.themeColor } : {}),
+        ...(data.design ? { design: data.design } : {}),
         updatedAt: new Date(),
       })
       .where(eq(schema.user.id, caller.userId));
     // The theme rides the session — purge the cached copy so the next
     // getSession sees the new value without waiting for expiry.
     const { secondaryStorage } = await import("@/server/kv");
-    if (secondaryStorage && data.themeColor) {
+    if (secondaryStorage && (data.themeColor || data.design)) {
       const sessions = await db.query.session.findMany({
         where: eq(schema.session.userId, caller.userId),
         columns: { token: true },

@@ -1792,57 +1792,42 @@ contrats → commande → livraison`.
 platform access** in v1 — staff mediate every external interaction, by email
 through the platform (2026-08-29). Parties are ROWS, never users.
 
-- [ ] **P0 · Shell, navigation & designs** (independent — lands first).
-      ① **Two designs, user-switchable** (owner 2026-08-29): the stylesheet
-      ALREADY carries a full `.dark` block (`src/styles.css:117`) that
-      **nothing ever applies** — retune it to the brief's hexes (`#111111`
-      ground · `#1E1E1E`/`#202020` surfaces · `#E6E6E6` text · `#D4AF37`/
-      `#C89C18` gold) and wire a control. Never a parallel stylesheet. New
-      `user` column beside `theme_color`, applied by `__root` from the
-      session, saved via `updateProfileFn`; switch in Paramètres → Profil
-      beside the accent picker. **Audit the 5 accents on BOTH grounds** —
-      they were only ever checked against the light one.
-      ② ~~**Home IS the dashboard**~~ ✅ **BUILT 2026-08-29**: `/` keeps its
-      route and its SEO meta; `nav.accueil` → `nav.tableauDeBord`; the
-      signed-in view is the dashboard with its own header. No new route, no
-      redirect, `PUBLIC_PATHS` unchanged. *Enriching it toward the brief's
+- [x] **P0 · Shell, navigation & designs — DONE 2026-08-29.**
+      ① **Two designs, user-switchable — BUILT.** `light` (the original) and
+      `dark` (the brief's `#111111` · `#1E1E1E` · `#202020` · `#E6E6E6`), the
+      switch being the **sun/moon button in the top bar**. Contracts:
+      **server-rendered** — `<html class="dark">` comes from the request
+      (`osi-design` cookie → `user.design` (migration **0032**) → `light`),
+      resolved in `getSessionFn` beside the language, so there is **no flash
+      of the wrong theme and no hydration mismatch**; the dark palette is a
+      **token block in `styles.css`, never a parallel stylesheet**, giving
+      three grounds (sidebar `#0B0B0B` < page `#111111` < card `#1E1E1E`) —
+      a dark sidebar on a dark page dissolved into it otherwise;
+      **`--gold-soft` is now DERIVED** by `color-mix` from `--gold` per design
+      (white tint in light, `#111111` tint in dark), so an accent is **one
+      value** and cannot be light-only by construction — that was the actual
+      bug behind "audit the accents on both grounds", since the stored
+      near-white tint made every accent chip a glaring block on dark.
+      Signed-in users persist through `setDesignFn` (session cache purged);
+      anonymous visitors keep the cookie. *Live-verified: SSR emits the class
+      from the cookie, a fresh tab renders dark with a clean console, the
+      toggle flips instantly with no reload, all five accents read on both
+      grounds, and the light design is unchanged.*
+      ② **Home IS the dashboard — BUILT** (deploy #12). `/` keeps its route
+      and SEO meta; `nav.accueil` → `nav.tableauDeBord`; the signed-in view is
+      the dashboard with its own header. *Enriching it toward the brief's
       mockup (dépenses chart, activités récentes) is still to do.*
-      ③ ~~**The form moves to Demandes**~~ ✅ **BUILT 2026-08-29** (owner:
-      "move the request search component to the request page"): `HeroPrompt`
-      gained a `variant` prop — `hero` (globe + greeting + headline, `/` for
-      ANONYMOUS visitors, the auth-gate mount) and `embedded` (the bare form
-      on `/demandes`, under a « Nouvelle demande » toggle, auto-expanded when
-      the buyer has no dossier). ONE component, two mounts — never a copy.
-      Home became the dashboard the same change: `/` keeps its route and SEO
-      meta, and the signed-in view now renders its own header (greeting +
-      `home.dashboardSubtitle`) instead of borrowing the hero's.
-      **The draft trap was real and is closed**: the resume effect lives
-      inside `HeroPrompt`, so the auth gate now returns to **`/demandes`**
-      (not `/`) — both in `onSubmit` and in the session-evaporated fallback —
-      and the collapsed section is hidden with CSS, **never unmounted**, so
-      the effect runs even when the form is closed. *Live-verified in dev end
-      to end:* anonymous typed a need → gate → `/login?redirect=%2Fdemandes`
-      with the draft in localStorage → quick-login → auto-created **#3029**
-      (`pumps`, criterion `source=user`) with no retyping; and a direct
-      submit from `/demandes` created **#3028** (`valves`, store hit, ≈$0,
-      report_ready). tsc + eslint + 46 tests green. Nav label rename and the
-      new tabs are still to do (② and ④).
-      ④ ~~**Merged nav**~~ ✅ **BUILT 2026-08-29 — 11 client + 9 interne = 20**
-      (was 15). Entries whose module does not exist yet carry `disabled` and
-      **no route at all** — they render as a `<span>`, greyed, unreachable by
-      keyboard or middle-click (the existing disabled-not-hidden rule), and
-      become live links as their Phase P task lands. *Live-verified in dev as
-      buyer and as owner, FR and EN.* Client:
-      Tableau de bord `/` · Demandes · Fournisseurs · **Soumissions** ·
-      **Contrats** · **Commandes** (ex-Transactions) · Documents ·
-      **Paiements** · **Messages** · **Rapports** (buyer-facing, new) ·
-      Paramètres. Interne unchanged except **`Analyses` moves out of the
-      client block into Interne** — it is already `feature: "analytics"`
-      staff-only and merely sits in the buyer list today; it is NOT renamed
-      to Rapports (two audiences, two surfaces, both survive). Icons:
-      `Banknote` for Paiements (`Wallet`/`CreditCard` are taken by Finance and
-      Abonnements). Every new tab renders **disabled-not-hidden** until its
-      module lands. Full table in ADR-002 §12.
+      ③ **The form moved to Demandes — BUILT** (deploy #12): `HeroPrompt`
+      gained `hero` | `embedded`; `/` keeps the hero mount for anonymous
+      visitors (that IS the auth gate), `/demandes` carries the form under a
+      « Nouvelle demande » toggle. The draft trap is closed — the gate returns
+      to `/demandes` and the collapsed section is hidden with CSS, never
+      unmounted, so the resume effect always runs.
+      ④ **Merged nav — BUILT** (deploy #12): 11 client + 9 interne = 20;
+      unbuilt entries are greyed with **no route at all**; `Analyses` moved
+      into the INTERNE block. Full table in ADR-002 §12.
+      ⑤ **Dead download button removed** from the top bar (owner, 2026-08-29)
+      — it had no handler and never did anything; its i18n key went with it.
 - [ ] **P1 · Schema spine.** `quote` (soumission: request + supplier, status
       `requested | received | declined | accepted | expired`, price, currency,
       lead time, MOQ, incoterm, terms, received_at), `deal` (the dossier —

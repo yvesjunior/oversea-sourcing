@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { Link, useRouter } from "@tanstack/react-router";
-import { Download, Globe, LogIn, Menu } from "lucide-react";
+import { Globe, LogIn, Menu, Moon, Sun } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { resolveLanguage, setLanguageCookie } from "@/i18n/config";
+import { setDesignFn } from "@/lib/settings-fns";
+import { setDesignCookie, type Design } from "@/lib/themes";
 import type { SessionData } from "@/lib/session-fns";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { AppSidebar } from "./AppSidebar";
@@ -10,7 +12,7 @@ import { NotificationBell } from "./NotificationBell";
 import { UserMenu } from "./UserMenu";
 import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
 
-export function TopBar({ session }: { session: SessionData }) {
+export function TopBar({ session, design }: { session: SessionData; design: Design }) {
   const { t, i18n } = useTranslation();
   const router = useRouter();
   const [menuOuvert, setMenuOuvert] = useState(false);
@@ -23,6 +25,17 @@ export function TopBar({ session }: { session: SessionData }) {
   const toggleLangue = () => {
     const next = current === "fr" ? "en" : "fr";
     setLanguageCookie(next);
+    void router.invalidate();
+  };
+
+  // Same shape as the language: write the cookie so the SERVER renders the
+  // design on the next request, then invalidate so the class on <html>
+  // updates now. Signed-in visitors also store it on the account, so the
+  // choice follows them to another browser; anonymous ones keep the cookie.
+  const toggleDesign = () => {
+    const next: Design = design === "dark" ? "light" : "dark";
+    setDesignCookie(next);
+    if (session) void setDesignFn({ data: { design: next } }).catch(() => {});
     void router.invalidate();
   };
 
@@ -44,10 +57,13 @@ export function TopBar({ session }: { session: SessionData }) {
       <div className="ml-auto flex items-center gap-5">
         {session && <WorkspaceSwitcher />}
         <button
-          aria-label={t("topbar.downloads")}
+          type="button"
+          onClick={toggleDesign}
+          aria-label={t(design === "dark" ? "topbar.designLight" : "topbar.designDark")}
+          title={t(design === "dark" ? "topbar.designLight" : "topbar.designDark")}
           className="transition-colors hover:text-foreground"
         >
-          <Download className="size-[18px]" />
+          {design === "dark" ? <Sun className="size-[18px]" /> : <Moon className="size-[18px]" />}
         </button>
         <button
           onClick={toggleLangue}

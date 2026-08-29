@@ -1385,11 +1385,75 @@ unless asked: `./scripts/addons.sh [--remote] <profile>`.
 
 `react-i18next`; **French is the default**, English the fallback. All
 user-facing text lives in `src/i18n/locales/{fr,en}.json` — never hardcode a
-string in a component; add a key and use `t(...)`. The language toggle is in the
-top bar and persists to `localStorage`.
+string in a component; add a key and use `t(...)`. The toggle is in the top bar.
 
 Country names fall back to `Intl.DisplayNames`, so a supplier from any country
 renders correctly without a translation entry.
+
+### The language is server-rendered (fixed 2026-08-29 — do not undo)
+
+The choice lives in a **cookie**, not `localStorage`, and it is resolved
+**server-side** so SSR renders in it. The previous design stored it locally and
+applied it in a post-hydration effect, on the theory that always rendering the
+default keeps markup stable. It does not: React 19 hydrates progressively, the
+root effect fires while children are still hydrating, `changeLanguage`
+re-renders react-i18next's subscribers, and those children hydrate French
+server HTML against English client output — React then discards the server HTML
+and re-renders the whole root. Every user who had ever touched the toggle paid
+that cost silently.
+
+Three rules hold it together:
+
+- **`osi-lang` cookie.** The server cannot read `localStorage`, and a cookie
+  also covers anonymous visitors, which `user.locale` cannot.
+- **One i18next instance per language, memoized** (`getI18n(lang)`), handed to
+  the tree by `<I18nextProvider>` in `__root`. **Never one mutable singleton:**
+  the SSR process serves concurrent requests from a single module graph, so
+  `changeLanguage` on a shared instance leaks one visitor's language into
+  another's render.
+- **Resolved once in `getSessionFn`** (already called by `beforeLoad`, so one
+  round trip): cookie → the account's `locale` → `fr`. Switching writes the
+  cookie and calls `router.invalidate()`; there is **no post-hydration
+  `changeLanguage` anywhere**.
+
+Known gap: page `<title>`s are static French strings in each route's `head()`,
+so they do not follow the language yet.
+
+---
+
+## 7b · The two designs
+
+**Owner decision 2026-08-29: both designs are kept and the user switches.**
+
+| | Design |
+|---|---|
+| **Clair** (default) | the original — near-white ground, dark sidebar |
+| **Sombre** | the portal brief's identity (§8 of the brief): `#111111` ground · `#1E1E1E` surfaces · `#202020` secondary · `#E6E6E6` text |
+
+Two axes, deliberately **orthogonal** — a user picks one of each:
+
+| Axis | What it swaps | Stored as |
+|---|---|---|
+| **Design** | the whole neutral ramp | `dark` class on `<html>` · `osi-design` cookie + `user.design` |
+| **Accent** | `--gold`; gradients, the accent shadow and `--gold-soft` are `color-mix`ed from it | `user.theme_color` (5 palettes) |
+
+Implementation facts that must not be re-derived differently:
+
+- The design is **server-rendered**, exactly like the language and for the same
+  reason: `<html class="dark">` comes from the request, so there is no flash of
+  the wrong theme and no hydration mismatch. Cookie → `user.design` → `light`.
+- The dark palette is a **token block in `src/styles.css`**, never a parallel
+  stylesheet. It gives three grounds — sidebar `#0B0B0B` < page `#111111` <
+  card `#1E1E1E` — because a dark sidebar on a dark page otherwise dissolves
+  into it.
+- **`--gold-soft` is derived, not stored** (`color-mix` from `--gold`: a white
+  tint in light, a `#111111` tint in dark). It used to be a second stored value
+  per accent, which made every accent chip a glaring near-white block on the
+  dark ground. An accent is now **one value**, so it cannot be light-only by
+  construction.
+- The switch is the **sun/moon button in the top bar**: it writes the cookie,
+  saves to the account when signed in (`setDesignFn`), and invalidates the
+  router. All five accents were checked on both grounds.
 
 ---
 

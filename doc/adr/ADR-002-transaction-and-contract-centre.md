@@ -238,7 +238,7 @@ New permission keys join the `platform_permission` matrix (`deals`,
 `contracts.void`), defaulting to the owner/manager split. Nothing hardcodes a
 staff capability; the owner keeps toggling access live from **Rôles & accès**.
 
-### 10 · Two designs, switchable by the user (owner, 2026-08-29)
+### 10 · Two designs, switchable by the user — ✅ BUILT 2026-08-29
 
 **Owner decision:** *"we will have two designs — we keep the original and the
 second one in this new doc; the user can switch among them."*
@@ -251,11 +251,17 @@ These are genuinely two designs, not a repaint. Verified in the code:
 - **Design "sombre" (the brief's §8):** noir/anthracite — `#111111` ground,
   `#1E1E1E` / `#202020` surfaces, `#E6E6E6` text, gold `#D4AF37` / `#C89C18`.
 
-**The machinery already exists and is unreachable.** `src/styles.css` defines a
-complete `.dark` block (line 117) redefining every neutral — and **nothing in
-the app ever applies that class.** Shipping design 2 is therefore: retune the
-existing `.dark` values to the brief's exact hexes, and wire a control to the
-class. It is not a parallel stylesheet, and it must never become one.
+**The machinery already existed and was unreachable.** `src/styles.css` defined
+a complete `.dark` block that **nothing in the app ever applied**. Shipping
+design 2 was therefore: retune those values to the brief's hexes and wire a
+control. It is not a parallel stylesheet and it must never become one.
+
+**Built as follows** (details in the README's "The two designs" and Phase P0):
+the class is **server-rendered** from an `osi-design` cookie → `user.design`
+(migration 0032) → `light`, resolved in `getSessionFn` beside the language, so
+there is no flash and no hydration mismatch; the switch is the sun/moon button
+in the top bar; and **`--gold-soft` became derived** rather than stored, which
+is what actually made the five accents work on both grounds.
 
 **Two orthogonal axes, kept orthogonal:**
 

@@ -1,0 +1,1 @@
+ALTER TABLE "user" ADD COLUMN "design" text DEFAULT 'light' NOT NULL;

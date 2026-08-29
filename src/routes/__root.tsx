@@ -85,9 +85,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   beforeLoad: async ({ location }): Promise<RootContext> => {
     // One call: the session AND the language this request renders in (the
     // language comes from the request cookie, which only the server sees).
-    const { session, lang } = await getSessionFn();
+    const { session, lang, design } = await getSessionFn();
     enforceAuth(session, location.pathname, location.href);
-    return { session, lang };
+    return { session, lang, design };
   },
   head: () => ({
     meta: [
@@ -126,9 +126,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 function RootShell({ children }: { children: ReactNode }) {
   // Same source as the rendered strings, so the document's declared language
   // matches its content on the very first byte.
-  const { lang } = Route.useRouteContext();
+  // Language AND design come from the router context, resolved server-side —
+  // so the document declares its language and wears its theme on the very
+  // first byte. Adding the class after mount would flash the wrong theme and
+  // reopen the hydration hole the language fix just closed.
+  const { lang, design } = Route.useRouteContext();
   return (
-    <html lang={lang}>
+    <html lang={lang} className={design === "dark" ? "dark" : undefined}>
       <head>
         <HeadContent />
       </head>
@@ -141,7 +145,7 @@ function RootShell({ children }: { children: ReactNode }) {
 }
 
 function RootComponent() {
-  const { queryClient, session, lang } = Route.useRouteContext();
+  const { queryClient, session, lang, design } = Route.useRouteContext();
 
   // The language is DECIDED BEFORE RENDERING, server and client alike — the
   // instance for it is handed to the tree below. There is deliberately no
@@ -162,7 +166,7 @@ function RootComponent() {
       <QueryClientProvider client={queryClient}>
         {/* Session comes from the router context (server-fetched, refreshed by
             router.invalidate() on sign-in/out) — the shell never goes stale. */}
-        <AppShell session={session}>
+        <AppShell session={session} design={design}>
           {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
           <Outlet />
         </AppShell>
