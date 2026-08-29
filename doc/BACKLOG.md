@@ -32,11 +32,25 @@ real need, gets a real Top-N, **OSI solicits quotes, the buyer accepts one, the
 required contracts are signed by every mandatory party, and the commande is
 tracked to delivery** — with the PDF report available throughout.
 
-## Resume here (last session: 2026-08-29 — the portal brief + deploys #12 to #16)
+## Resume here (last session: 2026-08-29 — the portal brief + deploys #12 to #17)
 
 ### Session digest 2026-08-29 — the portal brief, and deploy #12
 
-**DEPLOY #16 IS LIVE — commit `cf83c39`, code-only** — pending drafts expire
+**DEPLOY #17 IS LIVE — commit `bf62dac`, migrations 0033-0035.** Backup:
+`backups/osi-20260829-135858.sql.gz`. Carries the **P1 transaction spine**
+(six tables + `contract_number_seq`, no UI yet), the **relevance gate** and
+its **product-first** refinement, and **English-first search + the bilingual
+pool**. Verified ON PROD: six spine tables present, `request_criterion.is_primary`
+and `supplier.description_en` present, the `quote_one_accepted_per_request_uq`
+partial index in place, origin 200, five containers up, data intact (10 users ·
+11 orgs · 8 requests · 67 suppliers · 40 matches).
+
+**Buyer-visible change to watch:** search results are now gated on relevance,
+so a Top-N may return **fewer than N** rather than padding with suppliers that
+match nothing. That is intended — an empty relevant set sends the request to
+live research instead of showing junk.
+
+**DEPLOY #16 — commit `cf83c39`, code-only** — pending drafts expire
 after **1 h** (owner, same day). Backup: `backups/osi-20260829-122252.sql.gz`.
 
 **DEPLOY #15 — commit `1cccd7e`, code-only, no migrations** (a
