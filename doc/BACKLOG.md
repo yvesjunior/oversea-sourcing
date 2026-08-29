@@ -36,10 +36,12 @@ tracked to delivery** — with the PDF report available throughout.
 
 ### START HERE — handoff, 2026-08-29
 
-**Prod = `5b90649` (deploy #23). Nothing is built and undeployed — main and
-prod are the same commit.** #23 closes the **platform-workspace deletion
-hole**; #22 carried the per-account filter and the "no customer data in OSI's
-own workspace" rule.
+**Prod = `95b825a` (deploy #24). Nothing is built and undeployed — main and
+prod are the same commit.** #24 carries the **four-list filters** (multi
+account + period) and the **supplier-directory gate**; #23 closed the
+platform-workspace deletion hole. **Deploy #24 failed on its first attempt and
+prod was rolled back** — read "The prod bundle has a latent chunk cycle" below
+before touching route imports.
 Rollback point for the whole day: tag `deploy-11-baseline`.
 
 Read in this order before writing code: **[ADR-002](adr/ADR-002-transaction-and-contract-centre.md)**
@@ -76,6 +78,20 @@ score component — and both the search and the pool became bilingual.
 | 21 | `b85c0c8` | 0038 | **P5** — contract templates (text frozen at draft time, in the request's language) + the missing-contract gap on the dossier; **timestamps pinned to one zone**, killing the hydration mismatch |
 | 22 | `4b638c4` | — | staff lists **name their customer account and narrow to one**; **OSI's own workspace holds no customer data** (request creation refused there, intake form and "Mes données" tabs gone) |
 | 23 | `5b90649` | — | **the platform workspace can no longer be deleted** — the org-plugin's own `POST /organization/delete` bypassed `destroyWorkspace`; guard moved into a `beforeDeleteOrganization` hook |
+| 24 | `95b825a` | — | **filters on all four ops lists** (multi-account + week/month/year/custom period) · **the global supplier directory is staff-only** · the DB cleared for fresh testing. *First attempt (`77d37b0`) took prod down — see the chunk-cycle note* |
+
+**Deploy #24 verification** — backups `osi-20260829-182909.sql.gz` (pre-deploy)
+and `osi-20260829-182123.sql.gz` (pre-clear). Code-only.
+**The first attempt failed:** `77d37b0` built and served fine under
+`vite dev`, then returned 500 `__exportAll is not a function` on every SSR
+request in the container. Prod was rolled back to `42afdac` inside a few
+minutes (checkout + rebuild on the VM, verified 200), then the failure was
+reproduced locally with the prod preset and bisected to ONE file —
+`src/routes/transactions.tsx`, where REMOVING an import flipped a pre-existing
+circular chunk pair into the failing evaluation order. `95b825a` keeps that
+file as it was and ships everything else. Verified after: `/` 200 and the four
+gated routes 307 (auth redirect) over the tunnel, five containers up, zero
+`__exportAll`/`TypeError` lines in the web log.
 
 **Deploy #23 verification** — backup `backups/osi-20260829-180148.sql.gz`
 taken first; code-only. The guard is in the deployed SERVER bundle
