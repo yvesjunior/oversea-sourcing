@@ -32,16 +32,36 @@ real need, gets a real Top-N, **OSI solicits quotes, the buyer accepts one, the
 required contracts are signed by every mandatory party, and the commande is
 tracked to delivery** — with the PDF report available throughout.
 
-## Resume here (last session: 2026-08-29 — the portal-brief design session)
+## Resume here (last session: 2026-08-29 — the portal brief + deploy #12)
 
-### Session digest 2026-08-29 — the client portal brief (NO CODE WAS WRITTEN)
+### Session digest 2026-08-29 — the portal brief, and deploy #12
 
-**Nothing shipped; prod is unchanged at `b9add64` (deploy #11), now tagged
-`deploy-11-baseline` as the rollback point.** This was an analysis and
-architecture session on the owner's `.docx` brief for the **Portail entreprise
-B2B**.
+**DEPLOY #12 IS LIVE — commit `95812c8`, code-only, no migrations.** Backup
+first: `backups/osi-20260829-112247.sql.gz` (31M). Verified on prod: public
+origin 200 · five containers up (migrate exited clean) · the merged nav
+rendered by prod SSR (Tableau de bord · Demandes · Fournisseurs · Soumissions ·
+Contrats · Commandes · Documents · Paiements · Messages · Rapports ·
+Paramètres) · the anonymous landing keeps the hero + intake form · data intact
+(10 users · 11 orgs · 8 requests · 67 suppliers · 40 matches).
+**Rollback = `git checkout deploy-11-baseline` + rebuild on the VM** (the tag
+marks deploy #11, the pre-session state).
 
-**What landed (docs only):**
+**What shipped:** the intake form moved to `/demandes` (P0 ③), home became the
+dashboard (P0 ②), the merged navigation — 15 entries → 20, unbuilt ones greyed
+with no route (P0 ④) — `Analyses` moved into the INTERNE block, and a
+`suppressHydrationWarning` guard on the dossier timestamp.
+
+**What did NOT ship, deliberately:** the language-toggle hydration defect. It
+is real and on prod, reproduced deterministically, and the fix needs the
+language to reach the SERVER (cookie + per-request i18next instance) — too
+much to rush into this deploy. Full diagnosis under "Known defect — hydration
+breaks once a visitor picks a language" below. **It is the next code task**,
+ahead of or alongside pick-up item ⓪.
+
+**Still open in P0:** the two designs (the `.dark` block that nothing applies)
+and enriching the dashboard toward the brief's mockup.
+
+**The design pass (docs only, no code):**
 - [doc/briefs/portail-entreprise.md](briefs/portail-entreprise.md) — the brief
   transcribed into the repo (it existed only on the owner's Desktop).
 - [ADR-002](adr/ADR-002-transaction-and-contract-centre.md) — the transaction
