@@ -21,6 +21,7 @@ import { Route as ReinitialiserRouteImport } from './routes/reinitialiser'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as SoumissionsRouteImport } from './routes/soumissions'
 import { Route as TransactionsRouteImport } from './routes/transactions'
+import { Route as ApiContractFileRouteImport } from './routes/api/contract-file'
 import { Route as ApiSourceUploadRouteImport } from './routes/api/source-upload'
 import { Route as ApiUploadRouteImport } from './routes/api/upload'
 import { Route as ContratsIndexRouteImport } from './routes/contrats/index'
@@ -98,6 +99,11 @@ const SoumissionsRoute = SoumissionsRouteImport.update({
 const TransactionsRoute = TransactionsRouteImport.update({
   id: '/transactions',
   path: '/transactions',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiContractFileRoute = ApiContractFileRouteImport.update({
+  id: '/api/contract-file',
+  path: '/api/contract-file',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiSourceUploadRoute = ApiSourceUploadRouteImport.update({
@@ -204,6 +210,7 @@ export interface FileRoutesByFullPath {
   '/signup': typeof SignupRoute
   '/soumissions': typeof SoumissionsRoute
   '/transactions': typeof TransactionsRoute
+  '/api/contract-file': typeof ApiContractFileRoute
   '/api/source-upload': typeof ApiSourceUploadRoute
   '/api/upload': typeof ApiUploadRoute
   '/contrats/$id': typeof ContratsIdRoute
@@ -236,6 +243,7 @@ export interface FileRoutesByTo {
   '/signup': typeof SignupRoute
   '/soumissions': typeof SoumissionsRoute
   '/transactions': typeof TransactionsRoute
+  '/api/contract-file': typeof ApiContractFileRoute
   '/api/source-upload': typeof ApiSourceUploadRoute
   '/api/upload': typeof ApiUploadRoute
   '/contrats/$id': typeof ContratsIdRoute
@@ -269,6 +277,7 @@ export interface FileRoutesById {
   '/signup': typeof SignupRoute
   '/soumissions': typeof SoumissionsRoute
   '/transactions': typeof TransactionsRoute
+  '/api/contract-file': typeof ApiContractFileRoute
   '/api/source-upload': typeof ApiSourceUploadRoute
   '/api/upload': typeof ApiUploadRoute
   '/contrats/$id': typeof ContratsIdRoute
@@ -303,6 +312,7 @@ export interface FileRouteTypes {
     | '/signup'
     | '/soumissions'
     | '/transactions'
+    | '/api/contract-file'
     | '/api/source-upload'
     | '/api/upload'
     | '/contrats/$id'
@@ -335,6 +345,7 @@ export interface FileRouteTypes {
     | '/signup'
     | '/soumissions'
     | '/transactions'
+    | '/api/contract-file'
     | '/api/source-upload'
     | '/api/upload'
     | '/contrats/$id'
@@ -367,6 +378,7 @@ export interface FileRouteTypes {
     | '/signup'
     | '/soumissions'
     | '/transactions'
+    | '/api/contract-file'
     | '/api/source-upload'
     | '/api/upload'
     | '/contrats/$id'
@@ -400,6 +412,7 @@ export interface RootRouteChildren {
   SignupRoute: typeof SignupRoute
   SoumissionsRoute: typeof SoumissionsRoute
   TransactionsRoute: typeof TransactionsRoute
+  ApiContractFileRoute: typeof ApiContractFileRoute
   ApiSourceUploadRoute: typeof ApiSourceUploadRoute
   ApiUploadRoute: typeof ApiUploadRoute
   ContratsIdRoute: typeof ContratsIdRoute
@@ -503,6 +516,13 @@ declare module '@tanstack/react-router' {
       path: '/transactions'
       fullPath: '/transactions'
       preLoaderRoute: typeof TransactionsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/contract-file': {
+      id: '/api/contract-file'
+      path: '/api/contract-file'
+      fullPath: '/api/contract-file'
+      preLoaderRoute: typeof ApiContractFileRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/source-upload': {
@@ -659,6 +679,7 @@ const rootRouteChildren: RootRouteChildren = {
   SignupRoute: SignupRoute,
   SoumissionsRoute: SoumissionsRoute,
   TransactionsRoute: TransactionsRoute,
+  ApiContractFileRoute: ApiContractFileRoute,
   ApiSourceUploadRoute: ApiSourceUploadRoute,
   ApiUploadRoute: ApiUploadRoute,
   ContratsIdRoute: ContratsIdRoute,

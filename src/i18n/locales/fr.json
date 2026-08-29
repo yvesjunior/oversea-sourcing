@@ -729,7 +729,9 @@
     "invitation_accepted": "{{name}} a rejoint votre espace {{workspace}}",
     "empty": "Aucune notification",
     "markAllRead": "Tout marquer comme lu",
-    "quote_received": "Soumission reçue de {{supplier}}"
+    "quote_received": "Soumission reçue de {{supplier}}",
+    "contract_to_sign": "Un contrat attend votre signature",
+    "contract_signed": "Contrat entièrement signé"
   },
   "verificationAdmin": {
     "title": "Vérification des fournisseurs",
@@ -1003,7 +1005,44 @@
     },
     "draftNotice": "Brouillon pré-rempli à partir de la soumission acceptée. À relire et à ajuster avant envoi — ce texte n'est pas un avis juridique.",
     "noContent": "Aucun texte n'a été généré pour ce contrat.",
-    "redraft": "Régénérer le texte"
+    "redraft": "Régénérer le texte",
+    "send": "Envoyer aux parties",
+    "sign": "Signer",
+    "recordSignature": "Enregistrer la signature",
+    "recordTitle": "Signature reçue hors plateforme",
+    "recordSave": "Enregistrer",
+    "recordHint": "Le PDF contresigné est facultatif — enregistrez le fait dès qu'il est connu.",
+    "signatoryName": "Nom du signataire",
+    "remind": "Relancer",
+    "noEmail": "Aucune adresse enregistrée",
+    "uploadFailed": "Le téléversement a échoué.",
+    "noHistory": "Aucun évènement pour l'instant.",
+    "method": {
+      "in_platform": "Signé dans la plateforme",
+      "manual_upload": "Téléversement manuel"
+    },
+    "mechanism": {
+      "in_platform": "Signature dans la plateforme",
+      "manual_upload": "Signature hors plateforme"
+    },
+    "event": {
+      "contract_created": "Contrat préparé",
+      "contract_redrafted": "Texte régénéré",
+      "contract_sent": "Envoyé aux parties",
+      "contract_signed": "Signature enregistrée",
+      "contract_reminded": "Relance envoyée"
+    },
+    "refusal": {
+      "forbidden": "Vous n'avez pas ce droit.",
+      "not_sent": "Le contrat doit d'abord être envoyé aux parties.",
+      "already_recorded": "Cette signature est déjà enregistrée.",
+      "contract_closed": "Ce contrat n'est plus actif.",
+      "external_party": "Cette partie signe hors plateforme.",
+      "not_your_party": "Vous n'êtes pas cette partie.",
+      "not_draft": "Ce contrat n'est plus un brouillon.",
+      "not_pending": "Cette partie n'attend plus de signature.",
+      "not_found": "Introuvable."
+    }
   },
   "dealBox": {
     "title": "Dossier de transaction",

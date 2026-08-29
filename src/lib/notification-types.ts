@@ -21,6 +21,10 @@ export const NOTIFICATION_TYPES = [
   /** A supplier answered and staff recorded the offer (P2) — the buyer
    *  should not have to poll the Soumissions tab to find out. */
   { type: "quote_received", hasEmail: true },
+  /** A contract went out and the buyer's signature is what it waits on (P6). */
+  { type: "contract_to_sign", hasEmail: true },
+  /** Every mandatory signature is in — the contract is complete (P6). */
+  { type: "contract_signed", hasEmail: true },
 ] as const;
 
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number]["type"];

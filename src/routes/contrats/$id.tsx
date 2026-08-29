@@ -1,19 +1,35 @@
-// The contract fiche (Phase P4, brief §3.2 + §3.3).
+// The contract fiche (Phase P4 §3.2/§3.3, signatures added by P6).
 //
 // Everything the brief asks a contract to show — number, subject, linked
-// dossier, buyer, supplier, value, incoterm, terms, dates, status — and the
-// parties table with per-party signature state and action.
+// dossier, buyer, supplier, value, incoterm, terms, dates, status — the
+// parties table with each one's signature state and available action, and the
+// contract's own permanent trail.
 //
-// The signature ACTIONS themselves (sign in-platform, upload a countersigned
-// PDF, send a reminder) are P6. This is the surface they land on.
+// Every action button is shown from a flag the SERVER resolved
+// (`canSignNow`, `canRecordManualNow`, `canRemindNow`): this file never
+// re-derives who may sign what, and the server fn re-checks anyway.
 
 import { useState } from "react";
 import { createFileRoute, Link, notFound, useRouter } from "@tanstack/react-router";
-import { ArrowLeft, RefreshCw } from "lucide-react";
+import { ArrowLeft, Bell, PenLine, RefreshCw, Send, Upload } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
-import { getContractsFn, regenerateContractContentFn, type ContractView } from "@/lib/contract-fns";
-import { formatDay } from "@/lib/instant";
+import { Input } from "@/components/ui/input";
+import {
+  getContractEventsFn,
+  getContractsFn,
+  regenerateContractContentFn,
+  type ContractEventView,
+  type ContractView,
+  type PartyView,
+} from "@/lib/contract-fns";
+import {
+  recordManualSignatureFn,
+  remindPartyFn,
+  sendContractFn,
+  signContractFn,
+} from "@/lib/signature-fns";
+import { formatDay, formatDayTime } from "@/lib/instant";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/contrats/$id")({
@@ -21,10 +37,13 @@ export const Route = createFileRoute("/contrats/$id")({
     // One query, filtered client-side: the list is small per workspace and
     // this keeps a single authorisation path rather than a second one that
     // could drift out of step with it.
-    const result = await getContractsFn();
+    const [result, events] = await Promise.all([
+      getContractsFn(),
+      getContractEventsFn({ data: { contractId: params.id } }),
+    ]);
     const contract = result.contracts.find((c) => c.id === params.id);
     if (!contract) throw notFound();
-    return { contract, canDraft: result.canDraft };
+    return { contract, canDraft: result.canDraft, canSend: result.canSend, events };
   },
   component: ContractDetail,
 });
@@ -48,12 +67,34 @@ function Field({ label, value }: { label: string; value: string }) {
 
 function ContractDetail() {
   const { t, i18n } = useTranslation();
-  const { contract, canDraft } = Route.useLoaderData() as {
+  const { contract, canDraft, canSend, events } = Route.useLoaderData() as {
     contract: ContractView;
     canDraft: boolean;
+    canSend: boolean;
+    events: ContractEventView[];
   };
   const router = useRouter();
   const [redrafting, setRedrafting] = useState(false);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [refusal, setRefusal] = useState<string | null>(null);
+  // Staff record an offline signature party by party; the PDF is optional
+  // because the fact is often known before the scan arrives.
+  const [manualFor, setManualFor] = useState<string | null>(null);
+
+  const run = async (id: string, action: () => Promise<{ ok: boolean; reason?: string }>) => {
+    setBusy(id);
+    setRefusal(null);
+    try {
+      const result = await action();
+      if (result.ok) await router.invalidate();
+      // A refusal is data: the party needs to know WHY, not just see nothing
+      // happen. The reasons come from the same pure rules the buttons used.
+      else
+        setRefusal(t(`contrats.refusal.${result.reason}`, { defaultValue: result.reason ?? "" }));
+    } finally {
+      setBusy(null);
+    }
+  };
 
   const money =
     contract.amountCents === null
@@ -90,6 +131,21 @@ function ContractDetail() {
           <span className="rounded-full border border-border px-3 py-1 text-[11px] font-semibold">
             {t(`contrats.status.${contract.status}`)}
           </span>
+          {/* A draft is an internal working copy; sending is what makes it
+              signable, so this is the one action that unlocks the rest. */}
+          {canSend && contract.status === "draft" && (
+            <Button
+              variant="gold"
+              size="sm"
+              disabled={busy !== null}
+              onClick={() =>
+                void run("send", () => sendContractFn({ data: { contractId: contract.id } }))
+              }
+            >
+              <Send className="size-3.5" />
+              {t("contrats.send")}
+            </Button>
+          )}
         </div>
       </header>
 
@@ -211,18 +267,235 @@ function ContractDetail() {
                       </span>
                     )}
                   </td>
-                  <td className="px-3 py-3 text-[11px] text-muted-foreground">
-                    {/* P6 lands the actions here: sign in-platform for a party
-                        with an account, upload the countersigned PDF for one
-                        without, and a reminder for anyone still pending. */}
-                    {party.signatureStatus === "pending" ? t("contrats.actionSoon") : "—"}
+                  <td className="px-3 py-3">
+                    <PartyActions
+                      party={party}
+                      contractId={contract.id}
+                      busy={busy}
+                      manualOpen={manualFor === party.id}
+                      onManualToggle={() => setManualFor(manualFor === party.id ? null : party.id)}
+                      onSign={() =>
+                        void run(party.id, () =>
+                          signContractFn({
+                            data: { contractId: contract.id, partyId: party.id },
+                          }),
+                        )
+                      }
+                      onRemind={() =>
+                        void run(`remind:${party.id}`, () =>
+                          remindPartyFn({
+                            data: { contractId: contract.id, partyId: party.id },
+                          }),
+                        )
+                      }
+                      onRecorded={() => {
+                        setManualFor(null);
+                        void router.invalidate();
+                      }}
+                    />
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+        {refusal && (
+          <p role="alert" className="mt-3 text-xs text-destructive">
+            {refusal}
+          </p>
+        )}
       </section>
+
+      {/* The contract's OWN trail (brief §3.2). Not audit_log: the journal is
+          purged at three months and signature evidence must outlive it. */}
+      <section className="card-surface p-6">
+        <h2 className="text-base font-semibold">{t("contrats.history")}</h2>
+        {events.length === 0 ? (
+          <p className="mt-3 text-sm text-muted-foreground">{t("contrats.noHistory")}</p>
+        ) : (
+          <ul className="mt-4 space-y-2.5">
+            {events.map((event) => (
+              <li key={event.id} className="flex items-baseline gap-3 text-xs">
+                <span className="shrink-0 tabular-nums text-[11px] text-muted-foreground">
+                  {formatDayTime(event.at, i18n.language, { withYear: false })}
+                </span>
+                <span className="min-w-0">
+                  <span className="font-medium">
+                    {t(`contrats.event.${event.type.replace(".", "_")}`, {
+                      defaultValue: event.type,
+                    })}
+                  </span>
+                  {event.partyName && (
+                    <span className="text-muted-foreground"> — {event.partyName}</span>
+                  )}
+                  {event.detail?.method && (
+                    <span className="text-muted-foreground">
+                      {" "}
+                      ({t(`contrats.method.${event.detail.method}`)})
+                    </span>
+                  )}
+                  {event.actorName && (
+                    <span className="text-muted-foreground"> · {event.actorName}</span>
+                  )}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+    </div>
+  );
+}
+
+/** One party's available action. Every branch is gated by a flag the server
+ *  resolved — this component decides nothing. */
+function PartyActions({
+  party,
+  contractId,
+  busy,
+  manualOpen,
+  onManualToggle,
+  onSign,
+  onRemind,
+  onRecorded,
+}: {
+  party: PartyView;
+  contractId: string;
+  busy: string | null;
+  manualOpen: boolean;
+  onManualToggle: () => void;
+  onSign: () => void;
+  onRemind: () => void;
+  onRecorded: () => void;
+}) {
+  const { t } = useTranslation();
+
+  if (party.signatureStatus === "signed") {
+    return (
+      <span className="text-[11px] text-muted-foreground">
+        {party.method ? t(`contrats.method.${party.method}`) : "—"}
+      </span>
+    );
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      {party.canSignNow && (
+        <Button variant="gold" size="sm" disabled={busy !== null} onClick={onSign}>
+          <PenLine className="size-3.5" />
+          {t("contrats.sign")}
+        </Button>
+      )}
+      {party.canRecordManualNow && (
+        <Button variant="outline" size="sm" disabled={busy !== null} onClick={onManualToggle}>
+          <Upload className="size-3.5" />
+          {t("contrats.recordSignature")}
+        </Button>
+      )}
+      {party.canRemindNow && (
+        <Button
+          variant="ghost"
+          size="sm"
+          disabled={busy !== null}
+          title={party.email ?? t("contrats.noEmail")}
+          onClick={onRemind}
+        >
+          <Bell className="size-3.5" />
+          {t("contrats.remind")}
+        </Button>
+      )}
+      {!party.canSignNow && !party.canRecordManualNow && !party.canRemindNow && (
+        <span className="text-[11px] text-muted-foreground">
+          {t(`contrats.mechanism.${party.mechanism}`)}
+        </span>
+      )}
+      {manualOpen && (
+        <ManualSignatureForm contractId={contractId} party={party} onDone={onRecorded} />
+      )}
+    </div>
+  );
+}
+
+/** Staff record what came back by mail: who signed, and the countersigned PDF
+ *  when it has arrived. The document is OPTIONAL — the fact is often known
+ *  before the scan, and blocking on the file keeps it in someone's inbox. */
+function ManualSignatureForm({
+  contractId,
+  party,
+  onDone,
+}: {
+  contractId: string;
+  party: PartyView;
+  onDone: () => void;
+}) {
+  const { t } = useTranslation();
+  const [name, setName] = useState(party.name);
+  const [file, setFile] = useState<File | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const save = async () => {
+    setSaving(true);
+    setError(null);
+    try {
+      let fileId: string | undefined;
+      if (file) {
+        const form = new FormData();
+        form.set("contractId", contractId);
+        form.set("file", file);
+        const response = await fetch("/api/contract-file", { method: "POST", body: form });
+        if (!response.ok) {
+          setError(t("contrats.uploadFailed"));
+          return;
+        }
+        fileId = ((await response.json()) as { file: { id: string } }).file.id;
+      }
+      const result = await recordManualSignatureFn({
+        data: {
+          contractId,
+          partyId: party.id,
+          signedByName: name.trim(),
+          ...(fileId ? { fileId } : {}),
+        },
+      });
+      if (result.ok) onDone();
+      else setError(t(`contrats.refusal.${result.reason}`, { defaultValue: result.reason }));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="mt-2 w-full rounded-lg border border-border bg-secondary/40 p-3">
+      <p className="text-[11px] font-semibold">{t("contrats.recordTitle")}</p>
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <Input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder={t("contrats.signatoryName")}
+          className="h-8 w-[200px] text-xs"
+        />
+        <input
+          type="file"
+          accept="application/pdf,image/png,image/jpeg,image/webp"
+          onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+          className="max-w-[220px] text-[11px] text-muted-foreground"
+        />
+        <Button
+          variant="gold"
+          size="sm"
+          disabled={saving || name.trim().length < 2}
+          onClick={() => void save()}
+        >
+          {t("contrats.recordSave")}
+        </Button>
+      </div>
+      <p className="mt-1.5 text-[11px] text-muted-foreground">{t("contrats.recordHint")}</p>
+      {error && (
+        <p role="alert" className="mt-1.5 text-[11px] text-destructive">
+          {error}
+        </p>
+      )}
     </div>
   );
 }

@@ -185,12 +185,8 @@ criteria**.
 
 **Phase P, the product spine:**
 
-1. **P6 · signatures — the two mechanisms.** *Groundwork landed 2026-08-29:*
-   `src/lib/signature.ts` holds the permission matrix (who may sign which
-   party, by which mechanism) with 19 tests and no callers yet. What remains:
-   the server fns, the signed-PDF upload route, `esign.ts` as the external-path
-   seam, the `contract_to_sign` / `contract_signed` notification types, and the
-   fiche's Action column. `in_platform` for parties with a
+1. ~~**P6 · signatures**~~ — ✅ **BUILT 2026-08-29**, both mechanisms, the
+   trail, reminders and the esign seam. `in_platform` for parties with a
    `user_id` (buyer, OSI) recording IP + user agent; `manual_upload` for
    parties without an account (staff upload the countersigned PDF into
    `signed_file_id`). Both write the same `contract_party` row and a
@@ -199,7 +195,8 @@ criteria**.
    only, first implementation `manual`. Gate on `contracts.sign`. The fiche's
    Action column says "Signature — bientôt" — that is the spot.
 2. **P7 · commandes** (needs a new `order_milestone` table — designed then,
-   not now) · **P8 · documents** (BLOCKED, see gaps) · **P9 · paiements** ·
+   not now) · **P8 · documents** (no longer blocked — the uploads volume is
+   backed up since 2026-08-29) · **P9 · paiements** ·
    **P10 · messages** · **P11 · rapports**.
 3. ~~**Phase R · custom staff roles**~~ — ✅ **BUILT 2026-08-29** (mig 0039).
 
@@ -237,9 +234,11 @@ criteria**.
   registry-ca rows; dev 1.8 M across qc/sg/ca/jp) while the DISCOVERY store is
   empty. That is deliberate — only discovery can warm a search — but it means
   "the store was cleared" is true of research and false of verification.
-- ❗ **The `osi-uploads` volume is in NO backup** (`scripts/backup.sh` dumps
-  Postgres only). **Blocking for P8** — no signed contract may be stored
-  before this is fixed.
+- ✅ **The `osi-uploads` volume IS backed up since 2026-08-29** — `backup.sh`
+  writes a second artifact (`osi-files-<stamp>.tar.gz`) beside the dump,
+  tarred from inside the `web` container. This was P8's blocker and P6's:
+  a countersigned contract living only in a volume no backup covers is not a
+  record. **P8 is unblocked.**
 - ❗ **No document retention policy**, and `storage.deleteFile` is never called
   on user files, so deleting a request orphans its bytes.
 - ❓ **Three parcours questions still unanswered by the owner:** may OSI nudge
@@ -2750,39 +2749,37 @@ in the browser before committing; deploy only when the owner asks.
       a contract the mapping did not predict; staff must **not** be able to
       silently skip one it requires — surface the gap on the dossier.
 
-- [ ] **P6 · Signatures — two mechanisms — and reminders.**
-      *Parcours steps 12-13. Depends on: P4, P5.*
-
-      **The split is by who the party IS** (owner 2026-08-29), not by
-      configuration:
-      • **`in_platform`** — the party has a `user_id` (buyer, OSI). They open
-        the contract and sign; record `signed_at`, `signed_by_name`, and in
-        `evidence` the IP and user agent. Gate on `contracts.sign`.
-      • **`manual_upload`** — the party has no account (supplier, carrier,
-        broker, inspector). Staff send by mail, receive the signed PDF, upload
-        it to `signed_file_id` (the existing `file` table + `storage.ts`) and
-        record who signed and when.
-
-      Both write the SAME `contract_party` row and a `contract_event`. After
-      each signature, recompute the contract's status with
-      `statusFromSignatures()` — never set it by hand.
-
-      **`src/server/esign.ts`** is created here as the vendor seam for the
-      **external path only**, first implementation `manual`. Same rule as
-      `mail.ts`: no domain code imports a vendor SDK. No vendor is bought.
-
-      Reminders: a staff action per pending party (brief §3.3 « Envoyer un
-      rappel »), stamping `reminded_at`, sent through `mail.ts`.
-
-      **When every MANDATORY party has signed** → contract `signed` → the deal
-      may leave `contracting`. Notifications: register
-      `contract_to_sign` and `contract_signed`.
-
-      **Acceptance.** A 4-party contract where the 2 in-platform parties sign
-      and the 2 external ones are uploaded reaches `signed`; the trail shows
-      four events with the right actor and method; an optional party signing
-      does not complete it; `contracts.sign` off for a role blocks the button
-      **and** the server fn.
+- [x] **P6 · Signatures — two mechanisms — and reminders — BUILT 2026-08-29.**
+      `src/lib/signature.ts` (pure rules, 19 tests) · `src/lib/signature-fns.ts`
+      (send · sign · record manual · remind) · `src/server/esign.ts` (the
+      EXTERNAL-path seam, `manual` provider) · `/api/contract-file` (the
+      countersigned PDF) · the fiche's Action column and the contract's own
+      history.
+      **The mechanism follows the party's ROLE, not `contract_party.user_id`**
+      — that column is null at draft time (we do not know WHICH member of the
+      buyer's workspace will sign) and is filled at signature time with whoever
+      did, so deciding from it would have made every party external.
+      **Status is never set by hand**: after any party row changes it is
+      recomputed with `statusFromSignatures()`, so the stored status and the
+      N/M indicator cannot drift — same rows, same function.
+      Two guards worth keeping: the buyer's line needs the same working seat
+      that ACCEPTING the offer required (demanding more to sign the paperwork
+      than to commit the money would be incoherent; a viewer still cannot), and
+      **staff may not upload a PDF "for the buyer"** — that would substitute
+      the weaker signature for the stronger one the buyer can give in-app.
+      The countersigned PDF is OPTIONAL: the fact is often known before the
+      scan, and blocking on the file keeps it in someone's inbox.
+      Sending also moves the dossier `open → contracting`, guarded, and is
+      ignored once the deal has moved on.
+      *Verified live end to end:* signing a draft refused (`not_sent`); sent
+      (0 notified / 2 recorded-only — no addresses on file, reported honestly);
+      staff recorded the supplier offline (`Jean Tremblay`, manual_upload) →
+      1/2 `partially_signed` and the deal → `contracting`; recording twice
+      refused (`already_recorded`); staff recording FOR THE BUYER refused
+      (`not_your_party`); the buyer then signed in-app → **2/2 `signed`**, with
+      user agent + workspace in `evidence`, four trail rows naming actor and
+      method, and both `contract_to_sign` and `contract_signed` notifications
+      emitted.
 
 - [ ] **P7 · Commandes — milestones.**
       *Parcours step 14. Depends on: P3 (P6 for the unlock).*
@@ -2823,9 +2820,9 @@ in the browser before committing; deploy only when the owner asks.
 
 **Gaps and gates that must be settled inside Phase P:**
 
-- ❗ **The `osi-uploads` volume is not backed up.** `scripts/backup.sh` dumps
-      Postgres only. Acceptable while uploads are re-uploadable spec sheets;
-      **unacceptable once signed contracts live there.** Fix before P8.
+- ✅ **The `osi-uploads` volume is backed up** (2026-08-29) — a second
+      artifact per run, `osi-files-<stamp>.tar.gz`. Fixed as part of P6, since
+      the countersigned PDF is exactly the record the warning was about.
 - ❗ **No document retention policy, and `storage.deleteFile` is never called on
       user files** — deleting a request drops its `file` rows and orphans the
       bytes. Brief §7 asks for a policy.

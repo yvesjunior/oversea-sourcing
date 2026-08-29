@@ -30,6 +30,15 @@ export type PartyView = {
   signedByName: string | null;
   /** True when this party IS the caller — the only one who may sign in-app. */
   isCaller: boolean;
+  /** How this party signs, from its ROLE (P6): in_platform for the buyer and
+   *  OSI, manual_upload for everyone without an account. */
+  mechanism: string;
+  /** The three actions, RESOLVED on the server against the pure rules in
+   *  src/lib/signature.ts. The UI shows a button when one is true and never
+   *  re-derives the rule; the server fn re-checks it anyway. */
+  canSignNow: boolean;
+  canRecordManualNow: boolean;
+  canRemindNow: boolean;
 };
 
 export type ContractView = {
@@ -94,6 +103,13 @@ function toView(
   deal: { title: string; supplierName: string; organizationName: string },
   callerUserId: string,
   now: Date,
+  signer: {
+    workspaceId: string;
+    workspaceRole: string;
+    maySignForOsi: boolean;
+    maySend: boolean;
+  },
+  rules: typeof import("@/lib/signature"),
 ): ContractView {
   const progress = signatureProgress(parties);
   return {
@@ -132,6 +148,11 @@ function toView(
         signedAt: party.signedAt ? party.signedAt.toISOString() : null,
         signedByName: party.signedByName,
         isCaller: party.userId === callerUserId,
+        mechanism: rules.mechanismFor(party.role),
+        canSignNow: rules.canSignInPlatform(contract, party, signer) === "ok",
+        canRecordManualNow:
+          rules.canRecordManual(contract, party, { maySignForOsi: signer.maySignForOsi }) === "ok",
+        canRemindNow: signer.maySend && rules.canRemind(contract, party),
       })),
   };
 }
@@ -170,7 +191,7 @@ export const getContractsFn = createServerFn({ method: "GET" }).handler(
       };
     }
 
-    const [canDraft, canSend, canSign, canVoid] = await Promise.all([
+    const [canDraft, canSend2, canSign, canVoid] = await Promise.all([
       effectiveHasPermission(session, "contracts"),
       effectiveHasPermission(session, "contracts.send"),
       effectiveHasPermission(session, "contracts.sign"),
@@ -218,7 +239,7 @@ export const getContractsFn = createServerFn({ method: "GET" }).handler(
     }
 
     if (rows.length === 0) {
-      return { contracts: [], pendingDeals, canDraft, canSend, canSign, canVoid };
+      return { contracts: [], pendingDeals, canDraft, canSend: canSend2, canSign, canVoid };
     }
 
     const parties = await db.query.contractParty.findMany({
@@ -235,6 +256,13 @@ export const getContractsFn = createServerFn({ method: "GET" }).handler(
     }
 
     const now = new Date();
+    const rules = await import("@/lib/signature");
+    const signer = {
+      workspaceId: caller.workspaceId,
+      workspaceRole: caller.role,
+      maySignForOsi: canSign,
+      maySend: canSend2,
+    };
     return {
       contracts: rows.map((r) =>
         toView(
@@ -243,11 +271,13 @@ export const getContractsFn = createServerFn({ method: "GET" }).handler(
           { ...r.deal, organizationName: r.organizationName },
           caller.userId,
           now,
+          signer,
+          rules,
         ),
       ),
       pendingDeals,
       canDraft,
-      canSend,
+      canSend: canSend2,
       canSign,
       canVoid,
     };
@@ -577,4 +607,71 @@ export const getRequestDealStatusFn = createServerFn({ method: "GET" })
       missing,
       canDraft,
     };
+  });
+
+/** The contract's own trail (brief §3.2) — created, sent, each signature,
+ *  each reminder. Deliberately NOT audit_log: the journal is purged at three
+ *  months and signature evidence has to outlive that. */
+export type ContractEventView = {
+  id: string;
+  type: string;
+  actorName: string | null;
+  partyName: string | null;
+  /** Narrow on purpose: a server fn's return has to be serializable, and the
+   *  trail only ever renders these. */
+  detail: {
+    method?: string;
+    role?: string;
+    mailed?: boolean;
+    notified?: number;
+    parties?: number;
+    hasDocument?: boolean;
+  } | null;
+  at: string;
+};
+
+export const getContractEventsFn = createServerFn({ method: "GET" })
+  .inputValidator(z.object({ contractId: z.string().min(1) }))
+  .handler(async ({ data }): Promise<ContractEventView[]> => {
+    const [
+      { requireWorkspaceRole, effectiveHasPermission },
+      { auth },
+      { getRequest },
+      { db },
+      { asc, eq },
+      schema,
+    ] = await Promise.all([
+      import("@/server/workspace-guard"),
+      import("@/server/auth"),
+      import("@tanstack/react-start/server"),
+      import("@/database"),
+      import("drizzle-orm"),
+      import("@/database/schema"),
+    ]);
+    const headers = getRequest().headers;
+    const caller = await requireWorkspaceRole(headers, "viewer");
+    const session = await auth.api.getSession({ headers });
+    if (!caller || !session) return [];
+
+    const contract = await db.query.contract.findFirst({
+      where: eq(schema.contract.id, data.contractId),
+    });
+    if (!contract) return [];
+    // Same visibility as the contract itself: your own workspace's, or every
+    // one of them for staff standing in the internal workspace.
+    const isStaff = await effectiveHasPermission(session, "contracts");
+    if (!isStaff && contract.organizationId !== caller.workspaceId) return [];
+
+    const rows = await db.query.contractEvent.findMany({
+      where: eq(schema.contractEvent.contractId, contract.id),
+      orderBy: asc(schema.contractEvent.at),
+    });
+    return rows.map((row) => ({
+      id: row.id,
+      type: row.type,
+      actorName: row.actorName,
+      partyName: row.partyName,
+      detail: (row.detail ?? null) as ContractEventView["detail"],
+      at: row.at.toISOString(),
+    }));
   });

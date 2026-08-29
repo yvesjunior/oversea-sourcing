@@ -729,7 +729,9 @@
     "invitation_accepted": "{{name}} joined your workspace {{workspace}}",
     "empty": "No notifications",
     "markAllRead": "Mark all as read",
-    "quote_received": "Quote received from {{supplier}}"
+    "quote_received": "Quote received from {{supplier}}",
+    "contract_to_sign": "A contract awaits your signature",
+    "contract_signed": "Contract fully signed"
   },
   "verificationAdmin": {
     "title": "Supplier verification",
@@ -1003,7 +1005,44 @@
     },
     "draftNotice": "Draft pre-filled from the accepted quotation. Review and adjust before sending — this text is not legal advice.",
     "noContent": "No text was generated for this contract.",
-    "redraft": "Regenerate text"
+    "redraft": "Regenerate text",
+    "send": "Send to parties",
+    "sign": "Sign",
+    "recordSignature": "Record signature",
+    "recordTitle": "Signature received off-platform",
+    "recordSave": "Record",
+    "recordHint": "The countersigned PDF is optional — record the fact as soon as you know it.",
+    "signatoryName": "Signatory name",
+    "remind": "Remind",
+    "noEmail": "No address on file",
+    "uploadFailed": "Upload failed.",
+    "noHistory": "Nothing has happened yet.",
+    "method": {
+      "in_platform": "Signed in the platform",
+      "manual_upload": "Manual upload"
+    },
+    "mechanism": {
+      "in_platform": "Signs in the platform",
+      "manual_upload": "Signs off-platform"
+    },
+    "event": {
+      "contract_created": "Contract drafted",
+      "contract_redrafted": "Text regenerated",
+      "contract_sent": "Sent to the parties",
+      "contract_signed": "Signature recorded",
+      "contract_reminded": "Reminder sent"
+    },
+    "refusal": {
+      "forbidden": "You do not have that right.",
+      "not_sent": "The contract has to be sent to the parties first.",
+      "already_recorded": "That signature is already recorded.",
+      "contract_closed": "This contract is no longer active.",
+      "external_party": "This party signs off-platform.",
+      "not_your_party": "You are not this party.",
+      "not_draft": "This contract is no longer a draft.",
+      "not_pending": "This party is no longer awaiting signature.",
+      "not_found": "Not found."
+    }
   },
   "dealBox": {
     "title": "Transaction file",

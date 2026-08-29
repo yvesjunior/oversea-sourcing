@@ -19,8 +19,8 @@ Live at **[osi-solutions.com](https://osi-solutions.com)** · TanStack Start
 > the first half of facilitation: the buyer solicits quotes, compares the
 > offers, accepts one, and the dossier opens with its required contracts
 > drafted and their text pre-filled (Phase P1-P5, live on prod).
-> **Not built:** signatures, commandes and milestones, documents, paiements,
-> messages, and the supplier import pipeline.
+> **Not built:** commandes and milestones, documents, paiements, messages, and
+> the supplier import pipeline.
 
 Built with [Lovable](https://lovable.dev)
 ([editor](https://lovable.dev/projects/a2274c53-10c7-432f-8ad5-d1aeff813df3));
@@ -1237,11 +1237,11 @@ the capability/certification satellite tables exist.
 
 ## 2b · From the report to a delivered order (Phase P)
 
-> **Status: P1-P5 live on prod** (deploy #21, 2026-08-29) — the schema spine
-> (migration 0033), soumissions, comparison & acceptance, the contract centre,
-> and the contract templates with the missing-contract gap surfaced on the
-> dossier (migration 0038). **P6-P11 remain**: signatures, commandes,
-> documents, paiements, messages, rapports. Decision
+> **Status: P1-P6 BUILT** (P1-P5 live since deploy #21; P6 — signatures, both
+> mechanisms — built 2026-08-29) — the schema spine, soumissions, comparison &
+> acceptance, the contract centre, contract templates, and now sending,
+> signing, recording an offline signature and chasing whoever has not answered.
+> **P7-P11 remain**: commandes, documents, paiements, messages, rapports. Decision
 > record: [ADR-002](doc/adr/ADR-002-transaction-and-contract-centre.md)
 > (accepted). Plan: **Phase P** in [doc/BACKLOG.md](doc/BACKLOG.md). The
 > owner-validated parcours is drawn step by step in the companion artifact
