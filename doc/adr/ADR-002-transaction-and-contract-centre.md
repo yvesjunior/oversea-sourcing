@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | 🟡 **Proposed — awaiting owner validation** (drafted 2026-08-29) |
+| **Status** | ✅ **Accepted** (owner, 2026-08-29 — the four blocking questions answered; see "Settled at acceptance") |
 | **Baseline** | main @ `b9add64` · prod deploy #11 · tag `deploy-11-baseline` |
 | **Source brief** | [doc/briefs/portail-entreprise.md](../briefs/portail-entreprise.md) (owner's `.docx`, 2026-08-29) |
 | **Pretty version** | Claude artifact (diagrams, FR, design switch): <https://claude.ai/code/artifact/6bb88882-9f35-4a7c-b24d-c18c33b5e3f9> |
@@ -145,25 +145,35 @@ Consequences, all first-class:
   signature is *recorded by staff*.
 - This does **not** weaken multi-party signature — see decision 3.
 
-### 3 · E-signature: an adapter, and a manual provider that ships first
+### 3 · Two signature mechanisms, split by who the party IS
 
-`src/server/esign.ts` becomes a vendor seam with the same rule as
-`src/server/mail.ts`: **no domain code ever imports a vendor SDK.**
+**Owner, 2026-08-29:** *"between buyer and staff it is tracked through the
+platform; for supplier it is manual upload for now, as the supplier is not
+logged into the platform."*
 
-Two providers behind one interface:
+This falls straight out of decision 2. A `contract_party` may or may not
+correspond to a platform user, and that single fact picks the mechanism:
 
-- **`manual` — the v1 default, and the reason contracts are not blocked on a
-  budget decision.** Staff sends the contract from the platform (through the
-  existing mail adapter), the party signs however they sign, staff uploads the
-  countersigned PDF and records the signature: who, when, what evidence. The
-  platform tracks *signature state*; the paper is the paper. This is exactly how
-  OSI operates today as a middleman, so v1 automates the record-keeping rather
-  than imposing a new tool on counterparties.
-- **`<vendor>` — later, behind gate G1.** Every e-sign vendor signs by emailed
-  link with **no account on our side**, which is precisely why the owner's
-  no-platform-access rule and real e-signature are compatible. When a vendor is
-  chosen, the parties table and the status machine do not change: only the
-  provider module and a webhook route.
+| Party | Mechanism | Evidence recorded |
+|---|---|---|
+| **Buyer · OSI** (they have accounts) | **signed in the platform** — the signatory opens the contract and signs; no vendor, no email round trip | who (user id + name snapshot), when, IP, user agent |
+| **Supplier · transporteur · courtier · inspecteur** (no account) | **manual upload** — staff sends the contract by mail, receives it signed, uploads the countersigned PDF | who signed (name + email as stated), when, the uploaded document, and which staff member recorded it |
+
+Both write the same `contract_party` row and the same `contract_event` trail,
+so the `2/4` indicator and the "all mandatory signatures in" transition do not
+care which mechanism produced a signature.
+
+`src/server/esign.ts` stays as the vendor seam (same rule as `mail.ts`: no
+domain code imports a vendor SDK), now with a narrower job — **it is the
+external-party path only**, and its first implementation is `manual`. If a
+vendor is ever bought it replaces `manual` for the external parties; the
+in-platform half never needed one, because we already know who is signing:
+they are authenticated.
+
+**Consequence to hold onto:** the in-platform signature is the stronger of the
+two by construction (an authenticated session, not a claim in an email), and
+it covers exactly the two parties on every contract that matter most — the
+buyer and OSI.
 
 ### 4 · Signature evidence is permanent, and does not live in `audit_log`
 
@@ -231,122 +241,47 @@ stateDiagram-v2
 `À signer` = mandatory party still pending. `Expirés` is read-time from the
 échéance, no cron — the same trick the Recommandé tier uses.
 
-### 9 · Staff powers stay data
+### 9 · Staff powers stay data — including who may sign
 
-New permission keys join the `platform_permission` matrix (`deals`,
-`contracts`, plus fine-grained `contracts.send`, `contracts.sign`,
-`contracts.void`), defaulting to the owner/manager split. Nothing hardcodes a
-staff capability; the owner keeps toggling access live from **Rôles & accès**.
+**Owner, 2026-08-29:** *"owner will assign access to each role like manager,
+so here in sign can be activated or not; plus roles can be added/created and
+access assigned accordingly."*
 
-### 10 · Two designs, switchable by the user — ✅ BUILT 2026-08-29
+Two things, and they are not the same size:
 
-**Owner decision:** *"we will have two designs — we keep the original and the
-second one in this new doc; the user can switch among them."*
+- **`contracts.sign` is a permission key** in the existing `platform_permission`
+  matrix, alongside `deals`, `contracts`, `contracts.send` and
+  `contracts.void`. It defaults to owner-only and the owner flips it per role,
+  live, from **Rôles & accès** — exactly the machinery built on 2026-08-28.
+  **This is in Phase P** and costs almost nothing: the matrix already exists.
+- **Custom staff roles** — creating a role beyond `manager` / `accountant` and
+  assigning capabilities to it — is a **new platform feature, not part of this
+  ADR**. It is tracked separately (Phase R in the backlog) because it changes
+  the role model itself. The good news is the storage is already generic:
+  `platform_permission` is keyed by a `role` TEXT column and `user.platform_role`
+  is TEXT too, so custom roles are storable today. What is hardcoded is the
+  `PlatformRole` union in `src/lib/roles.ts` and the
+  `role !== "manager" && role !== "accountant"` short-circuit in
+  `src/server/permissions.ts`, plus the absence of any role CRUD surface.
+  **The owner is never a row and role granting stays owner-only, forever** —
+  that rule survives custom roles unchanged, or the matrix can lock out its
+  own editor.
 
-These are genuinely two designs, not a repaint. Verified in the code:
+## Settled at acceptance (owner, 2026-08-29)
 
-- **Design "clair" (original, today's default):** `:root` in `src/styles.css`
-  is a **light** palette (`--background: oklch(0.985 0.002 250)`) with the gold
-  accent `oklch(0.72 0.11 85)`.
-- **Design "sombre" (the brief's §8):** noir/anthracite — `#111111` ground,
-  `#1E1E1E` / `#202020` surfaces, `#E6E6E6` text, gold `#D4AF37` / `#C89C18`.
+| Question | Answer |
+|---|---|
+| Who decides which suppliers are asked for a quote? | **The buyer picks.** They select from their Top-N and ask OSI to solicit; staff do the sending. This adds a buyer-facing selection surface to P2 that the "OSI chooses" answer would not have needed. |
+| Which contract types in v1? | **The two unavoidable ones** — mandat OSI↔client and the buyer↔supplier order. Transporteur, courtier, inspection, NDA and annexes follow once the machinery is proven. |
+| Who signs for OSI? | **A permission key** (`contracts.sign`), owner-assigned per role from Rôles & accès. Plus a new ask: **custom roles** — see decision 9 and Phase R. |
+| E-signature vendor? | **Neither, for now.** Buyer and OSI sign **in the platform**; external parties are **manual upload**. No recurring bill, and the stronger mechanism covers the two parties that matter most. |
 
-**The machinery already existed and was unreachable.** `src/styles.css` defined
-a complete `.dark` block that **nothing in the app ever applied**. Shipping
-design 2 was therefore: retune those values to the brief's hexes and wire a
-control. It is not a parallel stylesheet and it must never become one.
+Still open, and small enough to default unless the owner objects:
 
-**Built as follows** (details in the README's "The two designs" and Phase P0):
-the class is **server-rendered** from an `osi-design` cookie → `user.design`
-(migration 0032) → `light`, resolved in `getSessionFn` beside the language, so
-there is no flash and no hydration mismatch; the switch is the sun/moon button
-in the top bar; and **`--gold-soft` became derived** rather than stored, which
-is what actually made the five accents work on both grounds.
-
-**Two orthogonal axes, kept orthogonal:**
-
-| Axis | What it swaps | Where it lives |
-|---|---|---|
-| **Design** (clair · sombre) | the neutral ramp — background, surfaces, text, borders | the `.dark` class on the root |
-| **Accent** (5 palettes, exists) | `--gold` + `--gold-soft`, everything else derived by `color-mix` | `user.theme_color`, `src/lib/themes.ts` |
-
-A user picks one of each; the five accents must read on **both** grounds
-(today they were only ever checked against the light one — an audit is part of
-the task). Persistence follows the `theme_color` precedent exactly: a `user`
-column, applied by the root shell from the session, saved through
-`updateProfileFn` (which already purges the cached session).
-
-### 11 · Home IS the dashboard; the form moves to Demandes (owner, 2026-08-29)
-
-**Owner decisions:** *"we are adding a dashboard page, actual home will be
-renamed"* · *"move the search group component to the request page"* ·
-*"define Home as Dashboard"*.
-
-`/` today does five jobs: the SEO landing (it owns the `head()` meta and og
-tags), the request form, the buyer dashboard, the staff Vue globale / Mes
-données switcher, and the value-props footer. The resolution keeps the route
-and moves the *form* out — not the page:
-
-| Route | Anonymous | Signed in |
-|---|---|---|
-| `/` — **Tableau de bord** | landing: hero + form + « Nos engagements », SEO meta kept | the dashboard, enriched toward the brief's mockup |
-| `/demandes` | — (auth) | **the form in the header**, then the dossier list |
-
-- **No new route, no redirect, `PUBLIC_PATHS` unchanged.** The nav label
-  `nav.accueil` becomes `nav.tableauDeBord`; the route stays `/`.
-- **The form (`HeroPrompt`) renders in two places**: `/` for anonymous
-  visitors — that is the conversion mechanic, not decoration — and `/demandes`
-  for signed-in work. One component, two mounts. It matches the brief's own
-  description of the tab: *« Création et suivi des demandes »*.
-- On `/demandes` the form is **collapsed under a « Nouvelle demande » header**,
-  auto-expanded when the buyer has no dossier yet, so seven fields never push
-  the list below the fold.
-- Anonymous visitors stop seeing a **stats grid full of zeros** — today `/`
-  renders "0 demandes actives" to every prospect.
-
-> ⚠️ **The trap, and it is silent.** The auth-gate draft resume lives INSIDE
-> `HeroPrompt` (it reads `osi-draft-besoin-v2` on mount and auto-creates the
-> request). Once the signed-in `/` stops rendering the form, **a draft typed
-> before signup would never be created** — the funnel breaks with no error.
-> Fix it in the same change: either lift the resume effect out of `HeroPrompt`
-> so `/` runs it whether or not it shows the form, or land post-login on
-> `/demandes` when a draft exists. Do not ship the move without this.
-
-### 12 · The merged navigation (validated 2026-08-29)
-
-**Client — 11 entries.** Renamed and new marked; nothing from today is lost.
-
-| # | Label | Route | Icon | State |
-|---|---|---|---|---|
-| 1 | **Tableau de bord** | `/` | `LayoutDashboard` | renamed from Accueil, same route |
-| 2 | Demandes | `/demandes` | `Inbox` | now carries the form |
-| 3 | Fournisseurs | `/fournisseurs` | `Users` | unchanged |
-| 4 | **Soumissions** | `/soumissions` | `ClipboardList` | new · P2 |
-| 5 | **Contrats** | `/contrats` | `FileSignature` | new · P4 (the priority) |
-| 6 | **Commandes** | `/commandes` | `Package` | ex-Transactions · P7 |
-| 7 | Documents | `/documents` | `FileText` | shell → P8 |
-| 8 | **Paiements** | `/paiements` | `Banknote` | new · P9 |
-| 9 | **Messages** | `/messages` | `MessageSquare` | new · P10 |
-| 10 | **Rapports** | `/rapports` | `BarChart3` | new, BUYER-facing · P11 |
-| 11 | Paramètres | `/parametres` | `Settings` | unchanged |
-
-**Interne — 9 entries** (permission-gated, unchanged except one move):
-Facilitation (becomes the quote/deal ops queue) · Vérification fournisseurs ·
-Clients · **Analyses** · Finance · Abonnements · Utilisateurs · Logging ·
-Sources de données.
-
-**`Analyses` moves from the client block into Interne.** It is already
-staff-only (`feature: "analytics"` in `AppSidebar.tsx`) and merely *sits* in
-the buyer list today — a misplacement the merge exposes. It is NOT renamed to
-Rapports: those are two different surfaces for two different audiences, and
-both survive.
-
-Icons avoid collisions inside one sidebar: `Wallet` and `CreditCard` are taken
-by Finance and Abonnements, hence `Banknote` for Paiements.
-
-**15 entries today → 20.** Every new tab renders **disabled-not-hidden** from
-P0 and lights up when its module lands, so the buyer sees the whole journey
-without any tab lying about being ready.
+1. **Contract numbering** — `OSI-2026-0042`, per-year sequential, platform-global
+   (a `contract_id_seq`, like `request_id_seq`).
+2. **Currency** — store it, never convert. Multi-currency dashboard totals would
+   need a rate source that does not exist.
 
 ## Options considered — external party access
 
@@ -438,21 +373,9 @@ before, or alongside, P2.
 
 ## Open questions
 
-1. **Who solicits the quotes?** The brief implies OSI does. Does the buyer pick
-   which of the Top-N to solicit, or does OSI choose on their behalf?
-2. **Which contract types ship in v1?** The brief lists seven (§5). The mandate
-   OSI↔client and the buyer↔supplier order are unavoidable; carrier, customs,
-   inspection, NDA and annexes could follow.
-3. **Who signs on OSI's behalf** — the platform owner alone, or any `manager`?
-   (Sets the default for the `contracts.sign` key.)
-4. **E-sign vendor + budget** (G1) — a vendor, or stay manual indefinitely.
-5. **Contract numbering** — the brief shows `OSI-2026-0042`. Confirm per-year
-   sequential and platform-global (a `contract_id_seq`, like `request_id_seq`).
-6. **What is the current home renamed to?** It keeps the public hero and the
-   request form — "Nouvelle demande" is the honest label, but it is your call.
-7. **Is the design choice per user or per workspace?** Per user matches
-   `theme_color` and is the cheaper answer; per workspace would let a client
-   company standardise its own look.
-8. **Currency** — the brief shows CAD with an Incoterm. Simplest v1 is
-   store-the-currency and never convert; multi-currency dashboard totals would
-   need a rate source.
+Resolved at acceptance — see the table above. What remains:
+
+1. **Contract numbering** and **currency** (defaults proposed above).
+2. **Custom staff roles** (Phase R) — needs its own sizing before it is
+   scheduled; it is not a prerequisite for any Phase P task, since
+   `contracts.sign` works on the existing roles from day one.

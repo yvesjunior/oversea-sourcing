@@ -1840,8 +1840,18 @@ derived from edges, never set by hand.
 
 **The portal brief** ([doc/briefs/portail-entreprise.md](briefs/portail-entreprise.md))
 brings its own process and it is NOT the one this backlog held. Decision record:
-[ADR-002](adr/ADR-002-transaction-and-contract-centre.md) — **status: proposed,
-awaiting owner validation. No code until it is accepted.**
+[ADR-002](adr/ADR-002-transaction-and-contract-centre.md) — **✅ ACCEPTED by the
+owner 2026-08-29**, with four decisions taken at acceptance:
+
+- **The BUYER picks** which of their Top-N are asked for a quote; OSI does the
+  sending. (P2 therefore carries a buyer-facing selection surface.)
+- **Contracts v1 = two types only**: mandat OSI↔client and the buyer↔supplier
+  order. The other five follow once the machinery is proven.
+- **Signing is a permission key** (`contracts.sign`) assigned per role from
+  Rôles & accès. **Custom roles** are a separate new feature — Phase R below.
+- **No e-signature vendor.** Buyer and OSI sign **in the platform** (they are
+  authenticated); external parties are **manual upload** by staff. Two
+  mechanisms, one `contract_party` row and one trail.
 
 **RETIRED by ADR-002** (do not build these — they were never built, only
 planned): the `engagement` entity and `engagement_events`, the "Engager" button
@@ -1900,11 +1910,14 @@ through the platform (2026-08-29). Parties are ROWS, never users.
       and indexed on it; party references nullable + name/email snapshot
       (tombstone rule). Status machines in `src/lib/*-status.ts`, guarded like
       `request-status.ts`.
-- [ ] **P2 · Soumissions — solicit & record.** Staff asks N suppliers of a
-      Top-N for an offer (`quote` rows in `requested`, outbound mail through
-      `mail.ts`); staff records what came back. Buyer sees the tab fill up.
-      **This is where the moat starts accumulating** (response time, MOQ, lead
-      time, price — ADR-001 S6).
+- [ ] **P2 · Soumissions — the buyer picks, OSI solicits, staff records.**
+      Decided at acceptance: the **buyer selects** which of their Top-N to
+      approach (a selection surface on the dossier — this is the half the
+      "OSI chooses" answer would not have needed), which creates `quote` rows
+      in `requested`; **staff send** the requests through `mail.ts` and record
+      what comes back (price, lead time, MOQ, incoterm, terms). The buyer
+      watches the tab fill up. **This is where the moat starts accumulating**
+      (response time, MOQ, lead time, price — ADR-001 S6).
 - [ ] **P3 · Comparison & acceptance.** Side-by-side comparison of received
       quotes; the buyer accepts ONE; acceptance opens the `deal` automatically
       (brief §4 steps 1-2) and marks the losing `match` rows `rejected` (the
@@ -1915,12 +1928,25 @@ through the platform (2026-08-29). Parties are ROWS, never users.
       « Nouveau contrat ». Fiche per §3.2. Parties table per §3.3 with per-party
       status and actions.
 - [ ] **P5 · Required-contract derivation + templates.** `src/lib/contract-types.ts`
-      maps parties → required contracts (brief §4 step 3, §5 types); templates
-      pre-filled from the deal (step 4).
-- [ ] **P6 · Signature tracking + reminders.** `src/server/esign.ts` adapter with
-      the **`manual` provider first** (staff sends, records the countersigned
-      PDF with who/when/evidence). Reminders to pending signers; all mandatory
-      signatures ⇒ `signed` ⇒ the next operational step unlocks (steps 5-8).
+      maps parties → required contracts (brief §4 step 3). **v1 ships TWO types
+      only** (mandat OSI↔client, buyer↔supplier order — owner 2026-08-29); the
+      mapping is written so the other five slot in without touching callers.
+      Templates pre-filled from the deal (step 4).
+- [ ] **P6 · Signature tracking + reminders — TWO mechanisms** (owner
+      2026-08-29). **In-platform** for the buyer and OSI: they are
+      authenticated, so they sign in the app and the row records user id +
+      name snapshot, timestamp, IP, user agent — no vendor, no email round
+      trip, and it is the stronger evidence of the two. **Manual upload** for
+      every party without an account (supplier, transporteur, courtier,
+      inspecteur): staff sends, receives the signed PDF, uploads it and records
+      who signed when. Both write the same `contract_party` row and
+      `contract_event` trail, so the `2/4` indicator and the
+      all-mandatory-signatures transition are mechanism-blind.
+      `src/server/esign.ts` remains the vendor seam for the EXTERNAL path only;
+      its first implementation is `manual`. Gate the action on the
+      **`contracts.sign` permission key** (owner-assigned per role).
+      Reminders to pending signers; all mandatory signatures ⇒ `signed` ⇒ the
+      next operational step unlocks (steps 5-8).
       **Signature evidence never goes in `audit_log`** — it is purgeable at 3
       months; evidence lives on `contract_party` / `contract_event`, permanently.
 - [ ] **P7 · Commandes.** `order_milestone` — production, inspection, transport,
@@ -1947,16 +1973,52 @@ through the platform (2026-08-29). Parties are ROWS, never users.
 - ❗ **No document retention policy, and `storage.deleteFile` is never called on
       user files** — deleting a request drops its `file` rows and orphans the
       bytes. Brief §7 asks for a policy.
-- ❓ **G1 — e-sign vendor + budget.** Deferred: the `manual` provider ships v1.
+- ✅ **G1 — e-sign vendor: NOT BOUGHT** (owner 2026-08-29). Buyer and OSI sign
+      in-platform; external parties are manual upload. No recurring bill. A
+      vendor would only ever replace the external path.
 - ❓ **G2 — supplier/sub-contractor portal access.** Owner-deferred 2026-08-29;
       brief §6's last two rows are out of scope. `contract_party` is where it
       attaches later.
 - ❓ **Plan dimension.** Do deals/contracts belong to a plan tier, or are they
       open to any workspace with a deal? (E12.)
-- ❓ **Who signs for OSI** — owner only, or any manager (`contracts.sign` key).
+- ✅ **Who signs for OSI** — a `contracts.sign` permission key, owner-assigned
+      per role from Rôles & accès (owner 2026-08-29). Defaults to owner-only.
 - ⚠️ **Pick-up item ⓪ (search relevance) is not part of Phase P but gates its
       value** — quotes solicited from an irrelevant Top-N are the wrong quotes.
       Land it before or alongside P2.
+
+### Phase R — custom staff roles (new ask, owner 2026-08-29 — NOT sized yet)
+
+**Owner, while settling who may sign:** *"owner will assign access to each role
+like manager… plus roles can be added/created and assign access accordingly."*
+
+Today the staff roles are a fixed set — `owner | manager | accountant` — and
+only their CAPABILITIES are data. This asks for the ROLES themselves to be
+data: create "Ops", "Legal", "Finance junior", grant each what it needs.
+
+**Not a prerequisite for Phase P**: `contracts.sign` works on the existing
+roles from day one, so P4–P6 are unblocked either way.
+
+What already fits: `platform_permission` is keyed by a `role` **TEXT** column
+and `user.platform_role` is TEXT too — custom role names are storable now,
+with no migration.
+
+What has to change:
+- the `PlatformRole` union in `src/lib/roles.ts` (a closed set today) and every
+  place that narrows to it;
+- `grantedFeatures` / `roleHasPermission` in `src/server/permissions.ts`, which
+  short-circuit on `role !== "manager" && role !== "accountant"`;
+- a `platform_role` table (name, label, created_by) + CRUD surface on
+  /interne/utilisateurs → Rôles & accès, which today renders a fixed 2-column
+  matrix;
+- the defaults story: `defaultGrant()` answers for a key with no row, and a
+  brand-new role has no defaults at all — it should start with **nothing**
+  granted rather than inheriting anyone's.
+
+**Rules that survive unchanged and must not be negotiated away:** the platform
+OWNER is never a row and always has everything (no self-lockout), and **role
+granting stays owner-only forever** — a role that can grant roles can promote
+itself.
 
 ### Sequencing & dependencies
 
