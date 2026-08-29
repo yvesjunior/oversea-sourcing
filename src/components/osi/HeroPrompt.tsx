@@ -6,6 +6,16 @@
 // specs (pressure, flow…). The auth gate preserves the WHOLE form as a JSON
 // draft across login/signup; a legacy plain-text draft still auto-creates
 // through the free-text path.
+//
+// TWO MOUNTS since 2026-08-29 (ADR-002 §11, owner: "move the search group
+// component to the request page"):
+//   - `hero`     on `/` for ANONYMOUS visitors — globe, greeting, headline.
+//                That mount IS the auth gate: it is where a prospect types a
+//                need before having an account.
+//   - `embedded` on `/demandes` — the form alone, under the page's own
+//                "Nouvelle demande" header. This is where signed-in buyers
+//                work, per the brief: "Création et suivi des demandes".
+// One component, two mounts — never a second copy of the form.
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useNavigate } from "@tanstack/react-router";
@@ -18,11 +28,16 @@ import { Textarea } from "@/components/ui/textarea";
 import { CategoryCombobox } from "@/components/osi/CategoryCombobox";
 import { createRequestFn, startRequestPipelineFn } from "@/lib/requests-fns";
 import { categoryLabel, suggestCategory } from "@/lib/taxonomy";
+import { cn } from "@/lib/utils";
 
 const LEGACY_DRAFT_KEY = "osi-draft-besoin";
 const DRAFT_KEY = "osi-draft-besoin-v2";
 
 type HeroUser = { name: string } | null;
+
+/** `hero` carries the landing chrome (globe, greeting, headline); `embedded`
+ *  is the bare form for a page that brings its own header. */
+export type HeroVariant = "hero" | "embedded";
 
 type FormFields = {
   categoryId: string;
@@ -53,7 +68,7 @@ function splitCertifications(input: string): string[] {
     .slice(0, 12);
 }
 
-export function HeroPrompt({ user }: { user: HeroUser }) {
+export function HeroPrompt({ user, variant = "hero" }: { user: HeroUser; variant?: HeroVariant }) {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const [fields, setFields] = useState<FormFields>(EMPTY_FIELDS);
@@ -64,6 +79,7 @@ export function HeroPrompt({ user }: { user: HeroUser }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const loggedIn = user !== null;
   const prenom = user?.name?.split(" ")[0];
+  const embedded = variant === "embedded";
 
   const set = (key: keyof FormFields) => (value: string) =>
     setFields((current) => ({ ...current, [key]: value }));
@@ -133,9 +149,10 @@ export function HeroPrompt({ user }: { user: HeroUser }) {
       setBlockedAlert({ title: t("home.readOnlyRoleTitle"), message: t("home.readOnlyRole") });
       return false;
     }
-    // Session evaporated — fall back to the auth gate.
+    // Session evaporated — fall back to the auth gate (same return target as
+    // the gate itself: the draft only resumes where the form is mounted).
     draftToPreserve();
-    void navigate({ to: "/login", search: { redirect: "/" } });
+    void navigate({ to: "/login", search: { redirect: "/demandes" } });
     return false;
   };
 
@@ -245,7 +262,11 @@ export function HeroPrompt({ user }: { user: HeroUser }) {
     if (!loggedIn) {
       // The auth gate: preserve the whole form, send to login, restore after.
       window.localStorage.setItem(DRAFT_KEY, JSON.stringify(fields));
-      void navigate({ to: "/login", search: { redirect: "/" } });
+      // Return to /demandes, not "/": since 2026-08-29 the signed-in home is
+      // the dashboard and no longer renders this form — and the draft-resume
+      // effect below only runs where the form is mounted. Landing anywhere
+      // else would strand the draft silently.
+      void navigate({ to: "/login", search: { redirect: "/demandes" } });
       return;
     }
     void submitStructured(fields, files);
@@ -260,28 +281,36 @@ export function HeroPrompt({ user }: { user: HeroUser }) {
   const requiredMark = <span className="text-gold"> *</span>;
 
   return (
-    <section className="relative overflow-hidden pt-4">
-      <img
-        src={globe}
-        alt={t("brand.tagline")}
-        width={1200}
-        height={1200}
-        style={{
-          maskImage: "radial-gradient(circle at 50% 50%, #000 56%, transparent 70%)",
-          WebkitMaskImage: "radial-gradient(circle at 50% 50%, #000 56%, transparent 70%)",
-        }}
-        className="pointer-events-none absolute -right-16 -top-16 hidden w-[420px] select-none lg:block xl:-right-6 xl:w-[480px]"
-      />
+    <section className={embedded ? "relative" : "relative overflow-hidden pt-4"}>
+      {!embedded && (
+        <img
+          src={globe}
+          alt={t("brand.tagline")}
+          width={1200}
+          height={1200}
+          style={{
+            maskImage: "radial-gradient(circle at 50% 50%, #000 56%, transparent 70%)",
+            WebkitMaskImage: "radial-gradient(circle at 50% 50%, #000 56%, transparent 70%)",
+          }}
+          className="pointer-events-none absolute -right-16 -top-16 hidden w-[420px] select-none lg:block xl:-right-6 xl:w-[480px]"
+        />
+      )}
 
-      <div className="relative z-10 max-w-2xl">
-        {loggedIn && (
-          <p className="text-lg text-muted-foreground">{t("home.greeting", { name: prenom })}</p>
+      <div className={cn("relative z-10", !embedded && "max-w-2xl")}>
+        {!embedded && (
+          <>
+            {loggedIn && (
+              <p className="text-lg text-muted-foreground">
+                {t("home.greeting", { name: prenom })}
+              </p>
+            )}
+            <h1 className="mt-2 font-display text-4xl font-semibold leading-tight sm:text-[42px]">
+              {t("home.heroTitle")}
+            </h1>
+          </>
         )}
-        <h1 className="mt-2 font-display text-4xl font-semibold leading-tight sm:text-[42px]">
-          {t("home.heroTitle")}
-        </h1>
 
-        <form className="card-surface mt-8 space-y-3 p-4" onSubmit={onSubmit}>
+        <form className={cn("card-surface space-y-3 p-4", !embedded && "mt-8")} onSubmit={onSubmit}>
           <div className="grid gap-3 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
             <div>
               <label htmlFor="need-product" className={fieldLabel}>

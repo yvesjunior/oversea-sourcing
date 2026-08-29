@@ -102,8 +102,11 @@ function DossiersRecents({
 
 function Accueil() {
   const { t } = useTranslation();
-  // Public route: anonymous visitors see the hero + value props; logged-in
-  // users get their personal dashboard (doc/BACKLOG.md — public landing).
+  // Public route, two faces (ADR-002 §11, owner 2026-08-29 "define Home as
+  // Dashboard"): anonymous visitors get the landing — hero, the request form
+  // (that mount IS the auth gate) and the value props; signed-in users get
+  // the DASHBOARD. The form moved to /demandes for them, so this route keeps
+  // its own header rather than borrowing the hero's greeting.
   const { session } = Route.useRouteContext();
   const { stats, statsAll, demandes, toutes } = Route.useLoaderData();
   const loggedIn = Boolean(session);
@@ -112,9 +115,20 @@ function Accueil() {
   // the whole dashboard (stats + dossiers move together).
   const employee = canSeeAllRequests(platformRole) && statsAll !== null;
 
+  const prenom = session?.user?.name?.split(" ")[0];
+
   return (
     <div className="flex flex-1 flex-col gap-8">
-      <HeroPrompt user={session?.user ?? null} />
+      {loggedIn ? (
+        <header className="pt-4">
+          <h1 className="font-display text-3xl font-semibold leading-tight">
+            {t("home.greeting", { name: prenom })}
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">{t("home.dashboardSubtitle")}</p>
+        </header>
+      ) : (
+        <HeroPrompt user={null} />
+      )}
 
       {employee ? (
         /* -mt-6: the tab bar slots into the section gap instead of adding a

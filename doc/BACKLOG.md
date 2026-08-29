@@ -18,21 +18,58 @@
 | **E3** Request core loop | Pipeline, criteria, attachments, dossier | ✅ done |
 | **E4** Supplier data | **Web research**, dedup, directory, sources admin | 🟡 **ADR-001 pivot (2026-08-26) → Phase S**; import/merge open |
 | **E5** Matching & scoring | Criteria-aware v1 + breakdown | 🟡 the "32 criteria" + comparison view open |
-| **E6** Facilitation | Engagements — *the OSI moment* | 🔴 not started (no tables) |
+| **E6** Facilitation | ~~Engagements~~ → **soumissions → dossier de transaction → contrats** | 🔵 **redefined 2026-08-29 by [ADR-002](adr/ADR-002-transaction-and-contract-centre.md) → Phase P**; old task list RETIRED |
 | **E7** Reports | Printable report + PDF export | 🟡 stored `documents` rows open |
-| **E8** Transactions | Milestones, tracking | 🔴 not started (no tables) |
+| **E8** Transactions | Milestones, tracking, paiements | 🔵 **folded into Phase P** by ADR-002 (the `deal` spine); standalone sketch retired |
 | **E9** Notifications | In-app + email | 🟡 bell, emitters, **prefs (2026-08-26)** live; E6 templates gated |
 | **E10** Admin surfaces | Verification, imports, ops queue | 🟡 **verification LIVE (S5b/S5c, 2026-08-26)**; imports/ops queue placeholders |
 | **E11** Settings | Profile, sourcing rules | 🟡 Paramètres + notification prefs live; **password / 2FA / theme / rename (2026-08-27)** live; buyer Abonnement self-service waits for billing |
 
-**MVP1 = E0–E7 + E10.** Definition of done: a real buyer signs up, submits a real
-need, gets a real Top-N (researched + imported suppliers, scored), clicks
-*Engager*, OSI ops sees it in the queue, the buyer sees "connected", and
-downloads the PDF report.
+**MVP1 = E0–E7 + E10.** Definition of done **restated 2026-08-29 by ADR-002**
+(the old one — *"clicks Engager, ops sees it in the queue, the buyer sees
+'connected'"* — is retired with the E6 sketch): a real buyer signs up, submits a
+real need, gets a real Top-N, **OSI solicits quotes, the buyer accepts one, the
+required contracts are signed by every mandatory party, and the commande is
+tracked to delivery** — with the PDF report available throughout.
 
-## Resume here (last session: 2026-08-27/28 — the logging + foundation-gaps session)
+## Resume here (last session: 2026-08-29 — the portal-brief design session)
 
-### Session digest 2026-08-27/28 — read this first
+### Session digest 2026-08-29 — the client portal brief (NO CODE WAS WRITTEN)
+
+**Nothing shipped; prod is unchanged at `b9add64` (deploy #11), now tagged
+`deploy-11-baseline` as the rollback point.** This was an analysis and
+architecture session on the owner's `.docx` brief for the **Portail entreprise
+B2B**.
+
+**What landed (docs only):**
+- [doc/briefs/portail-entreprise.md](briefs/portail-entreprise.md) — the brief
+  transcribed into the repo (it existed only on the owner's Desktop).
+- [ADR-002](adr/ADR-002-transaction-and-contract-centre.md) — the transaction
+  dossier & contract centre. **Status: PROPOSED, awaiting owner validation.**
+- **Phase P** below — the implementation plan, P1…P11 plus its gates.
+
+**The one thing a future session must not get wrong:** the brief brings a NEW
+process, and the old E6 facilitation design is **retired, not extended** (owner,
+2026-08-29). There is no `engagement` entity, no "Engager" button, no ops queue,
+no "connected" state. The process is `demande → fournisseurs → soumissions →
+acceptation → dossier de transaction → contrats → commande → livraison`, and a
+**quote (soumission) is the unit of facilitation**. Suppliers and
+sub-contractors have **NO platform access** — parties are rows, staff mediate
+everything by email.
+
+**Two hard gaps this surfaced, neither of them design questions:**
+- ❗ `scripts/backup.sh` dumps Postgres only — **the `osi-uploads` volume is not
+  backed up anywhere.** Tolerable for re-uploadable spec sheets; not for signed
+  contracts. Must be fixed before P8.
+- ❗ No document retention policy, and `storage.deleteFile` is never called on
+  user files (bytes orphan when a request is deleted).
+
+**Still the next CODE task, unchanged:** pick-up item ⓪, the search relevance
+gate — quotes solicited off an irrelevant Top-N are the wrong quotes.
+
+### Previous session digest (2026-08-27/28 — the logging + foundation-gaps session)
+
+**Digest 2026-08-27/28 — the deploy #6-#11 wave:**
 
 **Prod state: see the deploy markers on ②l–②q below — FIVE deploys this
 session (#6 `67b4b5d` migs 0028–0030 · #7 `31f8a4c` · #8 `49d6521` mig
@@ -1653,6 +1690,137 @@ derived from edges, never set by hand.
       time, MOQ, lead time, quotes) write back onto the supplier as edges.
       The moat; build the schema seams when E6's flow is defined.
 
+### Phase P — the transaction dossier & contract centre (ADR-002, proposed 2026-08-29)
+
+**The portal brief** ([doc/briefs/portail-entreprise.md](briefs/portail-entreprise.md))
+brings its own process and it is NOT the one this backlog held. Decision record:
+[ADR-002](adr/ADR-002-transaction-and-contract-centre.md) — **status: proposed,
+awaiting owner validation. No code until it is accepted.**
+
+**RETIRED by ADR-002** (do not build these — they were never built, only
+planned): the `engagement` entity and `engagement_events`, the "Engager" button
+on a Top-N supplier, the ops engagement queue and the "connected" state, and
+E8's standalone `transaction`. The process is now
+`demande → fournisseurs → soumissions → acceptation → dossier de transaction →
+contrats → commande → livraison`.
+
+**Owner constraints already recorded:** suppliers and sub-contractors have **no
+platform access** in v1 — staff mediate every external interaction, by email
+through the platform (2026-08-29). Parties are ROWS, never users.
+
+- [ ] **P0 · Shell, navigation & designs** (independent — lands first).
+      ① **Two designs, user-switchable** (owner 2026-08-29): the stylesheet
+      ALREADY carries a full `.dark` block (`src/styles.css:117`) that
+      **nothing ever applies** — retune it to the brief's hexes (`#111111`
+      ground · `#1E1E1E`/`#202020` surfaces · `#E6E6E6` text · `#D4AF37`/
+      `#C89C18` gold) and wire a control. Never a parallel stylesheet. New
+      `user` column beside `theme_color`, applied by `__root` from the
+      session, saved via `updateProfileFn`; switch in Paramètres → Profil
+      beside the accent picker. **Audit the 5 accents on BOTH grounds** —
+      they were only ever checked against the light one.
+      ② **Home IS the dashboard** (owner 2026-08-29): `/` keeps its route and
+      its SEO meta; the nav label `nav.accueil` → `nav.tableauDeBord`; the
+      signed-in view becomes the dashboard enriched toward the brief's mockup.
+      No new route, no redirect, `PUBLIC_PATHS` unchanged.
+      ③ ~~**The form moves to Demandes**~~ ✅ **BUILT 2026-08-29** (owner:
+      "move the request search component to the request page"): `HeroPrompt`
+      gained a `variant` prop — `hero` (globe + greeting + headline, `/` for
+      ANONYMOUS visitors, the auth-gate mount) and `embedded` (the bare form
+      on `/demandes`, under a « Nouvelle demande » toggle, auto-expanded when
+      the buyer has no dossier). ONE component, two mounts — never a copy.
+      Home became the dashboard the same change: `/` keeps its route and SEO
+      meta, and the signed-in view now renders its own header (greeting +
+      `home.dashboardSubtitle`) instead of borrowing the hero's.
+      **The draft trap was real and is closed**: the resume effect lives
+      inside `HeroPrompt`, so the auth gate now returns to **`/demandes`**
+      (not `/`) — both in `onSubmit` and in the session-evaporated fallback —
+      and the collapsed section is hidden with CSS, **never unmounted**, so
+      the effect runs even when the form is closed. *Live-verified in dev end
+      to end:* anonymous typed a need → gate → `/login?redirect=%2Fdemandes`
+      with the draft in localStorage → quick-login → auto-created **#3029**
+      (`pumps`, criterion `source=user`) with no retyping; and a direct
+      submit from `/demandes` created **#3028** (`valves`, store hit, ≈$0,
+      report_ready). tsc + eslint + 46 tests green. Nav label rename and the
+      new tabs are still to do (② and ④).
+      ④ **Merged nav — 11 client + 9 interne = 20** (was 15). Client:
+      Tableau de bord `/` · Demandes · Fournisseurs · **Soumissions** ·
+      **Contrats** · **Commandes** (ex-Transactions) · Documents ·
+      **Paiements** · **Messages** · **Rapports** (buyer-facing, new) ·
+      Paramètres. Interne unchanged except **`Analyses` moves out of the
+      client block into Interne** — it is already `feature: "analytics"`
+      staff-only and merely sits in the buyer list today; it is NOT renamed
+      to Rapports (two audiences, two surfaces, both survive). Icons:
+      `Banknote` for Paiements (`Wallet`/`CreditCard` are taken by Finance and
+      Abonnements). Every new tab renders **disabled-not-hidden** until its
+      module lands. Full table in ADR-002 §12.
+- [ ] **P1 · Schema spine.** `quote` (soumission: request + supplier, status
+      `requested | received | declined | accepted | expired`, price, currency,
+      lead time, MOQ, incoterm, terms, received_at), `deal` (the dossier —
+      accepted quote, buyer org, supplier, value, currency, status), `deal_event`
+      (timeline, `request_event` pattern), `contract` + `contract_party` +
+      `contract_event`, `order_milestone`, `document`, `payment`,
+      `message_thread` + `message`. Every buyer-facing table workspace-scoped
+      and indexed on it; party references nullable + name/email snapshot
+      (tombstone rule). Status machines in `src/lib/*-status.ts`, guarded like
+      `request-status.ts`.
+- [ ] **P2 · Soumissions — solicit & record.** Staff asks N suppliers of a
+      Top-N for an offer (`quote` rows in `requested`, outbound mail through
+      `mail.ts`); staff records what came back. Buyer sees the tab fill up.
+      **This is where the moat starts accumulating** (response time, MOQ, lead
+      time, price — ADR-001 S6).
+- [ ] **P3 · Comparison & acceptance.** Side-by-side comparison of received
+      quotes; the buyer accepts ONE; acceptance opens the `deal` automatically
+      (brief §4 steps 1-2) and marks the losing `match` rows `rejected` (the
+      enum already carries `selected`/`rejected` — currently unused).
+- [ ] **P4 · Contract centre v1 — THE PRIORITY.** List view with the §3.1
+      filters (Tous · Actifs · À signer · En attente · Complétés · Expirés — all
+      derived, no status columns), search, the `2/4` signature indicator,
+      « Nouveau contrat ». Fiche per §3.2. Parties table per §3.3 with per-party
+      status and actions.
+- [ ] **P5 · Required-contract derivation + templates.** `src/lib/contract-types.ts`
+      maps parties → required contracts (brief §4 step 3, §5 types); templates
+      pre-filled from the deal (step 4).
+- [ ] **P6 · Signature tracking + reminders.** `src/server/esign.ts` adapter with
+      the **`manual` provider first** (staff sends, records the countersigned
+      PDF with who/when/evidence). Reminders to pending signers; all mandatory
+      signatures ⇒ `signed` ⇒ the next operational step unlocks (steps 5-8).
+      **Signature evidence never goes in `audit_log`** — it is purgeable at 3
+      months; evidence lives on `contract_party` / `contract_event`, permanently.
+- [ ] **P7 · Commandes.** `order_milestone` — production, inspection, transport,
+      douanes, livraison; staff updates, buyer reads. Replaces the showcase
+      constants in `src/data/osi.ts` (`etapesTransaction` finally dies).
+- [ ] **P8 · Documents module.** Typed `document` rows (facture · certificat ·
+      douane · inspection · packing list · B/L · contrat signé · annexe),
+      versioned, behind `storage.ts`. Absorbs E7's open "server-rendered PDF
+      stored as a documents row". **BLOCKED until the uploads volume is backed
+      up** — see the gap below.
+- [ ] **P9 · Paiements.** Ledger view: dépôts, soldes, factures, frais OSI, état.
+      Track-only, no PSP, staff-entered (README rule unchanged).
+- [ ] **P10 · Messages.** Threads per deal, buyer ↔ staff in-app; external
+      parties by email through the platform (never an account).
+- [ ] **P11 · Rapports.** Dépenses, économies, performance fournisseur. Needs
+      the ⓪-class honesty pass: **"économies" cannot be computed today** — no
+      baseline price exists to compare against.
+
+**Gaps and gates that must be settled inside Phase P:**
+
+- ❗ **The `osi-uploads` volume is not backed up.** `scripts/backup.sh` dumps
+      Postgres only. Acceptable while uploads are re-uploadable spec sheets;
+      **unacceptable once signed contracts live there.** Fix before P8.
+- ❗ **No document retention policy, and `storage.deleteFile` is never called on
+      user files** — deleting a request drops its `file` rows and orphans the
+      bytes. Brief §7 asks for a policy.
+- ❓ **G1 — e-sign vendor + budget.** Deferred: the `manual` provider ships v1.
+- ❓ **G2 — supplier/sub-contractor portal access.** Owner-deferred 2026-08-29;
+      brief §6's last two rows are out of scope. `contract_party` is where it
+      attaches later.
+- ❓ **Plan dimension.** Do deals/contracts belong to a plan tier, or are they
+      open to any workspace with a deal? (E12.)
+- ❓ **Who signs for OSI** — owner only, or any manager (`contracts.sign` key).
+- ⚠️ **Pick-up item ⓪ (search relevance) is not part of Phase P but gates its
+      value** — quotes solicited from an irrelevant Top-N are the wrong quotes.
+      Land it before or alongside P2.
+
 ### Sequencing & dependencies
 
 ```
@@ -1914,12 +2082,13 @@ feeds C3/C4 value (Recommandé requires Vérifié)
 
 ### E6 — Facilitation (engagements) · the OSI moment
 
-> **GATED (user, 2026-08-23): do NOT implement until the facilitation flow is
-> defined with the user.** The engagement status machine, who does what at
-> each step (buyer / ops / supplier), and what "connected" means operationally
-> are product decisions to take together first — same discuss-then-build
-> pattern as the sourcing engine. The task list below is the raw material for
-> that discussion, not a spec.
+> **⚠️ SUPERSEDED 2026-08-29 — the gate is discharged and the design below is
+> RETIRED.** The owner's portal brief brought its own process; the decision
+> record is [ADR-002](adr/ADR-002-transaction-and-contract-centre.md) and the
+> plan is **Phase P** above. There is no `engagement` entity, no "Engager"
+> button, no ops queue, no "connected" state — a **soumission (quote)** is the
+> unit of facilitation, and accepting one opens the `deal`. The unchecked
+> tasks below are kept only to show what was replaced; do not build them.
 
 - [x] Ops list view on `/interne/facilitation`: all buyer dossiers + Vue globale/Mes données tabs (engagement queue below still pending)
 - [ ] Engagement creation from a match (buyer clicks "Engager" on a Top-5 supplier)
@@ -2084,9 +2253,10 @@ E10 in parallel from E4 (admin grows with supplier data)
 E8, E9, E11          (execution & comfort)
 ```
 
-**MVP1 = E0–E7 + E10.** Definition of done: a real buyer signs up, submits a real
-need, gets a real Top 5 (imported + AI-researched suppliers, scored), clicks
-_Engager_, OSI ops sees it in the queue, buyer sees "connected", downloads the PDF report.
+**MVP1 = E0–E7 + E10.** Definition of done — **restated by ADR-002
+(2026-08-29)**: a real buyer signs up, submits a real need, gets a real Top-N,
+OSI solicits quotes, the buyer accepts one, the required contracts are signed by
+every mandatory party, and the commande is tracked to delivery.
 
 ## Open items
 

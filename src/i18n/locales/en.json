@@ -397,7 +397,8 @@
       "requiredError": "Choose a category and describe the product — the two fields marked *.",
       "categorySearch": "Search a category…",
       "categoryNone": "No category found"
-    }
+    },
+    "dashboardSubtitle": "Here's an overview of your sourcing activity."
   },
   "stats": {
     "activeRequests": "Active requests",
@@ -465,7 +466,8 @@
     "subtitle_one": "{{count}} active sourcing file",
     "subtitle_other": "{{count}} active sourcing files",
     "emptyTitle": "No files yet",
-    "emptyCta": "Describe a need"
+    "emptyCta": "Describe a need",
+    "newRequest": "New request"
   },
   "detail": {
     "back": "Back",

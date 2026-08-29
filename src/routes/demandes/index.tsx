@@ -1,9 +1,14 @@
+import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
+import { ChevronDown, Plus } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { Button } from "@/components/ui/button";
 import { DossierCard } from "@/components/osi/DossierCard";
+import { HeroPrompt } from "@/components/osi/HeroPrompt";
 import { EmployeeTabs } from "@/components/osi/EmployeeTabs";
 import { EmptyRequests } from "@/components/osi/EmptyRequests";
 import { canSeeAllRequests } from "@/lib/roles";
+import { cn } from "@/lib/utils";
 import { getAllRequestsFn, getMyRequestsFn, type RequestSummary } from "@/lib/requests-fns";
 
 export const Route = createFileRoute("/demandes/")({
@@ -58,6 +63,11 @@ function Demandes() {
   const platformRole = (session?.user as { platformRole?: string } | undefined)?.platformRole;
   const employee = canSeeAllRequests(platformRole);
   const count = employee ? toutes.length : miennes.length;
+  // The intake form lives here since 2026-08-29 (ADR-002 §11) — "Création et
+  // suivi" on one page. Collapsed by default so seven fields never push the
+  // dossier list below the fold, but OPEN for a buyer with nothing yet: an
+  // empty list plus a hidden form is a dead end.
+  const [formOpen, setFormOpen] = useState(miennes.length === 0);
 
   return (
     <div className="space-y-6 pt-6">
@@ -66,7 +76,24 @@ function Demandes() {
           <h1 className="truncate font-display text-2xl font-semibold">{t("demandes.title")}</h1>
           <p className="mt-1 text-sm text-muted-foreground">{t("demandes.subtitle", { count })}</p>
         </div>
+        <Button
+          type="button"
+          variant={formOpen ? "outline" : "gold"}
+          onClick={() => setFormOpen((open) => !open)}
+          aria-expanded={formOpen}
+          aria-controls="nouvelle-demande"
+        >
+          {formOpen ? <ChevronDown className="size-4" /> : <Plus className="size-4" />}
+          <span className="hidden sm:inline">{t("demandes.newRequest")}</span>
+        </Button>
       </header>
+
+      {/* Hidden with CSS, never unmounted: HeroPrompt's draft-resume effect
+          runs on mount, so a draft returning from the auth gate must find the
+          component alive even when the section is collapsed. */}
+      <div id="nouvelle-demande" className={cn(!formOpen && "hidden")}>
+        <HeroPrompt user={session?.user ?? null} variant="embedded" />
+      </div>
 
       {employee ? (
         <EmployeeTabs

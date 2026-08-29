@@ -397,7 +397,8 @@
       "requiredError": "Choisissez une catégorie et décrivez le produit — les deux champs marqués *.",
       "categorySearch": "Rechercher une catégorie…",
       "categoryNone": "Aucune catégorie trouvée"
-    }
+    },
+    "dashboardSubtitle": "Voici un aperçu de vos activités d'approvisionnement."
   },
   "stats": {
     "activeRequests": "Demandes actives",
@@ -465,7 +466,8 @@
     "subtitle_one": "{{count}} dossier d’approvisionnement en cours",
     "subtitle_other": "{{count}} dossiers d’approvisionnement en cours",
     "emptyTitle": "Aucun dossier pour l’instant",
-    "emptyCta": "Décrire un besoin"
+    "emptyCta": "Décrire un besoin",
+    "newRequest": "Nouvelle demande"
   },
   "detail": {
     "back": "Retour",
