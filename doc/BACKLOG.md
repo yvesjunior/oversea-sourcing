@@ -37,10 +37,11 @@ tracked to delivery** — with the PDF report available throughout.
 
 ### START HERE — handoff, 2026-08-29
 
-**Prod = `b7481d6` (deploy #25). Nothing is built and undeployed — main and
-prod are the same commit.** #25 carries the **wider "linked supplier"
-definition** and the **personal-workspace session default**; #24 the four-list
-filters and the supplier-directory gate. **Deploy #24 failed on its first
+**Prod = `918a189` (deploy #26). Nothing is built and undeployed — main and
+prod are the same commit.** #26 carries **Phase R** (custom staff roles,
+migration 0039) and **P6** (signatures, both mechanisms) — plus the uploads
+volume finally entering the backup. #25 carried the wider "linked supplier"
+definition and the personal-workspace session default. **Deploy #24 failed on its first
 attempt and prod was rolled back** — read "The prod bundle has a latent chunk
 cycle" below before touching route imports, and run the prod-preset build
 check it describes before every deploy.
@@ -93,6 +94,14 @@ in the middle of it and prod was rolled back — see #24.
 | 23 | `5b90649` | — | **the platform workspace can no longer be deleted** — the org-plugin's own `POST /organization/delete` bypassed `destroyWorkspace`; guard moved into a `beforeDeleteOrganization` hook |
 | 24 | `95b825a` | — | **filters on all four ops lists** (multi-account + week/month/year/custom period) · **the global supplier directory is staff-only** · the DB cleared for fresh testing. *First attempt (`77d37b0`) took prod down — see the chunk-cycle note* |
 | 25 | `b7481d6` | — | **"linked supplier" widened to four traces** (matched · quoted · dealt · contract party) · **a session opens in your PERSONAL workspace** when you have one · the discovery store cleared for a cold research test |
+| 26 | `918a189` | 0039 | **Phase R** — staff roles are data, and `requests.all` replaces the hardcoded visibility list · **P6** — signatures in-platform and by manual upload, reminders, the contract trail, `esign.ts` · **`backup.sh` now archives the uploads volume** |
+
+**Deploy #26 verification** — backup `osi-20260829-195410.sql.gz` **plus the
+first-ever `osi-files-*.tar.gz`** (85 B, a valid empty archive — prod holds no
+files yet, which is exactly what it should say). Migration 0039 applied
+(`platform_role` present). Prod-preset build served locally before the push;
+after: `/` 200 and four gated routes 307 over the tunnel, five containers up,
+zero `__exportAll` / `TypeError` lines.
 
 **Deploy #25 verification** — backup `osi-20260829-190019.sql.gz`, code-only.
 The prod-preset build was run and served locally BEFORE the push (200, no
