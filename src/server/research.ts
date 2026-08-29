@@ -245,8 +245,13 @@ export async function evaluateStoreCoverage(
   requestId: string,
   organizationId: string,
 ): Promise<StoreCoverage> {
+  const request = await db.query.request.findFirst({
+    where: eq(schema.request.id, requestId),
+    columns: { countryCodes: true },
+  });
   const [scope, criteria] = await Promise.all([
-    resolveScope(organizationId),
+    // The request's own origin wins over the workspace preference.
+    resolveScope(organizationId, request?.countryCodes ?? null),
     db.query.requestCriterion.findMany({
       where: eq(schema.requestCriterion.requestId, requestId),
       orderBy: [asc(schema.requestCriterion.position)],
@@ -372,7 +377,7 @@ export async function runResearchForRequest(
       orderBy: [asc(schema.requestCriterion.position)],
     });
 
-    const scope = await resolveScope(organizationId);
+    const scope = await resolveScope(organizationId, request.countryCodes);
     await db
       .update(schema.researchRun)
       .set({ fingerprint: requestFingerprint(criteria, scope.countryCodes) })

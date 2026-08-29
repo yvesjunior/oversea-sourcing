@@ -269,10 +269,14 @@ export async function createMatchesForRequest(
   const criteria = await db.query.requestCriterion.findMany({
     where: eq(schema.requestCriterion.requestId, requestId),
   });
+  const request = await db.query.request.findFirst({
+    where: eq(schema.request.id, requestId),
+    columns: { countryCodes: true },
+  });
   const candidates =
     options.candidates ??
     (await eligibleCandidates(
-      await resolveScope(organizationId),
+      await resolveScope(organizationId, request?.countryCodes ?? null),
       // Criteria feed the big-store SQL prefilter (C2b).
       criteria.map((c) => c.value),
     ));

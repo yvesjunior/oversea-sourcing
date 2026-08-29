@@ -2181,7 +2181,30 @@ in the browser before committing; deploy only when the owner asks.
 
 ---
 
-- [ ] **P2 · Soumissions — the buyer picks, OSI solicits, staff records.**
+- [x] **P2 · Soumissions — BUILT 2026-08-29** (parcours steps 05-08).
+      `src/lib/quote-fns.ts` (requestQuotes · getMyQuotes · **getAllQuotes** ·
+      getQuotesForRequest · recordQuote · declineQuote), `src/server/deals.ts`
+      (recordDealEvent + guarded transitions), `/soumissions`, checkboxes +
+      « Demander une soumission » on the dossier Top-N, `soumissions` un-greyed
+      in the nav, `deals` permission key, `quote_received` notification.
+      **Per-request country origin shipped with it** (migration 0037,
+      `request.country_codes`): the form takes ISO codes with an info popover
+      listing the 15 corridors OSI actually sources from; **the request
+      overrides the org preference, and falls back to it when unset** (owner
+      2026-08-29) — `resolveScope(orgId, requestCodes)`, `requestScope ??
+      workspaceScope`.
+      **The gap that live testing caught, and a lesson for P3-P6:** quotes
+      belong to the BUYER's workspace while staff stand in the internal one,
+      so the first cut showed staff an empty page and they could not record
+      anything. Every Phase P surface needs its ops half — `getAllQuotesFn` +
+      `EmployeeTabs`, the `getAllRequestsFn` pattern. Do not forget it again.
+      *Verified live end to end:* #3036 restricted to CA returned five
+      Canadian suppliers (47 non-CA pool suppliers excluded); the buyer ticked
+      2 of 5 → exactly 2 `quote` rows + a `quotes.requested` timeline event;
+      staff recorded 18 450,50 CAD / 45 j / FOB → `received`, `responded_at`
+      stamped, response time 0.1 h shown, and the buyer notified. A buyer with
+      no `deals` permission correctly sees no entry form.
+- [x] ~~**P2 · Soumissions — the buyer picks, OSI solicits, staff records.**~~
       *Parcours steps 05-08. Depends on: P1 (done). Blocks: P3.*
 
       **What it does.** The buyer selects, from their dossier's Top-N, which

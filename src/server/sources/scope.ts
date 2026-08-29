@@ -29,7 +29,13 @@ export type EffectiveScope = {
   countryCodes: string[] | null;
 };
 
-export async function resolveScope(organizationId: string): Promise<EffectiveScope> {
+export async function resolveScope(
+  organizationId: string,
+  /** Per-request origin (owner 2026-08-29). A non-empty list wins over the
+   *  workspace preference for this request only; null/empty falls back to the
+   *  workspace, which is worldwide unless it set a policy. */
+  requestCountryCodes?: string[] | null,
+): Promise<EffectiveScope> {
   // ADR-001 (2026-08-26): only DISCOVERY-role sources ever enter matching.
   // Verification sources (registries) are platform infrastructure — their
   // stores back the per-candidate checks and never contribute candidates. A
@@ -50,10 +56,16 @@ export async function resolveScope(organizationId: string): Promise<EffectiveSco
     activated == null ? enabled : enabled.filter((s) => activated.includes(s.id))
   ).map((s) => ({ id: s.id, code: s.code, name: s.name, type: s.type }));
 
-  const countryCodes =
+  const requestScope =
+    requestCountryCodes && requestCountryCodes.length > 0
+      ? requestCountryCodes.map((c) => c.toUpperCase())
+      : null;
+  const workspaceScope =
     rules?.countryMode === "list" && rules.countryCodes && rules.countryCodes.length > 0
       ? rules.countryCodes.map((c) => c.toUpperCase())
       : null;
+  // The request wins when it says something; otherwise the workspace policy.
+  const countryCodes = requestScope ?? workspaceScope;
 
   return { sources, countryCodes };
 }

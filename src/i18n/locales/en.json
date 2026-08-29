@@ -402,7 +402,12 @@
       "detailsPlaceholder": "Anything else that matters: specs, pressure, standards, destination, context…",
       "requiredError": "Choose a category and describe the product — the two fields marked *.",
       "categorySearch": "Search a category…",
-      "categoryNone": "No category found"
+      "categoryNone": "No category found",
+      "countries": "Supplier country of origin",
+      "countriesPlaceholder": "e.g. FR, DE, CN — leave empty for worldwide",
+      "countriesHint": "Two-letter country codes, comma separated. Empty = worldwide.",
+      "countriesListTitle": "Most-used codes",
+      "countriesListAria": "See common country codes"
     },
     "dashboardSubtitle": "Here's an overview of your sourcing activity.",
     "draftRestored": "Your input was kept — check it, then start the search."
@@ -721,7 +726,8 @@
     "report_ready": "Your report #{{id}} is ready",
     "invitation_accepted": "{{name}} joined your workspace {{workspace}}",
     "empty": "No notifications",
-    "markAllRead": "Mark all as read"
+    "markAllRead": "Mark all as read",
+    "quote_received": "Quote received from {{supplier}}"
   },
   "verificationAdmin": {
     "title": "Supplier verification",
@@ -865,5 +871,32 @@
       "sources.wipe": "Wipe a source store",
       "logging.purge": "Purge the journal (> 3 months)"
     }
+  },
+  "soumissions": {
+    "title": "Quotes",
+    "subtitle": "{{count}} quote(s) requested or received",
+    "empty": "No quotes yet. Pick suppliers on a request and OSI will approach them.",
+    "requested": "Requested",
+    "received": "Received",
+    "declined": "Declined",
+    "accepted": "Accepted",
+    "expired": "Expired",
+    "supplier": "Supplier",
+    "price": "Price",
+    "leadTime": "Lead time",
+    "moq": "Minimum quantity",
+    "incoterm": "Incoterm",
+    "responseTime": "Response time",
+    "hours": "{{count}} h",
+    "awaiting": "Awaiting reply",
+    "record": "Record the offer",
+    "recordTitle": "Record the offer received — {{supplier}}",
+    "save": "Save the offer",
+    "decline": "No follow-up",
+    "notes": "Notes",
+    "askSelected": "Request a quote",
+    "askDone": "{{count}} supplier(s) approached",
+    "askHint": "Tick the suppliers to approach. Nothing is sent without your say-so.",
+    "askForbidden": "Your role in this workspace is read-only."
   }
 }

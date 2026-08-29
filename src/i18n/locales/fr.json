@@ -402,7 +402,12 @@
       "detailsPlaceholder": "Tout ce qui compte : spécifications, pression, normes, destination, contexte…",
       "requiredError": "Choisissez une catégorie et décrivez le produit — les deux champs marqués *.",
       "categorySearch": "Rechercher une catégorie…",
-      "categoryNone": "Aucune catégorie trouvée"
+      "categoryNone": "Aucune catégorie trouvée",
+      "countries": "Pays d'origine des fournisseurs",
+      "countriesPlaceholder": "ex. FR, DE, CN — laisser vide pour le monde entier",
+      "countriesHint": "Codes pays à deux lettres, séparés par des virgules. Vide = monde entier.",
+      "countriesListTitle": "Codes les plus utilisés",
+      "countriesListAria": "Voir les codes pays courants"
     },
     "dashboardSubtitle": "Voici un aperçu de vos activités d'approvisionnement.",
     "draftRestored": "Votre saisie a été conservée — vérifiez-la puis lancez la recherche."
@@ -721,7 +726,8 @@
     "report_ready": "Votre rapport #{{id}} est prêt",
     "invitation_accepted": "{{name}} a rejoint votre espace {{workspace}}",
     "empty": "Aucune notification",
-    "markAllRead": "Tout marquer comme lu"
+    "markAllRead": "Tout marquer comme lu",
+    "quote_received": "Soumission reçue de {{supplier}}"
   },
   "verificationAdmin": {
     "title": "Vérification des fournisseurs",
@@ -865,5 +871,32 @@
       "sources.wipe": "Purger le store d'une source",
       "logging.purge": "Purger le journal (> 3 mois)"
     }
+  },
+  "soumissions": {
+    "title": "Soumissions",
+    "subtitle": "{{count}} offre(s) demandée(s) ou reçue(s)",
+    "empty": "Aucune soumission. Choisissez des fournisseurs sur un dossier pour qu'OSI les sollicite.",
+    "requested": "Demandée",
+    "received": "Reçue",
+    "declined": "Refusée",
+    "accepted": "Acceptée",
+    "expired": "Expirée",
+    "supplier": "Fournisseur",
+    "price": "Prix",
+    "leadTime": "Délai",
+    "moq": "Quantité minimale",
+    "incoterm": "Incoterm",
+    "responseTime": "Délai de réponse",
+    "hours": "{{count}} h",
+    "awaiting": "En attente de réponse",
+    "record": "Saisir l'offre",
+    "recordTitle": "Saisir l'offre reçue — {{supplier}}",
+    "save": "Enregistrer l'offre",
+    "decline": "Sans suite",
+    "notes": "Notes",
+    "askSelected": "Demander une soumission",
+    "askDone": "{{count}} fournisseur(s) sollicité(s)",
+    "askHint": "Cochez les fournisseurs à solliciter. Rien n'est envoyé sans votre accord.",
+    "askForbidden": "Votre rôle dans cet espace est en lecture seule."
   }
 }

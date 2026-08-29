@@ -53,7 +53,8 @@ const items: NavItem[] = [
   { key: "demandes", url: "/demandes", icone: Inbox },
   { key: "fournisseurs", url: "/fournisseurs", icone: Users },
   // ── Phase P — no routes yet, greyed until their module lands ──────────
-  { key: "soumissions", url: "/soumissions", icone: ClipboardList, disabled: true },
+  // Live since P2 (2026-08-29) — the buyer picks, OSI solicits, staff record.
+  { key: "soumissions", url: "/soumissions", icone: ClipboardList },
   { key: "contrats", url: "/contrats", icone: FileSignature, disabled: true },
   // Ex-"transactions": renamed per the brief; still the showcase route.
   { key: "commandes", url: "/commandes", icone: Package, disabled: true },

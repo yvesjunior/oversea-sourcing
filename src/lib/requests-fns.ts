@@ -216,6 +216,9 @@ export const createRequestFn = createServerFn({ method: "POST" })
           quantity: z.string().trim().max(80).optional(),
           leadTime: z.string().trim().max(80).optional(),
           details: z.string().trim().max(4000).optional(),
+          /** ISO 3166-1 alpha-2, uppercased by the client. Empty/absent =
+           *  worldwide (falls back to the workspace preference). */
+          countryCodes: z.array(z.string().trim().length(2).toUpperCase()).max(20).optional(),
         })
         .optional(),
       /** The client is about to upload files for this request. Hold the
@@ -292,6 +295,10 @@ export const createRequestFn = createServerFn({ method: "POST" })
           title: title || `#${id}`,
           descriptionRaw: data.description,
           categoryId,
+          countryCodes:
+            data.structured?.countryCodes && data.structured.countryCodes.length > 0
+              ? data.structured.countryCodes
+              : null,
           status: "draft",
           locale,
           // Attribution snapshot (2026-08-26): survives the creator's

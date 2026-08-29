@@ -18,6 +18,9 @@ export const NOTIFICATION_TYPES = [
   { type: "report_ready", hasEmail: true },
   /** Told to the inviter when an invitation is accepted — in-app only. */
   { type: "invitation_accepted", hasEmail: false },
+  /** A supplier answered and staff recorded the offer (P2) — the buyer
+   *  should not have to poll the Soumissions tab to find out. */
+  { type: "quote_received", hasEmail: true },
 ] as const;
 
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number]["type"];

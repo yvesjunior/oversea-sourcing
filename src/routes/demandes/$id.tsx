@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { createFileRoute, Link, redirect, useRouter } from "@tanstack/react-router";
 import { format } from "date-fns";
 import { enUS, fr } from "date-fns/locale";
@@ -15,6 +15,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { useTranslation } from "react-i18next";
+import { requestQuotesFn } from "@/lib/quote-fns";
 import { ScoreRing } from "@/components/osi/ScoreRing";
 import { Timeline, type Etape } from "@/components/osi/Timeline";
 import { CountryTag } from "@/components/osi/CountryTag";
@@ -127,6 +128,32 @@ function DemandeDetail() {
 
   // Data-driven: the Top-5 appears once the matching stage produced real rows.
   const showSuppliers = demande.matches.length > 0;
+  // P2 — the BUYER picks who OSI approaches (owner 2026-08-29). Nothing is
+  // solicited without this selection: no automatic outreach, ever.
+  const [picked, setPicked] = useState<string[]>([]);
+  const [asking, setAsking] = useState(false);
+  const [asked, setAsked] = useState(0);
+  const togglePick = (supplierId: string) =>
+    setPicked((current) =>
+      current.includes(supplierId)
+        ? current.filter((id) => id !== supplierId)
+        : [...current, supplierId],
+    );
+  const askForQuotes = async () => {
+    if (picked.length === 0 || asking) return;
+    setAsking(true);
+    try {
+      const result = await requestQuotesFn({
+        data: { requestId: demande.id, supplierIds: picked },
+      });
+      if (result.ok) {
+        setAsked(result.created);
+        setPicked([]);
+      }
+    } finally {
+      setAsking(false);
+    }
+  };
   const pct = progressPct(demande.status);
   const canCancel =
     demande.canEdit && !finished && demande.status !== "cancelled" && demande.status !== "draft";
@@ -298,6 +325,27 @@ function DemandeDetail() {
                 )}
               </div>
 
+              {/* P2 — the buyer picks who OSI approaches. Hidden for a viewer
+                  seat and on a foreign dossier (canEdit covers both). */}
+              {demande.canEdit && (
+                <div className="mt-4 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 rounded-lg border border-border bg-secondary/40 px-4 py-3">
+                  <p className="min-w-0 text-xs text-muted-foreground">
+                    {asked > 0
+                      ? t("soumissions.askDone", { count: asked })
+                      : t("soumissions.askHint")}
+                  </p>
+                  <Button
+                    variant="gold"
+                    size="sm"
+                    disabled={picked.length === 0 || asking}
+                    onClick={() => void askForQuotes()}
+                  >
+                    {t("soumissions.askSelected")}
+                    {picked.length > 0 ? ` (${picked.length})` : ""}
+                  </Button>
+                </div>
+              )}
+
               <ul className="mt-5 space-y-3">
                 {demande.matches.map((m) => (
                   <li
@@ -312,7 +360,17 @@ function DemandeDetail() {
                           : "bg-secondary text-muted-foreground",
                       )}
                     >
-                      {m.rank}
+                      {demande.canEdit ? (
+                        <input
+                          type="checkbox"
+                          aria-label={m.supplier.name}
+                          checked={picked.includes(m.supplier.id)}
+                          onChange={() => togglePick(m.supplier.id)}
+                          className="size-4 cursor-pointer accent-gold"
+                        />
+                      ) : (
+                        m.rank
+                      )}
                     </span>
 
                     <div className="grid min-w-0 gap-x-6 gap-y-3 py-4 pr-2 sm:grid-cols-2 xl:grid-cols-[160px_minmax(120px,auto)_auto_auto_auto] xl:items-center">

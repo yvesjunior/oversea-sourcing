@@ -30,6 +30,10 @@ export const PLATFORM_FEATURES = {
   clients: ["owner", "manager"],
   // Data-source catalogue: enable/disable, store browser, refresh, bans (C1).
   sources: ["owner", "manager"],
+  // Phase P: soliciting suppliers for a quote, recording what comes back, and
+  // running the dossiers that acceptance opens. Operations work — manager
+  // territory alongside the owner.
+  deals: ["owner", "manager"],
 } as const satisfies Record<string, readonly PlatformRole[]>;
 
 export type PlatformFeature = keyof typeof PLATFORM_FEATURES;

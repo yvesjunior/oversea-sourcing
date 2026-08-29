@@ -19,16 +19,39 @@
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { Loader2, Mic, Paperclip, Sparkles, TriangleAlert, X } from "lucide-react";
+import { Info, Loader2, Mic, Paperclip, Sparkles, TriangleAlert, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import globe from "@/assets/globe.jpg";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { CategoryCombobox } from "@/components/osi/CategoryCombobox";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { createRequestFn, startRequestPipelineFn } from "@/lib/requests-fns";
 import { categoryLabel, suggestCategory } from "@/lib/taxonomy";
 import { cn } from "@/lib/utils";
+
+/** The corridors OSI actually sources from, for the country-code helper — the
+ *  major manufacturing origins plus the buyer's own market and the European
+ *  suppliers they compare against. A hint, not a restriction: the field
+ *  accepts any ISO 3166-1 alpha-2 code. */
+const COMMON_COUNTRIES = [
+  ["CN", "Chine"],
+  ["IN", "Inde"],
+  ["VN", "Viêt Nam"],
+  ["TW", "Taïwan"],
+  ["KR", "Corée du Sud"],
+  ["JP", "Japon"],
+  ["TH", "Thaïlande"],
+  ["TR", "Turquie"],
+  ["MX", "Mexique"],
+  ["US", "États-Unis"],
+  ["CA", "Canada"],
+  ["DE", "Allemagne"],
+  ["IT", "Italie"],
+  ["ES", "Espagne"],
+  ["PL", "Pologne"],
+] as const;
 
 const LEGACY_DRAFT_KEY = "osi-draft-besoin";
 const DRAFT_KEY = "osi-draft-besoin-v2";
@@ -47,6 +70,8 @@ type FormFields = {
   /** Comma-separated in the UI; split on submit. */
   certifications: string;
   leadTime: string;
+  /** Comma-separated ISO 3166-1 alpha-2 codes; empty = worldwide. */
+  countries: string;
   details: string;
 };
 
@@ -57,6 +82,7 @@ const EMPTY_FIELDS: FormFields = {
   material: "",
   certifications: "",
   leadTime: "",
+  countries: "",
   details: "",
 };
 
@@ -90,6 +116,29 @@ function readDraft(): FormFields | null {
 
 function writeDraft(fields: FormFields): void {
   window.localStorage.setItem(DRAFT_KEY, JSON.stringify({ fields, savedAt: Date.now() }));
+}
+
+/** "fr, de , IT" → ["FR","DE","IT"]. Empty means worldwide — the buyer says
+ *  nothing and OSI looks everywhere, which is the product's default. */
+/** Localised country name, so the list reads in the buyer's language without
+ *  us shipping a translation table (the app already leans on Intl for this). */
+function countryName(code: string, lang: string): string | null {
+  try {
+    return new Intl.DisplayNames([lang], { type: "region" }).of(code) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function splitCountries(input: string): string[] {
+  return [
+    ...new Set(
+      input
+        .split(/[,;\s]+/)
+        .map((c) => c.trim().toUpperCase())
+        .filter((c) => /^[A-Z]{2}$/.test(c)),
+    ),
+  ].slice(0, 20);
 }
 
 function splitCertifications(input: string): string[] {
@@ -150,6 +199,8 @@ export function HeroPrompt({
       );
     if (f.quantity.trim()) lines.push(`${t("home.form.quantity")}: ${f.quantity.trim()}`);
     if (f.leadTime.trim()) lines.push(`${t("home.form.leadTime")}: ${f.leadTime.trim()}`);
+    const countries = splitCountries(f.countries);
+    if (countries.length > 0) lines.push(`${t("home.form.countries")}: ${countries.join(", ")}`);
     if (f.details.trim()) lines.push("", f.details.trim());
     return lines.join("\n");
   };
@@ -233,6 +284,9 @@ export function HeroPrompt({
               : {}),
             ...(f.quantity.trim() ? { quantity: f.quantity.trim() } : {}),
             ...(f.leadTime.trim() ? { leadTime: f.leadTime.trim() } : {}),
+            ...(splitCountries(f.countries).length > 0
+              ? { countryCodes: splitCountries(f.countries) }
+              : {}),
             ...(f.details.trim() ? { details: f.details.trim() } : {}),
           },
           attachmentsPending: hasFiles,
@@ -410,6 +464,44 @@ export function HeroPrompt({
                 className="h-9"
               />
             </div>
+          </div>
+
+          <div>
+            <label htmlFor="need-countries" className={fieldLabel}>
+              {t("home.form.countries")}
+              <Popover>
+                <PopoverTrigger
+                  type="button"
+                  aria-label={t("home.form.countriesListAria")}
+                  className="ml-1.5 inline-flex align-middle text-muted-foreground transition-colors hover:text-gold"
+                >
+                  <Info className="size-3.5" />
+                </PopoverTrigger>
+                <PopoverContent align="start" className="w-64 p-3">
+                  <p className="mb-2 text-[11px] font-semibold">
+                    {t("home.form.countriesListTitle")}
+                  </p>
+                  <ul className="grid grid-cols-2 gap-x-3 gap-y-1">
+                    {COMMON_COUNTRIES.map(([code, name]) => (
+                      <li key={code} className="flex items-baseline gap-1.5 text-[10px]">
+                        <span className="font-mono font-semibold text-gold">{code}</span>
+                        <span className="truncate text-muted-foreground">
+                          {countryName(code, i18n.language) ?? name}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </PopoverContent>
+              </Popover>
+            </label>
+            <Input
+              id="need-countries"
+              value={fields.countries}
+              onChange={(e) => set("countries")(e.target.value)}
+              placeholder={t("home.form.countriesPlaceholder")}
+              className="h-9"
+            />
+            <p className="mt-1 text-[11px] text-muted-foreground">{t("home.form.countriesHint")}</p>
           </div>
 
           <div>

@@ -1,0 +1,1 @@
+ALTER TABLE "request" ADD COLUMN "country_codes" jsonb;

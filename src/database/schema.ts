@@ -184,6 +184,14 @@ export const request = pgTable(
     categoryId: text("category_id"),
     status: text("status").$type<RequestStatus>().notNull().default("draft"),
     locale: text("locale").notNull().default("fr"),
+    /** Per-request supplier origin (owner 2026-08-29). NULL = fall back to the
+     *  workspace's `sourcing_rules` (itself worldwide unless the workspace
+     *  restricted it), so leaving the field empty means "monde entier" for
+     *  everyone who has not set a policy — and a workspace that deliberately
+     *  restricted itself is not silently widened by an empty form field.
+     *  A non-empty list overrides for THIS request only: a buyer sourcing in
+     *  Europe today and Asia tomorrow should not have to edit Settings. */
+    countryCodes: jsonb("country_codes").$type<string[]>(),
     // Denormalized display cache — source of truth becomes `matches` at E5.
     compatibilityScore: integer("compatibility_score"),
     launchedAt: timestamp("launched_at"),

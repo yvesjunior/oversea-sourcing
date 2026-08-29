@@ -19,6 +19,7 @@ import { Route as MotDePasseOublieRouteImport } from './routes/mot-de-passe-oubl
 import { Route as ParametresRouteImport } from './routes/parametres'
 import { Route as ReinitialiserRouteImport } from './routes/reinitialiser'
 import { Route as SignupRouteImport } from './routes/signup'
+import { Route as SoumissionsRouteImport } from './routes/soumissions'
 import { Route as TransactionsRouteImport } from './routes/transactions'
 import { Route as ApiSourceUploadRouteImport } from './routes/api/source-upload'
 import { Route as ApiUploadRouteImport } from './routes/api/upload'
@@ -85,6 +86,11 @@ const ReinitialiserRoute = ReinitialiserRouteImport.update({
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
   path: '/signup',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SoumissionsRoute = SoumissionsRouteImport.update({
+  id: '/soumissions',
+  path: '/soumissions',
   getParentRoute: () => rootRouteImport,
 } as any)
 const TransactionsRoute = TransactionsRouteImport.update({
@@ -184,6 +190,7 @@ export interface FileRoutesByFullPath {
   '/parametres': typeof ParametresRoute
   '/reinitialiser': typeof ReinitialiserRoute
   '/signup': typeof SignupRoute
+  '/soumissions': typeof SoumissionsRoute
   '/transactions': typeof TransactionsRoute
   '/api/source-upload': typeof ApiSourceUploadRoute
   '/api/upload': typeof ApiUploadRoute
@@ -213,6 +220,7 @@ export interface FileRoutesByTo {
   '/parametres': typeof ParametresRoute
   '/reinitialiser': typeof ReinitialiserRoute
   '/signup': typeof SignupRoute
+  '/soumissions': typeof SoumissionsRoute
   '/transactions': typeof TransactionsRoute
   '/api/source-upload': typeof ApiSourceUploadRoute
   '/api/upload': typeof ApiUploadRoute
@@ -243,6 +251,7 @@ export interface FileRoutesById {
   '/parametres': typeof ParametresRoute
   '/reinitialiser': typeof ReinitialiserRoute
   '/signup': typeof SignupRoute
+  '/soumissions': typeof SoumissionsRoute
   '/transactions': typeof TransactionsRoute
   '/api/source-upload': typeof ApiSourceUploadRoute
   '/api/upload': typeof ApiUploadRoute
@@ -274,6 +283,7 @@ export interface FileRouteTypes {
     | '/parametres'
     | '/reinitialiser'
     | '/signup'
+    | '/soumissions'
     | '/transactions'
     | '/api/source-upload'
     | '/api/upload'
@@ -303,6 +313,7 @@ export interface FileRouteTypes {
     | '/parametres'
     | '/reinitialiser'
     | '/signup'
+    | '/soumissions'
     | '/transactions'
     | '/api/source-upload'
     | '/api/upload'
@@ -332,6 +343,7 @@ export interface FileRouteTypes {
     | '/parametres'
     | '/reinitialiser'
     | '/signup'
+    | '/soumissions'
     | '/transactions'
     | '/api/source-upload'
     | '/api/upload'
@@ -362,6 +374,7 @@ export interface RootRouteChildren {
   ParametresRoute: typeof ParametresRoute
   ReinitialiserRoute: typeof ReinitialiserRoute
   SignupRoute: typeof SignupRoute
+  SoumissionsRoute: typeof SoumissionsRoute
   TransactionsRoute: typeof TransactionsRoute
   ApiSourceUploadRoute: typeof ApiSourceUploadRoute
   ApiUploadRoute: typeof ApiUploadRoute
@@ -450,6 +463,13 @@ declare module '@tanstack/react-router' {
       path: '/signup'
       fullPath: '/signup'
       preLoaderRoute: typeof SignupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/soumissions': {
+      id: '/soumissions'
+      path: '/soumissions'
+      fullPath: '/soumissions'
+      preLoaderRoute: typeof SoumissionsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/transactions': {
@@ -597,6 +617,7 @@ const rootRouteChildren: RootRouteChildren = {
   ParametresRoute: ParametresRoute,
   ReinitialiserRoute: ReinitialiserRoute,
   SignupRoute: SignupRoute,
+  SoumissionsRoute: SoumissionsRoute,
   TransactionsRoute: TransactionsRoute,
   ApiSourceUploadRoute: ApiSourceUploadRoute,
   ApiUploadRoute: ApiUploadRoute,
