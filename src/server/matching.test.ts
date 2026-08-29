@@ -3,7 +3,7 @@
 // not satisfy "ISO 8573-1"), and morphological aliases ("inox" ↔ "inoxydable").
 
 import { describe, expect, it } from "vitest";
-import { scoreSupplier } from "@/server/matching";
+import { isRelevant, scoreSupplier } from "@/server/matching";
 import type * as schema from "@/database/schema";
 
 type SupplierRow = typeof schema.supplier.$inferSelect;
@@ -116,5 +116,69 @@ describe("score composition", () => {
     const breakdown = scoreSupplier(supplier, criteria);
     // required match (×2) over total weight 3 → coverage 2/3 → 37 of 55.
     expect(breakdown.criteriaPoints).toBe(37);
+  });
+});
+
+// ── The relevance gate (fix 2026-08-29) ─────────────────────────────────────
+// Reproduces the shape that produced the defect in dev request #2540: an
+// electronics request whose whole Top-5 was pump companies at "41 %".
+
+describe("relevance is a gate, not a component", () => {
+  const electronics: CriterionRow[] = [
+    makeCriterion({
+      id: "e1",
+      category: "other",
+      label: "Besoin",
+      value: "composants électroniques",
+      required: true,
+    }),
+    makeCriterion({
+      id: "e2",
+      category: "certification",
+      label: "Certifications",
+      value: "RoHS",
+      required: true,
+    }),
+  ];
+
+  it("a verified, confident supplier matching NOTHING is ineligible", () => {
+    // This is the exact #2540 shape — and note the score it still earns.
+    const pumpCompany = makeSupplier({
+      name: "ITALPOMPE",
+      description: "Fabricant de pompes centrifuges industrielles",
+      verificationStatus: "verified",
+      confidenceScore: 70,
+      riskLevel: "low",
+    });
+    const breakdown = scoreSupplier(pumpCompany, electronics);
+    expect(breakdown.matchedCount).toBe(0);
+    // The quality terms alone still put it in the forties — which is exactly
+    // why the fix had to be a gate and not a re-weighting.
+    expect(breakdown.total).toBeGreaterThanOrEqual(35);
+    expect(isRelevant(breakdown)).toBe(false);
+  });
+
+  it("one matched criterion is enough to be judged on quality", () => {
+    const real = makeSupplier({
+      name: "Nordic Electronics",
+      description: "Assemblage de composants électroniques pour l'industrie",
+    });
+    const breakdown = scoreSupplier(real, electronics);
+    expect(breakdown.matchedCount).toBeGreaterThan(0);
+    expect(isRelevant(breakdown)).toBe(true);
+  });
+
+  it("an unjudgeable request keeps every candidate eligible", () => {
+    // Nothing checkable: all criteria are numeric specs. Relevance cannot be
+    // decided, so the dossier still ranks on quality rather than showing
+    // nothing. countQualifyingCandidates handles this case separately — such
+    // a request must never be answered from the store.
+    const numericOnly: CriterionRow[] = [
+      makeCriterion({ id: "n1", category: "pressure", label: "Pression", value: "16 bar" }),
+      makeCriterion({ id: "n2", category: "quantity", label: "Quantité", value: "500" }),
+    ];
+    const breakdown = scoreSupplier(makeSupplier(), numericOnly);
+    expect(breakdown.checkableCount).toBe(0);
+    expect(isRelevant(breakdown)).toBe(true);
   });
 });

@@ -22,7 +22,7 @@ import { supplierDedupKey } from "@/lib/supplier-key";
 import { recordEvent } from "@/server/requests";
 import { readAttachmentsText } from "@/server/attachments";
 import { parseCriteria } from "@/server/parse-criteria";
-import { scoreSupplier } from "@/server/matching";
+import { isRelevant, scoreSupplier } from "@/server/matching";
 import {
   STORE_FRESH_DAYS,
   STORE_MIN_CANDIDATES,
@@ -39,6 +39,10 @@ import {
   type MatchCandidate,
 } from "@/server/sources/scope";
 import type { SearchBrief, SourceCandidate } from "@/server/sources/types";
+
+/** Kept in step with matching.ts — a criterion whose value is a numeric spec
+ *  cannot be judged from a supplier's marketing text. */
+const UNVERIFIABLE_CATEGORIES = new Set(["pressure", "flow", "quantity", "lead_time"]);
 
 export type ResearchOutcome = {
   found: number;
@@ -178,19 +182,36 @@ type CriterionRow = typeof schema.requestCriterion.$inferSelect;
 /**
  * Pure half of the store-first decision — how many of these candidates
  * qualify as a store answer for these criteria? A candidate must be fresh
- * (≤ STORE_FRESH_DAYS on `lastSeenAt`), confident (≥ STORE_MIN_CONFIDENCE)
- * and actually match (score ≥ STORE_MIN_SCORE). Exported for unit tests (A7).
+ * (≤ STORE_FRESH_DAYS on `lastSeenAt`), confident (≥ STORE_MIN_CONFIDENCE),
+ * RELEVANT, and score ≥ STORE_MIN_SCORE. Exported for unit tests (A7).
+ *
+ * The relevance gate is load-bearing HERE, more than in the ranking (fix
+ * 2026-08-29). The quality terms alone put a verified, confident supplier at
+ * ~40-41, which clears STORE_MIN_SCORE (40) — so a pool holding 2×N verified
+ * suppliers used to satisfy store-first for ANY request, however unrelated,
+ * and live research never ran. A whole new category would be answered from
+ * the old pool forever, which is the opposite of what the store-first design
+ * is for: the store answers what it KNOWS, the web finds what it does not.
  */
 export function countQualifyingCandidates(
   pool: MatchCandidate[],
   criteria: CriterionRow[],
   now: Date = new Date(),
 ): number {
+  // An unjudgeable request — no criteria, or all of them numeric — cannot
+  // qualify anything. Every candidate would coast on the 0.5 coverage
+  // midpoint, so the pool would always look sufficient and the request would
+  // never be researched. Those requests always go to the web.
+  const checkable = criteria.filter((c) => !UNVERIFIABLE_CATEGORIES.has(c.category));
+  if (checkable.length === 0) return 0;
+
   const freshCutoff = new Date(now.getTime() - STORE_FRESH_DAYS * 24 * 60 * 60 * 1000);
   return pool.filter((candidate) => {
     if (!candidate.lastSeenAt || candidate.lastSeenAt < freshCutoff) return false;
     if (candidate.confidenceScore < STORE_MIN_CONFIDENCE) return false;
-    return scoreSupplier(candidate, criteria).total >= STORE_MIN_SCORE;
+    const breakdown = scoreSupplier(candidate, criteria);
+    if (!isRelevant(breakdown)) return false;
+    return breakdown.total >= STORE_MIN_SCORE;
   }).length;
 }
 

@@ -60,6 +60,10 @@ export type ScoreBreakdown = {
   verificationPoints: number;
   riskPenalty: number;
   total: number;
+  /** How many criteria could be checked at all (numeric specs cannot). */
+  checkableCount: number;
+  /** How many of those the supplier's own text actually evidences. */
+  matchedCount: number;
 };
 
 type CriterionRow = typeof schema.requestCriterion.$inferSelect;
@@ -133,6 +137,7 @@ export function scoreSupplier(supplier: Scoreable, criteria: CriterionRow[]): Sc
   const coverage = totalWeight === 0 ? 0.5 : earned / totalWeight;
 
   const criteriaPoints = Math.round(CRITERIA_WEIGHT * coverage);
+  const matchedCount = weighed.filter((c) => c.outcome === "matched").length;
   const confidencePoints = Math.round((supplier.confidenceScore / 100) * CONFIDENCE_WEIGHT);
   const verificationPoints = VERIFICATION_POINTS[supplier.verificationStatus] ?? 0;
   const riskPenalty = RISK_PENALTY[supplier.riskLevel] ?? 0;
@@ -150,7 +155,38 @@ export function scoreSupplier(supplier: Scoreable, criteria: CriterionRow[]): Sc
     verificationPoints,
     riskPenalty,
     total,
+    checkableCount: weighed.length,
+    matchedCount,
   };
+}
+
+/**
+ * RELEVANCE IS A GATE, NOT A COMPONENT (fix 2026-08-29, owner-validated).
+ *
+ * The three quality terms — base, confidence, verification, minus risk — are
+ * awarded independently of whether the supplier has anything to do with the
+ * request. A verified, confident supplier therefore scored ~40-41 with ZERO
+ * criteria matched, which produced two failures at once:
+ *
+ *   1. ranking: an electronics request came back with a Top-5 of pump
+ *      companies, every criterion `missed`, each shown as "41 % compatible";
+ *   2. worse — that floor clears STORE_MIN_SCORE (40), so a pool of ≥ 2×N
+ *      verified suppliers could store-hit ANY request and suppress live
+ *      research entirely. New categories were served the old pool forever.
+ *
+ * So relevance no longer contributes points; it decides ELIGIBILITY. Quality
+ * then orders suppliers WITHIN the relevant set, which is what those terms
+ * were always meant to do.
+ *
+ * A request with nothing checkable (all-numeric criteria, or none at all)
+ * cannot judge relevance — every candidate stays eligible so the dossier
+ * still ranks on quality. `countQualifyingCandidates` treats that case
+ * separately: it must never satisfy store-first, or an unjudgeable request
+ * would be answered from the pool without ever searching.
+ */
+export function isRelevant(breakdown: ScoreBreakdown): boolean {
+  if (breakdown.checkableCount === 0) return true;
+  return breakdown.matchedCount > 0;
 }
 
 /**
@@ -178,10 +214,20 @@ export async function createMatchesForRequest(
       // Criteria feed the big-store SQL prefilter (C2b).
       criteria.map((c) => c.value),
     ));
-  if (candidates.length === 0) return 0;
+  if (candidates.length === 0) {
+    if (options.recordEvent !== false) {
+      await recordEvent(requestId, organizationId, "matches.created", { count: 0, analyzed: 0 });
+    }
+    return 0;
+  }
 
   const ranked = candidates
     .map((candidate) => ({ candidate, breakdown: scoreSupplier(candidate, criteria) }))
+    // The gate. A candidate that evidences NOTHING the buyer asked for is not
+    // a worse match — it is not a match, and padding the Top-N with it is
+    // worse than returning fewer. An empty result is honest and, upstream,
+    // makes the pipeline fall through to live research.
+    .filter((entry) => isRelevant(entry.breakdown))
     .sort(
       (a, b) =>
         // Score first; then confidence, then name — deterministic without the

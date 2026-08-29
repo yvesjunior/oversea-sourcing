@@ -1035,19 +1035,40 @@ misses — a one-line supplier description cannot evidence "16 bar", and scoring
 absence as failure penalises every supplier equally. They become checkable when
 the capability/certification satellite tables exist.
 
-> ⚠️ **Known accuracy defect — diagnosed 2026-08-28, fix validated with the
-> owner, NOT yet implemented** (backlog pick-up item ⓪). The three
+> ✅ **Relevance is a GATE, not a component (fixed 2026-08-29).** The three
 > quality terms (base + confidence + verification − risk, up to 42 points)
-> are awarded **independent of relevance**, so a verified high-confidence
-> supplier scores ~40–41 with ZERO criteria matched — and because
-> `STORE_MIN_SCORE = 40`, a pool of ≥ 2×N verified suppliers can
-> **store-hit any request** and suppress live research entirely. Observed
-> in dev: an electronics request's whole Top-5 was pump companies at
-> "41 % compatible". The validated fix makes relevance a **gate**: zero
-> matched checkable criteria ⇒ ineligible (excluded from ranking AND from
-> store-first qualification); Top-N presents fewer than N rather than
-> padding; all-numeric requests always research. Quality points then only
-> order suppliers WITHIN the relevant set.
+> are awarded independently of relevance, so a verified, confident supplier
+> scored ~40-41 with **zero criteria matched**. That produced two failures:
+> an electronics request came back with a Top-5 of pump companies at "41 %
+> compatible" (dev #2540), and — worse — that floor cleared
+> `STORE_MIN_SCORE = 40`, so a pool of ≥ 2×N verified suppliers could
+> **store-hit any request** and suppress live research entirely.
+>
+> The quality terms no longer decide eligibility, only ORDER within the
+> eligible set:
+>
+> - a candidate matching **zero checkable criteria is ineligible** — excluded
+>   from ranking *and* from store-first qualification (`isRelevant` in
+>   `src/server/matching.ts`);
+> - the Top-N **presents fewer than N rather than padding**; an empty relevant
+>   set means the pipeline falls through to live research, which is what
+>   research is for;
+> - a request with **nothing checkable** (all-numeric criteria, or none) keeps
+>   every candidate eligible for ranking, but **never satisfies store-first** —
+>   otherwise the 0.5 coverage midpoint would make the pool look permanently
+>   sufficient and the request would never be searched.
+>
+> `score_breakdown` now persists `matchedCount` and `checkableCount`, so any
+> ranking stays explainable after the fact. *Verified live:* the same
+> electronics need that produced pumps under the old code returned five PCB
+> assemblers at 75 %, each matching 1 of 1 checkable criterion.
+>
+> **Known residual:** the gate asks for *at least one* matched criterion, and
+> the structured form makes certifications a criterion — so a supplier
+> matching only a near-universal cert ("ISO 9001") while missing the product
+> still passes. Tightening to "the product criterion must match" is the next
+> refinement, deliberately not taken yet: the product string is free text and
+> a stricter gate risks empty Top-Ns on a bilingual corpus.
 
 ---
 

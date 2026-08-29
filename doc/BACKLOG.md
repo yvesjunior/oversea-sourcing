@@ -94,10 +94,10 @@ differently"**. Then pick up **P2** (the buyer's supplier selection), which is
 written to be executed cold.
 
 **Two things belong before P2 lands, and neither is Phase P work:**
-- **pick-up item ⓪, the search relevance gate.** A verified supplier still
-  scores ~41 % with zero criteria matched. Since the buyer now picks
-  suppliers to solicit BY HAND from the Top-N, a bad ranking is no longer a
-  cosmetic problem — it is the list they stake a decision on.
+- ~~pick-up item ⓪, the search relevance gate~~ ✅ **FIXED 2026-08-29** (see
+  "Relevance is a gate" in README §2 and the entry below). Verified live:
+  the electronics need that returned pump companies at 41 % now returns five
+  PCB assemblers at 75 %.
 - **the `osi-uploads` volume is in no backup** (`scripts/backup.sh` dumps
   Postgres only). Blocking for **P8**, not for P2 — but it must be fixed
   before any signed contract is stored.
@@ -1190,6 +1190,58 @@ click → sign in. Someone who does not check their inbox within the hour loses
 the draft and retypes. That is the owner's call and the safe direction (a
 stale draft costs money, a retype costs a minute); revisit if signup feedback
 says otherwise.
+
+### ~~Search relevance: quality points masqueraded as compatibility~~ ✅ FIXED 2026-08-29
+
+**Pick-up item ⓪, carried since 2026-08-28, fixed the day the buyer became
+the one who picks suppliers to solicit** — which is what made it urgent: a
+bad ranking stopped being cosmetic and became the list a buyer stakes an
+outreach decision on.
+
+**The defect.** `scoreSupplier` awarded `10 base + 20×confidence + 12
+verified − risk` INDEPENDENT of relevance, so a verified, confident supplier
+scored ~40-41 with zero criteria matched. Two failures, the second worse than
+the first:
+
+1. **Ranking** — dev #2540 ("Composants électroniques") returned AQUATEK,
+   NORDIC, Nippon Seiko, FlowMax and ITALPOMPE: pumps and bearings, every
+   criterion `missed`, each shown at "40-41 % compatible".
+2. **Store-hit suppression** — that floor clears `STORE_MIN_SCORE = 40`, so
+   `countQualifyingCandidates` let a pool of ≥ 2×N verified-but-unrelated
+   suppliers satisfy store-first for ANY request. A whole new category would
+   be answered from the old pool and **never researched**.
+
+**The fix — relevance decides ELIGIBILITY, quality decides ORDER** (contract,
+do not undo): `isRelevant(breakdown)` in `src/server/matching.ts` is false
+when a request has ≥1 checkable criterion and the candidate matched none;
+`createMatchesForRequest` filters on it before ranking and **presents fewer
+than N rather than padding**; `countQualifyingCandidates` applies the same
+gate AND returns 0 outright for a request with nothing checkable — the 0.5
+coverage midpoint would otherwise make the pool look permanently sufficient.
+`score_breakdown` persists `matchedCount` / `checkableCount` so a ranking
+stays explainable afterwards.
+
+**Why a gate and not a re-weighting** (three alternatives were considered):
+multiplying the score by coverage rescales every existing score and
+over-punishes a supplier matching 1 of 5 criteria; raising `STORE_MIN_SCORE`
+above the 42-point quality ceiling fixes the store-hit hole but leaves the
+ranking broken; rebalancing the weights cannot help, because base +
+confidence + verification is ~32 for a zero-match supplier whatever the
+weights.
+
+*Verified live in dev:* request #3032, same electronics need, went to
+research (no `store_hit`) and returned five PCB assemblers at 75 %, each
+matching 1 of 1 checkable criterion. Across every `match` row in the
+database, **zero** were written with `matchedCount = 0`. 6 new unit tests
+(73 total) including the exact #2540 shape.
+
+**Known residual, deliberately not taken:** the gate asks for at least ONE
+matched criterion, and the structured form makes certifications a criterion —
+so a supplier matching only a near-universal "ISO 9001" while missing the
+product still passes. Tightening to "the product criterion must match" is the
+next refinement; it was not done because the product value is free text and a
+stricter gate risks empty Top-Ns on a bilingual corpus. Revisit if real
+requests show it.
 
 ### ~~Hydration breaks once a visitor picks a language~~ ✅ FIXED 2026-08-29
 
