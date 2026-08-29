@@ -178,7 +178,9 @@ features (owner priority). ~~Prod = main = `d603dd7` (deploy #5)~~ —
 (`31f8a4c`) shipped 2026-08-27; see the 2026-08-27/28 digest above.**
 
 ②q **DONE 2026-08-28 — header profile menu + search-accuracy diagnosis
-documented**:
+documented — DEPLOYED as #11 (commit `8c374fa`, code-only; backup
+`backups/osi-20260829-100827.sql.gz`; verified: origin 200, VM on
+`8c374fa`, five containers up)**:
 - **UserMenu** (`src/components/osi/UserMenu.tsx`, owner: "add in the
   header top right user profile for deconnexion and listing of profile
   information, instead of having that in nav bottom"): top-right avatar
