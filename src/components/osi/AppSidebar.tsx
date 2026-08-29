@@ -1,17 +1,21 @@
 import { Link, useRouter, useRouterState } from "@tanstack/react-router";
 import {
+  Banknote,
   BarChart3,
+  ClipboardList,
   Database,
+  FileSignature,
   FileText,
   Home,
   Inbox,
+  LayoutDashboard,
   LogIn,
-  LogOut,
+  MessageSquare,
+  Package,
   CreditCard,
   ScrollText,
   Settings,
   ShieldCheck,
-  Repeat,
   UserCog,
   Users,
   Handshake,
@@ -36,16 +40,31 @@ type NavItem = {
   disabled?: boolean;
 };
 
+// The merged navigation (ADR-002 §12, owner-validated 2026-08-29): today's
+// entries plus the portal brief's, in one list. Entries whose module has not
+// been built yet carry `disabled` — greyed, unreachable, and deliberately
+// WITHOUT a route, so the buyer sees the whole journey from the first day
+// without any tab pretending to work. Each becomes a live link when its
+// Phase P task lands.
 const items: NavItem[] = [
-  { key: "accueil", url: "/", icone: Home },
+  // Home IS the dashboard (owner 2026-08-29): same route, new label.
+  { key: "tableauDeBord", url: "/", icone: LayoutDashboard },
+  // Carries the intake form since 2026-08-29 — "création et suivi".
   { key: "demandes", url: "/demandes", icone: Inbox },
   { key: "fournisseurs", url: "/fournisseurs", icone: Users },
-  // Disabled rather than removed: the buyer should see the journey continues
-  // past the report, even while these pages hold nothing real (E8 / E3+).
-  { key: "transactions", url: "/transactions", icone: Repeat, disabled: true },
+  // ── Phase P — no routes yet, greyed until their module lands ──────────
+  { key: "soumissions", url: "/soumissions", icone: ClipboardList, disabled: true },
+  { key: "contrats", url: "/contrats", icone: FileSignature, disabled: true },
+  // Ex-"transactions": renamed per the brief; still the showcase route.
+  { key: "commandes", url: "/commandes", icone: Package, disabled: true },
   { key: "documents", url: "/documents", icone: FileText, disabled: true },
-  // Employee-only (PLATFORM_FEATURES.analytics) — filtered per role below.
-  { key: "analyses", url: "/analyses", icone: BarChart3, feature: "analytics" },
+  // Banknote, not Wallet/CreditCard — both are taken by Finance and
+  // Abonnements in the INTERNE block of this same sidebar.
+  { key: "paiements", url: "/paiements", icone: Banknote, disabled: true },
+  { key: "messages", url: "/messages", icone: MessageSquare, disabled: true },
+  // Buyer-facing reports. NOT a rename of Analyses: that one is staff-only
+  // and moved to the INTERNE block below, where its permission already put it.
+  { key: "rapports", url: "/rapports", icone: BarChart3, disabled: true },
   // Real since B5 (2026-08-23): profile, subscription view, sourcing
   // preferences and (owner) the member list — live for every role.
   { key: "parametres", url: "/parametres", icone: Settings },
@@ -60,6 +79,10 @@ const itemsInterne: {
   icone: typeof Home;
 }[] = [
   { key: "facilitation", url: "/interne/facilitation", icone: Handshake },
+  // Moved out of the client block 2026-08-29 (ADR-002 §12): it has always
+  // been staff-only (PLATFORM_FEATURES.analytics) and merely SAT in the
+  // buyer list. The buyer-facing counterpart is "Rapports" (Phase P).
+  { key: "analytics", url: "/analyses", icone: BarChart3 },
   // Real screen since S5c (2026-08-26) — live for managers too.
   { key: "verification", url: "/interne/verification", icone: ShieldCheck },
   // Customer accounts (individual vs organisation), 2026-08-26.

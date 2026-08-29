@@ -1069,6 +1069,20 @@ Quality gates are `npm test` (vitest, 27 unit tests),
   the guard skips re-init, so SSR renders raw keys (and every hydration fails)
   until `docker restart` of the web container. Cost an hour on 2026-08-24.
 
+### Known defect — SSR hydration mismatch on the dashboard (found 2026-08-29)
+
+**Pre-existing and ON PROD** — reproduced on the `deploy-11-baseline` tag
+(= deploy #11), so it predates the portal work and was NOT introduced by it.
+The browser console carries `Hydration failed because the server rendered text
+…` on `/` whenever dossier cards are present. Prime suspect: the **relative
+timestamps** on `DossierCard` ("Mis à jour il y a 6 minutes") — the server
+renders one instant, the client hydrates at another, and the two strings
+differ. React then discards the server HTML and re-renders that subtree
+client-side: the page looks right, which is why it went unnoticed, but SSR is
+silently wasted there and the error masks any real hydration bug that lands
+later. Not fixed — needs a stable rendering (format on the client after mount,
+or send a pre-formatted string from the loader).
+
 ### Live data (do not assume it is disposable)
 
 Production holds **only real accounts** — seven as of 2026-08-22:
@@ -1718,10 +1732,11 @@ through the platform (2026-08-29). Parties are ROWS, never users.
       session, saved via `updateProfileFn`; switch in Paramètres → Profil
       beside the accent picker. **Audit the 5 accents on BOTH grounds** —
       they were only ever checked against the light one.
-      ② **Home IS the dashboard** (owner 2026-08-29): `/` keeps its route and
-      its SEO meta; the nav label `nav.accueil` → `nav.tableauDeBord`; the
-      signed-in view becomes the dashboard enriched toward the brief's mockup.
-      No new route, no redirect, `PUBLIC_PATHS` unchanged.
+      ② ~~**Home IS the dashboard**~~ ✅ **BUILT 2026-08-29**: `/` keeps its
+      route and its SEO meta; `nav.accueil` → `nav.tableauDeBord`; the
+      signed-in view is the dashboard with its own header. No new route, no
+      redirect, `PUBLIC_PATHS` unchanged. *Enriching it toward the brief's
+      mockup (dépenses chart, activités récentes) is still to do.*
       ③ ~~**The form moves to Demandes**~~ ✅ **BUILT 2026-08-29** (owner:
       "move the request search component to the request page"): `HeroPrompt`
       gained a `variant` prop — `hero` (globe + greeting + headline, `/` for
@@ -1742,7 +1757,12 @@ through the platform (2026-08-29). Parties are ROWS, never users.
       submit from `/demandes` created **#3028** (`valves`, store hit, ≈$0,
       report_ready). tsc + eslint + 46 tests green. Nav label rename and the
       new tabs are still to do (② and ④).
-      ④ **Merged nav — 11 client + 9 interne = 20** (was 15). Client:
+      ④ ~~**Merged nav**~~ ✅ **BUILT 2026-08-29 — 11 client + 9 interne = 20**
+      (was 15). Entries whose module does not exist yet carry `disabled` and
+      **no route at all** — they render as a `<span>`, greyed, unreachable by
+      keyboard or middle-click (the existing disabled-not-hidden rule), and
+      become live links as their Phase P task lands. *Live-verified in dev as
+      buyer and as owner, FR and EN.* Client:
       Tableau de bord `/` · Demandes · Fournisseurs · **Soumissions** ·
       **Contrats** · **Commandes** (ex-Transactions) · Documents ·
       **Paiements** · **Messages** · **Rapports** (buyer-facing, new) ·
