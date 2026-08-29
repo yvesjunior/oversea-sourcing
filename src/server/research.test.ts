@@ -23,6 +23,7 @@ function makeCandidate(overrides: Partial<MatchCandidate> = {}): MatchCandidate 
     website: null,
     sourceUrl: null,
     description: "Fabricant de vannes papillon en acier inoxydable 316L, certifié ISO 9001",
+    descriptionEn: null,
     verificationStatus: "unverified",
     confidenceScore: 60,
     riskLevel: "medium",

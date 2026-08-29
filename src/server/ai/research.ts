@@ -77,6 +77,12 @@ const CandidateSchema = z.object({
   website: z.string().nullable(),
   /** One sentence on what they manufacture, in the buyer's language. */
   description: z.string().nullable(),
+  /** The SAME sentence in English. Stored beside the native one so the pool
+   *  stays matchable from either language: a French request matches the
+   *  French text, an English one matches this. Without it the store answers
+   *  only the language that first discovered the supplier, and store-first —
+   *  the whole point of the pool — stops working across languages. */
+  descriptionEn: z.string().nullable(),
   /** Page the agent actually read this from — provenance for the buyer. */
   sourceUrl: z.string().nullable(),
   /** 0-100, how well the evidence supports this being a real, fitting supplier. */
@@ -147,6 +153,14 @@ const RESEARCH_SYSTEM = [
   "describes. Prefer manufacturers over distributors and marketplaces. Look beyond",
   "the buyer's own region — global coverage is the product.",
   "",
+  "SEARCH IN ENGLISH FIRST. The buyer may write in French; the manufacturing web",
+  "does not. Translate their need into the English trade terms the industry",
+  "actually uses (\"courroies transporteuses\" → \"conveyor belts\") and spend your",
+  "first and most searches there — that is where the global supplier base is.",
+  "Search the buyer's own language afterwards, and only when a local supplier base",
+  "genuinely matters for this need. Searching their language first buys a fraction",
+  "of the coverage for the same budget.",
+  "",
   "For every company you propose, report: the legal or trading name, the country",
   "(ISO 3166-1 alpha-2), the website, one sentence on what they make that fits this",
   "need, and the page you read it from.",
@@ -165,6 +179,10 @@ const EXTRACTION_SYSTEM = [
   "Copy only what the findings state — never infer a country, a website, or a",
   "specialism that is not written there. Drop any company whose country you",
   "cannot determine. countryCode must be ISO 3166-1 alpha-2, uppercase.",
+  "Give BOTH descriptions: `description` in the buyer's language and",
+  "`descriptionEn` saying the same thing in English. They must carry the same",
+  "facts — the English one is what lets a later buyer in another language find",
+  "this supplier in our own pool instead of paying for a fresh search.",
   "confidence reflects how well the findings evidence that company: 80+ when a",
   "manufacturer page states the capability, 50-70 when it is implied, below 50",
   "when it is a guess.",
@@ -242,7 +260,7 @@ async function extractPhase(findings: string, locale: string): Promise<SupplierC
     client.messages.parse({
       model: EXTRACTION_MODEL,
       max_tokens: 4000,
-      system: `${EXTRACTION_SYSTEM}\nWrite descriptions in ${locale === "en" ? "English" : "French"}.`,
+      system: `${EXTRACTION_SYSTEM}\nThe buyer's language is ${locale === "en" ? "English" : "French"} — write \`description\` in it. \`descriptionEn\` is always English (for an English buyer the two are simply the same sentence).`,
       output_config: { format: zodOutputFormat(CandidatesSchema) },
       messages: [{ role: "user", content: findings }],
     }),

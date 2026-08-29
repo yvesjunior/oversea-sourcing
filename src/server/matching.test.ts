@@ -17,6 +17,7 @@ function makeSupplier(overrides: Partial<SupplierRow> = {}): SupplierRow {
     countryCode: "FR",
     website: null,
     description: null,
+    descriptionEn: null,
     provenance: "ai_researched",
     verificationStatus: "unverified",
     confidenceScore: 50,
@@ -241,5 +242,64 @@ describe("the product criterion decides, not any criterion", () => {
     );
     expect(breakdown.primaryMatched).toBeNull();
     expect(isRelevant(breakdown)).toBe(true);
+  });
+});
+
+// ── The pool answers in either language (2026-08-29) ────────────────────────
+// Descriptions are written in the language of the request that discovered the
+// company. Without the English text beside it, a pool built by French buyers
+// could not answer an English one: the product gate would reject every
+// supplier and the buyer would pay to re-discover companies we already knew.
+
+describe("matching reads both languages", () => {
+  const englishNeed: CriterionRow[] = [
+    makeCriterion({
+      id: "b1",
+      category: "other",
+      label: "Need",
+      value: "rubber conveyor belts",
+      required: true,
+      isPrimary: true,
+    }),
+  ];
+
+  it("an English request matches a supplier discovered in French", () => {
+    const found_by_a_french_buyer = makeSupplier({
+      name: "Hanbelt Rubber Co.",
+      description: "Producteur de courroies transporteuses en caoutchouc",
+      descriptionEn: "Manufacturer of rubber conveyor belts",
+    });
+    const breakdown = scoreSupplier(found_by_a_french_buyer, englishNeed);
+    expect(breakdown.primaryMatched).toBe(true);
+    expect(isRelevant(breakdown)).toBe(true);
+  });
+
+  it("without the English text that same supplier is invisible", () => {
+    // The regression this guards against — and the reason the extra field
+    // earns its place.
+    const french_only = makeSupplier({
+      name: "Hanbelt Rubber Co.",
+      description: "Producteur de courroies transporteuses en caoutchouc",
+      descriptionEn: null,
+    });
+    expect(isRelevant(scoreSupplier(french_only, englishNeed))).toBe(false);
+  });
+
+  it("the French request still matches the French text", () => {
+    const frenchNeed: CriterionRow[] = [
+      makeCriterion({
+        id: "b2",
+        category: "other",
+        label: "Besoin",
+        value: "courroies transporteuses",
+        required: true,
+        isPrimary: true,
+      }),
+    ];
+    const bilingual = makeSupplier({
+      description: "Producteur de courroies transporteuses en caoutchouc",
+      descriptionEn: "Manufacturer of rubber conveyor belts",
+    });
+    expect(isRelevant(scoreSupplier(bilingual, frenchNeed))).toBe(true);
   });
 });

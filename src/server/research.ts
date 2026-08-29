@@ -87,6 +87,7 @@ function toRecordRow(candidate: SourceCandidate, dataSourceId: string) {
     countryCode: country,
     website: cleanWebsite(candidate.website),
     description: candidate.description?.trim() || null,
+    descriptionEn: candidate.descriptionEn?.trim() || null,
     confidenceScore: clampConfidence(candidate.confidence),
     sourceUrl: candidate.sourceUrl?.trim() || null,
     payload: candidate.raw ?? null,
@@ -130,7 +131,13 @@ async function persistFromSource(
       .values(chunk)
       .onConflictDoUpdate({
         target: [schema.sourceRecord.dataSourceId, schema.sourceRecord.dedupKey],
-        set: { lastSeenAt: now, payload: sql`excluded.payload` },
+        set: {
+          lastSeenAt: now,
+          payload: sql`excluded.payload`,
+          // Keep an English text once we have one: a later collection by a
+          // connector that cannot produce one must not erase it.
+          descriptionEn: sql`coalesce(excluded.description_en, ${schema.sourceRecord.descriptionEn})`,
+        },
         setWhere: eq(schema.sourceRecord.status, "active"),
       })
       .returning({ created: sql<boolean>`(xmax = 0)` });

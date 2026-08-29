@@ -301,6 +301,9 @@ export const supplier = pgTable(
     countryCode: text("country_code").notNull(),
     website: text("website"),
     description: text("description"),
+    /** English form, carried through from the record at promotion — see
+     *  source_record.description_en. */
+    descriptionEn: text("description_en"),
     provenance: text("provenance").$type<SupplierProvenance>().notNull().default("imported"),
     verificationStatus: text("verification_status")
       .$type<VerificationStatus>()
@@ -402,6 +405,11 @@ export const sourceRecord = pgTable(
     countryCode: text("country_code").notNull(),
     website: text("website"),
     description: text("description"),
+    /** The same description in English (2026-08-29). Matching reads BOTH, so
+     *  a French request matches the French text and an English one matches
+     *  this — the pool serves either language instead of only the one that
+     *  discovered the company. Null for connectors that cannot produce it. */
+    descriptionEn: text("description_en"),
     /** 0-100, already clamped by the core (AI ceiling etc.). */
     confidenceScore: integer("confidence_score").notNull().default(50),
     /** Where this source saw the company (URL, registry entry…). */

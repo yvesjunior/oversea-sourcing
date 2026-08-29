@@ -246,6 +246,13 @@
       "when": 1788025188114,
       "tag": "0034_nappy_dorian_gray",
       "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1788025825825,
+      "tag": "0035_colossal_shinko_yamashiro",
+      "breakpoints": true
     }
   ]
 }

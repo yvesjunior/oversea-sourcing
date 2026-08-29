@@ -67,6 +67,8 @@ export type MatchCandidate = {
   name: string;
   descriptor: string | null;
   description: string | null;
+  /** English form, when known — the matcher reads both (2026-08-29). */
+  descriptionEn: string | null;
   countryCode: string;
   website: string | null;
   sourceUrl: string | null;
@@ -220,6 +222,7 @@ export async function eligibleCandidates(
       name: supplier.name,
       descriptor: supplier.descriptor,
       description: supplier.description,
+      descriptionEn: supplier.descriptionEn,
       countryCode: supplier.countryCode,
       website: supplier.website,
       sourceUrl: supplier.sourceRef,
@@ -249,6 +252,7 @@ export async function eligibleCandidates(
       name: best.name,
       descriptor: best.descriptor,
       description: best.description,
+      descriptionEn: best.descriptionEn,
       countryCode: best.countryCode,
       website: best.website,
       sourceUrl: best.sourceUrl,

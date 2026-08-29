@@ -77,14 +77,30 @@ export type Scoreable = {
   name: string;
   descriptor: string | null;
   description: string | null;
+  /** English form of the description, when known. */
+  descriptionEn?: string | null;
   confidenceScore: number;
   verificationStatus: schema.VerificationStatus;
   riskLevel: schema.RiskLevel;
 };
 
-/** Everything we know about a supplier in words, for criterion matching. */
+/** Everything we know about a supplier in words, for criterion matching —
+ *  in BOTH languages (2026-08-29).
+ *
+ *  Descriptions are written in the language of the request that discovered
+ *  the company, so a pool built by French requests could not answer an
+ *  English one: the product gate would reject every supplier and the buyer
+ *  would pay for a fresh search of companies we already knew. Searching both
+ *  texts costs nothing and makes the store serve either language.
+ *
+ *  Union rather than "pick the request's language": we do not know which
+ *  language the criteria are in, and a false NEGATIVE here is expensive (a
+ *  wasted research pass) while a false positive is bounded — the tokens still
+ *  have to match. */
 function searchableText(supplier: Scoreable): string {
-  return [supplier.name, supplier.descriptor, supplier.description].filter(Boolean).join(" ");
+  return [supplier.name, supplier.descriptor, supplier.description, supplier.descriptionEn]
+    .filter(Boolean)
+    .join(" ");
 }
 
 /**
@@ -285,6 +301,7 @@ export async function createMatchesForRequest(
         countryCode: c.countryCode,
         website: c.website,
         description: c.description,
+        descriptionEn: c.descriptionEn,
         provenance:
           c.sourceType === "global_web" ? ("ai_researched" as const) : ("imported" as const),
         verificationStatus: "unverified" as const,

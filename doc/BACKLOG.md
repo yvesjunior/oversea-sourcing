@@ -1191,6 +1191,51 @@ the draft and retypes. That is the owner's call and the safe direction (a
 stale draft costs money, a retype costs a minute); revisit if signup feedback
 says otherwise.
 
+### English-first search + a bilingual pool (owner, 2026-08-29)
+
+**Owner:** *"when we are receiving a request we should be looking into English
+first, so a translation will be necessary."* Two mechanisms, deliberately
+separate — the second is the one that compounds.
+
+**1 · The search runs in English first.** `RESEARCH_SYSTEM` now tells the
+agent to translate the need into English trade terms and spend its first and
+most searches there. Not an extra call: the model already translates
+internally, it was simply spending part of a bounded search budget on French.
+Auditable via `research_run.queries`. *Measured:* #3033 (before) ran 1 of 3
+queries in French; #3034 (after) ran four English queries including
+**"viton"** — the industry trade name for FKM, unreachable from the French
+term.
+
+**2 · The pool is stored in BOTH languages** — migration **0035**,
+`source_record.description_en` + `supplier.description_en`. This is the half
+that matters long-term. Descriptions are written in the language of the
+request that discovered a company, so a pool built by French buyers could not
+answer an English one: the product gate would reject every supplier and the
+buyer would pay to re-discover companies we already had. The extraction phase
+returns both descriptions in the SAME call (no extra cost); the matcher reads
+the union.
+
+Rules a later session must keep:
+- `descriptionEn` is **optional in the connector contract** — a registry has
+  no English form to give and must not be made to invent one.
+- The upsert **coalesces** it (`coalesce(excluded.description_en, existing)`):
+  a later collection by a connector without an English form must not erase one
+  we already hold.
+- The matcher searches the **union** of both texts, not "the one matching the
+  request's language" — a false negative costs a full research pass, a false
+  positive is bounded because tokens still have to match.
+
+*Verified live:* #3034, French request, five suppliers stored with both
+descriptions populated. 3 unit tests including the regression this prevents —
+an English need against a French-only supplier is invisible, and becomes
+visible the moment `descriptionEn` exists.
+
+**Not done, and worth knowing:** the ~40 suppliers discovered before this have
+no `description_en`, so they stay French-only until a later collection
+re-encounters them. A one-off backfill is possible (one cheap call per
+supplier, ~$0.02 total) if cross-language reuse of the existing pool matters
+before then.
+
 ### ~~Search relevance: quality points masqueraded as compatibility~~ ✅ FIXED 2026-08-29
 
 **Pick-up item ⓪, carried since 2026-08-28, fixed the day the buyer became

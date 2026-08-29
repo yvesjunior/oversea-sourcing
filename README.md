@@ -1011,6 +1011,38 @@ activity feeds and dashboard stats are **pure read-models of the DB**.
 5. **Recovery sweep** — on boot and every 60 s the worker re-adopts requests
    stranded mid-pipeline (crash, lost enqueue) and runs them to completion.
 
+### The search runs in English; the pool is stored in two languages
+
+**Owner, 2026-08-29:** *"when we are receiving a request we should be looking
+into English first, so a translation will be necessary."* Translation earns
+its place twice, and the two are separate mechanisms.
+
+**1 · Search English-first.** The buyer writes French; the manufacturing web
+does not. The agent is instructed to translate the need into the English trade
+terms the industry actually uses and spend its first and most searches there,
+falling back to the buyer's language only where a local supplier base matters.
+The searches run are persisted on `research_run.queries`, so this is auditable
+rather than assumed. *Measured:* before, a French request spent one of three
+searches on French terms; after, a request for "joints toriques fluorocarbone
+FKM" ran four English queries including **"viton"** — the trade name for FKM,
+which no French-term search would ever surface.
+
+**2 · Store both languages.** Descriptions are written in the language of the
+request that discovered the company, so a pool built by French buyers could
+not answer an English one: the product gate would reject every supplier and
+the buyer would pay to re-discover companies OSI already knew. The extraction
+step now returns `description` (the buyer's language) **and** `descriptionEn`,
+persisted on `source_record` and `supplier` (migration 0035), and the matcher
+reads **both**. Same call, no extra cost.
+
+- A connector that cannot produce an English form leaves it null — a registry
+  must not be made to invent one.
+- A re-collection never erases an English text already held (`coalesce` in the
+  upsert): a later pass by a connector without one must not undo the work.
+- The matcher searches the **union** of both texts rather than picking by
+  request language: a false negative costs a whole research pass, a false
+  positive is bounded because the tokens still have to match.
+
 ### Attachments are read, not just stored
 
 A sourcing need often lives in a spec sheet rather than a textarea. Text/CSV are

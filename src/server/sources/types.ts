@@ -40,6 +40,12 @@ export type SourceCandidate = {
   website?: string | null;
   descriptor?: string | null;
   description?: string | null;
+  /** The same sentence in English, when the connector can produce one. Kept
+   *  beside the native text so the pool is matchable from either language
+   *  (2026-08-29) — without it the store answers only the language that first
+   *  discovered the company. Optional: a registry connector has no English
+   *  form to give, and must not be forced to invent one. */
+  descriptionEn?: string | null;
   /** 0-100 as reported by the source; the core clamps it (AI ceiling etc.). */
   confidence: number;
   /** Where the source saw this company (URL, registry entry id…). */

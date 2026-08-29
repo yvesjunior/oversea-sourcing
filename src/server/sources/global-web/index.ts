@@ -31,6 +31,7 @@ export const globalWebConnector: SupplierSourceConnector = {
         website: candidate.website,
         descriptor: candidate.descriptor,
         description: candidate.description,
+        descriptionEn: candidate.descriptionEn,
         confidence: candidate.confidence,
         sourceUrl: candidate.sourceUrl,
       })),
