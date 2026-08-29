@@ -2189,7 +2189,9 @@ in the browser before committing; deploy only when the owner asks.
       in the nav, `deals` permission key, `quote_received` notification.
       **Per-request country origin shipped with it** (migration 0037,
       `request.country_codes`): the form takes ISO codes with an info popover
-      listing the 15 corridors OSI actually sources from; **the request
+      listing the **24 corridors** OSI sources from, alphabetical BY CODE (the
+      code is what the buyer types, and code order keeps the list identical in
+      FR and EN — name order would reshuffle); **the request
       overrides the org preference, and falls back to it when unset** (owner
       2026-08-29) — `resolveScope(orgId, requestCodes)`, `requestScope ??
       workspaceScope`.

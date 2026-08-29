@@ -35,22 +35,36 @@ import { cn } from "@/lib/utils";
  *  major manufacturing origins plus the buyer's own market and the European
  *  suppliers they compare against. A hint, not a restriction: the field
  *  accepts any ISO 3166-1 alpha-2 code. */
+/** The 24 corridors OSI actually sources from, ALPHABETICAL BY CODE — the
+ *  code is what the buyer types, and ordering by code keeps the list
+ *  identical in both languages (ordering by name would reshuffle between FR
+ *  and EN). A hint, not a restriction: the field accepts any ISO 3166-1
+ *  alpha-2 code. */
 const COMMON_COUNTRIES = [
+  ["BR", "Brésil"],
+  ["CA", "Canada"],
+  ["CH", "Suisse"],
   ["CN", "Chine"],
+  ["CZ", "Tchéquie"],
+  ["DE", "Allemagne"],
+  ["ES", "Espagne"],
+  ["FR", "France"],
+  ["GB", "Royaume-Uni"],
+  ["ID", "Indonésie"],
   ["IN", "Inde"],
-  ["VN", "Viêt Nam"],
-  ["TW", "Taïwan"],
-  ["KR", "Corée du Sud"],
+  ["IT", "Italie"],
   ["JP", "Japon"],
+  ["KR", "Corée du Sud"],
+  ["MX", "Mexique"],
+  ["MY", "Malaisie"],
+  ["NL", "Pays-Bas"],
+  ["PL", "Pologne"],
+  ["PT", "Portugal"],
   ["TH", "Thaïlande"],
   ["TR", "Turquie"],
-  ["MX", "Mexique"],
+  ["TW", "Taïwan"],
   ["US", "États-Unis"],
-  ["CA", "Canada"],
-  ["DE", "Allemagne"],
-  ["IT", "Italie"],
-  ["ES", "Espagne"],
-  ["PL", "Pologne"],
+  ["VN", "Viêt Nam"],
 ] as const;
 
 const LEGACY_DRAFT_KEY = "osi-draft-besoin";
@@ -477,11 +491,11 @@ export function HeroPrompt({
                 >
                   <Info className="size-3.5" />
                 </PopoverTrigger>
-                <PopoverContent align="start" className="w-64 p-3">
+                <PopoverContent align="start" className="w-80 p-3">
                   <p className="mb-2 text-[11px] font-semibold">
                     {t("home.form.countriesListTitle")}
                   </p>
-                  <ul className="grid grid-cols-2 gap-x-3 gap-y-1">
+                  <ul className="grid grid-cols-3 gap-x-3 gap-y-1">
                     {COMMON_COUNTRIES.map(([code, name]) => (
                       <li key={code} className="flex items-baseline gap-1.5 text-[10px]">
                         <span className="font-mono font-semibold text-gold">{code}</span>

@@ -1043,6 +1043,37 @@ reads **both**. Same call, no extra cost.
   request language: a false negative costs a whole research pass, a false
   positive is bounded because the tokens still have to match.
 
+### Supplier origin: per request, falling back to the workspace
+
+**Owner, 2026-08-29:** *"request criteria override org criteria; if not set we
+fall back to org criteria."*
+
+Country scope used to live only in Paramètres → Préférences de sourcing, which
+made it a policy rather than a choice: a buyer sourcing in Europe today and
+Asia tomorrow had to edit Settings between requests. The creation form now
+takes an origin, and the resolution is one line —
+`resolveScope(orgId, requestCodes)` returning `requestScope ?? workspaceScope`:
+
+| The request says | What applies |
+|---|---|
+| `CA` | Canada only, for this request |
+| nothing | the workspace preference — which is **worldwide** unless the workspace set one |
+
+An empty field therefore means worldwide for anyone who has not set a policy,
+**without silently widening a workspace that deliberately restricted itself**.
+Stored on `request.country_codes` (migration 0037) and applied as a HARD
+filter at both store-first and match time, exactly like the workspace scope
+always was.
+
+The field takes ISO 3166-1 alpha-2 codes, with an info popover listing the
+**24 corridors OSI sources from**, ordered alphabetically **by code** — the
+code is what the buyer types, and ordering by code keeps the list identical in
+both languages (ordering by name would reshuffle between FR and EN). It is a
+hint, not a restriction: any valid code is accepted.
+
+*Verified live:* request #3036 restricted to `CA` returned five Canadian
+suppliers, with the 47 non-Canadian suppliers in the pool excluded.
+
 ### Criteria are matched in both languages too
 
 **Owner, 2026-08-29:** *"some company information is listed in English, so
