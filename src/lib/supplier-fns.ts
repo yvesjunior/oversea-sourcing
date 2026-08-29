@@ -27,6 +27,11 @@ export type SupplierView = {
    * UI, so it never reaches the browser.
    */
   discoveredByRequestId: string | null;
+  /** ISO timestamp — when this company entered the pool. What the period
+   *  filter asks about; there is deliberately no ACCOUNT dimension here,
+   *  since the pool is platform-global (ADR-001) and answering "whose
+   *  supplier is this" would leak which customer searched for a given part. */
+  createdAt: string;
 };
 
 export type SupplierDirectory = {
@@ -66,6 +71,16 @@ export const getSuppliersFn = createServerFn({ method: "GET" }).handler(
     const { effectivePlatformRole } = await import("@/server/workspace-guard");
     const effectiveRole = session ? await effectivePlatformRole(session) : "user";
     if (!session) return EMPTY;
+    // The WHOLE pool is an OSI-internal view (owner 2026-08-29: outside the
+    // platform workspace you see only what you are involved in). A staff
+    // member in their personal workspace is an ordinary buyer here, like
+    // everyone else, and gets `getMyMatchedSuppliersFn` instead.
+    //
+    // Withheld on the SERVER, not merely hidden: the directory carries which
+    // companies OSI has found and how they scored, and shipping it to a
+    // browser that will not render it is still shipping it. Same rule that
+    // already withholds `discoveredByRequestId` above.
+    if (!canSeeAllRequests(effectiveRole)) return EMPTY;
 
     const rows = await db
       .select({
@@ -80,6 +95,7 @@ export const getSuppliersFn = createServerFn({ method: "GET" }).handler(
         matchCount: count(schema.match.id),
         discoveredByRequestId: schema.supplier.discoveredByRequestId,
         discoveredByOrgId: schema.request.organizationId,
+        createdAt: schema.supplier.createdAt,
       })
       .from(schema.supplier)
       .leftJoin(schema.match, eq(schema.match.supplierId, schema.supplier.id))
@@ -87,9 +103,10 @@ export const getSuppliersFn = createServerFn({ method: "GET" }).handler(
       .groupBy(schema.supplier.id, schema.request.organizationId)
       .orderBy(desc(schema.supplier.confidenceScore), asc(schema.supplier.name));
 
-    const suppliers = rows.map((row) =>
-      gateDiscovery(row, session.session.activeOrganizationId, effectiveRole),
-    );
+    const suppliers = rows.map((row) => ({
+      ...gateDiscovery(row, session.session.activeOrganizationId, effectiveRole),
+      createdAt: row.createdAt.toISOString(),
+    }));
     return { suppliers, total: suppliers.length };
   },
 );
@@ -125,6 +142,7 @@ export const getMyMatchedSuppliersFn = createServerFn({ method: "GET" }).handler
         matchCount: count(schema.match.id),
         discoveredByRequestId: schema.supplier.discoveredByRequestId,
         discoveredByOrgId: schema.request.organizationId,
+        createdAt: schema.supplier.createdAt,
       })
       .from(schema.supplier)
       .innerJoin(schema.match, eq(schema.match.supplierId, schema.supplier.id))
@@ -133,7 +151,10 @@ export const getMyMatchedSuppliersFn = createServerFn({ method: "GET" }).handler
       .groupBy(schema.supplier.id, schema.request.organizationId)
       .orderBy(desc(schema.supplier.confidenceScore), asc(schema.supplier.name));
 
-    const suppliers = rows.map((row) => gateDiscovery(row, workspaceId, effectiveRole));
+    const suppliers = rows.map((row) => ({
+      ...gateDiscovery(row, workspaceId, effectiveRole),
+      createdAt: row.createdAt.toISOString(),
+    }));
     return { suppliers, total: suppliers.length };
   },
 );

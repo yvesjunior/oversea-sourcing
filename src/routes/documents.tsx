@@ -1,6 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { FileText } from "lucide-react";
-import { EmployeeTabs, MineEmpty } from "@/components/osi/EmployeeTabs";
 import { EmptySection } from "@/components/osi/EmptySection";
 import { canSeeAllRequests } from "@/lib/roles";
 
@@ -26,20 +25,13 @@ export const Route = createFileRoute("/documents")({
 });
 
 function Documents() {
-  const { session } = Route.useRouteContext();
-  const platformRole = (session?.user as { platformRole?: string } | undefined)?.platformRole;
-  const employee = canSeeAllRequests(platformRole);
-
   // Placeholder until the documents table ships (doc/BACKLOG.md).
   const contenu = (
     <EmptySection icone={FileText} titleKey="empty.documentsTitle" textKey="empty.documentsText" />
   );
 
-  if (!employee) return contenu;
-
-  return (
-    <div className="pt-6">
-      <EmployeeTabs global={contenu} mine={<MineEmpty />} />
-    </div>
-  );
+  // Same view for staff and buyers: OSI's own workspace holds no customer
+  // data (owner 2026-08-29), so the old "Mes données" split had nothing to
+  // separate.
+  return <div className="pt-6">{contenu}</div>;
 }

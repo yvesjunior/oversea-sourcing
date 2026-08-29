@@ -1,10 +1,15 @@
-// Narrow a staff list to ONE customer account (owner, 2026-08-29).
+// Narrow a staff list to one or more customer accounts (owner, 2026-08-29).
 //
 // Staff stand in the internal workspace and their "Vue globale" lists carry
 // every customer's rows at once — which is right for an ops queue and useless
 // when someone asks "where are we with account X". Both halves of the answer
 // matter: the row has to SAY whose it is, and the list has to be narrowable
-// to that account.
+// to the accounts in question.
+//
+// MULTI-select rather than one-at-a-time (owner, 2026-08-29): comparing two
+// accounts side by side is a real question, and a single-choice control makes
+// it two page-loads and a memory test. An EMPTY selection means "all" — the
+// filter is off, not a promise of an empty screen.
 //
 // Client-side on purpose. The staff lists are already loaded whole (they are
 // ops queues, not archives), so filtering here keeps one authorisation path
@@ -13,20 +18,21 @@
 // control moves with it rather than being duplicated.
 
 import { useTranslation } from "react-i18next";
+import { Check, ChevronDown } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 /** The accounts present IN THE DATA, with how many rows each holds — never a
  *  full account list, so the control cannot offer a choice that yields an
  *  empty screen. */
 export type AccountOption = { id: string; name: string; count: number };
-
-export const ALL_ACCOUNTS = "__all__";
 
 /** Build the options from rows that each name their owning account. */
 export function accountOptions(
@@ -46,13 +52,14 @@ export function accountOptions(
   return [...byId.values()].sort((a, b) => a.name.localeCompare(b.name));
 }
 
-export function filterByAccount<T extends { organizationId: string }>(
+/** No selection = no filter. Keeps "show me everything" and "show me nothing"
+ *  from sharing a representation, which is how empty-screen bugs start. */
+export function filterByAccounts<T extends { organizationId: string }>(
   rows: readonly T[],
-  accountId: string,
+  accountIds: readonly string[],
 ): T[] {
-  return accountId === ALL_ACCOUNTS
-    ? [...rows]
-    : rows.filter((r) => r.organizationId === accountId);
+  if (accountIds.length === 0) return [...rows];
+  return rows.filter((row) => accountIds.includes(row.organizationId));
 }
 
 export function AccountFilter({
@@ -62,9 +69,10 @@ export function AccountFilter({
   total,
 }: {
   options: AccountOption[];
-  value: string;
-  onChange: (value: string) => void;
-  /** Rows across every account — what "Tous les comptes" would show. */
+  /** Selected account ids; empty means every account. */
+  value: string[];
+  onChange: (value: string[]) => void;
+  /** Rows across every account — what an empty selection shows. */
   total: number;
 }) {
   const { t } = useTranslation();
@@ -72,26 +80,57 @@ export function AccountFilter({
   // rows already answers "whose is this".
   if (options.length < 2) return null;
 
+  const toggle = (id: string) =>
+    onChange(value.includes(id) ? value.filter((entry) => entry !== id) : [...value, id]);
+
+  const label =
+    value.length === 0
+      ? t("accountFilter.all", { count: total })
+      : value.length === 1
+        ? (options.find((option) => option.id === value[0])?.name ?? t("accountFilter.label"))
+        : t("accountFilter.some", { count: value.length });
+
   return (
     <div className="flex items-center gap-2">
       <span className="text-[11px] uppercase tracking-wide text-muted-foreground">
         {t("accountFilter.label")}
       </span>
-      <Select value={value} onValueChange={onChange}>
-        <SelectTrigger className="h-9 min-w-[200px] text-xs">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value={ALL_ACCOUNTS} className="text-xs">
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline" size="sm" className="h-9 min-w-[200px] justify-between text-xs">
+            <span className="truncate">{label}</span>
+            <ChevronDown className="size-3.5 shrink-0 opacity-60" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="max-h-[320px] w-[260px] overflow-y-auto">
+          <DropdownMenuItem
+            className="text-xs"
+            onSelect={(event) => {
+              // Keep the menu open: clearing is usually followed by picking.
+              event.preventDefault();
+              onChange([]);
+            }}
+          >
+            {value.length === 0 && <Check className="size-3.5" />}
             {t("accountFilter.all", { count: total })}
-          </SelectItem>
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
           {options.map((option) => (
-            <SelectItem key={option.id} value={option.id} className="text-xs">
-              {option.name} ({option.count})
-            </SelectItem>
+            <DropdownMenuCheckboxItem
+              key={option.id}
+              checked={value.includes(option.id)}
+              onCheckedChange={() => toggle(option.id)}
+              onSelect={(event) => event.preventDefault()}
+              className="text-xs"
+            >
+              <span className="truncate">{option.name}</span>
+              <span className="ml-auto pl-2 tabular-nums text-muted-foreground">
+                {option.count}
+              </span>
+            </DropdownMenuCheckboxItem>
           ))}
-        </SelectContent>
-      </Select>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   );
 }

@@ -1175,6 +1175,19 @@ writing any code.
   workspace** (owner) and switch to it, or to a shared buyer test account, to
   act as a buyer — where `effectivePlatformRole` already makes them exactly a
   buyer.
+- **Outside the platform workspace you see only what you are INVOLVED in**
+  (owner 2026-08-29). Requests, quotes and contracts were already
+  workspace-scoped; the **supplier directory was not** — `getSuppliersFn`
+  returned the whole platform-global pool to any signed-in caller, so a staff
+  member in their personal workspace (and every buyer) received it. Now gated
+  with `canSeeAllRequests(effectiveRole)`, i.e. staff standing in the internal
+  workspace only; everyone else gets `getMyMatchedSuppliersFn` — the companies
+  shortlisted on THEIR requests. Withheld on the SERVER, not hidden in the UI:
+  shipping a directory the page will not render is still shipping it (the same
+  rule that already withholds `discoveredByRequestId`).
+  *Verified by calling the fns from both workspaces as the same staff user:
+  platform → directory 2 · all requests 1; personal → every one of directory,
+  matched, all-requests, all-quotes and contracts returns 0.*
 - **Staff lists name their account and can be narrowed to one**
   (owner 2026-08-29): staff stand in the internal workspace and their "Vue
   globale" carries every customer at once, which is right for a queue and
@@ -1184,7 +1197,21 @@ writing any code.
   on the ID (names are only unique by convention), lists ONLY accounts present
   in the data, hides itself below two, and any counts shown beside it must
   follow the selection or they promise rows the list cannot show. A buyer
-  never sees it: one account, nothing to choose.
+  never sees it: one account, nothing to choose. **The account filter is
+  MULTI-select** (owner 2026-08-29) — comparing two accounts is a real
+  question — and an EMPTY selection means "all", so "show everything" and
+  "show nothing" never share a representation. **A period filter rides beside
+  it** on all four ops lists (`src/lib/period.ts`): semaine · mois · année ·
+  plage personnalisée, compared on the OSI-zone CIVIL DATE rather than the
+  instant, so a row stamped 23:30 in Montréal cannot fall into the next day's
+  bucket for a viewer in Paris while the row on screen still reads otherwise.
+  Each list passes the honest date — a soumission filters on when OSI ASKED, a
+  request on when it was FILED, a supplier on when it entered the pool — and
+  the contracts list's pending-dossiers block deliberately ignores the period,
+  because outstanding work is outstanding whatever week it started in.
+  Suppliers get **no account filter at all**: the pool is platform-global
+  (ADR-001), and deriving an owner from the discovering request would leak
+  which customer searched for a given part.
 - **No prod deploys unless explicitly requested** — dev is the test ground;
   main accumulates.
 - **ADR-001 (accepted 2026-08-26) governs supplier provisioning** —

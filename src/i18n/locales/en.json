@@ -1003,6 +1003,20 @@
   },
   "accountFilter": {
     "label": "Account",
-    "all": "All accounts ({{count}})"
+    "all": "All accounts ({{count}})",
+    "some": "{{count}} accounts"
+  },
+  "periodFilter": {
+    "label": "Period",
+    "all": "All",
+    "week": "This week",
+    "month": "This month",
+    "year": "This year",
+    "custom": "Custom",
+    "from": "From",
+    "to": "To"
+  },
+  "listFilters": {
+    "showing": "showing {{shown}} of {{total}}"
   }
 }

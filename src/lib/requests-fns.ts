@@ -11,8 +11,19 @@ export type RequestSummary = {
   compatibilityScore: number | null;
   /** ISO timestamp */
   updatedAt: string;
-  /** Set only when viewing across workspaces (employees): whose dossier this is. */
+  /** ISO timestamp — when the need was filed. What a period filter asks
+   *  about: "the requests of this week" means the ones that came in, not the
+   *  ones a status change happened to touch. */
+  createdAt: string;
+  /** Set only when viewing across workspaces (employees): whose dossier this
+   *  is, and the id the account filter keys on (null in your own workspace —
+   *  there is nothing to disambiguate). */
   workspaceName: string | null;
+  organizationId: string;
+  /** The owning account's name, always populated — `workspaceName` is the
+   *  DISPLAY field (nulled in your own workspace so a card does not label
+   *  itself); this one is what the account filter groups by. */
+  organizationName: string;
   /** Who created it — live name while the account exists, the at-creation
    *  snapshot after deletion (UC-6), null only on pre-snapshot legacy rows. */
   createdByName: string | null;
@@ -42,6 +53,7 @@ export const getMyRequestsFn = createServerFn({ method: "GET" }).handler(
         status: schema.request.status,
         compatibilityScore: schema.request.compatibilityScore,
         updatedAt: schema.request.updatedAt,
+        createdAt: schema.request.createdAt,
         // Live name while the account exists; the snapshot survives deletion.
         createdByName: sql<string | null>`coalesce("user"."name", ${schema.request.createdByName})`,
       })
@@ -53,7 +65,10 @@ export const getMyRequestsFn = createServerFn({ method: "GET" }).handler(
     return rows.map((row) => ({
       ...row,
       updatedAt: row.updatedAt.toISOString(),
+      createdAt: row.createdAt.toISOString(),
       workspaceName: null,
+      organizationId: workspaceId,
+      organizationName: "",
     }));
   },
 );
@@ -84,6 +99,7 @@ export const getAllRequestsFn = createServerFn({ method: "GET" }).handler(
         status: schema.request.status,
         compatibilityScore: schema.request.compatibilityScore,
         updatedAt: schema.request.updatedAt,
+        createdAt: schema.request.createdAt,
         workspaceName: schema.organization.name,
         organizationId: schema.request.organizationId,
         createdByName: sql<string | null>`coalesce("user"."name", ${schema.request.createdByName})`,
@@ -99,7 +115,10 @@ export const getAllRequestsFn = createServerFn({ method: "GET" }).handler(
       status: row.status,
       compatibilityScore: row.compatibilityScore,
       updatedAt: row.updatedAt.toISOString(),
+      createdAt: row.createdAt.toISOString(),
       workspaceName: row.organizationId === ownWorkspaceId ? null : row.workspaceName,
+      organizationId: row.organizationId,
+      organizationName: row.workspaceName,
       createdByName: row.createdByName,
     }));
   },
@@ -509,6 +528,8 @@ export const getRequestDetailFn = createServerFn({ method: "GET" })
       compatibilityScore: row.compatibilityScore,
       updatedAt: row.updatedAt.toISOString(),
       workspaceName,
+      organizationId: row.organizationId,
+      organizationName: workspaceName ?? "",
       createdByName: creator?.name ?? row.createdByName,
       descriptionRaw: row.descriptionRaw,
       createdAt: row.createdAt.toISOString(),
@@ -677,7 +698,10 @@ export const getRequestFn = createServerFn({ method: "GET" })
       status: row.status,
       compatibilityScore: row.compatibilityScore,
       updatedAt: row.updatedAt.toISOString(),
+      createdAt: row.createdAt.toISOString(),
       workspaceName,
+      organizationId: row.organizationId,
+      organizationName: workspaceName ?? "",
       createdByName: row.createdByName,
     };
   });

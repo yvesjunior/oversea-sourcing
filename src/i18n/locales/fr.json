@@ -1003,6 +1003,20 @@
   },
   "accountFilter": {
     "label": "Compte",
-    "all": "Tous les comptes ({{count}})"
+    "all": "Tous les comptes ({{count}})",
+    "some": "{{count}} comptes"
+  },
+  "periodFilter": {
+    "label": "Période",
+    "all": "Tout",
+    "week": "Cette semaine",
+    "month": "Ce mois",
+    "year": "Cette année",
+    "custom": "Personnalisée",
+    "from": "Du",
+    "to": "Au"
+  },
+  "listFilters": {
+    "showing": "{{shown}} sur {{total}} affichés"
   }
 }

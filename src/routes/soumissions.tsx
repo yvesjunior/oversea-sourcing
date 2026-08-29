@@ -21,12 +21,8 @@ import {
   type QuoteView,
 } from "@/lib/quote-fns";
 import { EmployeeTabs } from "@/components/osi/EmployeeTabs";
-import {
-  AccountFilter,
-  accountOptions,
-  filterByAccount,
-  ALL_ACCOUNTS,
-} from "@/components/osi/AccountFilter";
+import { accountOptions } from "@/components/osi/AccountFilter";
+import { applyListFilters, ListFiltersBar, useListFilters } from "@/components/osi/ListFilters";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/soumissions")({
@@ -217,21 +213,27 @@ function Soumissions() {
   );
 }
 
-/** The ops queue, narrowable to one customer account (owner 2026-08-29).
- *  Staff see every account's soumissions at once, which is right for a queue
- *  and useless when the question is "where are we with account X". */
+/** The ops queue, narrowable by customer account and by period (owner
+ *  2026-08-29). Staff see every account's soumissions at once, which is right
+ *  for a queue and useless when the question is "where are we with account X",
+ *  or "what came in this week". */
 function StaffQuotes({ quotes }: { quotes: QuoteView[] }) {
-  const [account, setAccount] = useState<string>(ALL_ACCOUNTS);
-  const options = accountOptions(quotes);
-  const shown = filterByAccount(quotes, account);
+  const filters = useListFilters();
+  // Filtered on requestedAt — when OSI ASKED. The answer's date would move a
+  // dossier between periods every time a supplier replied, which is not what
+  // "the soumissions of this week" means to the person asking.
+  const shown = applyListFilters(quotes, filters, {
+    accountOf: (quote) => quote.organizationId,
+    dateOf: (quote) => quote.requestedAt,
+  });
 
   return (
-    <div className="space-y-5">
-      <AccountFilter
-        options={options}
-        value={account}
-        onChange={setAccount}
+    <div className="space-y-4">
+      <ListFiltersBar
+        filters={filters}
+        accounts={accountOptions(quotes)}
         total={quotes.length}
+        shown={shown.length}
       />
       <QuoteList quotes={shown} canRecord showAccount />
     </div>

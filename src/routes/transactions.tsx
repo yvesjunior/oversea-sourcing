@@ -2,7 +2,6 @@ import { createFileRoute } from "@tanstack/react-router";
 import { FileText } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
-import { EmployeeTabs, MineEmpty } from "@/components/osi/EmployeeTabs";
 import { Timeline } from "@/components/osi/Timeline";
 import { etapesTransaction } from "@/data/osi";
 import { canSeeAllRequests } from "@/lib/roles";
@@ -31,10 +30,6 @@ export const Route = createFileRoute("/transactions")({
 
 function Transactions() {
   const { t } = useTranslation();
-  const { session } = Route.useRouteContext();
-  const platformRole = (session?.user as { platformRole?: string } | undefined)?.platformRole;
-  const employee = canSeeAllRequests(platformRole);
-
   // Showcase content until E8 wires real transactions through the DB.
   const contenu = (
     <section className="card-surface max-w-2xl p-6">
@@ -76,7 +71,9 @@ function Transactions() {
         </span>
       </header>
 
-      {employee ? <EmployeeTabs global={contenu} mine={<MineEmpty />} /> : contenu}
+      {/* No "Mes données": OSI's own workspace holds no customer data
+          (owner 2026-08-29), so that tab could only ever be empty. */}
+      {contenu}
     </div>
   );
 }

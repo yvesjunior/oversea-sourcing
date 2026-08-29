@@ -14,12 +14,8 @@ import { useRouter } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { draftContractsFn, getContractsFn, type ContractView } from "@/lib/contract-fns";
 import type { ContractFilter } from "@/lib/deal-status";
-import {
-  AccountFilter,
-  accountOptions,
-  filterByAccount,
-  ALL_ACCOUNTS,
-} from "@/components/osi/AccountFilter";
+import { accountOptions, filterByAccounts } from "@/components/osi/AccountFilter";
+import { applyListFilters, ListFiltersBar, useListFilters } from "@/components/osi/ListFilters";
 import { formatDay } from "@/lib/instant";
 import { cn } from "@/lib/utils";
 
@@ -87,10 +83,19 @@ function Contrats() {
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>("tous");
   const [query, setQuery] = useState("");
   // Staff stand in the internal workspace and see every account's contracts;
-  // a buyer sees one account and is never offered the control.
-  const [account, setAccount] = useState<string>(ALL_ACCOUNTS);
-  const accounts = canDraft ? accountOptions(contracts) : [];
-  const inAccount = canDraft ? filterByAccount(contracts, account) : contracts;
+  // a buyer sees one account, so the account control is not offered — but the
+  // period one is: "what did we sign this month" is their question too.
+  const filters = useListFilters();
+  const inAccount = applyListFilters(contracts, filters, {
+    accountOf: (contract) => contract.organizationId,
+    dateOf: (contract) => contract.createdAt,
+  });
+
+  // The pending-dossiers block follows the account choice — but deliberately
+  // NOT the period: a dossier still missing a mandatory contract is
+  // outstanding work whatever week it opened in, and a date filter that hid it
+  // would be a filter that loses work.
+  const filteredPending = filterByAccounts(pendingDeals, filters.accounts);
 
   const term = query.trim().toLowerCase();
   const shown = inAccount.filter((contract) => {
@@ -119,11 +124,11 @@ function Contrats() {
         </div>
       </header>
 
-      {canDraft && filterByAccount(pendingDeals, account).length > 0 && (
+      {canDraft && filteredPending.length > 0 && (
         <section className="card-surface border-gold/40 p-4">
           <p className="text-xs text-muted-foreground">{t("contrats.pendingHint")}</p>
           <ul className="mt-3 space-y-2">
-            {filterByAccount(pendingDeals, account).map((deal) => (
+            {filteredPending.map((deal) => (
               <li
                 key={deal.id}
                 className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 rounded-lg border border-border px-4 py-2.5"
@@ -153,14 +158,12 @@ function Contrats() {
         </section>
       )}
 
-      {canDraft && (
-        <AccountFilter
-          options={accounts}
-          value={account}
-          onChange={setAccount}
-          total={contracts.length}
-        />
-      )}
+      <ListFiltersBar
+        filters={filters}
+        {...(canDraft ? { accounts: accountOptions(contracts) } : {})}
+        total={contracts.length}
+        shown={inAccount.length}
+      />
 
       <div className="flex flex-wrap items-center gap-2">
         {FILTERS.map((key) => (

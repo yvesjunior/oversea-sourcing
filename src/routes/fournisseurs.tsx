@@ -4,7 +4,8 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { CountryTag } from "@/components/osi/CountryTag";
 import { RiskBadge } from "@/components/osi/RiskBadge";
-import { EmployeeTabs, MineEmpty } from "@/components/osi/EmployeeTabs";
+import { MineEmpty } from "@/components/osi/EmployeeTabs";
+import { applyListFilters, ListFiltersBar, useListFilters } from "@/components/osi/ListFilters";
 import type { Risque } from "@/data/osi";
 import type { RiskLevel } from "@/database/schema";
 import { canSeeAllRequests } from "@/lib/roles";
@@ -111,10 +112,20 @@ function Fournisseurs() {
   const { session } = Route.useRouteContext();
   const platformRole = (session?.user as { platformRole?: string } | undefined)?.platformRole;
   const employee = canSeeAllRequests(platformRole);
+  // Staff in OSI's own workspace see the pool; a buyer sees the companies
+  // shortlisted for them. No "Mes données" tab in the platform workspace
+  // (owner 2026-08-29) — staff hold no dossiers there, so it was always empty.
+  const source = employee ? directory : mine;
 
-  const grille = <SupplierGrid suppliers={directory.suppliers} />;
-  const miennes =
-    mine.suppliers.length > 0 ? <SupplierGrid suppliers={mine.suppliers} /> : <MineEmpty />;
+  const filters = useListFilters();
+  // NO account filter here, deliberately: the supplier pool is
+  // platform-global (ADR-001) and belongs to no customer. Deriving an owner
+  // from the discovering request would also leak, across tenants, which
+  // company searched for a given part — the very thing supplier-fns.ts
+  // withholds. Period only.
+  const shown = applyListFilters(source.suppliers, filters, {
+    dateOf: (supplier) => supplier.createdAt,
+  });
 
   return (
     <div className="space-y-6 pt-6">
@@ -124,12 +135,18 @@ function Fournisseurs() {
             {t("fournisseurs.title")}
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {t("fournisseurs.subtitle", { count: directory.total })}
+            {t("fournisseurs.subtitle", { count: source.total })}
           </p>
         </div>
       </header>
 
-      {employee ? <EmployeeTabs global={grille} mine={miennes} /> : grille}
+      <ListFiltersBar filters={filters} total={source.suppliers.length} shown={shown.length} />
+
+      {shown.length === 0 && source.suppliers.length === 0 && !employee ? (
+        <MineEmpty />
+      ) : (
+        <SupplierGrid suppliers={shown} />
+      )}
     </div>
   );
 }

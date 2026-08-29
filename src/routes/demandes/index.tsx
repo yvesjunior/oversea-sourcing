@@ -5,7 +5,8 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { DossierCard } from "@/components/osi/DossierCard";
 import { HeroPrompt } from "@/components/osi/HeroPrompt";
-import { EmployeeTabs } from "@/components/osi/EmployeeTabs";
+import { accountOptions } from "@/components/osi/AccountFilter";
+import { applyListFilters, ListFiltersBar, useListFilters } from "@/components/osi/ListFilters";
 import { EmptyRequests } from "@/components/osi/EmptyRequests";
 import { canSeeAllRequests } from "@/lib/roles";
 import { cn } from "@/lib/utils";
@@ -65,7 +66,16 @@ function Demandes() {
   // flag doubles as "I am in OSI's own workspace" — the same signal the nav
   // and the Vue globale tabs already follow.
   const employee = canSeeAllRequests(platformRole);
-  const count = employee ? toutes.length : miennes.length;
+  const source = employee ? toutes : miennes;
+  const filters = useListFilters();
+  // Filtered on createdAt — when the need was FILED. updatedAt would shuffle
+  // dossiers between periods every time the pipeline touched a status, which
+  // is not what "the requests of this week" means.
+  const shown = applyListFilters(source, filters, {
+    accountOf: (request) => request.organizationId,
+    dateOf: (request) => request.createdAt,
+  });
+  const count = shown.length;
   // The intake form lives here since 2026-08-29 (ADR-002 §11) — "Création et
   // suivi" on one page. Collapsed by default so seven fields never push the
   // dossier list below the fold, but OPEN for a buyer with nothing yet: an
@@ -113,7 +123,14 @@ function Demandes() {
       {/* No "Mes données" here: in OSI's own workspace a staff member has
           none by rule, and a tab that is always empty is furniture. Their own
           dossiers live in their personal workspace — one switch away. */}
-      {employee ? <Grille demandes={toutes} mine={false} /> : <Grille demandes={miennes} mine />}
+      <ListFiltersBar
+        filters={filters}
+        {...(employee ? { accounts: accountOptions(toutes) } : {})}
+        total={source.length}
+        shown={shown.length}
+      />
+
+      <Grille demandes={shown} mine={!employee} />
     </div>
   );
 }
