@@ -36,9 +36,9 @@ tracked to delivery** — with the PDF report available throughout.
 
 ### START HERE — handoff, 2026-08-29
 
-**Prod = `754ae36` (deploy #20). Nothing is built and undeployed — main and
-prod are the same commit.** The contract centre (P4) went out with #20,
-code-only, no migration.
+**Prod = `b85c0c8` (deploy #21). Nothing is built and undeployed — main and
+prod are the same commit.** #21 carries **P5** (migration 0038) and the
+**timestamp hydration fix**.
 Rollback point for the whole day: tag `deploy-11-baseline`.
 
 Read in this order before writing code: **[ADR-002](adr/ADR-002-transaction-and-contract-centre.md)**
@@ -72,6 +72,16 @@ score component — and both the search and the pool became bilingual.
 | 18 | `2374713` | 0036 | cross-language criteria (`value_en` + `translation_memory`) |
 | 19 | `c149858` | 0037 | **P1 + P2 + P3** + per-request country origin |
 | 20 | `754ae36` | — | **P4 · the contract centre** — `/contrats` list + fiche, derived filters, N/M indicator, `OSI-2026-0000` numbering |
+| 21 | `b85c0c8` | 0038 | **P5** — contract templates (text frozen at draft time, in the request's language) + the missing-contract gap on the dossier; **timestamps pinned to one zone**, killing the hydration mismatch |
+
+**Deploy #21 verification** — backup `backups/osi-20260829-173150.sql.gz`
+(31 M) taken first. Migration 0038 applied (`contract.content` present on
+prod); five containers up; the public home loads over the tunnel with a clean
+console; the pinned zone is in both halves of the deployed build
+(`.output/server/_ssr/instant-*.mjs` and the client bundle). Data intact:
+10 users · 67 suppliers · 8 requests · 0 quotes · 0 deals · 0 contracts —
+prod has still not run the transaction flow, so nothing needed backfilling
+with template text.
 
 **Deploy #20 verification** — backup `backups/osi-20260829-160239.sql.gz`
 (31 M) taken first. Migrate exited 0 with nothing to apply (P4 is code-only);
@@ -98,7 +108,7 @@ quotes · 0 deals · 0 contracts — prod has still not run the new flow, as at
   the parties table, `src/lib/contract-types.ts` mapping parties → required
   contracts, numbering `OSI-2026-0001`.
 
-- **P5 · templates + gap surfacing** (mig 0038) *(built, NOT deployed)* — the
+- **P5 · templates + gap surfacing** (mig 0038) — the
   two v1 contracts render their own text, frozen at draft time in the
   request's language; a missing mandatory contract now shows on the dossier,
   visible to the buyer, actionable only by staff.
@@ -110,8 +120,7 @@ criteria**.
 
 #### 4 · What REMAINS, in order
 
-1. **Deploy P5** (migration 0038) — built and verified in dev, NOT deployed.
-2. **P6 · signatures — the two mechanisms.** `in_platform` for parties with a
+1. **P6 · signatures — the two mechanisms.** `in_platform` for parties with a
    `user_id` (buyer, OSI) recording IP + user agent; `manual_upload` for
    parties without an account (staff upload the countersigned PDF into
    `signed_file_id`). Both write the same `contract_party` row and a
@@ -119,10 +128,10 @@ criteria**.
    hand. Create `src/server/esign.ts` as the vendor seam for the EXTERNAL path
    only, first implementation `manual`. Gate on `contracts.sign`. The fiche's
    Action column currently says "Signature — bientôt" — that is where it goes.
-3. **P7 · commandes** (needs a new `order_milestone` table — designed then,
+2. **P7 · commandes** (needs a new `order_milestone` table — designed then,
    not now) · **P8 · documents** (BLOCKED, see gaps) · **P9 · paiements** ·
    **P10 · messages** · **P11 · rapports**.
-4. **Phase R · custom staff roles** — a new owner ask, NOT sized, and not a
+3. **Phase R · custom staff roles** — a new owner ask, NOT sized, and not a
    prerequisite for anything in Phase P.
 
 #### 5 · Gaps and open questions a next session must not lose

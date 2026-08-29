@@ -1192,12 +1192,11 @@ the capability/certification satellite tables exist.
 
 ## 2b · From the report to a delivered order (Phase P)
 
-> **Status: P1-P4 live on prod** (deploy #20, 2026-08-29) — the schema spine
-> (migration 0033), soumissions, comparison & acceptance, and the contract
-> centre. **P5 is built and not yet deployed** (migration 0038): contract
-> templates, and the missing-contract gap surfaced on the dossier.
-> **P6-P11 remain**: signatures, commandes, documents, paiements, messages,
-> rapports. Decision
+> **Status: P1-P5 live on prod** (deploy #21, 2026-08-29) — the schema spine
+> (migration 0033), soumissions, comparison & acceptance, the contract centre,
+> and the contract templates with the missing-contract gap surfaced on the
+> dossier (migration 0038). **P6-P11 remain**: signatures, commandes,
+> documents, paiements, messages, rapports. Decision
 > record: [ADR-002](doc/adr/ADR-002-transaction-and-contract-centre.md)
 > (accepted). Plan: **Phase P** in [doc/BACKLOG.md](doc/BACKLOG.md). The
 > owner-validated parcours is drawn step by step in the companion artifact
