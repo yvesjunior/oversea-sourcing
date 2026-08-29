@@ -275,6 +275,8 @@ Two things, and they are not the same size:
 | Which contract types in v1? | **The two unavoidable ones** — mandat OSI↔client and the buyer↔supplier order. Transporteur, courtier, inspection, NDA and annexes follow once the machinery is proven. |
 | Who signs for OSI? | **A permission key** (`contracts.sign`), owner-assigned per role from Rôles & accès. Plus a new ask: **custom roles** — see decision 9 and Phase R. |
 | E-signature vendor? | **Neither, for now.** Buyer and OSI sign **in the platform**; external parties are **manual upload**. No recurring bill, and the stronger mechanism covers the two parties that matter most. |
+| Can an order be split across suppliers? | **No** (*"pas de répartitions"*). One accepted offer, one dossier; a buyer who wants two suppliers makes two requests. Enforced by a **partial unique index** (`quote_one_accepted_per_request_uq`), not by an application check — two acceptances arriving together would both pass the latter. |
+| Who closes a dossier? | **Two acts, two actors.** The buyer validates reception and **rates the deal**; only then may staff close it. `delivered → closed` is not a legal transition — it must pass through `reviewed`, so a dossier can never be closed over a client who has not spoken. The satisfaction score is also the first honest supplier-performance signal (ADR-001 S6): it cannot be scraped, only earned on a real deal. |
 
 Still open, and small enough to default unless the owner objects:
 

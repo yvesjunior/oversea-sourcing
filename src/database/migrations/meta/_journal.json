@@ -232,6 +232,13 @@
       "when": 1788017887593,
       "tag": "0032_sad_cobalt_man",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1788023060047,
+      "tag": "0033_happy_nova",
+      "breakpoints": true
     }
   ]
 }

@@ -1900,7 +1900,36 @@ through the platform (2026-08-29). Parties are ROWS, never users.
       into the INTERNE block. Full table in ADR-002 §12.
       ⑤ **Dead download button removed** from the top bar (owner, 2026-08-29)
       — it had no handler and never did anything; its i18n key went with it.
-- [ ] **P1 · Schema spine.** `quote` (soumission: request + supplier, status
+- [x] **P1 · Schema spine — BUILT 2026-08-29** (migration **0033**).
+      `quote` · `deal` · `deal_event` · `contract` · `contract_party` ·
+      `contract_event` + `contract_number_seq`, plus the pure state machines
+      and 21 unit tests in `src/lib/deal-status.ts`.
+      **Deliberately NOT created yet**: `order_milestone`, `document`,
+      `payment`, `message_thread` — they land with P7-P10, shaped by what
+      those screens need rather than guessed five phases ahead.
+      Contracts a later session must not re-derive differently:
+      • **External parties are ROWS, never users** — every reference to one is
+        nullable and paired with a NAME SNAPSHOT (the audit_log tombstone
+        rule), because the record must stay readable when the row is gone.
+      • **No splitting** (owner: *"étape 09, pas de répartitions"*) — enforced
+        by the partial unique index `quote_one_accepted_per_request_uq`, so
+        two simultaneous acceptances cannot both win. `accepted` is a terminal
+        quote state.
+      • **Closure is two acts by two actors** (owner: *"étape 15, closed by
+        staff, after buyer review with satisfaction"*) — `delivered → closed`
+        is ILLEGAL; it must pass through `reviewed`. `deal.satisfaction` +
+        `review_comment` are the buyer's, `closed_by` is staff's.
+      • **Money is an integer plus a currency, never converted** (no rate
+        source exists). `amount_cents` + `currency`.
+      • **Contract status is a FUNCTION of its party rows**
+        (`statusFromSignatures`), and the `2/4` indicator counts MANDATORY
+        signatures only — so the stored status and the indicator cannot
+        disagree. Expiry and the brief's five list filters are **derived at
+        read time**, never stored columns and never a cron.
+      • **`contract_event` is not `audit_log`** — the journal is purged at 3
+        months by owner rule; signature evidence has to outlive that, so it
+        lives beside the contract, permanently, with tombstone actor ids.
+- [x] ~~**P1 · Schema spine.**~~ `quote` (soumission: request + supplier, status
       `requested | received | declined | accepted | expired`, price, currency,
       lead time, MOQ, incoterm, terms, received_at), `deal` (the dossier —
       accepted quote, buyer org, supplier, value, currency, status), `deal_event`

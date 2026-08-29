@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import {
   bigint,
   boolean,
@@ -791,6 +792,320 @@ export const match = pgTable(
     index("match_request_idx").on(table.requestId),
     uniqueIndex("match_request_supplier_uq").on(table.requestId, table.supplierId),
   ],
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Phase P — the transaction spine (ADR-002, accepted 2026-08-29).
+//
+// The validated parcours: demande → Top-N → the BUYER picks who to solicit →
+// OSI sends → soumissions come back → the buyer accepts ONE → that opens the
+// `deal` (the "dossier de transaction") → contracts → signatures → commande.
+//
+// Two rules run through every table here:
+//   1. EXTERNAL PARTIES ARE ROWS, NEVER USERS. A supplier, carrier, customs
+//      broker or inspector has no account (owner, 2026-08-29). References to
+//      them are nullable and always paired with a NAME SNAPSHOT, the same
+//      tombstone pattern audit_log uses — the record must stay readable when
+//      the referenced row is gone.
+//   2. EVERY BUYER-FACING TABLE IS WORKSPACE-SCOPED and indexed on it.
+//
+// order_milestone, document, payment and message_thread deliberately do NOT
+// exist yet: they land with their own phases (P7-P10), shaped by what those
+// screens actually need rather than guessed five phases ahead.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const QUOTE_STATUSES = ["requested", "received", "declined", "accepted", "expired"] as const;
+export type QuoteStatus = (typeof QUOTE_STATUSES)[number];
+
+/** A soumission: one supplier asked for one request. The buyer picks WHO is
+ *  asked (owner 2026-08-29), staff send and record what comes back.
+ *
+ *  This table is also where the moat accumulates (ADR-001 S6): `requested_at`
+ *  → `responded_at` is a real response time, and MOQ / lead time / price are
+ *  exactly the facts that cannot be scraped off a website. */
+export const quote = pgTable(
+  "quote",
+  {
+    id: text("id").primaryKey(),
+    requestId: text("request_id")
+      .notNull()
+      .references(() => request.id, { onDelete: "cascade" }),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    /** Null once a supplier row is deleted — `supplier_name` carries on. */
+    supplierId: text("supplier_id").references(() => supplier.id, { onDelete: "set null" }),
+    supplierName: text("supplier_name").notNull(),
+    status: text("status").$type<QuoteStatus>().notNull().default("requested"),
+
+    // ── what came back (all null until status = received) ────────────────
+    /** Minor units (cents). Money is stored as an integer and a currency, and
+     *  NEVER converted — a rate source does not exist (ADR-002). */
+    amountCents: bigint("amount_cents", { mode: "number" }),
+    currency: text("currency"),
+    /** Free text on purpose: "5 000 unités", "12 palettes" — the buyer's own
+     *  wording, not something to compute with. */
+    quantity: text("quantity"),
+    moq: text("moq"),
+    leadTimeDays: integer("lead_time_days"),
+    incoterm: text("incoterm"),
+    paymentTerms: text("payment_terms"),
+    validUntil: timestamp("valid_until"),
+    notes: text("notes"),
+
+    // ── trail ────────────────────────────────────────────────────────────
+    requestedAt: timestamp("requested_at").notNull().defaultNow(),
+    requestedBy: text("requested_by").references(() => user.id, { onDelete: "set null" }),
+    /** When the supplier actually answered — the response-time signal. */
+    respondedAt: timestamp("responded_at"),
+    /** The staff member who keyed the offer in (nobody else can: the supplier
+     *  has no account). */
+    recordedBy: text("recorded_by").references(() => user.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (table) => [
+    index("quote_request_idx").on(table.requestId),
+    index("quote_org_idx").on(table.organizationId),
+    index("quote_supplier_idx").on(table.supplierId),
+    // One solicitation per supplier per request; re-asking updates the row.
+    uniqueIndex("quote_request_supplier_uq").on(table.requestId, table.supplierId),
+    // NO SPLITTING (owner 2026-08-29, "étape 09: pas de répartitions"): a
+    // request results in AT MOST ONE accepted offer, and therefore one
+    // dossier. Enforced as a partial unique index rather than a check in the
+    // server fn, because two acceptances arriving together would both pass an
+    // application-side check — the same reasoning as the supplier dedup key.
+    // A buyer who genuinely wants two suppliers opens two requests.
+    uniqueIndex("quote_one_accepted_per_request_uq")
+      .on(table.requestId)
+      .where(sql`${table.status} = 'accepted'`),
+  ],
+);
+
+export const DEAL_STATUSES = [
+  "open",
+  "contracting",
+  "in_production",
+  "shipping",
+  "delivered",
+  /** The buyer has confirmed reception and rated the deal. Closing is a
+   *  SEPARATE, staff act (owner 2026-08-29: "closed by staff, after buyer
+   *  review with satisfaction") — so a dossier can never be closed over a
+   *  buyer who has not spoken. */
+  "reviewed",
+  "closed",
+  "cancelled",
+] as const;
+export type DealStatus = (typeof DEAL_STATUSES)[number];
+
+/** The "dossier de transaction" — created automatically when the buyer
+ *  accepts a quote (brief §4 steps 1-2). Everything downstream hangs here. */
+export const deal = pgTable(
+  "deal",
+  {
+    id: text("id").primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    /** The need it came from, and the offer that opened it. Both `set null`:
+     *  a deal outlives the paperwork that produced it. */
+    requestId: text("request_id").references(() => request.id, { onDelete: "set null" }),
+    quoteId: text("quote_id").references(() => quote.id, { onDelete: "set null" }),
+    supplierId: text("supplier_id").references(() => supplier.id, { onDelete: "set null" }),
+    supplierName: text("supplier_name").notNull(),
+    title: text("title").notNull(),
+    status: text("status").$type<DealStatus>().notNull().default("open"),
+    amountCents: bigint("amount_cents", { mode: "number" }),
+    currency: text("currency"),
+    incoterm: text("incoterm"),
+    openedAt: timestamp("opened_at").notNull().defaultNow(),
+
+    // ── closure, in two hands (owner 2026-08-29) ─────────────────────────
+    // The BUYER reviews — confirms reception and says how it went. Then
+    // STAFF close. Two acts, two actors, recorded separately: a dossier
+    // closed without a review would hide exactly the signal we want.
+    /** 1-5. Also the honest supplier-performance input ADR-001 S6 asked for:
+     *  it cannot be scraped, it can only be earned on a real deal. */
+    satisfaction: integer("satisfaction"),
+    reviewComment: text("review_comment"),
+    reviewedAt: timestamp("reviewed_at"),
+    reviewedBy: text("reviewed_by").references(() => user.id, { onDelete: "set null" }),
+    reviewedByName: text("reviewed_by_name"),
+    closedAt: timestamp("closed_at"),
+    closedBy: text("closed_by").references(() => user.id, { onDelete: "set null" }),
+    closedByName: text("closed_by_name"),
+
+    createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+    createdByName: text("created_by_name"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (table) => [
+    index("deal_org_idx").on(table.organizationId),
+    index("deal_request_idx").on(table.requestId),
+  ],
+);
+
+/** Timeline of a deal — the `request_event` pattern: type + JSON params
+ *  rendered client-side, so history re-reads in the viewer's language. */
+export const dealEvent = pgTable(
+  "deal_event",
+  {
+    id: text("id").primaryKey(),
+    dealId: text("deal_id")
+      .notNull()
+      .references(() => deal.id, { onDelete: "cascade" }),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    type: text("type").notNull(),
+    message: text("message"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => [index("deal_event_deal_idx").on(table.dealId)],
+);
+
+/** v1 ships TWO types (owner 2026-08-29); the other five from the brief §5
+ *  (transporteur, courtier, inspection, NDA, annexes) join later without
+ *  touching callers — the mapping lives in src/lib/contract-types.ts. */
+export const CONTRACT_TYPES = ["mandate_osi_client", "purchase_order"] as const;
+export type ContractType = (typeof CONTRACT_TYPES)[number];
+
+export const CONTRACT_STATUSES = [
+  "draft",
+  "sent",
+  "partially_signed",
+  "signed",
+  "voided",
+  "expired",
+] as const;
+export type ContractStatus = (typeof CONTRACT_STATUSES)[number];
+
+/** Display numbers: OSI-2026-0042 (brief §3.2) — per-year sequential and
+ *  platform-global, the same trick request_id_seq uses. */
+export const contractNumberSeq = pgSequence("contract_number_seq", { startWith: "1" });
+
+export const contract = pgTable(
+  "contract",
+  {
+    id: text("id").primaryKey(),
+    /** Human-facing number, e.g. OSI-2026-0042. */
+    number: text("number").notNull(),
+    dealId: text("deal_id")
+      .notNull()
+      .references(() => deal.id, { onDelete: "cascade" }),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    type: text("type").$type<ContractType>().notNull(),
+    title: text("title").notNull(),
+    status: text("status").$type<ContractStatus>().notNull().default("draft"),
+    amountCents: bigint("amount_cents", { mode: "number" }),
+    currency: text("currency"),
+    incoterm: text("incoterm"),
+    paymentTerms: text("payment_terms"),
+    /** Échéance. "Expired" is derived at READ time from this, no cron — the
+     *  same rule the Recommandé tier follows. */
+    dueAt: timestamp("due_at"),
+    sentAt: timestamp("sent_at"),
+    signedAt: timestamp("signed_at"),
+    voidedAt: timestamp("voided_at"),
+    voidedReason: text("voided_reason"),
+    createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+    createdByName: text("created_by_name"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("contract_number_uq").on(table.number),
+    index("contract_deal_idx").on(table.dealId),
+    index("contract_org_idx").on(table.organizationId),
+  ],
+);
+
+export const CONTRACT_PARTY_ROLES = [
+  "buyer",
+  "osi",
+  "supplier",
+  "carrier",
+  "customs_broker",
+  "inspector",
+  "other",
+] as const;
+export type ContractPartyRole = (typeof CONTRACT_PARTY_ROLES)[number];
+
+/** How a signature was obtained. Decided by WHO the party is (owner
+ *  2026-08-29): a party with an account signs in the platform, a party
+ *  without one signs offline and staff upload the countersigned PDF. */
+export const SIGNATURE_METHODS = ["in_platform", "manual_upload"] as const;
+export type SignatureMethod = (typeof SIGNATURE_METHODS)[number];
+
+export const SIGNATURE_STATUSES = ["pending", "signed", "declined"] as const;
+export type SignatureStatus = (typeof SIGNATURE_STATUSES)[number];
+
+/** A party to a contract — A ROW, NEVER A USER (the whole point of ADR-002
+ *  decision 2). `user_id` is set only when the party happens to BE a platform
+ *  user (the buyer, or OSI); for everyone else the name and email snapshots
+ *  are the only identity, and that is enough to hold a signature against. */
+export const contractParty = pgTable(
+  "contract_party",
+  {
+    id: text("id").primaryKey(),
+    contractId: text("contract_id")
+      .notNull()
+      .references(() => contract.id, { onDelete: "cascade" }),
+    role: text("role").$type<ContractPartyRole>().notNull(),
+    /** Set ONLY for parties that have an account — they sign in-platform. */
+    userId: text("user_id").references(() => user.id, { onDelete: "set null" }),
+    organizationId: text("organization_id").references(() => organization.id, {
+      onDelete: "set null",
+    }),
+    supplierId: text("supplier_id").references(() => supplier.id, { onDelete: "set null" }),
+    /** Snapshots — the durable identity. Never null. */
+    name: text("name").notNull(),
+    email: text("email"),
+    /** A non-required party appears on the contract but does not block
+     *  "signed" — that is what makes the 2/4 indicator meaningful. */
+    required: boolean("required").notNull().default(true),
+
+    signatureStatus: text("signature_status").$type<SignatureStatus>().notNull().default("pending"),
+    method: text("method").$type<SignatureMethod>(),
+    signedAt: timestamp("signed_at"),
+    /** Who actually put their name to it, as stated at signing time. */
+    signedByName: text("signed_by_name"),
+    /** The countersigned PDF, for manual_upload parties. */
+    signedFileId: text("signed_file_id").references(() => file.id, { onDelete: "set null" }),
+    /** in_platform: ip + user agent. manual_upload: who recorded it, when. */
+    evidence: jsonb("evidence").$type<Record<string, unknown>>(),
+    remindedAt: timestamp("reminded_at"),
+    position: integer("position").notNull().default(0),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => [index("contract_party_contract_idx").on(table.contractId)],
+);
+
+/** The contract's OWN trail — deliberately NOT audit_log, which the owner
+ *  purges at 3 months (AUDIT_RETENTION_MONTHS). Signature evidence has to
+ *  outlive that, so it lives here, beside the contract, permanently. Actor
+ *  ids are TOMBSTONES (no FK) for the same reason audit_log dropped its. */
+export const contractEvent = pgTable(
+  "contract_event",
+  {
+    id: text("id").primaryKey(),
+    contractId: text("contract_id")
+      .notNull()
+      .references(() => contract.id, { onDelete: "cascade" }),
+    /** contract.created · .sent · .signed · .reminded · .voided … */
+    type: text("type").notNull(),
+    actorId: text("actor_id"),
+    actorName: text("actor_name"),
+    /** The party this event concerns, when it concerns one. */
+    partyId: text("party_id"),
+    partyName: text("party_name"),
+    detail: jsonb("detail").$type<Record<string, unknown>>(),
+    at: timestamp("at").notNull().defaultNow(),
+  },
+  (table) => [index("contract_event_contract_idx").on(table.contractId, table.at)],
 );
 
 /** Generic file store (E3) — workspace-scoped; bytes live behind src/server/storage.ts. */
