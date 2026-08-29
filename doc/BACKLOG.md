@@ -13,12 +13,12 @@
 | --- | --- | --- |
 | **E0** Dev foundations | Postgres, Drizzle, pg-boss, seed | ✅ done |
 | **E1** Auth & users | better-auth, signup, guards, verification, reset, **2FA (2026-08-27)**, **verification ENFORCED (2026-08-28)** | ✅ done |
-| **E2** Workspaces & tenancy | Roles, invitations, team UI | ✅ Phase B (2026-08-23) + audit journal (2026-08-27); invites are organisation-only |
+| **E2** Workspaces & tenancy | Roles, invitations, team UI | ✅ Phase B (2026-08-23) + audit journal (2026-08-27); invites are organisation-only; **the platform workspace holds no customer data and cannot be deleted (2026-08-29)** |
 | **E12** Plans & quotas | Full ladder, seats, trial cap, Abonnements | 🟡 billing provider open |
 | **E3** Request core loop | Pipeline, criteria, attachments, dossier | ✅ done |
-| **E4** Supplier data | **Web research**, dedup, directory, sources admin | 🟡 **ADR-001 pivot (2026-08-26) → Phase S**; import/merge open |
+| **E4** Supplier data | **Web research**, dedup, directory, sources admin | 🟡 **ADR-001 pivot (2026-08-26) → Phase S**; directory is staff-only and buyers see what they are LINKED to (2026-08-29); import/merge open |
 | **E5** Matching & scoring | Criteria-aware v1 + breakdown | 🟡 the "32 criteria" + comparison view open |
-| **E6** Facilitation | ~~Engagements~~ → **soumissions → dossier de transaction → contrats** | 🔵 **redefined 2026-08-29 by [ADR-002](adr/ADR-002-transaction-and-contract-centre.md) → Phase P**; old task list RETIRED |
+| **E6** Facilitation | ~~Engagements~~ → **soumissions → dossier de transaction → contrats** | 🟡 **P1-P5 LIVE on prod (2026-08-29)** per [ADR-002](adr/ADR-002-transaction-and-contract-centre.md); **P6 signatures is next**; old task list RETIRED |
 | **E7** Reports | Printable report + PDF export | 🟡 stored `documents` rows open |
 | **E8** Transactions | Milestones, tracking, paiements | 🔵 **folded into Phase P** by ADR-002 (the `deal` spine); standalone sketch retired |
 | **E9** Notifications | In-app + email | 🟡 bell, emitters, **prefs (2026-08-26)** live; E6 templates gated |
@@ -32,7 +32,7 @@ real need, gets a real Top-N, **OSI solicits quotes, the buyer accepts one, the
 required contracts are signed by every mandatory party, and the commande is
 tracked to delivery** — with the PDF report available throughout.
 
-## Resume here (last session: 2026-08-29 — the portal brief, 9 deploys, P1-P4)
+## Resume here (last session: 2026-08-29 — the portal brief, 14 deploys, P1-P5 + the tenancy rules)
 
 ### START HERE — handoff, 2026-08-29
 
@@ -52,16 +52,27 @@ owner-validated 16-step parcours is the artifact linked from the ADR.
 
 ---
 
-#### 1 · What the day changed, in one paragraph
+#### 1 · What the day changed, in two paragraphs
 
 The morning was a design pass on the owner's `.docx` brief for the **Portail
-entreprise B2B**; the afternoon built the first four phases of it. OSI no
-longer stops at `report_ready`: a buyer now picks which of their Top-N to
-approach, OSI solicits them, staff record the offers, the buyer compares and
-accepts one, that opens a **dossier de transaction**, and the contracts it
-requires are drafted with their parties and a signature indicator. Along the
-way the search itself was repaired — relevance became a gate rather than a
-score component — and both the search and the pool became bilingual.
+entreprise B2B**; the afternoon built the first five phases of it. OSI no
+longer stops at `report_ready`: a buyer picks which of their Top-N to approach,
+OSI solicits them, staff record the offers, the buyer compares and accepts one,
+that opens a **dossier de transaction**, and the contracts it requires are
+drafted — with their own text, their parties and a signature indicator. Along
+the way the search itself was repaired (relevance became a gate rather than a
+score component) and both the search and the pool became bilingual.
+
+The evening was about **who sees what**, and it turned up three things that
+were true in the docs but not in the code: OSI's own workspace held no customer
+data only by habit (a staff owner could file a request there), the platform
+workspace was one API call from deletion (the org plugin ships its own
+`/organization/delete`, which never touched our guarded fn), and the
+platform-global supplier directory was being shipped to every signed-in
+browser. All three are now enforced server-side. The ops lists also gained
+per-account and per-period filtering, a session now opens in your personal
+workspace, and both databases were cleared for a cold test. One deploy failed
+in the middle of it and prod was rolled back — see #24.
 
 #### 2 · Deploys (all verified on prod, backup taken before each)
 
@@ -158,12 +169,20 @@ quotes · 0 deals · 0 contracts — prod has still not run the new flow, as at
   request's language; a missing mandatory contract now shows on the dossier,
   visible to the buyer, actionable only by staff.
 
+**Shipped alongside Phase P (the tenancy/ops wave, deploys #22-#25):** OSI's
+own workspace refuses customer data · the platform workspace cannot be deleted
+· the global supplier directory is staff-only and "linked" widened to four
+traces · per-account (multi) + per-period filters on all four ops lists ·
+sessions open in the personal workspace · timestamps pinned to one zone.
+
 Also shipped outside Phase P: **per-request country origin** (mig 0037) with a
 24-corridor helper; the **relevance gate** and its product-first refinement;
 **English-first search**; the **bilingual pool** and **cross-language
 criteria**.
 
 #### 4 · What REMAINS, in order
+
+**Phase P, the product spine:**
 
 1. **P6 · signatures — the two mechanisms.** `in_platform` for parties with a
    `user_id` (buyer, OSI) recording IP + user agent; `manual_upload` for
@@ -172,15 +191,46 @@ criteria**.
    `contract_event`; recompute status with `statusFromSignatures()`, never by
    hand. Create `src/server/esign.ts` as the vendor seam for the EXTERNAL path
    only, first implementation `manual`. Gate on `contracts.sign`. The fiche's
-   Action column currently says "Signature — bientôt" — that is where it goes.
+   Action column says "Signature — bientôt" — that is the spot.
 2. **P7 · commandes** (needs a new `order_milestone` table — designed then,
    not now) · **P8 · documents** (BLOCKED, see gaps) · **P9 · paiements** ·
    **P10 · messages** · **P11 · rapports**.
-3. **Phase R · custom staff roles** — a new owner ask, NOT sized, and not a
-   prerequisite for anything in Phase P.
+3. **Phase R · custom staff roles** — owner ask, NOT sized, not a prerequisite.
+
+**Carried over from the tenancy/ops wave (small, none blocking):**
+
+4. **`transactions.tsx` still shows a "Mes données" tab.** Every other surface
+   lost it; this one could not, because deleting its `EmployeeTabs` import is
+   exactly what broke deploy #24. It needs the chunk cycle fixed first, or a
+   different way to drop the tab. P7 rewrites this page anyway.
+5. **The chunk cycle itself is UNFIXED** — see "The prod bundle has a latent
+   chunk cycle". Two attempts are recorded as failures so nobody retries them
+   blind. Until it is fixed, the prod-preset build check is the safety net and
+   should run before EVERY deploy.
+6. **`matchCount` means two different things** — platform-wide on the staff
+   directory, caller-scoped on the linked list. Deliberate, but the field
+   comment in `SupplierView` still describes only the first.
 
 #### 5 · Gaps and open questions a next session must not lose
 
+- ❗ **Three prod accounts hold the `internal` PLAN** — henrik bergeron,
+  Renaud Lacoursiere Theroux, Yves Bationo — which is unlimited requests,
+  unlimited lifetime and 10 suppliers returned, against `free`'s 1/day, 2
+  lifetime, 5 suppliers. Rights leak through the PLAN, not only through the
+  role: a test account on `internal` does not behave like a customer, so
+  whatever it proves is not what a customer will see. Owner has not said which
+  should move; moving one to `free` caps it at 2 lifetime requests, which may
+  cut a live tester off mid-test.
+- ❓ **A buyer test account does not exist yet.** Owner intends one (a second
+  Oversea org, ordinary customer rights, for testing the buyer journey).
+  Account creation is the owner's to perform — it needs a password, and the
+  signup IS the journey under test. Name must differ from the internal
+  workspace (names are unique case-insensitively) and the plan must be a real
+  customer tier.
+- ⚠️ **The verification registry stores are still full** (prod 393 474
+  registry-ca rows; dev 1.8 M across qc/sg/ca/jp) while the DISCOVERY store is
+  empty. That is deliberate — only discovery can warm a search — but it means
+  "the store was cleared" is true of research and false of verification.
 - ❗ **The `osi-uploads` volume is in NO backup** (`scripts/backup.sh` dumps
   Postgres only). **Blocking for P8** — no signed contract may be stored
   before this is fixed.
@@ -215,6 +265,33 @@ criteria**.
 
 #### 6 · Lessons this session paid for — do not re-learn them
 
+- **A green dev run says nothing about the production bundle.** Deploy #24
+  passed tsc, eslint, 113 tests and worked in `vite dev`, then 500'd on every
+  SSR request in the container. `npm run build` alone would not have caught it
+  either — that builds the **Cloudflare Worker** preset, while the container
+  forces `node-server`. Run the prod-preset build and actually SERVE it before
+  any deploy; it takes 90 seconds and it is now the only thing standing between
+  a route-import edit and a broken prod.
+- **A guard in our own server fn is not a guarantee.** `destroyWorkspace`
+  refused to delete the internal workspace and the docs called it
+  indestructible — while the better-auth organization plugin's own
+  `POST /organization/delete` bypassed it entirely and worked. Whenever a rule
+  is "this can never happen" for a workspace, put it in an `organizationHook`,
+  where the plugin's routes and ours both pass. Ask the same question of every
+  plugin-backed entity: what endpoints ship that we did not write?
+- **Withholding in the UI is not withholding.** `getSuppliersFn` returned the
+  whole platform-global pool to every signed-in caller; the page merely did not
+  render it for buyers. Shipping data a page will not display is still shipping
+  it.
+- **"Clear the store" is two different acts.** `source_record` is
+  overwhelmingly VERIFICATION registries, not discovery: prod held 393 474
+  registry rows against 67 discovery ones. Only discovery can make a search
+  warm, and the QC/JP registries are staff FILE UPLOADS — wiping those is not a
+  re-pull, it is data loss. Read the split before deleting.
+- **The console-buffer trap bit twice more.** A stale 403 from a delete probe,
+  and a stale hydration error, each looked like a fresh failure on an unrelated
+  page. It is per-tab and survives navigation: open a NEW tab before concluding
+  anything.
 - **Every Phase P surface needs its OPS HALF.** Quotes live in the buyer's
   workspace while staff stand in the internal one, so the first cut of
   `/soumissions` showed staff an empty page and they could not do their job.
@@ -235,6 +312,18 @@ criteria**.
   code comments and docs rather than left to mislead.
 
 #### 7 · Owner decisions taken today (all implemented)
+
+**Evening wave (tenancy & ops):** OSI's own workspace is for internal action
+only — no customer data, no intake form, no "Mes données" · the platform
+workspace **can never be deleted** · staff **keep** their personal workspace
+and switch to it to act as a buyer · a session **opens** in the personal
+workspace when one exists (reversing 2026-08-27) · outside the platform
+workspace you see only what you are **involved in**, and "involved" means
+matched OR quoted OR dealt OR a contract party · staff lists **name the
+customer account** and filter by account (multi-select) and period (week /
+month / year / custom) · a test buyer account has **no more rights than any
+customer** · both databases **cleared** for a cold test, discovery store
+included.
 
 Facilitation first (reversing "foundation before facilitation") · the E6/E8
 sketches retired, a **quote is the unit of facilitation** · **no supplier

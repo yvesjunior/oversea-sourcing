@@ -18,7 +18,7 @@ Live at **[osi-solutions.com](https://osi-solutions.com)** · TanStack Start
 > ranking → printable report, with per-workspace plans and daily quotas — and
 > the first half of facilitation: the buyer solicits quotes, compares the
 > offers, accepts one, and the dossier opens with its required contracts
-> drafted (Phase P1-P4, live on prod since deploy #20).
+> drafted and their text pre-filled (Phase P1-P5, live on prod).
 > **Not built:** signatures, commandes and milestones, documents, paiements,
 > messages, and the supplier import pipeline.
 
@@ -678,6 +678,16 @@ UPDATE "user" SET platform_role = 'owner' WHERE email = '…';
 
 The change takes effect on the next sign-in, since the role is read from the
 session established at login.
+
+### Who sees what, in one line
+
+A buyer sees their own workspace's data, plus the suppliers they are **linked
+to** — matched on one of their requests, asked for a quote, on their deal, or a
+party to their contract. OSI staff see everything, but **only while standing in
+the internal workspace**: in any other workspace the same person is an ordinary
+buyer, and the global supplier directory is withheld from them on the server,
+not merely hidden. The two sections below are the tenancy rules that make that
+true.
 
 ### The platform workspace cannot be deleted
 
