@@ -32,11 +32,18 @@ real need, gets a real Top-N, **OSI solicits quotes, the buyer accepts one, the
 required contracts are signed by every mandatory party, and the commande is
 tracked to delivery** — with the PDF report available throughout.
 
-## Resume here (last session: 2026-08-29 — the portal brief + deploy #12)
+## Resume here (last session: 2026-08-29 — the portal brief + deploys #12 and #13)
 
 ### Session digest 2026-08-29 — the portal brief, and deploy #12
 
-**DEPLOY #12 IS LIVE — commit `95812c8`, code-only, no migrations.** Backup
+**DEPLOY #13 IS LIVE — commit `2565e64`, code-only, no migrations** (the
+i18n hydration fix). Backup first: `backups/osi-20260829-113209.sql.gz`.
+Verified ON PROD: `https://osi-solutions.com/` serves French nav with no
+cookie and **English nav under `Cookie: osi-lang=en`**, `<html lang>` follows
+in both, five containers up. That is the defect fixed at the source — SSR now
+renders the visitor's language instead of switching after hydration.
+
+**DEPLOY #12 — commit `95812c8`, code-only, no migrations.** Backup
 first: `backups/osi-20260829-112247.sql.gz` (31M). Verified on prod: public
 origin 200 · five containers up (migrate exited clean) · the merged nav
 rendered by prod SSR (Tableau de bord · Demandes · Fournisseurs · Soumissions ·
@@ -51,12 +58,12 @@ dashboard (P0 ②), the merged navigation — 15 entries → 20, unbuilt ones gr
 with no route (P0 ④) — `Analyses` moved into the INTERNE block, and a
 `suppressHydrationWarning` guard on the dossier timestamp.
 
-**What did NOT ship, deliberately:** the language-toggle hydration defect. It
-is real and on prod, reproduced deterministically, and the fix needs the
-language to reach the SERVER (cookie + per-request i18next instance) — too
-much to rush into this deploy. Full diagnosis under "Known defect — hydration
-breaks once a visitor picks a language" below. **It is the next code task**,
-ahead of or alongside pick-up item ⓪.
+**The language-toggle hydration defect** was diagnosed after deploy #12 and
+**fixed in deploy #13 the same day** — cookie + one i18n instance per
+language + server-side resolution. Full write-up under
+"~~Hydration breaks once a visitor picks a language~~ ✅ FIXED" below.
+
+**Next code task: pick-up item ⓪ (the search relevance gate).**
 
 **Still open in P0:** the two designs (the `.dark` block that nothing applies)
 and enriching the dashboard toward the brief's mockup.
