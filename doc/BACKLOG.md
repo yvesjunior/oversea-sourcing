@@ -36,9 +36,10 @@ tracked to delivery** — with the PDF report available throughout.
 
 ### START HERE — handoff, 2026-08-29
 
-**Prod = `4b638c4` (deploy #22). Nothing is built and undeployed — main and
-prod are the same commit.** #22 carries the **per-account filter on staff
-lists** and the **"OSI's own workspace holds no customer data" rule**.
+**Prod = `5b90649` (deploy #23). Nothing is built and undeployed — main and
+prod are the same commit.** #23 closes the **platform-workspace deletion
+hole**; #22 carried the per-account filter and the "no customer data in OSI's
+own workspace" rule.
 Rollback point for the whole day: tag `deploy-11-baseline`.
 
 Read in this order before writing code: **[ADR-002](adr/ADR-002-transaction-and-contract-centre.md)**
@@ -74,6 +75,17 @@ score component — and both the search and the pool became bilingual.
 | 20 | `754ae36` | — | **P4 · the contract centre** — `/contrats` list + fiche, derived filters, N/M indicator, `OSI-2026-0000` numbering |
 | 21 | `b85c0c8` | 0038 | **P5** — contract templates (text frozen at draft time, in the request's language) + the missing-contract gap on the dossier; **timestamps pinned to one zone**, killing the hydration mismatch |
 | 22 | `4b638c4` | — | staff lists **name their customer account and narrow to one**; **OSI's own workspace holds no customer data** (request creation refused there, intake form and "Mes données" tabs gone) |
+| 23 | `5b90649` | — | **the platform workspace can no longer be deleted** — the org-plugin's own `POST /organization/delete` bypassed `destroyWorkspace`; guard moved into a `beforeDeleteOrganization` hook |
+
+**Deploy #23 verification** — backup `backups/osi-20260829-180148.sql.gz`
+taken first; code-only. The guard is in the deployed SERVER bundle
+(`.output/server/_ssr/auth-*.mjs`) and absent from the client bundle, which is
+what you want for an auth hook; the internal workspace row is intact and the
+site answers 200. The endpoint itself was **not** exercised against prod: that
+needs an authenticated staff session, and the only truthful probe (deleting a
+throwaway internal-typed workspace) is one typo away from deleting the real
+one. The behavioural evidence is the dev probe, before and after, on the same
+image.
 
 **Deploy #22 verification** — backup `backups/osi-20260829-174954.sql.gz`
 taken first; code-only, no migration. Five containers up, the site answers
