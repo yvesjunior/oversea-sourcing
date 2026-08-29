@@ -1237,6 +1237,43 @@ writing any code.
 Quality gates are `npm test` (vitest, 27 unit tests),
 `npx tsc --noEmit` and `npx eslint src/` — all clean as of this commit.
 
+### The prod bundle has a latent chunk cycle — `npm run dev` will not show it
+
+**Cost a failed deploy on 2026-08-29 (prod down ~4 min, rolled back).** A build
+that runs perfectly under `vite dev` can return **500 `TypeError: __exportAll
+is not a function`** from every SSR request in the production image.
+
+**Mechanism.** Rollup emits two SSR chunks that import each other: chunk A
+defines the `__exportAll` helper and imports a namespace from chunk B; chunk B
+imports `__exportAll` from A and calls it at TOP LEVEL. ESM evaluates a
+module's imports before its body, so whichever chunk is entered first decides
+whether the helper exists yet. **The cycle is present in healthy builds too** —
+it is a coin that happens to land the right way up. Any edit that changes chunk
+composition can flip it, including an edit that only REMOVES an import: the
+trigger here was deleting the `EmployeeTabs` import from
+`src/routes/transactions.tsx`, which is why it looked harmless.
+
+**Reproduce it in ~90 seconds — do this before any deploy that touches route
+imports:**
+
+```sh
+NODE_ENV=production NITRO_PRESET=node-server npm run build
+DATABASE_URL='postgres://osi:local-test-password@localhost:5433/osi' \
+  PORT=3099 NODE_ENV=production node .output/server/index.mjs &
+curl -s -o /dev/null -w '%{http_code}\n' http://localhost:3099/    # 200 = shippable
+```
+
+Both env vars matter: a plain `npm run build` produces the **Cloudflare Worker**
+preset (the Lovable vite plugin's default), which is NOT what the container
+runs — `infra/Docker/web.Dockerfile` forces `node-server`. Building without
+them tests an artifact that never ships.
+
+**Tried and did NOT fix it:** a `manualChunks` rule isolating
+`src/database/schema`, and removing the `period.ts → instant.ts` import edge.
+The proper fix is to break the cycle at its source and is **not yet done** —
+until then, the reproduction above is the safety net, and the workaround was to
+leave `transactions.tsx` alone.
+
 ### Things that will bite you
 
 - **`./scripts/db.sh prod` is NOT the VM.** It targets a prod-compose stack
