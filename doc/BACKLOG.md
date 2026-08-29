@@ -32,11 +32,20 @@ real need, gets a real Top-N, **OSI solicits quotes, the buyer accepts one, the
 required contracts are signed by every mandatory party, and the commande is
 tracked to delivery** — with the PDF report available throughout.
 
-## Resume here (last session: 2026-08-29 — the portal brief + deploys #12 and #13)
+## Resume here (last session: 2026-08-29 — the portal brief + deploys #12, #13, #14)
 
 ### Session digest 2026-08-29 — the portal brief, and deploy #12
 
-**DEPLOY #13 IS LIVE — commit `2565e64`, code-only, no migrations** (the
+**DEPLOY #14 IS LIVE — commit `0508475`, migration 0032** (the two designs).
+Backup first: `backups/osi-20260829-114957.sql.gz` (31M). Verified ON PROD:
+`user.design` column present with default `light`; origin 200; data intact
+(10 users · 11 orgs · 8 requests · 67 suppliers · 40 matches); and the two
+preference cookies compose correctly at the SSR layer —
+`<html lang="fr">` with no cookie, `<html lang="en" class="dark">` under
+`Cookie: osi-design=dark; osi-lang=en`. **Existing users are unaffected until
+they touch the switch: light is the default.**
+
+**DEPLOY #13 — commit `2565e64`, code-only, no migrations** (the
 i18n hydration fix). Backup first: `backups/osi-20260829-113209.sql.gz`.
 Verified ON PROD: `https://osi-solutions.com/` serves French nav with no
 cookie and **English nav under `Cookie: osi-lang=en`**, `<html lang>` follows
@@ -65,8 +74,10 @@ language + server-side resolution. Full write-up under
 
 **Next code task: pick-up item ⓪ (the search relevance gate).**
 
-**Still open in P0:** the two designs (the `.dark` block that nothing applies)
-and enriching the dashboard toward the brief's mockup.
+**P0 is DONE** (deploys #12 and #14). The only piece deliberately left is
+**enriching the dashboard toward the brief's mockup** (dépenses chart,
+activités récentes) — cosmetic, and it belongs with the Tableau de bord work
+rather than the shell.
 
 **The design pass (docs only, no code):**
 - [doc/briefs/portail-entreprise.md](briefs/portail-entreprise.md) — the brief
