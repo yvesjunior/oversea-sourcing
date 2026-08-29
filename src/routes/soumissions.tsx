@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  acceptQuoteFn,
   getAllQuotesFn,
   getMyQuotesFn,
   recordQuoteFn,
@@ -203,19 +204,48 @@ function Soumissions() {
           globalCount={all.quotes.length}
           mineCount={mine.quotes.length}
           global={<QuoteList quotes={all.quotes} canRecord />}
-          mine={<QuoteList quotes={mine.quotes} canRecord={mine.canRecord} />}
+          mine={
+            <QuoteList quotes={mine.quotes} canRecord={mine.canRecord} canAccept={mine.canAct} />
+          }
         />
       ) : (
-        <QuoteList quotes={mine.quotes} canRecord={mine.canRecord} />
+        <QuoteList quotes={mine.quotes} canRecord={mine.canRecord} canAccept={mine.canAct} />
       )}
     </div>
   );
 }
 
-function QuoteList({ quotes, canRecord }: { quotes: QuoteView[]; canRecord: boolean }) {
+function QuoteList({
+  quotes,
+  canRecord,
+  canAccept = false,
+}: {
+  quotes: QuoteView[];
+  canRecord: boolean;
+  /** Only the buyer commits their company to a supplier — never staff. */
+  canAccept?: boolean;
+}) {
   const { t, i18n } = useTranslation();
   const router = useRouter();
   const [openForm, setOpenForm] = useState<string | null>(null);
+  const [accepting, setAccepting] = useState<string | null>(null);
+  const [refusal, setRefusal] = useState<string | null>(null);
+
+  const accept = async (quote: QuoteView) => {
+    setAccepting(quote.id);
+    setRefusal(null);
+    try {
+      const result = await acceptQuoteFn({ data: { quoteId: quote.id } });
+      if (result.ok) {
+        await router.invalidate();
+      } else {
+        // A refusal is data, not an exception — the buyer needs to know WHY.
+        setRefusal(t(`soumissions.refusal_${result.reason}`));
+      }
+    } finally {
+      setAccepting(null);
+    }
+  };
 
   // Grouped by request: comparing offers only means something within one need.
   const byRequest = new Map<string, QuoteView[]>();
@@ -244,6 +274,15 @@ function QuoteList({ quotes, canRecord }: { quotes: QuoteView[]; canRecord: bool
                 #{requestId} — {list[0]?.requestTitle}
                 <ChevronRight className="size-4 opacity-0 transition-opacity group-hover:opacity-100" />
               </Link>
+
+              {list.filter((q) => q.status === "received").length > 1 && canAccept && (
+                <p className="mt-2 text-xs text-muted-foreground">{t("soumissions.compareHint")}</p>
+              )}
+              {refusal && (
+                <p role="alert" className="mt-2 text-xs text-destructive">
+                  {refusal}
+                </p>
+              )}
 
               <ul className="mt-4 space-y-3">
                 {list.map((quote) => (
@@ -277,6 +316,16 @@ function QuoteList({ quotes, canRecord }: { quotes: QuoteView[]; canRecord: bool
                         >
                           {t(`soumissions.${quote.status}`)}
                         </span>
+                        {canAccept && quote.status === "received" && (
+                          <Button
+                            variant="gold"
+                            size="sm"
+                            disabled={accepting !== null}
+                            onClick={() => void accept(quote)}
+                          >
+                            {t("soumissions.accept")}
+                          </Button>
+                        )}
                         {canRecord && quote.status === "requested" && (
                           <Button
                             variant="outline"

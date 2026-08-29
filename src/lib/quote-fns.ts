@@ -395,3 +395,142 @@ export const declineQuoteFn = createServerFn({ method: "POST" })
     }
     return { ok: true };
   });
+
+/**
+ * The buyer accepts ONE offer — parcours step 09, and the single event that
+ * opens a dossier (brief §4 steps 1-2).
+ *
+ * NO SPLITTING (owner 2026-08-29, "pas de répartitions"): one accepted offer,
+ * one dossier. A buyer who wants two suppliers makes two requests. The
+ * database enforces it through the partial unique index
+ * `quote_one_accepted_per_request_uq`, because an application-side check
+ * would let two simultaneous acceptances both through — so the violation is
+ * CAUGHT here and returned as a typed refusal rather than surfacing as a 500.
+ */
+export const acceptQuoteFn = createServerFn({ method: "POST" })
+  .inputValidator(z.object({ quoteId: z.string().min(1) }))
+  .handler(
+    async ({
+      data,
+    }): Promise<
+      | { ok: true; dealId: string }
+      | { ok: false; reason: "forbidden" | "not_found" | "not_received" | "already_accepted" }
+    > => {
+      const [{ requireWorkspaceRole }, { getRequest }, { db }, { and, eq, ne }, schema] =
+        await Promise.all([
+          import("@/server/workspace-guard"),
+          import("@tanstack/react-start/server"),
+          import("@/database"),
+          import("drizzle-orm"),
+          import("@/database/schema"),
+        ]);
+      // A viewer seat may look at offers, never commit the company to one.
+      const caller = await requireWorkspaceRole(getRequest().headers, "buyer");
+      if (!caller) return { ok: false, reason: "forbidden" };
+
+      const quote = await db.query.quote.findFirst({
+        where: and(
+          eq(schema.quote.id, data.quoteId),
+          eq(schema.quote.organizationId, caller.workspaceId),
+        ),
+      });
+      if (!quote) return { ok: false, reason: "not_found" };
+      // You cannot accept an offer that never arrived.
+      if (quote.status !== "received") return { ok: false, reason: "not_received" };
+
+      const request = await db.query.request.findFirst({
+        where: eq(schema.request.id, quote.requestId),
+      });
+      const dealId = crypto.randomUUID();
+
+      try {
+        await db.transaction(async (tx) => {
+          await tx
+            .update(schema.quote)
+            .set({ status: "accepted", updatedAt: new Date() })
+            .where(eq(schema.quote.id, quote.id));
+
+          // Everything else on this request is out of the running. Not
+          // cosmetic: `accepted` is terminal, so leaving siblings open would
+          // suggest a choice that can no longer be made.
+          await tx
+            .update(schema.quote)
+            .set({ status: "declined", updatedAt: new Date() })
+            .where(
+              and(
+                eq(schema.quote.requestId, quote.requestId),
+                ne(schema.quote.id, quote.id),
+                eq(schema.quote.status, "received"),
+              ),
+            );
+
+          await tx.insert(schema.deal).values({
+            id: dealId,
+            organizationId: caller.workspaceId,
+            requestId: quote.requestId,
+            quoteId: quote.id,
+            supplierId: quote.supplierId,
+            // Snapshots — the dossier must stay readable without them.
+            supplierName: quote.supplierName,
+            title: request?.title ?? quote.supplierName,
+            status: "open",
+            amountCents: quote.amountCents,
+            currency: quote.currency,
+            incoterm: quote.incoterm,
+            createdBy: caller.userId,
+            createdByName: caller.userName,
+          });
+
+          // The match enum has carried `selected`/`rejected` since day one and
+          // nothing ever set them. This is what they were for.
+          if (quote.supplierId) {
+            await tx
+              .update(schema.match)
+              .set({ status: "selected" })
+              .where(
+                and(
+                  eq(schema.match.requestId, quote.requestId),
+                  eq(schema.match.supplierId, quote.supplierId),
+                ),
+              );
+            await tx
+              .update(schema.match)
+              .set({ status: "rejected" })
+              .where(
+                and(
+                  eq(schema.match.requestId, quote.requestId),
+                  ne(schema.match.supplierId, quote.supplierId),
+                ),
+              );
+          }
+        });
+      } catch (error) {
+        // 23505 = the partial unique index: someone accepted first.
+        const code = (error as { code?: string }).code;
+        if (code === "23505") return { ok: false, reason: "already_accepted" };
+        throw error;
+      }
+
+      const [{ recordDealEvent }, { recordEvent }, { logAudit }] = await Promise.all([
+        import("@/server/deals"),
+        import("@/server/requests"),
+        import("@/server/audit"),
+      ]);
+      await recordDealEvent(dealId, caller.workspaceId, "deal.opened", {
+        supplier: quote.supplierName,
+        requestId: quote.requestId,
+      });
+      await recordEvent(quote.requestId, caller.workspaceId, "quote.accepted", {
+        supplier: quote.supplierName,
+      });
+      await logAudit({
+        actorId: caller.userId,
+        actorName: caller.userName,
+        organizationId: caller.workspaceId,
+        action: "deal.opened",
+        target: quote.supplierName,
+        detail: { dealId, requestId: quote.requestId, quoteId: quote.id },
+      });
+      return { ok: true, dealId };
+    },
+  );

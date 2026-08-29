@@ -2255,7 +2255,32 @@ in the browser before committing; deploy only when the owner asks.
       **Gotcha.** `supplier_name` is a snapshot, not a join — write it at
       insert time. The whole point is that the row survives the supplier.
 
-- [ ] **P3 · Comparaison & acceptation — the dossier opens.**
+- [x] **P3 · Comparaison & acceptation — BUILT 2026-08-29** (parcours steps
+      09-10). `acceptQuoteFn` in `src/lib/quote-fns.ts` + the comparison and
+      accept UI on `/soumissions`.
+      In ONE transaction: the chosen quote → `accepted`; every sibling
+      `received` quote → `declined` (leaving them open would suggest a choice
+      that can no longer be made); the `deal` inserted with supplier and
+      creator SNAPSHOTS and the quote's amount/currency/incoterm; the winning
+      `match` → `selected` and the rest → `rejected` — the enum has carried
+      those two values since day one and nothing ever set them.
+      Then `deal.opened` on the dossier timeline, `quote.accepted` on the
+      request timeline, and an `audit_log` row.
+      **Only the BUYER accepts** — `requireWorkspaceRole(…, "buyer")`, so a
+      viewer seat cannot commit the company and staff cannot either
+      (verified: staff see both offers with no accept button).
+      **The no-splitting refusal is CAUGHT, not thrown**: the partial unique
+      index raises 23505 and the fn returns
+      `{ok:false, reason:"already_accepted"}`, which the UI shows as "create a
+      new request for a second supplier" rather than a 500.
+      *Verified live:* two offers compared (16 990 vs 18 450 CAD), the cheaper
+      accepted → deal opened (Hy-Lok, 16 990 CAD, EXW, créé par Buyer), the
+      other quote `declined`, 1 match `selected` + 4 `rejected`, both timeline
+      rows and the audit row written. A direct SQL attempt to accept a second
+      quote on the same request was **refused by the database**:
+      `duplicate key value violates unique constraint
+      "quote_one_accepted_per_request_uq"`.
+- [x] ~~**P3 · Comparaison & acceptation — the dossier opens.**~~
       *Parcours steps 09-10. Depends on: P2. Blocks: P4.*
 
       **What it does.** The buyer compares received offers side by side and

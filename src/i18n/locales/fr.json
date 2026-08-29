@@ -897,6 +897,12 @@
     "askSelected": "Demander une soumission",
     "askDone": "{{count}} fournisseur(s) sollicité(s)",
     "askHint": "Cochez les fournisseurs à solliciter. Rien n'est envoyé sans votre accord.",
-    "askForbidden": "Votre rôle dans cet espace est en lecture seule."
+    "askForbidden": "Votre rôle dans cet espace est en lecture seule.",
+    "accept": "Accepter cette offre",
+    "compareHint": "Comparez les offres, puis acceptez-en une — elle ouvre le dossier de transaction. Une seule offre par demande.",
+    "refusal_forbidden": "Votre rôle dans cet espace ne permet pas d'accepter une offre.",
+    "refusal_not_found": "Cette offre est introuvable.",
+    "refusal_not_received": "Cette offre n'est pas encore arrivée.",
+    "refusal_already_accepted": "Une offre a déjà été acceptée pour cette demande. Pour un second fournisseur, créez une nouvelle demande."
   }
 }

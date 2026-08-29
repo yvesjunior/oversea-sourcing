@@ -897,6 +897,12 @@
     "askSelected": "Request a quote",
     "askDone": "{{count}} supplier(s) approached",
     "askHint": "Tick the suppliers to approach. Nothing is sent without your say-so.",
-    "askForbidden": "Your role in this workspace is read-only."
+    "askForbidden": "Your role in this workspace is read-only.",
+    "accept": "Accept this offer",
+    "compareHint": "Compare the offers, then accept one — it opens the transaction dossier. One offer per request.",
+    "refusal_forbidden": "Your role in this workspace cannot accept an offer.",
+    "refusal_not_found": "That offer no longer exists.",
+    "refusal_not_received": "That offer has not arrived yet.",
+    "refusal_already_accepted": "An offer has already been accepted for this request. For a second supplier, create a new request."
   }
 }
