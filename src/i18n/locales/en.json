@@ -904,5 +904,75 @@
     "refusal_not_found": "That offer no longer exists.",
     "refusal_not_received": "That offer has not arrived yet.",
     "refusal_already_accepted": "An offer has already been accepted for this request. For a second supplier, create a new request."
+  },
+  "contrats": {
+    "title": "Contracts",
+    "subtitle": "{{count}} contract(s)",
+    "empty": "No contracts yet. Required contracts are drafted from a transaction dossier.",
+    "search": "Contract no., company, supplier…",
+    "filter": {
+      "tous": "All",
+      "actifs": "Active",
+      "a_signer": "To sign",
+      "en_attente": "Awaiting",
+      "completes": "Completed",
+      "expires": "Expired"
+    },
+    "col": {
+      "number": "Contract no.",
+      "subject": "Subject",
+      "parties": "Parties",
+      "value": "Value",
+      "status": "Status",
+      "signatures": "Signatures",
+      "date": "Date"
+    },
+    "status": {
+      "draft": "Draft",
+      "sent": "Sent",
+      "partially_signed": "Partially signed",
+      "signed": "Signed",
+      "voided": "Voided",
+      "expired": "Expired"
+    },
+    "type": {
+      "mandate_osi_client": "OSI ↔ client mandate",
+      "purchase_order": "Buyer ↔ supplier order",
+      "label": "Contract type"
+    },
+    "role": {
+      "buyer": "Buyer",
+      "osi": "OSI",
+      "supplier": "Supplier",
+      "carrier": "Carrier",
+      "customs_broker": "Customs broker",
+      "inspector": "Inspector",
+      "other": "Other"
+    },
+    "partyStatus": {
+      "pending": "Pending",
+      "signed": "Signed",
+      "declined": "Declined"
+    },
+    "parties": "Parties and signatures",
+    "history": "Activity history",
+    "draft": "Draft the required contracts",
+    "drafted": "{{count}} contract(s) drafted",
+    "required": "Signature required",
+    "optional": "Optional",
+    "dueAt": "Due date",
+    "noDue": "No due date",
+    "incoterm": "Incoterm",
+    "supplier": "Supplier",
+    "paymentTerms": "Payment terms",
+    "deal": "Linked dossier",
+    "actionSoon": "Signing — soon",
+    "partyCol": {
+      "party": "Party",
+      "role": "Role",
+      "status": "Status",
+      "action": "Action"
+    },
+    "pendingHint": "These dossiers are still missing their required contracts."
   }
 }

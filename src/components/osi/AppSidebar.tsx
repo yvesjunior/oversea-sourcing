@@ -55,7 +55,8 @@ const items: NavItem[] = [
   // ── Phase P — no routes yet, greyed until their module lands ──────────
   // Live since P2 (2026-08-29) — the buyer picks, OSI solicits, staff record.
   { key: "soumissions", url: "/soumissions", icone: ClipboardList },
-  { key: "contrats", url: "/contrats", icone: FileSignature, disabled: true },
+  // Live since P4 (2026-08-29) — the contract centre.
+  { key: "contrats", url: "/contrats", icone: FileSignature },
   // Ex-"transactions": renamed per the brief; still the showcase route.
   { key: "commandes", url: "/commandes", icone: Package, disabled: true },
   { key: "documents", url: "/documents", icone: FileText, disabled: true },

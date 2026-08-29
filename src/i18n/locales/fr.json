@@ -904,5 +904,75 @@
     "refusal_not_found": "Cette offre est introuvable.",
     "refusal_not_received": "Cette offre n'est pas encore arrivée.",
     "refusal_already_accepted": "Une offre a déjà été acceptée pour cette demande. Pour un second fournisseur, créez une nouvelle demande."
+  },
+  "contrats": {
+    "title": "Contrats",
+    "subtitle": "{{count}} contrat(s)",
+    "empty": "Aucun contrat. Les contrats requis sont préparés depuis un dossier de transaction.",
+    "search": "N° de contrat, entreprise, fournisseur…",
+    "filter": {
+      "tous": "Tous",
+      "actifs": "Actifs",
+      "a_signer": "À signer",
+      "en_attente": "En attente",
+      "completes": "Complétés",
+      "expires": "Expirés"
+    },
+    "col": {
+      "number": "N° contrat",
+      "subject": "Objet",
+      "parties": "Parties",
+      "value": "Valeur",
+      "status": "Statut",
+      "signatures": "Signatures",
+      "date": "Date"
+    },
+    "status": {
+      "draft": "Brouillon",
+      "sent": "Envoyé",
+      "partially_signed": "Partiellement signé",
+      "signed": "Signé",
+      "voided": "Annulé",
+      "expired": "Expiré"
+    },
+    "type": {
+      "mandate_osi_client": "Mandat OSI ↔ client",
+      "purchase_order": "Commande acheteur ↔ fournisseur",
+      "label": "Type de contrat"
+    },
+    "role": {
+      "buyer": "Acheteur",
+      "osi": "OSI",
+      "supplier": "Fournisseur",
+      "carrier": "Transporteur",
+      "customs_broker": "Courtier en douane",
+      "inspector": "Inspecteur",
+      "other": "Autre"
+    },
+    "partyStatus": {
+      "pending": "En attente",
+      "signed": "Signé",
+      "declined": "Refusé"
+    },
+    "parties": "Parties et signatures",
+    "history": "Historique des activités",
+    "draft": "Préparer les contrats requis",
+    "drafted": "{{count}} contrat(s) préparé(s)",
+    "required": "Signature obligatoire",
+    "optional": "Facultative",
+    "dueAt": "Échéance",
+    "noDue": "Aucune échéance",
+    "incoterm": "Incoterm",
+    "supplier": "Fournisseur",
+    "paymentTerms": "Conditions de paiement",
+    "deal": "Dossier lié",
+    "actionSoon": "Signature — bientôt",
+    "partyCol": {
+      "party": "Partie",
+      "role": "Rôle",
+      "status": "Statut",
+      "action": "Action"
+    },
+    "pendingHint": "Ces dossiers attendent leurs contrats obligatoires."
   }
 }

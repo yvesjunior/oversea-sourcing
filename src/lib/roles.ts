@@ -34,6 +34,8 @@ export const PLATFORM_FEATURES = {
   // running the dossiers that acceptance opens. Operations work — manager
   // territory alongside the owner.
   deals: ["owner", "manager"],
+  // The contract centre — reading and drafting. SIGNING is separate below.
+  contracts: ["owner", "manager"],
 } as const satisfies Record<string, readonly PlatformRole[]>;
 
 export type PlatformFeature = keyof typeof PLATFORM_FEATURES;
@@ -44,6 +46,15 @@ export const PLATFORM_CAPABILITIES = {
   "sources.toggle": [],
   "sources.wipe": [],
   "logging.purge": [],
+  // Sending a contract to its parties is operations.
+  "contracts.send": [],
+  /** Signing ON OSI'S BEHALF. Owner-only by default (owner 2026-08-29: the
+   *  owner assigns it per role from Rôles & accès) — a manager putting the
+   *  company's name to a commercial commitment is a real delegation, so it
+   *  starts off and is granted deliberately, never inherited. */
+  "contracts.sign": [],
+  /** Voiding a contract destroys the paperwork behind a deal — owner-only. */
+  "contracts.void": [],
 } as const satisfies Record<string, readonly PlatformRole[]>;
 
 export type PermissionKey = PlatformFeature | keyof typeof PLATFORM_CAPABILITIES;

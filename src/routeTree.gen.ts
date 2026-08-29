@@ -23,6 +23,8 @@ import { Route as SoumissionsRouteImport } from './routes/soumissions'
 import { Route as TransactionsRouteImport } from './routes/transactions'
 import { Route as ApiSourceUploadRouteImport } from './routes/api/source-upload'
 import { Route as ApiUploadRouteImport } from './routes/api/upload'
+import { Route as ContratsIndexRouteImport } from './routes/contrats/index'
+import { Route as ContratsIdRouteImport } from './routes/contrats/$id'
 import { Route as DemandesIndexRouteImport } from './routes/demandes/index'
 import { Route as DemandesIdRouteImport } from './routes/demandes/$id'
 import { Route as InterneClientsRouteImport } from './routes/interne/clients'
@@ -106,6 +108,16 @@ const ApiSourceUploadRoute = ApiSourceUploadRouteImport.update({
 const ApiUploadRoute = ApiUploadRouteImport.update({
   id: '/api/upload',
   path: '/api/upload',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ContratsIndexRoute = ContratsIndexRouteImport.update({
+  id: '/contrats/',
+  path: '/contrats/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ContratsIdRoute = ContratsIdRouteImport.update({
+  id: '/contrats/$id',
+  path: '/contrats/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DemandesIndexRoute = DemandesIndexRouteImport.update({
@@ -194,6 +206,7 @@ export interface FileRoutesByFullPath {
   '/transactions': typeof TransactionsRoute
   '/api/source-upload': typeof ApiSourceUploadRoute
   '/api/upload': typeof ApiUploadRoute
+  '/contrats/$id': typeof ContratsIdRoute
   '/demandes/$id': typeof DemandesIdRouteWithChildren
   '/interne/clients': typeof InterneClientsRoute
   '/interne/facilitation': typeof InterneFacilitationRoute
@@ -204,6 +217,7 @@ export interface FileRoutesByFullPath {
   '/interne/utilisateurs': typeof InterneUtilisateursRoute
   '/interne/verification': typeof InterneVerificationRoute
   '/invitation/$id': typeof InvitationIdRoute
+  '/contrats/': typeof ContratsIndexRoute
   '/demandes/': typeof DemandesIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/files/$id': typeof ApiFilesIdRoute
@@ -224,6 +238,7 @@ export interface FileRoutesByTo {
   '/transactions': typeof TransactionsRoute
   '/api/source-upload': typeof ApiSourceUploadRoute
   '/api/upload': typeof ApiUploadRoute
+  '/contrats/$id': typeof ContratsIdRoute
   '/demandes/$id': typeof DemandesIdRouteWithChildren
   '/interne/clients': typeof InterneClientsRoute
   '/interne/facilitation': typeof InterneFacilitationRoute
@@ -234,6 +249,7 @@ export interface FileRoutesByTo {
   '/interne/utilisateurs': typeof InterneUtilisateursRoute
   '/interne/verification': typeof InterneVerificationRoute
   '/invitation/$id': typeof InvitationIdRoute
+  '/contrats': typeof ContratsIndexRoute
   '/demandes': typeof DemandesIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/files/$id': typeof ApiFilesIdRoute
@@ -255,6 +271,7 @@ export interface FileRoutesById {
   '/transactions': typeof TransactionsRoute
   '/api/source-upload': typeof ApiSourceUploadRoute
   '/api/upload': typeof ApiUploadRoute
+  '/contrats/$id': typeof ContratsIdRoute
   '/demandes/$id': typeof DemandesIdRouteWithChildren
   '/interne/clients': typeof InterneClientsRoute
   '/interne/facilitation': typeof InterneFacilitationRoute
@@ -265,6 +282,7 @@ export interface FileRoutesById {
   '/interne/utilisateurs': typeof InterneUtilisateursRoute
   '/interne/verification': typeof InterneVerificationRoute
   '/invitation/$id': typeof InvitationIdRoute
+  '/contrats/': typeof ContratsIndexRoute
   '/demandes/': typeof DemandesIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/files/$id': typeof ApiFilesIdRoute
@@ -287,6 +305,7 @@ export interface FileRouteTypes {
     | '/transactions'
     | '/api/source-upload'
     | '/api/upload'
+    | '/contrats/$id'
     | '/demandes/$id'
     | '/interne/clients'
     | '/interne/facilitation'
@@ -297,6 +316,7 @@ export interface FileRouteTypes {
     | '/interne/utilisateurs'
     | '/interne/verification'
     | '/invitation/$id'
+    | '/contrats/'
     | '/demandes/'
     | '/api/auth/$'
     | '/api/files/$id'
@@ -317,6 +337,7 @@ export interface FileRouteTypes {
     | '/transactions'
     | '/api/source-upload'
     | '/api/upload'
+    | '/contrats/$id'
     | '/demandes/$id'
     | '/interne/clients'
     | '/interne/facilitation'
@@ -327,6 +348,7 @@ export interface FileRouteTypes {
     | '/interne/utilisateurs'
     | '/interne/verification'
     | '/invitation/$id'
+    | '/contrats'
     | '/demandes'
     | '/api/auth/$'
     | '/api/files/$id'
@@ -347,6 +369,7 @@ export interface FileRouteTypes {
     | '/transactions'
     | '/api/source-upload'
     | '/api/upload'
+    | '/contrats/$id'
     | '/demandes/$id'
     | '/interne/clients'
     | '/interne/facilitation'
@@ -357,6 +380,7 @@ export interface FileRouteTypes {
     | '/interne/utilisateurs'
     | '/interne/verification'
     | '/invitation/$id'
+    | '/contrats/'
     | '/demandes/'
     | '/api/auth/$'
     | '/api/files/$id'
@@ -378,6 +402,7 @@ export interface RootRouteChildren {
   TransactionsRoute: typeof TransactionsRoute
   ApiSourceUploadRoute: typeof ApiSourceUploadRoute
   ApiUploadRoute: typeof ApiUploadRoute
+  ContratsIdRoute: typeof ContratsIdRoute
   DemandesIdRoute: typeof DemandesIdRouteWithChildren
   InterneClientsRoute: typeof InterneClientsRoute
   InterneFacilitationRoute: typeof InterneFacilitationRoute
@@ -388,6 +413,7 @@ export interface RootRouteChildren {
   InterneUtilisateursRoute: typeof InterneUtilisateursRoute
   InterneVerificationRoute: typeof InterneVerificationRoute
   InvitationIdRoute: typeof InvitationIdRoute
+  ContratsIndexRoute: typeof ContratsIndexRoute
   DemandesIndexRoute: typeof DemandesIndexRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiFilesIdRoute: typeof ApiFilesIdRoute
@@ -491,6 +517,20 @@ declare module '@tanstack/react-router' {
       path: '/api/upload'
       fullPath: '/api/upload'
       preLoaderRoute: typeof ApiUploadRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/contrats/': {
+      id: '/contrats/'
+      path: '/contrats'
+      fullPath: '/contrats/'
+      preLoaderRoute: typeof ContratsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/contrats/$id': {
+      id: '/contrats/$id'
+      path: '/contrats/$id'
+      fullPath: '/contrats/$id'
+      preLoaderRoute: typeof ContratsIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/demandes/': {
@@ -621,6 +661,7 @@ const rootRouteChildren: RootRouteChildren = {
   TransactionsRoute: TransactionsRoute,
   ApiSourceUploadRoute: ApiSourceUploadRoute,
   ApiUploadRoute: ApiUploadRoute,
+  ContratsIdRoute: ContratsIdRoute,
   DemandesIdRoute: DemandesIdRouteWithChildren,
   InterneClientsRoute: InterneClientsRoute,
   InterneFacilitationRoute: InterneFacilitationRoute,
@@ -631,6 +672,7 @@ const rootRouteChildren: RootRouteChildren = {
   InterneUtilisateursRoute: InterneUtilisateursRoute,
   InterneVerificationRoute: InterneVerificationRoute,
   InvitationIdRoute: InvitationIdRoute,
+  ContratsIndexRoute: ContratsIndexRoute,
   DemandesIndexRoute: DemandesIndexRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiFilesIdRoute: ApiFilesIdRoute,

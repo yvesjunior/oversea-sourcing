@@ -2318,7 +2318,35 @@ in the browser before committing; deploy only when the owner asks.
       acceptance on the same request is refused cleanly; the losing quotes
       read `declined`; the dossier shows the accepted offer's terms.
 
-- [ ] **P4 · Centre contractuel v1 — THE PRIORITY.**
+- [x] **P4 · Centre contractuel v1 — BUILT 2026-08-29** (parcours step 11,
+      brief §3). `src/lib/contract-fns.ts` (getContracts · draftContracts),
+      `src/lib/contract-types.ts` (the parties → required-contracts mapping),
+      `/contrats` (list) and `/contrats/$id` (fiche), `contrats` un-greyed.
+      Permission keys added: `contracts` (feature) + `contracts.send`,
+      **`contracts.sign`** and `contracts.void` (capabilities) —
+      **signing defaults to OWNER-ONLY and is granted per role from Rôles &
+      accès** (owner 2026-08-29: a manager putting the company's name to a
+      commercial commitment is a real delegation, so it starts off).
+      **Nothing is stored that can be derived**: the five filters come from
+      `contractFilter()` and the N/M from `signatureProgress()` — both already
+      unit-tested — so the indicator and the status cannot drift apart. There
+      is no `filter` or `signed_count` column and there must never be one.
+      **Numbering** `OSI-<year>-<0000>` from `contract_number_seq`,
+      platform-global so a number a buyer quotes is unambiguous.
+      **The mapping decides WHICH contracts** (brief §4 step 3): staff may add
+      one it did not predict, but the list surfaces dossiers still missing a
+      required contract so they cannot silently skip one.
+      *Verified live:* drafting for the Hy-Lok dossier produced OSI-2026-0001
+      (Mandat OSI ↔ client: buyer + OSI) and OSI-2026-0002 (Commande acheteur
+      ↔ fournisseur: buyer + supplier), both 16 990 CAD / EXW pre-filled from
+      the deal, 0/2 signatures, filters Tous 2 · Actifs 2 · rest 0, a
+      `contract.created` trail row each, and the fiche rendering §3.2 fields
+      plus the §3.3 parties table. The supplier party carries a supplier_id
+      AND a name snapshot; the OSI party carries neither reference, only the
+      name — parties are rows, never users.
+      **Still to come in P6:** the Action column says "Signature — bientôt";
+      sending, signing and reminders land there.
+- [x] ~~**P4 · Centre contractuel v1 — THE PRIORITY.**~~
       *Parcours step 11 (list + fiche). Depends on: P3. Blocks: P5, P6.*
 
       **What it does.** The brief's §3: a contract list with the five filters
