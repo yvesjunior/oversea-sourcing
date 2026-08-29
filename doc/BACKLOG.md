@@ -83,7 +83,24 @@ with no route (P0 ④) — `Analyses` moved into the INTERNE block, and a
 language + server-side resolution. Full write-up under
 "~~Hydration breaks once a visitor picks a language~~ ✅ FIXED" below.
 
-**Next code task: pick-up item ⓪ (the search relevance gate).**
+**Where a NEW SESSION should start.** ADR-002 is accepted and **P1 is built**
+(migration 0033: quote · deal · deal_event · contract · contract_party ·
+contract_event, plus the state machines in `src/lib/deal-status.ts` with 21
+unit tests). No UI exists for any of it yet.
+
+Read in this order: **ADR-002** → the **Phase P** header and its "How to read
+these tasks" note → **"Contracts a next session must NOT re-derive
+differently"**. Then pick up **P2** (the buyer's supplier selection), which is
+written to be executed cold.
+
+**Two things belong before P2 lands, and neither is Phase P work:**
+- **pick-up item ⓪, the search relevance gate.** A verified supplier still
+  scores ~41 % with zero criteria matched. Since the buyer now picks
+  suppliers to solicit BY HAND from the Top-N, a bad ranking is no longer a
+  cosmetic problem — it is the list they stake a decision on.
+- **the `osi-uploads` volume is in no backup** (`scripts/backup.sh` dumps
+  Postgres only). Blocking for **P8**, not for P2 — but it must be fixed
+  before any signed contract is stored.
 
 **P0 is DONE** (deploys #12 and #14). The only piece deliberately left is
 **enriching the dashboard toward the brief's mockup** (dépenses chart,
@@ -1018,6 +1035,22 @@ writing any code.
   `organization.type` is enforced in `assignPlanFn`; staff see customer
   ACCOUNTS on /interne/clients, never customer-org users on
   /interne/utilisateurs.
+- **The transaction spine (P1, 2026-08-29 — migration 0033)**: external
+  parties are ROWS, never users — every reference nullable + a NAME SNAPSHOT;
+  **no splitting** (one accepted quote per request, enforced by the partial
+  unique index `quote_one_accepted_per_request_uq`, and `accepted` is
+  terminal); **closure is two acts by two actors** (`delivered → closed` is
+  ILLEGAL, it must pass through `reviewed`; buyer owns `satisfaction`, staff
+  owns `closed_by`); a contract's status is a FUNCTION of its party rows
+  (`statusFromSignatures`) and the N/M indicator counts MANDATORY signatures
+  only; expiry and the five list filters are DERIVED at read time, never
+  stored, never a cron; `contract_event` is NOT `audit_log` (the journal is
+  purged at 3 months, signature evidence must outlive it); money is
+  `amount_cents` + `currency` and is NEVER converted.
+- **Signatures split by who the party IS**, not by config: a party with a
+  `user_id` signs `in_platform`; a party without an account is
+  `manual_upload` by staff. No e-sign vendor is bought; `src/server/esign.ts`
+  is the seam for the EXTERNAL path only.
 - **No prod deploys unless explicitly requested** — dev is the test ground;
   main accumulates.
 - **ADR-001 (accepted 2026-08-26) governs supplier provisioning** —
@@ -1939,60 +1972,225 @@ through the platform (2026-08-29). Parties are ROWS, never users.
       and indexed on it; party references nullable + name/email snapshot
       (tombstone rule). Status machines in `src/lib/*-status.ts`, guarded like
       `request-status.ts`.
+#### How to read these tasks
+
+Each one is written to be executed **cold**, by a session with no memory of
+this one. Before starting any of them, read: this Phase P header, the
+"Contracts a next session must NOT re-derive differently" section above, and
+[ADR-002](adr/ADR-002-transaction-and-contract-centre.md). The parcours the
+owner validated is the 16-step diagram in the artifact linked from the ADR.
+
+**House rules that apply to every task below** (they are not repeated each
+time): server fns are `createServerFn().inputValidator(z…).handler()` with
+**server-only modules dynamically imported INSIDE the handler** (the Start
+compiler splits handler bodies out; a top-level `@/server/**` import leaks
+into the client bundle); every mutating fn re-reads membership through
+`requireWorkspaceRole(headers, minRole)` from `@/server/workspace-guard`;
+every staff-gated fn checks `effectiveHasPermission(session, key)` — **never
+`user.platformRole` directly**, staff powers exist only inside the internal
+workspace; every query is workspace-scoped; every user-facing string is an
+i18n key in BOTH `fr.json` and `en.json`; **new i18n keys need
+`docker restart osi-web-1`** or SSR renders raw keys; nav entries stay
+`disabled` in `AppSidebar.tsx` until their module is real. Quality gates
+before any commit: `npx tsc --noEmit`, `npx eslint src/`, `npm test`. Verify
+in the browser before committing; deploy only when the owner asks.
+
+---
+
 - [ ] **P2 · Soumissions — the buyer picks, OSI solicits, staff records.**
-      Decided at acceptance: the **buyer selects** which of their Top-N to
-      approach (a selection surface on the dossier — this is the half the
-      "OSI chooses" answer would not have needed), which creates `quote` rows
-      in `requested`; **staff send** the requests through `mail.ts` and record
-      what comes back (price, lead time, MOQ, incoterm, terms). The buyer
-      watches the tab fill up. **This is where the moat starts accumulating**
-      (response time, MOQ, lead time, price — ADR-001 S6).
-- [ ] **P3 · Comparison & acceptance.** Side-by-side comparison of received
-      quotes; the buyer accepts ONE; acceptance opens the `deal` automatically
-      (brief §4 steps 1-2) and marks the losing `match` rows `rejected` (the
-      enum already carries `selected`/`rejected` — currently unused).
-- [ ] **P4 · Contract centre v1 — THE PRIORITY.** List view with the §3.1
-      filters (Tous · Actifs · À signer · En attente · Complétés · Expirés — all
-      derived, no status columns), search, the `2/4` signature indicator,
-      « Nouveau contrat ». Fiche per §3.2. Parties table per §3.3 with per-party
-      status and actions.
-- [ ] **P5 · Required-contract derivation + templates.** `src/lib/contract-types.ts`
-      maps parties → required contracts (brief §4 step 3). **v1 ships TWO types
-      only** (mandat OSI↔client, buyer↔supplier order — owner 2026-08-29); the
-      mapping is written so the other five slot in without touching callers.
-      Templates pre-filled from the deal (step 4).
-- [ ] **P6 · Signature tracking + reminders — TWO mechanisms** (owner
-      2026-08-29). **In-platform** for the buyer and OSI: they are
-      authenticated, so they sign in the app and the row records user id +
-      name snapshot, timestamp, IP, user agent — no vendor, no email round
-      trip, and it is the stronger evidence of the two. **Manual upload** for
-      every party without an account (supplier, transporteur, courtier,
-      inspecteur): staff sends, receives the signed PDF, uploads it and records
-      who signed when. Both write the same `contract_party` row and
-      `contract_event` trail, so the `2/4` indicator and the
-      all-mandatory-signatures transition are mechanism-blind.
-      `src/server/esign.ts` remains the vendor seam for the EXTERNAL path only;
-      its first implementation is `manual`. Gate the action on the
-      **`contracts.sign` permission key** (owner-assigned per role).
-      Reminders to pending signers; all mandatory signatures ⇒ `signed` ⇒ the
-      next operational step unlocks (steps 5-8).
-      **Signature evidence never goes in `audit_log`** — it is purgeable at 3
-      months; evidence lives on `contract_party` / `contract_event`, permanently.
-- [ ] **P7 · Commandes.** `order_milestone` — production, inspection, transport,
-      douanes, livraison; staff updates, buyer reads. Replaces the showcase
-      constants in `src/data/osi.ts` (`etapesTransaction` finally dies).
-- [ ] **P8 · Documents module.** Typed `document` rows (facture · certificat ·
-      douane · inspection · packing list · B/L · contrat signé · annexe),
-      versioned, behind `storage.ts`. Absorbs E7's open "server-rendered PDF
-      stored as a documents row". **BLOCKED until the uploads volume is backed
-      up** — see the gap below.
-- [ ] **P9 · Paiements.** Ledger view: dépôts, soldes, factures, frais OSI, état.
-      Track-only, no PSP, staff-entered (README rule unchanged).
-- [ ] **P10 · Messages.** Threads per deal, buyer ↔ staff in-app; external
-      parties by email through the platform (never an account).
-- [ ] **P11 · Rapports.** Dépenses, économies, performance fournisseur. Needs
-      the ⓪-class honesty pass: **"économies" cannot be computed today** — no
-      baseline price exists to compare against.
+      *Parcours steps 05-08. Depends on: P1 (done). Blocks: P3.*
+
+      **What it does.** The buyer selects, from their dossier's Top-N, which
+      suppliers to approach (owner: *"the buyer picks"*). That creates `quote`
+      rows in `requested`. Staff then send the requests and, when answers come
+      back by email, key each one in. The buyer watches the tab fill up.
+
+      **Files.** New `src/lib/quote-fns.ts` (server fns) and
+      `src/server/deals.ts` (impure side: `recordDealEvent`, guarded
+      transitions — mirror `src/server/requests.ts`). New route
+      `src/routes/soumissions.tsx`. Touch `src/routes/demandes/$id.tsx` (the
+      selection UI on the Top-N) and `AppSidebar.tsx` (un-disable
+      `soumissions`).
+
+      **Server fns.**
+      • `requestQuotesFn({ requestId, supplierIds[] })` — guard `buyer` on the
+        request's workspace; insert one `quote` per supplier with
+        `status:"requested"`, `supplier_name` **snapshot**, `requested_by`,
+        `requested_at`; idempotent through `quote_request_supplier_uq`
+        (re-asking updates rather than duplicating). Writes a `deal_event`?
+        No — there is no deal yet; write a `request_event`
+        (`quotes.requested`, `{count}`) so it lands on the existing timeline.
+      • `getQuotesForRequestFn({ requestId })` — workspace-scoped list.
+      • `recordQuoteFn({ quoteId, amountCents?, currency?, quantity?, moq?,
+        leadTimeDays?, incoterm?, paymentTerms?, validUntil?, notes? })` —
+        **staff only** (`effectiveHasPermission(session, "deals")`); sets
+        `status:"received"`, `responded_at = now()`, `recorded_by`. Guard the
+        transition with `canTransitionQuote`.
+      • `declineQuoteFn({ quoteId, reason? })` — staff; → `declined`.
+
+      **UI.** On the dossier detail, each Top-N supplier gets a checkbox and a
+      « Demander une soumission » action (hidden for `viewer` — read-only
+      seats cannot spend). On `/soumissions`, the buyer sees their quotes
+      grouped by request with status chips; staff see the same list plus the
+      entry form (use `EmployeeTabs` for Vue globale / Mes données).
+
+      **Notifications.** Register `quote_received` in
+      `src/lib/notification-types.ts` (in-app + email) and emit from
+      `recordQuoteFn` via `notifyUser` — the buyer should not have to poll.
+
+      **Acceptance.** Buyer selects 3 of 5 → exactly 3 `quote` rows in
+      `requested`, none for the other 2. Staff records one → `received` with
+      `responded_at` set and the buyer notified. Re-asking the same supplier
+      does not create a second row. A `viewer` cannot request quotes.
+
+      **Gotcha.** `supplier_name` is a snapshot, not a join — write it at
+      insert time. The whole point is that the row survives the supplier.
+
+- [ ] **P3 · Comparaison & acceptation — the dossier opens.**
+      *Parcours steps 09-10. Depends on: P2. Blocks: P4.*
+
+      **What it does.** The buyer compares received offers side by side and
+      accepts ONE. Acceptance is the single event that creates the `deal`.
+
+      **Files.** `src/lib/quote-fns.ts` (add `acceptQuoteFn`),
+      `src/server/deals.ts` (`openDealFromQuote`), `src/routes/soumissions.tsx`
+      (the comparison table), new `src/routes/commandes.tsx` skeleton (the
+      dossier list — its milestones arrive in P7).
+
+      **`acceptQuoteFn({ quoteId })`** — guard `buyer`. In ONE transaction:
+      quote → `accepted` (guarded by `canTransitionQuote`); sibling quotes on
+      the same request → `declined`; insert the `deal` (`supplier_name` and
+      `created_by_name` snapshots, `amount_cents`/`currency`/`incoterm` copied
+      from the quote, `status:"open"`); write `deal_event` `deal.opened`;
+      mark the winning `match` row `selected` and the others `rejected` (the
+      enum already carries both and has never been used); `logAudit`
+      `deal.opened`.
+
+      **The race is already handled** — `quote_one_accepted_per_request_uq` is
+      a partial unique index, so a second acceptance fails at the database.
+      Catch that violation and return a typed refusal, do not let it 500.
+
+      **Acceptance.** Accepting creates exactly one `deal`; a second
+      acceptance on the same request is refused cleanly; the losing quotes
+      read `declined`; the dossier shows the accepted offer's terms.
+
+- [ ] **P4 · Centre contractuel v1 — THE PRIORITY.**
+      *Parcours step 11 (list + fiche). Depends on: P3. Blocks: P5, P6.*
+
+      **What it does.** The brief's §3: a contract list with the five filters
+      and the `N/M` signature indicator, and a contract detail page with the
+      parties table.
+
+      **Files.** New `src/lib/contract-fns.ts`, `src/routes/contrats.tsx`
+      (list), `src/routes/contrats.$id.tsx` (fiche). Un-disable `contrats` in
+      `AppSidebar.tsx`. Add permission keys to `src/lib/roles.ts`:
+      `contracts` (feature), `contracts.send`, `contracts.sign`,
+      `contracts.void` (capabilities) — plus a migration seeding
+      `platform_permission` rows, **owner-only defaults**, following migration
+      0031's pattern.
+
+      **Everything derived, nothing stored.** The five filters come from
+      `contractFilter()` and the indicator from `signatureProgress()` — both
+      already written and unit-tested in `src/lib/deal-status.ts`. Do not add
+      a `filter` or `signed_count` column.
+
+      **Numbering.** `OSI-<year>-<4 digits>` from `contract_number_seq`
+      (created in 0033), formatted at insert: `OSI-2026-0042`.
+
+      **Fiche contents** (brief §3.2): number, title, linked deal, buyer,
+      supplier, sub-contractors, value + currency, incoterm, payment terms,
+      creation date, échéance, status, parties table with per-party status and
+      action, and the `contract_event` history.
+
+      **Acceptance.** A contract with 2 of 4 mandatory parties signed shows
+      `2/4` and sits in « À signer »; one with an élapsed `due_at` shows
+      « Expirés » **without any write**; a signed one shows « Complétés ».
+
+- [ ] **P5 · Required-contract derivation + templates.**
+      *Parcours step 11 (the automatic half). Depends on: P4.*
+
+      New `src/lib/contract-types.ts` — a **typed module, not a table** (the
+      `taxonomy.ts` pattern; it becomes rows the day staff need to edit it).
+      Maps the parties a deal has → the contracts it requires. **v1 ships two
+      types** (owner 2026-08-29): `mandate_osi_client` (always) and
+      `purchase_order` (always). The other five from brief §5 (transporteur,
+      courtier, inspection, NDA, annexes) are added here later **without
+      touching callers** — write the mapping so that is true.
+
+      Templates are pre-filled from the deal (brief §4 step 4). Staff may add
+      a contract the mapping did not predict; staff must **not** be able to
+      silently skip one it requires — surface the gap on the dossier.
+
+- [ ] **P6 · Signatures — two mechanisms — and reminders.**
+      *Parcours steps 12-13. Depends on: P4, P5.*
+
+      **The split is by who the party IS** (owner 2026-08-29), not by
+      configuration:
+      • **`in_platform`** — the party has a `user_id` (buyer, OSI). They open
+        the contract and sign; record `signed_at`, `signed_by_name`, and in
+        `evidence` the IP and user agent. Gate on `contracts.sign`.
+      • **`manual_upload`** — the party has no account (supplier, carrier,
+        broker, inspector). Staff send by mail, receive the signed PDF, upload
+        it to `signed_file_id` (the existing `file` table + `storage.ts`) and
+        record who signed and when.
+
+      Both write the SAME `contract_party` row and a `contract_event`. After
+      each signature, recompute the contract's status with
+      `statusFromSignatures()` — never set it by hand.
+
+      **`src/server/esign.ts`** is created here as the vendor seam for the
+      **external path only**, first implementation `manual`. Same rule as
+      `mail.ts`: no domain code imports a vendor SDK. No vendor is bought.
+
+      Reminders: a staff action per pending party (brief §3.3 « Envoyer un
+      rappel »), stamping `reminded_at`, sent through `mail.ts`.
+
+      **When every MANDATORY party has signed** → contract `signed` → the deal
+      may leave `contracting`. Notifications: register
+      `contract_to_sign` and `contract_signed`.
+
+      **Acceptance.** A 4-party contract where the 2 in-platform parties sign
+      and the 2 external ones are uploaded reaches `signed`; the trail shows
+      four events with the right actor and method; an optional party signing
+      does not complete it; `contracts.sign` off for a role blocks the button
+      **and** the server fn.
+
+- [ ] **P7 · Commandes — milestones.**
+      *Parcours step 14. Depends on: P3 (P6 for the unlock).*
+
+      New table `order_milestone` (deal_id, kind, status, planned_at,
+      completed_at, note, updated_by + name snapshot) — **designed here, not
+      in P1**, so it matches the screen. Kinds per the brief: dépôt,
+      production, inspection, transport, douanes, livraison.
+      Staff update; the buyer reads. Replaces the showcase constants in
+      `src/data/osi.ts` (`etapesTransaction` finally dies).
+      **Open question for the owner** (still unanswered): who updates
+      milestones — is every production update an email to OSI then a manual
+      entry? That is the real cost of "no supplier access".
+
+- [ ] **P8 · Documents.**
+      *Depends on: P7.* Typed `document` rows (facture · certificat · douane ·
+      inspection · packing list · B/L · contrat signé · annexe), versioned,
+      attached to a deal and/or contract, bytes behind `storage.ts`. Absorbs
+      E7's open "server-rendered PDF stored as a documents row".
+      **BLOCKED until the uploads volume is backed up — see the gaps below.
+      Do not ship legal documents into a volume no backup covers.**
+
+- [ ] **P9 · Paiements.** *Depends on: P7.* Ledger view — dépôts, soldes,
+      factures, frais OSI, état. **Track-only, staff-entered, no PSP** (README
+      rule unchanged). Money stays `amount_cents` + `currency`, never
+      converted.
+
+- [ ] **P10 · Messages.** *Depends on: P3.* Threads per deal, buyer ↔ staff
+      in-app. External parties are reached by email through the platform and
+      **never get an account**.
+
+- [ ] **P11 · Rapports.** *Depends on: P7, P9.* Dépenses, économies,
+      performance fournisseur. **The « économies » tile cannot be computed
+      honestly today** — nothing in the model holds a baseline price to
+      compare against. Either capture a target/market price on the request
+      first, or drop the tile. Supplier performance now HAS a real input:
+      `deal.satisfaction` plus quote response times.
 
 **Gaps and gates that must be settled inside Phase P:**
 

@@ -1051,6 +1051,74 @@ the capability/certification satellite tables exist.
 
 ---
 
+## 2b · From the report to a delivered order (Phase P)
+
+> **Status: schema BUILT 2026-08-29 (migration 0033); no UI yet.** Decision
+> record: [ADR-002](doc/adr/ADR-002-transaction-and-contract-centre.md)
+> (accepted). Plan: **Phase P** in [doc/BACKLOG.md](doc/BACKLOG.md). The
+> owner-validated parcours is drawn step by step in the companion artifact
+> linked from the ADR.
+
+The request loop ends at `report_ready`. Everything after it — the half that
+makes OSI a facilitator rather than a search engine — is Phase P.
+
+```
+demande → Top-N → the BUYER picks who to solicit → OSI sends → soumissions
+  → the buyer accepts ONE → that opens the dossier (deal) → contracts
+  → signatures → commande → the buyer validates → STAFF close
+```
+
+**A quote is the unit of facilitation.** There is deliberately no entity
+between a match and a quote: an "engagement" with no offer in it is a status
+with no content. That is why the old E6 design was retired rather than
+extended.
+
+### The rules that hold it together
+
+Each of these is enforced by the schema or a pure function, not by convention —
+a future change that breaks one should fail, not drift.
+
+- **External parties are ROWS, never users.** A supplier, carrier, customs
+  broker or inspector has no account (owner, 2026-08-29). Every reference to
+  one is nullable and paired with a **name snapshot**, the same tombstone rule
+  `audit_log` uses: the record must stay readable when the referenced row is
+  gone. This is what keeps v1 from becoming two products.
+- **No splitting.** One accepted offer, one dossier. A buyer wanting two
+  suppliers makes two requests. Enforced by the partial unique index
+  `quote_one_accepted_per_request_uq` — an application check would let two
+  simultaneous acceptances both through.
+- **Closure is two acts by two actors.** The buyer confirms reception and
+  **rates the deal**; only then may staff close it. `delivered → closed` is an
+  illegal transition — it must pass through `reviewed`. The satisfaction score
+  is also the first supplier-performance signal that cannot be scraped
+  (ADR-001 S6): it is earned on a real deal or not at all.
+- **A contract's status is a function of its party rows**
+  (`statusFromSignatures` in `src/lib/deal-status.ts`), so the stored status
+  and the `2/4` indicator cannot disagree. The indicator counts **mandatory**
+  signatures only.
+- **Expiry and the list filters are derived at read time** — never stored
+  columns, never a cron. Same trick as the Recommandé tier.
+- **`contract_event` is not `audit_log`.** The journal is purged at three
+  months by owner rule; signature evidence has to outlive that, so it lives
+  beside the contract, permanently, with tombstone actor ids.
+- **Money is an integer plus a currency, never converted** (`amount_cents` +
+  `currency`) — there is no rate source, so multi-currency totals would be a
+  lie.
+
+### Signatures: two mechanisms, chosen by who the party IS
+
+| Party | How | Evidence recorded |
+|---|---|---|
+| Buyer · OSI (they have accounts) | **signed in the platform** | user id + name snapshot, timestamp, IP, user agent |
+| Supplier · carrier · broker · inspector | **manual upload** by staff | signatory name/email, date, the PDF (`signed_file_id`), who recorded it |
+
+No e-signature vendor is bought (owner, 2026-08-29). `src/server/esign.ts`
+remains the vendor seam for the **external path only**; a vendor would replace
+`manual` there and touch nothing else. The in-platform half never needed one —
+the signatory is authenticated, which is the stronger evidence of the two.
+
+---
+
 ## 3 · Running it
 
 Everything operational is a script in [`scripts/`](scripts). Config is a single
