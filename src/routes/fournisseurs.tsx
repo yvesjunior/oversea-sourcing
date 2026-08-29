@@ -111,7 +111,7 @@ function Fournisseurs() {
   const { directory, mine } = Route.useLoaderData();
   const { session } = Route.useRouteContext();
   const platformRole = (session?.user as { platformRole?: string } | undefined)?.platformRole;
-  const employee = canSeeAllRequests(platformRole);
+  const employee = canSeeAllRequests(session?.platformFeatures);
   // Staff in OSI's own workspace see the pool; a buyer sees the companies
   // shortlisted for them. No "Mes données" tab in the platform workspace
   // (owner 2026-08-29) — staff hold no dossiers there, so it was always empty.

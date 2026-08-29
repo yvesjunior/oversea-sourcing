@@ -9,7 +9,6 @@
 // with.
 
 import { createServerFn } from "@tanstack/react-start";
-import { canSeeAllRequests } from "@/lib/roles";
 import type { RiskLevel, SupplierProvenance, VerificationStatus } from "@/database/schema";
 
 export type SupplierView = {
@@ -54,12 +53,13 @@ function gateDiscovery<
 >(
   row: T,
   callerWorkspaceId: string | null | undefined,
-  platformRole: string | undefined,
+  /** Already resolved by the caller — a custom role's answer lives in the
+   *  database, so this cannot be re-derived from a role name here. */
+  seesAllData: boolean,
 ): Omit<T, "discoveredByOrgId"> {
   const { discoveredByOrgId, ...rest } = row;
   const visible =
-    discoveredByOrgId !== null &&
-    (discoveredByOrgId === callerWorkspaceId || canSeeAllRequests(platformRole));
+    discoveredByOrgId !== null && (discoveredByOrgId === callerWorkspaceId || seesAllData);
   return { ...rest, discoveredByRequestId: visible ? rest.discoveredByRequestId : null };
 }
 
@@ -74,9 +74,9 @@ export const getSuppliersFn = createServerFn({ method: "GET" }).handler(
     ]);
     const session = await auth.api.getSession({ headers: getRequest().headers });
     // Staff powers only from the internal workspace (2026-08-27).
-    const { effectivePlatformRole } = await import("@/server/workspace-guard");
-    const effectiveRole = session ? await effectivePlatformRole(session) : "user";
+    const { effectiveHasPermission } = await import("@/server/workspace-guard");
     if (!session) return EMPTY;
+    const seesAllData = await effectiveHasPermission(session, "requests.all");
     // The WHOLE pool is an OSI-internal view (owner 2026-08-29: outside the
     // platform workspace you see only what you are involved in). A staff
     // member in their personal workspace is an ordinary buyer here, like
@@ -86,7 +86,7 @@ export const getSuppliersFn = createServerFn({ method: "GET" }).handler(
     // companies OSI has found and how they scored, and shipping it to a
     // browser that will not render it is still shipping it. Same rule that
     // already withholds `discoveredByRequestId` above.
-    if (!canSeeAllRequests(effectiveRole)) return EMPTY;
+    if (!seesAllData) return EMPTY;
 
     const rows = await db
       .select({
@@ -110,7 +110,7 @@ export const getSuppliersFn = createServerFn({ method: "GET" }).handler(
       .orderBy(desc(schema.supplier.confidenceScore), asc(schema.supplier.name));
 
     const suppliers = rows.map((row) => ({
-      ...gateDiscovery(row, session.session.activeOrganizationId, effectiveRole),
+      ...gateDiscovery(row, session.session.activeOrganizationId, seesAllData),
       createdAt: row.createdAt.toISOString(),
     }));
     return { suppliers, total: suppliers.length };
@@ -147,10 +147,10 @@ export const getLinkedSuppliersFn = createServerFn({ method: "GET" }).handler(
       ]);
     const session = await auth.api.getSession({ headers: getRequest().headers });
     // Staff powers only from the internal workspace (2026-08-27).
-    const { effectivePlatformRole } = await import("@/server/workspace-guard");
-    const effectiveRole = session ? await effectivePlatformRole(session) : "user";
+    const { effectiveHasPermission } = await import("@/server/workspace-guard");
     const workspaceId = session?.session.activeOrganizationId;
     if (!session || !workspaceId) return EMPTY;
+    const seesAllData = await effectiveHasPermission(session, "requests.all");
 
     // Four small id queries unioned in memory, rather than one query with three
     // OR'd EXISTS clauses: each trace stays legible, and adding the fifth (a
@@ -212,7 +212,7 @@ export const getLinkedSuppliersFn = createServerFn({ method: "GET" }).handler(
       .orderBy(desc(schema.supplier.confidenceScore), asc(schema.supplier.name));
 
     const suppliers = rows.map((row) => ({
-      ...gateDiscovery(row, workspaceId, effectiveRole),
+      ...gateDiscovery(row, workspaceId, seesAllData),
       createdAt: row.createdAt.toISOString(),
     }));
     return { suppliers, total: suppliers.length };

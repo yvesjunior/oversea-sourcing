@@ -871,7 +871,25 @@
       "logging": "Journal d'activité (tous les espaces)",
       "sources.toggle": "Activer / désactiver une source",
       "sources.wipe": "Purger le store d'une source",
-      "logging.purge": "Purger le journal (> 3 mois)"
+      "logging.purge": "Purger le journal (> 3 mois)",
+      "deals": "Soumissions & dossiers",
+      "contracts": "Contrats (lecture & préparation)",
+      "contracts.send": "Envoyer un contrat aux parties",
+      "contracts.sign": "Signer au nom d'OSI",
+      "contracts.void": "Annuler un contrat",
+      "requests.all": "Voir les données de tous les clients"
+    },
+    "addRole": "Créer le rôle",
+    "deleteRole": "Supprimer ce rôle",
+    "newRolePlaceholder": "Nom du rôle (ex. Opérations)",
+    "newRoleHint": "Un nouveau rôle ne reçoit aucun accès : activez-les ci-dessus.",
+    "roleError": {
+      "forbidden": "Seul le propriétaire de la plateforme gère les rôles.",
+      "reserved": "Ce nom est réservé.",
+      "exists": "Ce rôle existe déjà.",
+      "built_in": "Les rôles intégrés ne peuvent pas être supprimés.",
+      "not_found": "Rôle introuvable.",
+      "in_use": "{{count}} compte(s) portent encore ce rôle — réassignez-les d'abord."
     }
   },
   "soumissions": {

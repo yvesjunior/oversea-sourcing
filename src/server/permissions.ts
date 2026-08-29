@@ -34,10 +34,22 @@ export function bustPermissionsCache(): void {
   cache = null;
 }
 
-/** The granted permission keys for an EFFECTIVE platform role. */
+/**
+ * The granted permission keys for an EFFECTIVE platform role.
+ *
+ * Since Phase R the role set is OPEN: anything that is not `owner` and not
+ * `user` resolves from the table, so a role the owner created answers the same
+ * way `manager` does. The old short-circuit named manager and accountant
+ * explicitly, which silently gave every custom role nothing at all — the
+ * feature would have looked built and granted nothing.
+ *
+ * `defaultGrant` still only matches a BUILT-IN role, so a custom role starts
+ * with nothing until the owner switches keys on. That is the intended
+ * asymmetry, not an oversight.
+ */
 export async function grantedFeatures(role: string): Promise<PermissionKey[]> {
   if (role === "owner") return [...PERMISSION_KEYS];
-  if (role !== "manager" && role !== "accountant") return [];
+  if (!role || role === "user") return [];
   const rows = await loadRows();
   return PERMISSION_KEYS.filter((k) => rows.get(key(k, role)) ?? defaultGrant(k, role));
 }
@@ -45,7 +57,7 @@ export async function grantedFeatures(role: string): Promise<PermissionKey[]> {
 /** One check, for server fns: effective role → table (fallback: defaults). */
 export async function roleHasPermission(role: string, permission: PermissionKey): Promise<boolean> {
   if (role === "owner") return true;
-  if (role !== "manager" && role !== "accountant") return false;
+  if (!role || role === "user") return false;
   const rows = await loadRows();
   return rows.get(key(permission, role)) ?? defaultGrant(permission, role);
 }

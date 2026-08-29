@@ -87,8 +87,8 @@ export const getAllStatsFn = createServerFn({ method: "GET" }).handler(
     const session = await auth.api.getSession({ headers: getRequest().headers });
     if (!session) return null;
     // Staff powers only from the internal workspace (2026-08-27).
-    const { effectivePlatformRole } = await import("@/server/workspace-guard");
-    if (!canSeeAllRequests(await effectivePlatformRole(session))) return null;
+    const { effectiveHasPermission } = await import("@/server/workspace-guard");
+    if (!(await effectiveHasPermission(session, "requests.all"))) return null;
 
     const [{ db }, { count, notInArray }, schema] = await Promise.all([
       import("@/database"),

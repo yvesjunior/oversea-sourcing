@@ -274,6 +274,13 @@
       "when": 1788034237633,
       "tag": "0038_mushy_the_spike",
       "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1788045154146,
+      "tag": "0039_foamy_leech",
+      "breakpoints": true
     }
   ]
 }

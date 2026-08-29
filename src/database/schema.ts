@@ -600,6 +600,34 @@ export const platformPermission = pgTable(
   (table) => [primaryKey({ columns: [table.feature, table.role] })],
 );
 
+/**
+ * Staff roles the owner created (Phase R, 2026-08-29).
+ *
+ * `manager` and `accountant` are BUILT IN — they carry code defaults in
+ * src/lib/roles.ts and are not rows here. This table holds the roles the owner
+ * adds beyond them ("Ops", "Legal", "Finance junior"), which is why a row is
+ * mostly a label: what the role may DO already lives in `platform_permission`,
+ * keyed by the same TEXT role name, and `user.platform_role` is TEXT too.
+ *
+ * A new role starts with NOTHING granted — `defaultGrant` only ever matches a
+ * built-in — so creating one is safe by construction and the owner switches on
+ * exactly what it needs.
+ *
+ * The platform OWNER is deliberately absent here, as it is absent from
+ * `platform_permission`: it always has everything, so the role system cannot
+ * lock out its own editor. Granting stays owner-only forever.
+ */
+export const platformRoleTable = pgTable("platform_role", {
+  /** Stable slug — persisted in `user.platform_role` and `platform_permission.role`.
+   *  Never reuse one for a different role. */
+  name: text("name").primaryKey(),
+  label: text("label").notNull(),
+  /** Tombstones: the role outlives the account that created it. */
+  createdBy: text("created_by"),
+  createdByName: text("created_by_name"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 export const auditLog = pgTable(
   "audit_log",
   {

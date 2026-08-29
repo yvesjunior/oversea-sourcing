@@ -6,6 +6,7 @@
 
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { BUILT_IN_STAFF_ROLES } from "@/lib/roles";
 
 export type PlatformUserView = {
   userId: string;
@@ -102,7 +103,10 @@ export const setPlatformRoleFn = createServerFn({ method: "POST" })
   .inputValidator(
     z.object({
       email: z.string().trim().toLowerCase().email(),
-      role: z.enum(["user", "owner", "manager", "accountant"]),
+      // Open since Phase R: any built-in, `user`, `owner`, or a role the owner
+      // created. Validated against the real set below rather than by a closed
+      // enum, which could not know about a role added five minutes ago.
+      role: z.string().trim().min(1).max(32),
     }),
   )
   .handler(
@@ -123,6 +127,16 @@ export const setPlatformRoleFn = createServerFn({ method: "POST" })
         import("drizzle-orm"),
         import("@/database/schema"),
       ]);
+      // The role has to exist: a typo would otherwise strand an account on a
+      // role name that resolves to no permissions at all.
+      const assignable = new Set<string>(["user", "owner", ...BUILT_IN_STAFF_ROLES]);
+      if (!assignable.has(data.role)) {
+        const custom = await db.query.platformRoleTable.findFirst({
+          where: eq(schema.platformRoleTable.name, data.role),
+        });
+        if (!custom) return { ok: false, error: "not_found" };
+      }
+
       const target = await db.query.user.findFirst({ where: eq(schema.user.email, data.email) });
       if (!target) return { ok: false, error: "not_found" };
       // The owner never edits their own role — ownership questions are not

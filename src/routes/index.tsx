@@ -115,7 +115,7 @@ function Accueil() {
   // workspace holds no requests by rule (owner 2026-08-29), so that tab could
   // only ever show zeros; a staff member's own dossiers live in their
   // personal workspace, one switch away.
-  const employee = canSeeAllRequests(platformRole) && statsAll !== null;
+  const employee = canSeeAllRequests(session?.platformFeatures) && statsAll !== null;
 
   const prenom = session?.user?.name?.split(" ")[0];
 

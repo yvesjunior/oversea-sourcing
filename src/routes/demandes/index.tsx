@@ -65,7 +65,7 @@ function Demandes() {
   // Staff powers exist ONLY while standing in the internal workspace, so this
   // flag doubles as "I am in OSI's own workspace" — the same signal the nav
   // and the Vue globale tabs already follow.
-  const employee = canSeeAllRequests(platformRole);
+  const employee = canSeeAllRequests(session?.platformFeatures);
   const source = employee ? toutes : miennes;
   const filters = useListFilters();
   // Filtered on createdAt — when the need was FILED. updatedAt would shuffle

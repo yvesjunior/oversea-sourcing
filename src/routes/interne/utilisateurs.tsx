@@ -4,6 +4,7 @@
 
 import { useEffect, useState } from "react";
 import { createFileRoute, useRouter } from "@tanstack/react-router";
+import { Plus, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,9 +12,13 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { requirePlatformFeature } from "@/lib/auth-guard";
 import {
+  createStaffRoleFn,
+  deleteStaffRoleFn,
+  getAssignableRolesFn,
   getPermissionMatrixFn,
   updatePermissionFn,
   type PermissionMatrix,
+  type StaffRole,
 } from "@/lib/permission-fns";
 import { getPlatformUsersFn, setPlatformRoleFn, type PlatformUserView } from "@/lib/user-admin-fns";
 import { formatDay } from "@/lib/instant";
@@ -43,7 +48,7 @@ function RoleBadge({ role }: { role: string }) {
 
 /** Grant a platform role by email (owner-exclusive): granting also enrolls
  *  the person into the OSI internal workspace — the ②b follow-up closed. */
-function GrantRolePanel({ onChanged }: { onChanged: () => void }) {
+function GrantRolePanel({ onChanged, roles }: { onChanged: () => void; roles: StaffRole[] }) {
   const { t } = useTranslation();
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("manager");
@@ -54,9 +59,7 @@ function GrantRolePanel({ onChanged }: { onChanged: () => void }) {
     setBusy(true);
     setStatus("idle");
     try {
-      const result = await setPlatformRoleFn({
-        data: { email, role: role as "owner" | "manager" | "accountant" },
-      });
+      const result = await setPlatformRoleFn({ data: { email, role } });
       if (!result.ok) {
         setStatus(
           result.error === "not_found" || result.error === "self" ? result.error : "failed",
@@ -92,8 +95,15 @@ function GrantRolePanel({ onChanged }: { onChanged: () => void }) {
           onChange={(e) => setRole(e.target.value)}
           className="h-9 rounded-md border border-input bg-background px-2 text-sm"
         >
-          <option value="manager">{t("platformRoles.manager")}</option>
-          <option value="accountant">{t("platformRoles.accountant")}</option>
+          {/* Built-ins plus whatever the owner created (Phase R) — a role
+              that cannot be assigned is a role that does nothing. */}
+          {roles.map((option) => (
+            <option key={option.name} value={option.name}>
+              {option.builtIn
+                ? t(`platformRoles.${option.name}`, { defaultValue: option.label })
+                : option.label}
+            </option>
+          ))}
           <option value="owner">{t("platformRoles.owner")}</option>
         </select>
         <Button size="sm" disabled={busy || !email.includes("@")} onClick={() => void grant()}>
@@ -116,21 +126,25 @@ function GrantRolePanel({ onChanged }: { onChanged: () => void }) {
   );
 }
 
-/** Rôles & accès (owner request 2026-08-28) — what each STAFF role may do,
- *  as live switches. The owner column is not here on purpose: the owner
- *  always has everything, so the matrix cannot lock its own editor out. */
+/** Rôles & accès (owner request 2026-08-28; roles became data in Phase R,
+ *  2026-08-29) — what each STAFF role may do, as live switches, plus the
+ *  owner's own roles beside the two built-ins. The owner column is not here on
+ *  purpose: the owner always has everything, so the matrix cannot lock its own
+ *  editor out, and creating a role is owner-only forever — a role that could
+ *  grant roles could promote itself. */
 function RolesAccessPanel() {
   const { t } = useTranslation();
   const [matrix, setMatrix] = useState<PermissionMatrix>(null);
   const [busyKey, setBusyKey] = useState<string | null>(null);
+  const [newLabel, setNewLabel] = useState("");
+  const [roleError, setRoleError] = useState<string | null>(null);
 
-  useEffect(() => {
-    void getPermissionMatrixFn().then(setMatrix);
-  }, []);
+  const reload = () => void getPermissionMatrixFn().then(setMatrix);
+  useEffect(reload, []);
 
   if (!matrix) return <p className="text-sm text-muted-foreground">…</p>;
 
-  const toggle = async (feature: string, role: "manager" | "accountant", enabled: boolean) => {
+  const toggle = async (feature: string, role: string, enabled: boolean) => {
     setBusyKey(`${role}:${feature}`);
     try {
       const result = await updatePermissionFn({ data: { feature, role, enabled } });
@@ -152,6 +166,37 @@ function RolesAccessPanel() {
     }
   };
 
+  const createRole = async () => {
+    setRoleError(null);
+    setBusyKey("new-role");
+    try {
+      const result = await createStaffRoleFn({ data: { label: newLabel.trim() } });
+      if (result.ok) {
+        setNewLabel("");
+        reload();
+      } else {
+        setRoleError(t(`permissions.roleError.${result.reason}`));
+      }
+    } finally {
+      setBusyKey(null);
+    }
+  };
+
+  const removeRole = async (name: string) => {
+    setRoleError(null);
+    setBusyKey(`del:${name}`);
+    try {
+      const result = await deleteStaffRoleFn({ data: { name } });
+      if (result.ok) reload();
+      // A role someone still holds is not deleted from under them: the owner
+      // reassigns those accounts first, on the list above.
+      else
+        setRoleError(t(`permissions.roleError.${result.reason}`, { count: result.holders ?? 0 }));
+    } finally {
+      setBusyKey(null);
+    }
+  };
+
   return (
     <section className="card-surface p-6">
       <p className="text-sm font-semibold">{t("permissions.title")}</p>
@@ -162,8 +207,27 @@ function RolesAccessPanel() {
             <tr className="border-b border-border text-left text-xs text-muted-foreground">
               <th className="pb-2 pr-4 font-medium">{t("permissions.capability")}</th>
               <th className="pb-2 pr-4 font-medium">{t("platformRoles.owner")}</th>
-              <th className="pb-2 pr-4 font-medium">{t("platformRoles.manager")}</th>
-              <th className="pb-2 font-medium">{t("platformRoles.accountant")}</th>
+              {matrix.roles.map((role) => (
+                <th key={role.name} className="pb-2 pr-4 font-medium">
+                  <span className="flex items-center gap-1.5">
+                    {role.builtIn
+                      ? t(`platformRoles.${role.name}`, { defaultValue: role.label })
+                      : role.label}
+                    {!role.builtIn && (
+                      <button
+                        type="button"
+                        title={t("permissions.deleteRole")}
+                        aria-label={`${t("permissions.deleteRole")} — ${role.label}`}
+                        disabled={busyKey === `del:${role.name}`}
+                        onClick={() => void removeRole(role.name)}
+                        className="text-muted-foreground transition-colors hover:text-destructive"
+                      >
+                        <Trash2 className="size-3.5" />
+                      </button>
+                    )}
+                  </span>
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody>
@@ -175,13 +239,13 @@ function RolesAccessPanel() {
                 <td className="py-2.5 pr-4 text-xs text-muted-foreground">
                   {t("permissions.always")}
                 </td>
-                {(["manager", "accountant"] as const).map((role) => (
-                  <td key={role} className="py-2.5 pr-4">
+                {matrix.roles.map((role) => (
+                  <td key={role.name} className="py-2.5 pr-4">
                     <Switch
-                      checked={matrix.grants[role][key] ?? false}
-                      disabled={busyKey === `${role}:${key}`}
-                      aria-label={`${t(`permissions.keys.${key}`, { defaultValue: key })} — ${t(`platformRoles.${role}`)}`}
-                      onCheckedChange={(enabled) => void toggle(key, role, enabled)}
+                      checked={matrix.grants[role.name]?.[key] ?? false}
+                      disabled={busyKey === `${role.name}:${key}`}
+                      aria-label={`${t(`permissions.keys.${key}`, { defaultValue: key })} — ${role.label}`}
+                      onCheckedChange={(enabled) => void toggle(key, role.name, enabled)}
                     />
                   </td>
                 ))}
@@ -190,6 +254,33 @@ function RolesAccessPanel() {
           </tbody>
         </table>
       </div>
+
+      {/* Creating a role grants NOTHING — the switches above are how it gets
+          its access, one deliberate flip at a time. */}
+      <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-border pt-4">
+        <Input
+          value={newLabel}
+          onChange={(e) => setNewLabel(e.target.value)}
+          placeholder={t("permissions.newRolePlaceholder")}
+          className="h-9 w-[220px] text-xs"
+          maxLength={40}
+        />
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={newLabel.trim().length < 2 || busyKey === "new-role"}
+          onClick={() => void createRole()}
+        >
+          <Plus className="size-3.5" />
+          {t("permissions.addRole")}
+        </Button>
+        <span className="text-xs text-muted-foreground">{t("permissions.newRoleHint")}</span>
+      </div>
+      {roleError && (
+        <p role="alert" className="mt-2 text-xs text-destructive">
+          {roleError}
+        </p>
+      )}
       <p className="mt-3 text-xs text-muted-foreground">{t("permissions.note")}</p>
     </section>
   );
@@ -204,6 +295,12 @@ function Utilisateurs() {
   const viewerRole = (session?.user as { platformRole?: string } | undefined)?.platformRole;
   const viewerEmail = session?.user?.email;
   const isPlatformOwner = viewerRole === "owner";
+  // The assignable set is data since Phase R, so it is fetched rather than
+  // hardcoded in two dropdowns that would drift apart.
+  const [roles, setRoles] = useState<StaffRole[]>([]);
+  useEffect(() => {
+    void getAssignableRolesFn().then(setRoles);
+  }, []);
 
   const changeRole = async (user: PlatformUserView, role: string) => {
     if (!window.confirm(t("usersAdmin.roleConfirm", { name: user.name, role }))) return;
@@ -236,7 +333,7 @@ function Utilisateurs() {
           </TabsList>
         )}
         <TabsContent value="equipe" className="mt-3 space-y-6">
-          {isPlatformOwner && <GrantRolePanel onChanged={refresh} />}
+          {isPlatformOwner && <GrantRolePanel onChanged={refresh} roles={roles} />}
 
           <section className="card-surface p-6">
             <div className="overflow-x-auto">
@@ -274,8 +371,15 @@ function Utilisateurs() {
                             className="h-8 rounded-md border border-input bg-background px-2 text-xs"
                           >
                             <option value="owner">{t("platformRoles.owner")}</option>
-                            <option value="manager">{t("platformRoles.manager")}</option>
-                            <option value="accountant">{t("platformRoles.accountant")}</option>
+                            {roles.map((option) => (
+                              <option key={option.name} value={option.name}>
+                                {option.builtIn
+                                  ? t(`platformRoles.${option.name}`, {
+                                      defaultValue: option.label,
+                                    })
+                                  : option.label}
+                              </option>
+                            ))}
                             <option value="user">{t("usersAdmin.revokeOption")}</option>
                           </select>
                         ) : (

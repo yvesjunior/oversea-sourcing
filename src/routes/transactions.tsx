@@ -33,7 +33,7 @@ function Transactions() {
   const { t } = useTranslation();
   const { session } = Route.useRouteContext();
   const platformRole = (session?.user as { platformRole?: string } | undefined)?.platformRole;
-  const employee = canSeeAllRequests(platformRole);
+  const employee = canSeeAllRequests(session?.platformFeatures);
 
   // Showcase content until E8 wires real transactions through the DB.
   const contenu = (

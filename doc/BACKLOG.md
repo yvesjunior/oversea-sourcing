@@ -23,6 +23,7 @@
 | **E8** Transactions | Milestones, tracking, paiements | 🔵 **folded into Phase P** by ADR-002 (the `deal` spine); standalone sketch retired |
 | **E9** Notifications | In-app + email | 🟡 bell, emitters, **prefs (2026-08-26)** live; E6 templates gated |
 | **E10** Admin surfaces | Verification, imports, ops queue | 🟡 **verification LIVE (S5b/S5c, 2026-08-26)**; imports/ops queue placeholders |
+| **R** Custom staff roles | Roles as data + the matrix | ✅ **BUILT 2026-08-29** (migration 0039) — create/delete roles, dynamic matrix, `requests.all` |
 | **E11** Settings | Profile, sourcing rules | 🟡 Paramètres + notification prefs live; **password / 2FA / theme / rename (2026-08-27)** live; buyer Abonnement self-service waits for billing |
 
 **MVP1 = E0–E7 + E10.** Definition of done **restated 2026-08-29 by ADR-002**
@@ -184,7 +185,12 @@ criteria**.
 
 **Phase P, the product spine:**
 
-1. **P6 · signatures — the two mechanisms.** `in_platform` for parties with a
+1. **P6 · signatures — the two mechanisms.** *Groundwork landed 2026-08-29:*
+   `src/lib/signature.ts` holds the permission matrix (who may sign which
+   party, by which mechanism) with 19 tests and no callers yet. What remains:
+   the server fns, the signed-PDF upload route, `esign.ts` as the external-path
+   seam, the `contract_to_sign` / `contract_signed` notification types, and the
+   fiche's Action column. `in_platform` for parties with a
    `user_id` (buyer, OSI) recording IP + user agent; `manual_upload` for
    parties without an account (staff upload the countersigned PDF into
    `signed_file_id`). Both write the same `contract_party` row and a
@@ -195,7 +201,7 @@ criteria**.
 2. **P7 · commandes** (needs a new `order_milestone` table — designed then,
    not now) · **P8 · documents** (BLOCKED, see gaps) · **P9 · paiements** ·
    **P10 · messages** · **P11 · rapports**.
-3. **Phase R · custom staff roles** — owner ask, NOT sized, not a prerequisite.
+3. ~~**Phase R · custom staff roles**~~ — ✅ **BUILT 2026-08-29** (mig 0039).
 
 **Carried over from the tenancy/ops wave (small, none blocking):**
 
@@ -2837,38 +2843,47 @@ in the browser before committing; deploy only when the owner asks.
       value** — quotes solicited from an irrelevant Top-N are the wrong quotes.
       Land it before or alongside P2.
 
-### Phase R — custom staff roles (new ask, owner 2026-08-29 — NOT sized yet)
+### Phase R — custom staff roles — ✅ BUILT 2026-08-29 (migration 0039)
 
-**Owner, while settling who may sign:** *"owner will assign access to each role
-like manager… plus roles can be added/created and assign access accordingly."*
+**Owner:** *"owner will assign access to each role like manager… plus roles can
+be added/created and assign access accordingly."*
 
-Today the staff roles are a fixed set — `owner | manager | accountant` — and
-only their CAPABILITIES are data. This asks for the ROLES themselves to be
-data: create "Ops", "Legal", "Finance junior", grant each what it needs.
+Roles are data now: `platform_role` holds the ones the owner creates, beside
+the built-in `manager` and `accountant`. Rôles & accès renders a column per
+role, with create and delete; `/interne/utilisateurs` offers every role in both
+assignment dropdowns.
 
-**Not a prerequisite for Phase P**: `contracts.sign` works on the existing
-roles from day one, so P4–P6 are unblocked either way.
+**The part that was NOT the table.** Storage was already open — `role` and
+`user.platform_role` are TEXT — so the real work was the two places that
+narrowed to a closed set:
 
-What already fits: `platform_permission` is keyed by a `role` **TEXT** column
-and `user.platform_role` is TEXT too — custom role names are storable now,
-with no migration.
+- `grantedFeatures` / `roleHasPermission` short-circuited on
+  `role !== "manager" && role !== "accountant"`, which would have given every
+  custom role NOTHING while the matrix cheerfully showed its switches. Now
+  anything that is not `owner` or `user` resolves from the table.
+- **`canSeeAllRequests` was a hardcoded role list** (`owner || manager`) behind
+  22 call sites. A custom role could never pass it, so it would have been
+  granted internal features and then shown empty lists — built and useless.
+  It is now the permission key **`requests.all`**, defaulting to owner+manager
+  so nothing changed for the built-ins. The helper takes the RESOLVED
+  permission set (the session already ships `platformFeatures`); on the server,
+  call `effectiveHasPermission(session, "requests.all")`.
 
-What has to change:
-- the `PlatformRole` union in `src/lib/roles.ts` (a closed set today) and every
-  place that narrows to it;
-- `grantedFeatures` / `roleHasPermission` in `src/server/permissions.ts`, which
-  short-circuit on `role !== "manager" && role !== "accountant"`;
-- a `platform_role` table (name, label, created_by) + CRUD surface on
-  /interne/utilisateurs → Rôles & accès, which today renders a fixed 2-column
-  matrix;
-- the defaults story: `defaultGrant()` answers for a key with no row, and a
-  brand-new role has no defaults at all — it should start with **nothing**
-  granted rather than inheriting anyone's.
+**Rules that survived unchanged:** the platform OWNER is never a row and always
+has everything, so the matrix cannot lock out its own editor; **role granting
+is owner-only forever** — a role that could grant roles could promote itself,
+which is why creating one checks `effectivePlatformRole === "owner"` directly
+and never a permission key. A new role starts with **nothing** granted
+(`defaultGrant` only matches built-ins), and deleting one is REFUSED while
+anyone holds it — silently demoting those accounts would strip access from a
+screen that is about roles, not users.
 
-**Rules that survive unchanged and must not be negotiated away:** the platform
-OWNER is never a row and always has everything (no self-lockout), and **role
-granting stays owner-only forever** — a role that can grant roles can promote
-itself.
+*Verified live end to end:* created "Opérations" → slug `operations`, zero
+grants; "Manager" refused as reserved and a duplicate as existing; granted
+`facilitation` + `requests.all`; assigned it to manager@osi.dev, who then saw
+**only Facilitation** in the INTERNE nav and could read cross-tenant requests
+and the supplier directory; deleting it while held was refused (1 holder);
+after reassignment it deleted, and deleting a built-in was refused.
 
 ### Sequencing & dependencies
 

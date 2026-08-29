@@ -30,8 +30,8 @@ export const Route = createFileRoute("/api/files/$id")({
         const isOwn = row.organizationId === workspaceId;
         if (!isOwn) {
           // Cross-tenant read: staff powers only from the internal workspace.
-          const { effectivePlatformRole } = await import("@/server/workspace-guard");
-          if (!canSeeAllRequests(await effectivePlatformRole(session))) {
+          const { effectiveHasPermission } = await import("@/server/workspace-guard");
+          if (!(await effectiveHasPermission(session, "requests.all"))) {
             return Response.json({ error: "not found" }, { status: 404 });
           }
         }
