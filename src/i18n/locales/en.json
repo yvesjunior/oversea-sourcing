@@ -338,7 +338,8 @@
     "openMenu": "Open menu",
     "navTitle": "OSI navigation",
     "switchLanguage": "Switch language",
-    "switchWorkspace": "Switch workspace"
+    "switchWorkspace": "Switch workspace",
+    "profileMenu": "Profile menu"
   },
   "workspaceRoles": {
     "owner": "Owner",

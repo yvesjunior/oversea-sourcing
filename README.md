@@ -696,6 +696,13 @@ workspace only; `owner`/`manager` see all sourcing dossiers; `accountant` is
 Employee surfaces split into **"Vue globale"** / **"Mes données"** via the shared
 `EmployeeTabs` component.
 
+**The shell (2026-08-28):** account concerns live in the **header** — the
+top-right avatar opens the profile menu (`UserMenu.tsx`: name, email, staff
+role badge, Paramètres link, déconnexion) next to the always-visible
+workspace badge, the language toggle and the notification bell. The
+**sidebar is navigation only**; anonymous visitors get a "Se connecter"
+button at its bottom.
+
 **Nav gating:** entries whose feature has no data behind it render **disabled** —
 greyed, `aria-disabled`, emitted as a `<span>` rather than a styled link so they
 cannot be reached by keyboard or middle-click — rather than being hidden or
@@ -1022,6 +1029,20 @@ Numeric criteria (pressure, flow, quantity, lead time) are recorded as
 misses — a one-line supplier description cannot evidence "16 bar", and scoring
 absence as failure penalises every supplier equally. They become checkable when
 the capability/certification satellite tables exist.
+
+> ⚠️ **Known accuracy defect — diagnosed 2026-08-28, fix validated with the
+> owner, NOT yet implemented** (backlog pick-up item ⓪). The three
+> quality terms (base + confidence + verification − risk, up to 42 points)
+> are awarded **independent of relevance**, so a verified high-confidence
+> supplier scores ~40–41 with ZERO criteria matched — and because
+> `STORE_MIN_SCORE = 40`, a pool of ≥ 2×N verified suppliers can
+> **store-hit any request** and suppress live research entirely. Observed
+> in dev: an electronics request's whole Top-5 was pump companies at
+> "41 % compatible". The validated fix makes relevance a **gate**: zero
+> matched checkable criteria ⇒ ineligible (excluded from ranking AND from
+> store-first qualification); Top-N presents fewer than N rather than
+> padding; all-numeric requests always research. Quality points then only
+> order suppliers WITHIN the relevant set.
 
 ---
 

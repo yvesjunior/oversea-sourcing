@@ -75,17 +75,6 @@ const itemsInterne: {
   { key: "sources", url: "/interne/sources", icone: Database },
 ];
 
-function initialsOf(name: string): string {
-  return (
-    name
-      .split(/\s+/)
-      .filter(Boolean)
-      .slice(0, 2)
-      .map((part) => part[0]?.toUpperCase())
-      .join("") || "?"
-  );
-}
-
 export function AppSidebar({
   session,
   onNavigate,
@@ -101,12 +90,6 @@ export function AppSidebar({
   );
   const isDisabled = (item: { disabled?: boolean }) => item.disabled === true;
   const interneVisible = itemsInterne.filter((item) => hasSessionFeature(session, item.key));
-
-  const seDeconnecter = async () => {
-    await authClient.signOut();
-    await router.invalidate();
-    await router.navigate({ to: "/" });
-  };
 
   return (
     <aside className="flex h-full w-[248px] shrink-0 flex-col bg-sidebar text-sidebar-foreground">
@@ -190,27 +173,9 @@ export function AppSidebar({
         )}
       </nav>
 
-      {session?.user ? (
-        <div className="m-3 flex min-w-0 items-center gap-3 rounded-xl px-3 py-4">
-          <span className="grid size-10 shrink-0 place-items-center rounded-full bg-sidebar-accent text-xs font-semibold text-sidebar-accent-foreground">
-            {initialsOf(session.user.name)}
-          </span>
-          <span className="min-w-0 flex-1">
-            <span className="block truncate text-sm font-semibold">{session.user.name}</span>
-            <span className="block truncate text-xs text-sidebar-foreground/50">
-              {session.user.email}
-            </span>
-          </span>
-          <button
-            onClick={() => void seDeconnecter()}
-            aria-label={t("auth.signout")}
-            title={t("auth.signout")}
-            className="shrink-0 text-sidebar-foreground/50 transition-colors hover:text-sidebar-foreground"
-          >
-            <LogOut className="size-[18px]" />
-          </button>
-        </div>
-      ) : (
+      {/* The signed-in profile block moved to the header's UserMenu
+          (owner request 2026-08-28) — the sidebar is navigation only. */}
+      {!session?.user && (
         <div className="m-3">
           <Link
             to="/login"

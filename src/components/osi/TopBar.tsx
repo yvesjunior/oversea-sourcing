@@ -7,6 +7,7 @@ import type { SessionData } from "@/lib/session-fns";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { AppSidebar } from "./AppSidebar";
 import { NotificationBell } from "./NotificationBell";
+import { UserMenu } from "./UserMenu";
 import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
 
 export function TopBar({ session }: { session: SessionData }) {
@@ -53,6 +54,9 @@ export function TopBar({ session }: { session: SessionData }) {
           {current}
         </button>
         {session && <NotificationBell />}
+        {/* Profile + déconnexion live here since 2026-08-28 (owner request) —
+            the sidebar bottom block is gone; the sidebar is navigation. */}
+        {session && <UserMenu session={session} />}
         {!session && (
           <Link
             to="/login"

@@ -34,8 +34,27 @@ downloads the PDF report.
 
 ### Session digest 2026-08-27/28 — read this first
 
-**Prod = main = `31f8a4c` (deploy #7) + docs `cdc6031`. Two deploys this
-session, both verified; migrations through 0030 applied everywhere.**
+**Prod state: see the deploy markers on ②l–②q below — FIVE deploys this
+session (#6 `67b4b5d` migs 0028–0030 · #7 `31f8a4c` · #8 `49d6521` mig
+0031 · #9 `5eb82cb` · #10 `10998d9`), plus #11 (the ②q wave — the deploy
+record on the entry states the commit). Migrations through 0031 applied
+everywhere; every deploy verified (origin 200, containers, data) with a
+pre-deploy backup in `backups/`.**
+
+**The one-paragraph state of the world (2026-08-28 EOD):** the buyer loop
+runs end to end on prod with enforced email verification (prod-only —
+dev opts out via `REQUIRE_EMAIL_VERIFICATION=false`), opt-in 2FA, personal
+themes, org-only invitations, and readable-formats-only uploads. Staff
+access is a live permission matrix (owner always-on; manager currently
+holds facilitation/finance/plans/source-toggle per the owner's grants);
+staff powers exist only inside the OSI workspace; every lifecycle/admin
+action lands in a deletion-proof, purgeable, two-tier journal. Sources
+are presented as SEARCH (global_web, the default) vs VERIFICATION
+(registries — platform switch is the single control, honored by the
+battery since #9). Team on prod: Yves (owner) + Henrik & Renaud
+(managers, OSI-enrolled, internal-plan personal workspaces). **The next
+code task is pick-up item ⓪ (the search relevance gate); the next design
+task is the E6 facilitation discussion.**
 
 **What shipped (details in ②l / ②m below):**
 - **Deploy #6** (`67b4b5d`, migs 0028–0030): the Logging surface
@@ -57,6 +76,31 @@ session, both verified; migrations through 0030 applied everywhere.**
   ~1.3k out tokens, 3–5 searches, **≈ $0.07–0.09 all-in**; store-hits $0.
 
 **Pick-up list (next session):**
+⓪ **SEARCH ACCURACY — diagnosed 2026-08-28, fix designed and VALIDATED
+  with the owner, NOT yet implemented.** Root cause: quality points
+  masquerade as compatibility — the scorer awards `10 base + 20×conf +
+  12 verified − risk` INDEPENDENT of relevance, so a verified supplier
+  scores ~40-41 with ZERO criteria matched. Evidence (dev): request
+  #2540 "Composants électroniques" — the whole Top-5 is pump/bearing
+  companies, every criterion `missed`, each at 40-41%; #2536 textiles
+  carries ITALPOMPE at rank 5 on the same floor. WORSE: the floor
+  clears `STORE_MIN_SCORE=40`, so `countQualifyingCandidates` lets a
+  pool of ≥2×N verified irrelevant suppliers STORE-HIT any request —
+  new categories never trigger web research and get served the old
+  pool. Amplifiers: Top-N pads with ineligibles (`slice(N)`), and
+  all-numeric-criteria requests get a free 0.5 coverage midpoint (+27).
+  **The agreed fix — relevance is a GATE, not a component:**
+  ① a candidate with zero matched CHECKABLE criteria is ineligible
+  (excluded from ranking AND from store-first qualification) whenever
+  the request has ≥1 checkable criterion — quality points then order
+  suppliers WITHIN the relevant set only; ② Top-N presents fewer than N
+  rather than padding (empty relevant set ⇒ store-first falls through
+  to live research — exactly what research is for); ③ the all-numeric
+  midpoint keeps ranking but never counts toward store-hit
+  qualification. Implementation surface: `scoreSupplier`/
+  `createMatchesForRequest` (matching.ts) + `countQualifyingCandidates`
+  (research.ts); the A7 unit tests cover both — extend them with the
+  #2540 shape (verified supplier, zero matches ⇒ ineligible).
 ① **Owner's manual pass** on the password-gated flows: change a
   password once; run 2FA enable → confirm code → sign out →
   /2fa sign-in (everything else is live-verified; agents cannot type
@@ -132,6 +176,22 @@ foundation feels done; ④ E6 facilitation stays LAST before financial
 features (owner priority). ~~Prod = main = `d603dd7` (deploy #5)~~ —
 **SUPERSEDED: deploys #6 (`67b4b5d`, migs 0028–0030) and #7
 (`31f8a4c`) shipped 2026-08-27; see the 2026-08-27/28 digest above.**
+
+②q **DONE 2026-08-28 — header profile menu + search-accuracy diagnosis
+documented**:
+- **UserMenu** (`src/components/osi/UserMenu.tsx`, owner: "add in the
+  header top right user profile for deconnexion and listing of profile
+  information, instead of having that in nav bottom"): top-right avatar
+  (initials on the gold accent — follows the personal theme) → dropdown
+  with name, email, staff-role badge (staff only), Paramètres link,
+  Se déconnecter. The sidebar-bottom profile block is REMOVED — the
+  sidebar is navigation only (anonymous keeps its "Se connecter"
+  button). *Live-verified: menu renders with the profile info; sign-out
+  through it lands on the public hero with the session cleared.*
+- **Search-accuracy finding** written up as pick-up item ⓪ (diagnosis +
+  the owner-validated three-part fix, implementation surfaces, test
+  guidance) and as a ⚠️ block in README → §2 Scoring. NOT implemented
+  yet — deliberately the next session's first code task.
 
 ②p **DONE 2026-08-28 — upload block + email-verification enforcement —
 DEPLOYED as #10 (commit `10998d9`, code-only; backup taken pre-deploy;
