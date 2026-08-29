@@ -15,7 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { STORAGE_KEY } from "@/i18n/config";
+import { setLanguageCookie, resolveLanguage } from "@/i18n/config";
 import { authClient } from "@/lib/auth-client";
 import { getNotificationPrefsFn, updateNotificationPrefsFn } from "@/lib/notification-fns";
 import {
@@ -343,11 +343,10 @@ function ProfilPanel({ data, onSaved }: { data: NonNullable<SettingsData>; onSav
     try {
       const result = await updateProfileFn({ data: { name, locale, themeColor } });
       if (result.ok) {
-        // The language toggle persists to localStorage; keep both in sync so
-        // the next visit (any device: server value, this device: local) agrees.
-        void i18n.changeLanguage(locale);
-        window.localStorage.setItem(STORAGE_KEY, locale);
-        document.documentElement.lang = locale;
+        // The account keeps the locale (it follows the user to a new device);
+        // the cookie makes THIS browser's next server render agree. onSaved
+        // invalidates the router, which re-resolves both.
+        setLanguageCookie(resolveLanguage(locale));
         applyTheme(themeColor);
         onSaved();
       }

@@ -8,13 +8,14 @@ import {
   Scripts,
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
+import { I18nextProvider } from "react-i18next";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { AppShell } from "@/components/osi/AppShell";
-import i18n, { STORAGE_KEY } from "@/i18n/config";
+import { getI18n } from "@/i18n/config";
 import { enforceAuth } from "@/lib/auth-guard";
-import { getSessionFn, type SessionData } from "@/lib/session-fns";
+import { getSessionFn, type RootContext } from "@/lib/session-fns";
 import { applyTheme } from "@/lib/themes";
 
 function NotFoundComponent() {
@@ -81,10 +82,12 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   // Session is fetched once per navigation and exposed to every route via
   // context.session. Auth is enforced here, default-deny: only the public
   // paths in auth-guard.ts are reachable anonymously.
-  beforeLoad: async ({ location }): Promise<{ session: SessionData }> => {
-    const session = await getSessionFn();
+  beforeLoad: async ({ location }): Promise<RootContext> => {
+    // One call: the session AND the language this request renders in (the
+    // language comes from the request cookie, which only the server sees).
+    const { session, lang } = await getSessionFn();
     enforceAuth(session, location.pathname, location.href);
-    return { session };
+    return { session, lang };
   },
   head: () => ({
     meta: [
@@ -121,8 +124,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 });
 
 function RootShell({ children }: { children: ReactNode }) {
+  // Same source as the rendered strings, so the document's declared language
+  // matches its content on the very first byte.
+  const { lang } = Route.useRouteContext();
   return (
-    <html lang="fr">
+    <html lang={lang}>
       <head>
         <HeadContent />
       </head>
@@ -135,17 +141,14 @@ function RootShell({ children }: { children: ReactNode }) {
 }
 
 function RootComponent() {
-  const { queryClient, session } = Route.useRouteContext();
+  const { queryClient, session, lang } = Route.useRouteContext();
 
-  // Restore the visitor's saved language after hydration (server always renders
-  // the default language, so this keeps SSR markup stable and avoids mismatches).
-  useEffect(() => {
-    const stored = window.localStorage.getItem(STORAGE_KEY);
-    if (stored && stored !== i18n.language) {
-      void i18n.changeLanguage(stored);
-      document.documentElement.lang = stored;
-    }
-  }, []);
+  // The language is DECIDED BEFORE RENDERING, server and client alike — the
+  // instance for it is handed to the tree below. There is deliberately no
+  // post-hydration changeLanguage: that is exactly what used to break
+  // hydration (src/i18n/config.ts explains the mechanism). Switching language
+  // invalidates the router, which re-runs beforeLoad and re-renders with the
+  // other instance — a normal client render, never a hydration comparison.
 
   // Personal accent theme (2026-08-27): follows the signed-in user; applied
   // post-hydration for the same SSR-stability reason as the language above.
@@ -155,13 +158,15 @@ function RootComponent() {
   }, [themeColor]);
 
   return (
-    <QueryClientProvider client={queryClient}>
-      {/* Session comes from the router context (server-fetched, refreshed by
-          router.invalidate() on sign-in/out) — the shell never goes stale. */}
-      <AppShell session={session}>
-        {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-        <Outlet />
-      </AppShell>
-    </QueryClientProvider>
+    <I18nextProvider i18n={getI18n(lang)}>
+      <QueryClientProvider client={queryClient}>
+        {/* Session comes from the router context (server-fetched, refreshed by
+            router.invalidate() on sign-in/out) — the shell never goes stale. */}
+        <AppShell session={session}>
+          {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+          <Outlet />
+        </AppShell>
+      </QueryClientProvider>
+    </I18nextProvider>
   );
 }

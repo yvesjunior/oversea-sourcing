@@ -1089,48 +1089,62 @@ Quality gates are `npm test` (vitest, 27 unit tests),
   the guard skips re-init, so SSR renders raw keys (and every hydration fails)
   until `docker restart` of the web container. Cost an hour on 2026-08-24.
 
-### Known defect — hydration breaks once a visitor picks a language (2026-08-29)
+### ~~Hydration breaks once a visitor picks a language~~ ✅ FIXED 2026-08-29
 
-**Real, on prod, and NOT fixed in this deploy.** Deterministic reproduction —
-same server, no restarts between the two runs:
-
-| `localStorage["osi-lang"]` | fresh tab loads any page |
-| --- | --- |
-| absent | clean |
-| `"en"` | `Hydration failed because the server rendered text…` |
-
-**Mechanism.** `src/i18n/config.ts` initialises the i18next singleton with
-`lng: DEFAULT_LANGUAGE`, and `__root.tsx` applies the visitor's stored choice
-in a `useEffect` — the comment there says this "keeps SSR markup stable and
-avoids mismatches", and that reasoning is what fails. React 19 hydrates
-progressively: the root's effect can fire while child subtrees are still
-hydrating, `changeLanguage` makes react-i18next re-render its subscribers,
-and those children then hydrate French server HTML against English client
-output. Timing-dependent, which is why it looks intermittent. The cost is not
-cosmetic — React discards the server HTML and re-renders the whole root on
-the client, so SSR is silently wasted for every user who has ever touched the
+**The defect (found and fixed the same day).** Deterministic before the fix —
+same server, no restarts between runs: `osi-lang` absent in localStorage =
+clean; `osi-lang="en"` = `Hydration failed because the server rendered text…`
+on every page. React discarded the server HTML and re-rendered the whole root
+on the client, so SSR was silently wasted for anyone who had ever touched the
 language toggle.
 
-**The fix is not a one-liner and was deliberately NOT rushed into deploy #12:
-the language has to reach the SERVER** so SSR renders it directly — a cookie
-(works for anonymous visitors too, unlike `user.locale`) read during the
-request, plus a **per-request i18next instance** (`createInstance()` +
-`I18nextProvider`) because the current module singleton is shared across
-concurrent SSR renders and `changeLanguage` on it would leak between users.
-Once SSR renders the right language, the post-hydration switch in `__root`
-disappears entirely.
+**Mechanism.** The old design stored the choice in localStorage and applied it
+in a `useEffect` in `__root.tsx`, on the theory that always server-rendering
+the default keeps markup stable. React 19 hydrates PROGRESSIVELY: the root's
+effect fires while child subtrees are still hydrating, `changeLanguage`
+re-renders react-i18next's subscribers, and those children hydrate French
+server HTML against English client output. Timing-dependent, hence
+intermittent-looking.
 
-**Investigation notes so nobody re-runs it:** it is NOT the relative
-timestamps on `DossierCard` (that guard stayed as prophylaxis, see below) and
-it is NOT an artifact of restarting the dev container. Two traps cost time
-here: the browser console buffer is **per tab and survives navigation**, so
-one stale error looks like it reproduces everywhere — always open a NEW tab
-before concluding; and a probe reading `window.__hyd` returns `[]` when the
-probe was never installed, which reads exactly like "no errors".
+**The fix — the language reaches the SERVER (contract, do not undo):**
+- **A cookie, not localStorage** (`osi-lang`, `src/i18n/config.ts`). The server
+  cannot read localStorage, and SSR must render in the chosen language.
+  Works for anonymous visitors too, which `user.locale` cannot.
+- **One i18n instance PER LANGUAGE, memoized** (`getI18n(lang)`), handed to the
+  tree by `<I18nextProvider>` in `__root`. **Never a single mutable singleton**:
+  the SSR process serves concurrent requests from one module graph, so a
+  `changeLanguage` on a shared instance leaks one visitor's language into
+  another's render. Each instance has a fixed `lng` and never changes.
+- **Resolution happens once, server-side**, in `getSessionFn` (which already
+  runs in `beforeLoad` — one round trip, not two): cookie → the account's
+  `user.locale` → `fr`. It returns `{ session, lang }` and `beforeLoad` puts
+  both in the router context; `<html lang>` reads the same value.
+- **Switching = cookie + `router.invalidate()`** (TopBar, and the Paramètres
+  profile save). beforeLoad re-resolves, the tree re-renders with the other
+  instance — a normal client render, never a hydration comparison. **There is
+  deliberately no post-hydration `changeLanguage` anywhere.**
 
-`DossierCard` keeps `suppressHydrationWarning` on its relative timestamp:
-that mismatch is real in principle (server and client format at different
-instants) and it costs one attribute.
+*Verified in dev:* SSR under `Cookie: osi-lang=en` returns English nav labels;
+a fresh tab with that cookie loads `/parametres` fully in English with a
+**clean console**; the toggle flips cookie + `<html lang>` + all copy with no
+reload and no error; `/demandes`, `/fournisseurs`, `/interne/sources` clean.
+
+**One-time cost, accepted (pre-launch, no customers):** a visitor whose old
+preference lived in localStorage falls back to French until they use the
+toggle once. No migration shim — reading localStorage during the first render
+is exactly the bug that was removed.
+
+**Known and out of scope:** page `<title>`s are static French strings in each
+route's `head()`, so they do not follow the language. Separate task.
+
+**Two investigation traps that cost time here** — the browser console buffer is
+**per tab and survives navigation**, so one stale error looks like it
+reproduces everywhere (open a NEW tab before concluding); and a probe reading
+`window.__hyd` returns `[]` when the probe was never installed, which reads
+exactly like "no errors". Both produced a confidently wrong first diagnosis
+(blamed on `DossierCard`'s relative timestamp, then on dev-container
+restarts). `DossierCard` keeps its `suppressHydrationWarning` as prophylaxis —
+that mismatch is real in principle and costs one attribute.
 
 ### Live data (do not assume it is disposable)
 

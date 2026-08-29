@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { Link } from "@tanstack/react-router";
+import { Link, useRouter } from "@tanstack/react-router";
 import { Download, Globe, LogIn, Menu } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { STORAGE_KEY, resolveLanguage } from "@/i18n/config";
+import { resolveLanguage, setLanguageCookie } from "@/i18n/config";
 import type { SessionData } from "@/lib/session-fns";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { AppSidebar } from "./AppSidebar";
@@ -12,14 +12,18 @@ import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
 
 export function TopBar({ session }: { session: SessionData }) {
   const { t, i18n } = useTranslation();
+  const router = useRouter();
   const [menuOuvert, setMenuOuvert] = useState(false);
   const current = resolveLanguage(i18n.language);
 
+  // Write the cookie, then invalidate: beforeLoad re-resolves the language and
+  // the tree re-renders with the other i18n instance. Deliberately NOT
+  // `changeLanguage` on a shared instance — that is what leaked across
+  // concurrent SSR renders and broke hydration (see src/i18n/config.ts).
   const toggleLangue = () => {
     const next = current === "fr" ? "en" : "fr";
-    void i18n.changeLanguage(next);
-    window.localStorage.setItem(STORAGE_KEY, next);
-    document.documentElement.lang = next;
+    setLanguageCookie(next);
+    void router.invalidate();
   };
 
   return (
