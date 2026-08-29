@@ -5,7 +5,6 @@ import { HeroPrompt } from "@/components/osi/HeroPrompt";
 import { StatCard } from "@/components/osi/StatCard";
 import { DossierCard } from "@/components/osi/DossierCard";
 import { EmptyRequests } from "@/components/osi/EmptyRequests";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { statsConfig, valeurs } from "@/data/osi";
 import { canSeeAllRequests } from "@/lib/roles";
 import { getAllRequestsFn, getMyRequestsFn, type RequestSummary } from "@/lib/requests-fns";
@@ -111,8 +110,11 @@ function Accueil() {
   const { stats, statsAll, demandes, toutes } = Route.useLoaderData();
   const loggedIn = Boolean(session);
   const platformRole = (session?.user as { platformRole?: string } | undefined)?.platformRole;
-  // Employees (owner/manager): global view + own data, one tab switcher for
-  // the whole dashboard (stats + dossiers move together).
+  // Employees (owner/manager) standing in OSI's own workspace: the global
+  // view IS their dashboard. There is no "own data" half — the platform
+  // workspace holds no requests by rule (owner 2026-08-29), so that tab could
+  // only ever show zeros; a staff member's own dossiers live in their
+  // personal workspace, one switch away.
   const employee = canSeeAllRequests(platformRole) && statsAll !== null;
 
   const prenom = session?.user?.name?.split(" ")[0];
@@ -131,33 +133,10 @@ function Accueil() {
       )}
 
       {employee ? (
-        /* -mt-6: the tab bar slots into the section gap instead of adding a
-           row — employee and buyer dashboards keep (almost) the same height,
-           so the footer stays fully visible in both. */
-        <Tabs defaultValue="tous" className="-mt-6">
-          <TabsList className="h-8">
-            <TabsTrigger
-              value="tous"
-              className="py-1 data-[state=active]:bg-gold-gradient data-[state=active]:text-gold-foreground data-[state=active]:shadow-gold"
-            >
-              {t("home.tabAll")}
-            </TabsTrigger>
-            <TabsTrigger
-              value="miens"
-              className="py-1 data-[state=active]:bg-gold-gradient data-[state=active]:text-gold-foreground data-[state=active]:shadow-gold"
-            >
-              {t("home.tabMine")}
-            </TabsTrigger>
-          </TabsList>
-          <TabsContent value="tous" className="mt-3 space-y-8">
-            <StatsGrid stats={statsAll} />
-            <DossiersRecents demandes={toutes} mine={false} seeAllTo="/interne/facilitation" />
-          </TabsContent>
-          <TabsContent value="miens" className="mt-3 space-y-8">
-            <StatsGrid stats={stats} />
-            <DossiersRecents demandes={demandes} mine seeAllTo="/demandes" />
-          </TabsContent>
-        </Tabs>
+        <>
+          <StatsGrid stats={statsAll} />
+          <DossiersRecents demandes={toutes} mine={false} seeAllTo="/interne/facilitation" />
+        </>
       ) : (
         <>
           {/* Buyers → own numbers · anonymous → zeros. */}

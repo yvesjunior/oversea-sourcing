@@ -61,6 +61,9 @@ function Demandes() {
   const { session } = Route.useRouteContext();
   const { miennes, toutes } = Route.useLoaderData();
   const platformRole = (session?.user as { platformRole?: string } | undefined)?.platformRole;
+  // Staff powers exist ONLY while standing in the internal workspace, so this
+  // flag doubles as "I am in OSI's own workspace" — the same signal the nav
+  // and the Vue globale tabs already follow.
   const employee = canSeeAllRequests(platformRole);
   const count = employee ? toutes.length : miennes.length;
   // The intake form lives here since 2026-08-29 (ADR-002 §11) — "Création et
@@ -76,22 +79,27 @@ function Demandes() {
           <h1 className="truncate font-display text-2xl font-semibold">{t("demandes.title")}</h1>
           <p className="mt-1 text-sm text-muted-foreground">{t("demandes.subtitle", { count })}</p>
         </div>
-        <Button
-          type="button"
-          variant={formOpen ? "outline" : "gold"}
-          onClick={() => setFormOpen((open) => !open)}
-          aria-expanded={formOpen}
-          aria-controls="nouvelle-demande"
-        >
-          {formOpen ? <ChevronDown className="size-4" /> : <Plus className="size-4" />}
-          <span className="hidden sm:inline">{t("demandes.newRequest")}</span>
-        </Button>
+        {/* OSI's own workspace holds no requests (owner 2026-08-29): staff
+            do not file needs there, they run other people's. The server
+            refuses it too — this only stops offering it. */}
+        {!employee && (
+          <Button
+            type="button"
+            variant={formOpen ? "outline" : "gold"}
+            onClick={() => setFormOpen((open) => !open)}
+            aria-expanded={formOpen}
+            aria-controls="nouvelle-demande"
+          >
+            {formOpen ? <ChevronDown className="size-4" /> : <Plus className="size-4" />}
+            <span className="hidden sm:inline">{t("demandes.newRequest")}</span>
+          </Button>
+        )}
       </header>
 
       {/* Hidden with CSS, never unmounted: HeroPrompt's draft-resume effect
           runs on mount, so a draft returning from the auth gate must find the
           component alive even when the section is collapsed. */}
-      <div id="nouvelle-demande" className={cn(!formOpen && "hidden")}>
+      <div id="nouvelle-demande" className={cn((!formOpen || employee) && "hidden")}>
         <HeroPrompt
           user={session?.user ?? null}
           variant="embedded"
@@ -102,16 +110,10 @@ function Demandes() {
         />
       </div>
 
-      {employee ? (
-        <EmployeeTabs
-          globalCount={toutes.length}
-          mineCount={miennes.length}
-          global={<Grille demandes={toutes} mine={false} />}
-          mine={<Grille demandes={miennes} mine />}
-        />
-      ) : (
-        <Grille demandes={miennes} mine />
-      )}
+      {/* No "Mes données" here: in OSI's own workspace a staff member has
+          none by rule, and a tab that is always empty is furniture. Their own
+          dossiers live in their personal workspace — one switch away. */}
+      {employee ? <Grille demandes={toutes} mine={false} /> : <Grille demandes={miennes} mine />}
     </div>
   );
 }

@@ -186,6 +186,9 @@ export type CreateRequestResult =
   | { ok: false; reason: "unauthenticated" }
   /** Authenticated but the workspace role forbids it (viewer — read-only). */
   | { ok: false; reason: "forbidden" }
+  /** Standing in OSI's own workspace, which holds no customer data by rule
+   *  (owner 2026-08-29). Switch to a buyer workspace to act as a buyer. */
+  | { ok: false; reason: "internal_workspace" }
   | {
       ok: false;
       reason: "quota_exceeded";
@@ -241,9 +244,16 @@ export const createRequestFn = createServerFn({ method: "POST" })
 
     // B1: creating a request needs a working seat — membership re-read per
     // call, so a demotion or removal bites immediately.
-    const { requireMember } = await import("@/server/workspace-guard");
+    const { requireMember, isInternalWorkspace } = await import("@/server/workspace-guard");
     if (!(await requireMember(session.user.id, workspaceId, "buyer"))) {
       return { ok: false, reason: "forbidden" };
+    }
+    // OSI's own workspace is for internal action only (owner 2026-08-29):
+    // staff have no requests there, so one created from it would be OSI's own
+    // customer data sitting in every cross-tenant list. Refused here, not
+    // merely unoffered in the UI.
+    if (await isInternalWorkspace(workspaceId)) {
+      return { ok: false, reason: "internal_workspace" };
     }
 
     // Quota check + insert under a per-workspace advisory lock: the check is

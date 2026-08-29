@@ -205,15 +205,11 @@ function Soumissions() {
         </p>
       </header>
 
+      {/* No "Mes données": staff stand in OSI's own workspace, which holds no
+          soumissions by rule (owner 2026-08-29). Their own dossiers live in
+          their personal workspace, one switch away. */}
       {isStaff ? (
-        <EmployeeTabs
-          globalCount={all.quotes.length}
-          mineCount={mine.quotes.length}
-          global={<StaffQuotes quotes={all.quotes} />}
-          mine={
-            <QuoteList quotes={mine.quotes} canRecord={mine.canRecord} canAccept={mine.canAct} />
-          }
-        />
+        <StaffQuotes quotes={all.quotes} />
       ) : (
         <QuoteList quotes={mine.quotes} canRecord={mine.canRecord} canAccept={mine.canAct} />
       )}

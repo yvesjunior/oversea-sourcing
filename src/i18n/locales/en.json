@@ -410,7 +410,9 @@
       "countriesListAria": "See common country codes"
     },
     "dashboardSubtitle": "Here's an overview of your sourcing activity.",
-    "draftRestored": "Your input was kept — check it, then start the search."
+    "draftRestored": "Your input was kept — check it, then start the search.",
+    "internalWorkspaceTitle": "OSI internal workspace",
+    "internalWorkspace": "The internal workspace holds no client requests. Switch to a buyer workspace to create one."
   },
   "stats": {
     "activeRequests": "Active requests",

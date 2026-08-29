@@ -112,6 +112,11 @@ export const requestQuotesFn = createServerFn({ method: "POST" })
         ]);
       const caller = await requireWorkspaceRole(getRequest().headers, "buyer");
       if (!caller) return { ok: false, reason: "forbidden" };
+      // No internal-workspace check here on purpose: this fn only ever finds a
+      // request already scoped to the caller's workspace, and a request cannot
+      // exist in OSI's own workspace (createRequestFn refuses it). The choke
+      // point is where customer data ENTERS. A guard here would also be the
+      // wrong shape the day staff act on a buyer's behalf.
 
       const request = await db.query.request.findFirst({
         where: and(

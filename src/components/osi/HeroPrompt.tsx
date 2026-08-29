@@ -259,6 +259,17 @@ export function HeroPrompt({
       setBlockedAlert({ title: t("home.readOnlyRoleTitle"), message: t("home.readOnlyRole") });
       return false;
     }
+    if (created.reason === "internal_workspace") {
+      // Standing in OSI's own workspace, which holds no requests by rule. The
+      // form is not offered there, but a draft can outlive a workspace switch
+      // — and falling through to the branch below would log out a perfectly
+      // authenticated staff member.
+      setBlockedAlert({
+        title: t("home.internalWorkspaceTitle"),
+        message: t("home.internalWorkspace"),
+      });
+      return false;
+    }
     // Session evaporated — fall back to the auth gate (same return target as
     // the gate itself: the draft only resumes where the form is mounted).
     draftToPreserve();

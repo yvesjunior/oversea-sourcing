@@ -410,7 +410,9 @@
       "countriesListAria": "Voir les codes pays courants"
     },
     "dashboardSubtitle": "Voici un aperçu de vos activités d'approvisionnement.",
-    "draftRestored": "Votre saisie a été conservée — vérifiez-la puis lancez la recherche."
+    "draftRestored": "Votre saisie a été conservée — vérifiez-la puis lancez la recherche.",
+    "internalWorkspaceTitle": "Espace interne OSI",
+    "internalWorkspace": "L'espace interne ne contient aucune demande client. Basculez vers un espace acheteur pour créer une demande."
   },
   "stats": {
     "activeRequests": "Demandes actives",

@@ -42,6 +42,28 @@ export async function effectivePlatformRole(session: {
   return workspace?.type === "internal" ? role : "user";
 }
 
+/**
+ * True when this workspace is OSI's OWN (owner decision, 2026-08-29).
+ *
+ * The platform workspace exists for internal action and nothing else: staff
+ * hold no requests, quotes or dossiers there, so a customer action attempted
+ * from it is refused rather than quietly creating OSI-owned customer data
+ * that every cross-tenant list would then carry. Staff who need to act as a
+ * buyer switch to a buyer workspace — their personal one, or a shared test
+ * account — where `effectivePlatformRole` already makes them an ordinary
+ * buyer.
+ *
+ * Enforced server-side because the UI merely stops OFFERING the action; this
+ * is what makes it impossible.
+ */
+export async function isInternalWorkspace(workspaceId: string): Promise<boolean> {
+  const workspace = await db.query.organization.findFirst({
+    where: eq(schema.organization.id, workspaceId),
+    columns: { type: true },
+  });
+  return workspace?.type === "internal";
+}
+
 /** The caller's membership in a workspace, iff it grants at least `min`. */
 export async function requireMember(
   userId: string,

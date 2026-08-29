@@ -679,6 +679,25 @@ UPDATE "user" SET platform_role = 'owner' WHERE email = '…';
 The change takes effect on the next sign-in, since the role is read from the
 session established at login.
 
+### The platform workspace holds no customer data
+
+OSI's own workspace (`organization.type = "internal"`) exists for internal
+action and nothing else. Staff do not file needs there — they run other
+people's — so a request cannot be created from it: `createRequestFn` refuses
+with `internal_workspace`, and the intake form is not offered. There is no
+"Mes données" half of the dashboard, `/demandes` or `/soumissions` in that
+workspace either; by rule it would only ever show zeros.
+
+That single refusal is the whole enforcement, because request creation is the
+only place customer data enters. Every other buyer action is already scoped to
+rows that cannot exist in the internal workspace, and a second guard there
+would be the wrong shape the day staff act on a buyer's behalf.
+
+Staff keep their own personal workspace. To act as a buyer — to test the
+journey end to end — they switch to it, or to a shared buyer test account,
+where `effectivePlatformRole` already reduces them to exactly a buyer: no
+INTERNE menu, no cross-tenant reads, no gold badge.
+
 ### Roles
 
 **Workspace roles** (buyer companies): `owner` · `buyer` · `viewer` (owner/admin merged 2026-08-23 — the owner manages account AND team).

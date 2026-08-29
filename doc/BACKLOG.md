@@ -1131,6 +1131,19 @@ writing any code.
   `suppressHydrationWarning` is NOT the fix (it leaves the server's UTC text
   on screen); it stays correct only for the relative "il y a 6 minutes" on
   DossierCard, where the drift is seconds.
+- **OSI's own workspace holds NO customer data** (owner 2026-08-29): the
+  platform workspace is for internal action only. `createRequestFn` refuses
+  with `internal_workspace` when the active workspace's type is `internal`
+  (`isInternalWorkspace` in workspace-guard) — that is the ONE choke point,
+  because it is the only place customer data enters; every other buyer fn is
+  already scoped to rows that cannot exist there, and a second guard would be
+  the wrong shape the day staff act on a buyer's behalf. The UI stops
+  offering what the server refuses: no intake form on `/demandes`, and no
+  "Mes données" tab on the dashboard, `/demandes` or `/soumissions` — in that
+  workspace it could only ever show zeros. **Staff keep their personal
+  workspace** (owner) and switch to it, or to a shared buyer test account, to
+  act as a buyer — where `effectivePlatformRole` already makes them exactly a
+  buyer.
 - **Staff lists name their account and can be narrowed to one**
   (owner 2026-08-29): staff stand in the internal workspace and their "Vue
   globale" carries every customer at once, which is right for a queue and
