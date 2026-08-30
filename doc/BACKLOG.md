@@ -345,12 +345,6 @@ before diagnosing anything. That took ~4 minutes today.
   whatever it proves is not what a customer will see. Owner has not said which
   should move; moving one to `free` caps it at 2 lifetime requests, which may
   cut a live tester off mid-test.
-- ❓ **A buyer test account does not exist yet.** Owner intends one (a second
-  Oversea org, ordinary customer rights, for testing the buyer journey).
-  Account creation is the owner's to perform — it needs a password, and the
-  signup IS the journey under test. Name must differ from the internal
-  workspace (names are unique case-insensitively) and the plan must be a real
-  customer tier.
 - ⚠️ **The verification registry stores are still full** (prod 393 474
   registry-ca rows; dev 1.8 M across qc/sg/ca/jp) while the DISCOVERY store is
   empty. That is deliberate — only discovery can warm a search — but it means
