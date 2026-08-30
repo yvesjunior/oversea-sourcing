@@ -37,8 +37,10 @@ tracked to delivery** — with the PDF report available throughout.
 
 ### START HERE — handoff, 2026-08-29 (read this first)
 
-**Prod = `75631f2` (deploy #27). Nothing is built and undeployed — main and
-prod are the same commit, and the working tree is clean.**
+**Prod = `75631f2` (deploy #27).** `main` is 3 commits ahead, and **none of
+them changes the running app**: the deploy gate (`scripts/verify-build.sh`,
+`scripts/check-bundle-cycles.mjs`, `deploy.sh` calling them) plus docs. Deploy
+when convenient — there is nothing waiting that a user would see.
 Rollback point for the whole day: tag `deploy-11-baseline`.
 
 **Before writing any code, in this order:**
@@ -51,20 +53,21 @@ Rollback point for the whole day: tag `deploy-11-baseline`.
    you" — and then actually run the build check it describes. A deploy went
    down today for exactly this.
 
-**Before every deploy, without exception:**
+**Deploying is `./scripts/deploy.sh`, and it now verifies itself.** It runs
+`./scripts/verify-build.sh` first — production-preset build → chunk-cycle
+detector → boot the result and curl it — and refuses to ship if any of the
+three fails. `SKIP_VERIFY=1` bypasses it for a docs-only push. You can run the
+same check any time with `npm run verify:build`.
 
-```sh
-NODE_ENV=production NITRO_PRESET=node-server npm run build
-DATABASE_URL='postgres://osi:local-test-password@localhost:5433/osi' \
-  PORT=3099 NODE_ENV=production node .output/server/index.mjs &
-curl -s -o /dev/null -w '%{http_code}\n' http://localhost:3099/     # 200 = shippable
-```
-
-`npm run dev` cannot see the failure this catches, and a plain `npm run build`
-cannot either — that produces the Cloudflare Worker preset, while the container
-forces `node-server`.
+This exists because `npm run dev` cannot see the failure it catches, and a
+plain `npm run build` cannot either: that produces the Cloudflare Worker
+preset, while the container forces `node-server`. Deploy #24 went down for
+exactly that gap.
 
 ---
+
+**Session ended here (2026-08-29, evening).** Everything below is current; the
+next session can start at "What REMAINS" and needs no other context.
 
 #### 1 · What this session changed, in three paragraphs
 
@@ -90,10 +93,11 @@ and both databases were cleared for a cold test.
 The night finished **Phase R** (staff roles are data, and the visibility they
 gate became the permission key `requests.all` instead of a hardcoded role list
 behind 22 call sites) and **P6** (signatures — in-platform for buyer and OSI,
-manual upload for everyone else, reminders, the contract trail, and
-`esign.ts` as the external-path seam), then reviewed the owner's visual dossier
-mockup and took the five things it gets right. One deploy failed mid-session
-and prod was rolled back; see #24.
+manual upload for everyone else, reminders, the contract trail, and `esign.ts`
+as the external-path seam), reviewed the owner's visual dossier mockup and took
+the five things it gets right, removed the Économies tile as uncomputable, and
+finally **gated the deploy** on the bundle check that deploy #24 had cost. One
+deploy failed mid-session and prod was rolled back; see #24.
 
 #### 2 · Deploys (all verified on prod, backup taken before each)
 
