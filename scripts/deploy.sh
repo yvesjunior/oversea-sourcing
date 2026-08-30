@@ -10,6 +10,12 @@
 #   WEB_PORT     (default: 3010)
 #   BRANCH       (default: main)
 #
+# Runs ./scripts/verify-build.sh FIRST (2026-08-29). Deploy #24 shipped a bundle
+# that passed every other gate and 500'd on every SSR request in the container;
+# the check that would have caught it existed only as a paragraph someone had to
+# remember. Set SKIP_VERIFY=1 to bypass — for a docs-only push, or when the
+# build was just verified by hand.
+#
 # Usage: ./scripts/deploy.sh
 set -euo pipefail
 
@@ -17,6 +23,12 @@ DEPLOY_HOST="${DEPLOY_HOST:-yves@192.168.2.56}"
 DEPLOY_PATH="${DEPLOY_PATH:-/home/yves/workspace/apps/oversea-sourcing}"
 WEB_PORT="${WEB_PORT:-3010}"
 BRANCH="${BRANCH:-main}"
+
+if [ "${SKIP_VERIFY:-}" != "1" ]; then
+  "$(dirname "$0")/verify-build.sh"
+else
+  echo "⚠ SKIP_VERIFY=1 — shipping without verifying the production bundle."
+fi
 
 echo "▶ Deploying OSI → ${DEPLOY_HOST}:${DEPLOY_PATH} (branch ${BRANCH}, port ${WEB_PORT})"
 

@@ -315,6 +315,14 @@ before diagnosing anything. That took ~4 minutes today.
 2. **P8 · documents** — typed `document` rows, versioned, attached to a deal
    and/or contract. **No longer blocked:** the uploads volume has been in the
    backup since 2026-08-29.
+   **Owner, 2026-08-29:** *"document will be saved in remote backend or local
+   storage depending on env var, we will discuss our options later."* The seam
+   already exists — `src/server/storage.ts` is an S3-shaped adapter over a
+   local volume, so a remote backend is a second implementation behind the same
+   four functions, chosen by env var, and no domain code changes. **The choice
+   itself is not made yet**; do not pick a provider unilaterally. Note it
+   interacts with the backup: an object store would make
+   `osi-files-*.tar.gz` redundant, a local volume keeps it essential.
 3. **P9 · paiements** (ledger, track-only) · **P10 · messages** ·
    **P11 · rapports** (the « économies » tile still cannot be computed
    honestly — no baseline price exists in the model).
@@ -324,10 +332,12 @@ before diagnosing anything. That took ~4 minutes today.
 4. **`transactions.tsx` still shows a "Mes données" tab.** Every other surface
    lost it; this one could not, because deleting its `EmployeeTabs` import is
    exactly what broke deploy #24. P7 rewrites the page anyway.
-5. **The chunk cycle is UNFIXED** — see "The prod bundle has a latent chunk
-   cycle". Two attempts are recorded as failures so nobody retries them blind.
-   Until it is fixed, the prod-preset build check is the safety net and should
-   run before EVERY deploy. It has run before every commit since.
+5. **The chunk cycle is GATED, not eliminated** — `./scripts/deploy.sh` now
+   refuses to ship without `./scripts/verify-build.sh` (prod-preset build →
+   `check-bundle-cycles.mjs` → boot and curl). Four fix attempts are recorded
+   as failures with their diagnosis, so nobody retries them blind. Eliminating
+   it at source means dropping the namespace-import pattern in ~20 handlers,
+   which is a real refactor and not urgent now the gate exists.
 6. **`matchCount` means two different things** — platform-wide on the staff
    directory, caller-scoped on the linked list. Deliberate, but the field
    comment in `SupplierView` still describes only the first.
@@ -337,7 +347,18 @@ before diagnosing anything. That took ~4 minutes today.
 
 #### 5 · Gaps and open questions a next session must not lose
 
-- ❗ **Three prod accounts hold the `internal` PLAN** — henrik bergeron,
+- ✅ **The three `internal`-plan accounts are STAFF, and that is correct**
+  (checked 2026-08-29): Yves Bationo is the platform **owner**, henrik bergeron
+  and Renaud Lacoursiere Theroux are **managers** — each a member of the OSI
+  internal workspace with a personal workspace beside it, and it is the
+  personal workspace that carries the plan. **No customer holds `internal`**;
+  every one of the seven customer accounts is on `free`, so nothing leaks.
+  The one caveat to keep in mind rather than fix: a staff member testing the
+  buyer journey in their own workspace gets unlimited requests and 10
+  suppliers, so *"it worked for me"* does not prove it works for a Free
+  customer, who gets 1/day, 2 lifetime and 5. Capping them would make testing
+  impossible (2 lifetime requests), which is why they stay as they are.
+- ~~❗ **Three prod accounts hold the `internal` PLAN**~~ — henrik bergeron,
   Renaud Lacoursiere Theroux, Yves Bationo — which is unlimited requests,
   unlimited lifetime and 10 suppliers returned, against `free`'s 1/day, 2
   lifetime, 5 suppliers. Rights leak through the PLAN, not only through the
@@ -1519,7 +1540,7 @@ writing any code.
 Quality gates are `npm test` (vitest, 27 unit tests),
 `npx tsc --noEmit` and `npx eslint src/` — all clean as of this commit.
 
-### The prod bundle has a latent chunk cycle — `npm run dev` will not show it
+### The prod bundle can grow a chunk cycle — the deploy is GATED on it now
 
 **Cost a failed deploy on 2026-08-29 (prod down ~4 min, rolled back).** A build
 that runs perfectly under `vite dev` can return **500 `TypeError: __exportAll
@@ -1535,15 +1556,17 @@ composition can flip it, including an edit that only REMOVES an import: the
 trigger here was deleting the `EmployeeTabs` import from
 `src/routes/transactions.tsx`, which is why it looked harmless.
 
-**Reproduce it in ~90 seconds — do this before any deploy that touches route
-imports:**
+**You no longer have to remember any of this** (2026-08-29):
+`./scripts/deploy.sh` runs **`./scripts/verify-build.sh`** first, which builds
+with the container's preset, runs **`scripts/check-bundle-cycles.mjs`** over the
+SSR chunks, and boots the result to confirm it serves 200. `SKIP_VERIFY=1`
+bypasses it for a docs-only push. Run it by hand any time with
+`npm run verify:build`, or just the structural half with `npm run check:bundle`.
 
-```sh
-NODE_ENV=production NITRO_PRESET=node-server npm run build
-DATABASE_URL='postgres://osi:local-test-password@localhost:5433/osi' \
-  PORT=3099 NODE_ENV=production node .output/server/index.mjs &
-curl -s -o /dev/null -w '%{http_code}\n' http://localhost:3099/    # 200 = shippable
-```
+The detector looks for the dangerous SHAPE, not a known-bad file: two chunks
+that import each other where one calls an imported `__exportAll` at top level.
+That is the state that dies at runtime, and it is checkable in milliseconds on
+a built bundle.
 
 Both env vars matter: a plain `npm run build` produces the **Cloudflare Worker**
 preset (the Lovable vite plugin's default), which is NOT what the container
@@ -1552,9 +1575,33 @@ them tests an artifact that never ships.
 
 **Tried and did NOT fix it:** a `manualChunks` rule isolating
 `src/database/schema`, and removing the `period.ts → instant.ts` import edge.
-The proper fix is to break the cycle at its source and is **not yet done** —
-until then, the reproduction above is the safety net, and the workaround was to
-leave `transactions.tsx` alone.
+
+**Two more attempts, both failed, both with a live failing case to test
+against** (2026-08-29 — re-removing the `EmployeeTabs` import from
+`transactions.tsx` brought the cycle straight back, and the new detector caught
+it):
+
+| Attempt | Result |
+|---|---|
+| `output.hoistTransitiveImports: false` | cycle unchanged — same pair |
+| `manualChunks` co-locating `src/database/**` + `src/server/**` + the SSR entry | 109 → 78 chunks, cycle **still there**, just renamed `ssr.mjs ↔ ssr2.mjs` |
+
+**What the diagnosis actually is.** The top-level calls in the guilty chunk
+build `schema_exports`, `database_exports` and `api_exports` — namespace
+objects for OUR modules, synthesised because every handler imports them as
+namespaces (`const schema = await import("@/database/schema")`, then
+`schema.contract`). That IS the house pattern, applied in ~20 files and load-
+bearing for the import-protection rule. Eliminating the cycle at source
+therefore means eliminating those namespace imports — a mechanical but wide
+refactor, with its own chance of breaking the client/server split it exists to
+protect. **Not worth doing blind.** Rollup's arrangement of those namespaces is
+its decision, remade on every composition change, which is why a change that
+only DELETED an import could flip it.
+
+**So the hazard is caught instead of hoped about, and `transactions.tsx` keeps
+its import** — that one page still shows an always-empty "Mes données" tab, and
+P7 rewrites it anyway. If someone later removes the namespace-import pattern,
+re-test by deleting that import and watching the detector.
 
 ### Things that will bite you
 
