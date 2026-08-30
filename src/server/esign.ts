@@ -15,6 +15,24 @@
 // If a vendor is ever bought it replaces `manual` HERE and touches nothing
 // else — the contract_party row, the event trail and the N/M indicator do not
 // care which provider produced a signature.
+//
+// ── The likely next provider is NOT a vendor (owner, 2026-08-29) ──────────
+//
+// "the signature is through the private link … that is where we can suggest
+// supplier to sign, but let's keep it for later as optional, as we may ask the
+// parties to sign a PDF that will be uploaded."
+//
+// So the intended successor to `manual` is a PRIVATE SIGNING LINK — ADR-002's
+// Option B, emailed to a party who has no account, letting them view and sign
+// without one. That is a `link` provider implemented against this same
+// interface: `request()` mints a capability URL (the `/invitation/$id` pattern
+// already does this) and returns `delivered: true` with its reference.
+//
+// It stays OPTIONAL beside `manual`, not instead of it. Some counterparties
+// will always return a signed PDF by mail, and the upload path has to keep
+// working for them — which is why the two must coexist rather than one
+// replacing the other. Whatever arrives, it writes the same contract_party row
+// as everything else.
 
 export type SignatureRequest = {
   contractId: string;

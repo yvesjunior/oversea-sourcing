@@ -28,6 +28,9 @@ export type PartyView = {
   method: string | null;
   signedAt: string | null;
   signedByName: string | null;
+  /** The countersigned PDF, when one was uploaded — served through
+   *  /api/files/$id, which does its own tenancy check. */
+  signedFileId: string | null;
   /** True when this party IS the caller — the only one who may sign in-app. */
   isCaller: boolean;
   /** How this party signs, from its ROLE (P6): in_platform for the buyer and
@@ -147,6 +150,7 @@ function toView(
         method: party.method,
         signedAt: party.signedAt ? party.signedAt.toISOString() : null,
         signedByName: party.signedByName,
+        signedFileId: party.signedFileId,
         isCaller: party.userId === callerUserId,
         mechanism: rules.mechanismFor(party.role),
         canSignNow: rules.canSignInPlatform(contract, party, signer) === "ok",

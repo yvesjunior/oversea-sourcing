@@ -294,10 +294,21 @@ second product (onboarding, support, abuse surface) before the first one has
 customers.
 
 **Option B — link-based capability access** (emailed link, no account, view and
-sign). Light, and the `/invitation/$id` pattern already exists. Not selected:
-it still puts counterparties on our surface, and a self-hosted signing page has
-weaker evidentiary standing than either a real e-sign vendor or a signed PDF on
-file.
+sign). Light, and the `/invitation/$id` pattern already exists. Not selected
+for v1: it still puts counterparties on our surface, and a self-hosted signing
+page has weaker evidentiary standing than either a real e-sign vendor or a
+signed PDF on file.
+
+> **Revisited 2026-08-29 (owner):** *"the signature is through the private link
+> … that is where we can suggest supplier to sign, but let's keep it for later
+> as optional, as we may ask the parties to sign a PDF that will be uploaded."*
+> So Option B becomes the **intended successor to `manual`**, not a rejected
+> alternative — a `link` provider behind `src/server/esign.ts`, added when the
+> external path deserves more than email. It is **optional and additive**: the
+> manual upload path keeps working, because some counterparties will always
+> return a signed PDF by post, and a link that replaced upload would strand
+> them. Still NOT a vendor — this is our own link, so gate G1 stays closed and
+> no recurring bill appears.
 
 **Option C — no external access at all, staff-mediated (SELECTED).** OSI is the
 middleman; the platform is OSI's and the buyer's instrument for running that.

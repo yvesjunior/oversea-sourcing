@@ -7,12 +7,12 @@ export type Risque = "Faible" | "Moyen" | "Élevé";
 // getDashboardStatsFn (real, per-user — zeros when anonymous).
 export type StatCardConfig = {
   /** key into DashboardStats + i18n label under "stats" */
-  key: "activeRequests" | "suppliersEvaluated" | "ongoingTransactions" | "savingsGenerated";
+  key: "activeRequests" | "suppliersEvaluated" | "ongoingTransactions";
   /** i18n label key under "stats" */
   labelKey: string;
   /** i18n key under "stats" for the delta note */
   note: string;
-  icone: "demandes" | "fournisseurs" | "transactions" | "economies" | "analyses";
+  icone: "demandes" | "fournisseurs" | "transactions" | "analyses";
   /** formats as money when true */
   money?: boolean;
 };
@@ -31,14 +31,15 @@ export const statsConfig: StatCardConfig[] = [
     note: "thisWeek",
     icone: "transactions",
   },
-  {
-    key: "savingsGenerated",
-    labelKey: "savings",
-    note: "thisMonth",
-    icone: "economies",
-    money: true,
-  },
 ];
+
+// NO "Économies" tile (owner, 2026-08-29). It was showing 0 $ because nothing
+// in the data model can compute a saving: there is no baseline — no target
+// price, no market price, no previous quote for the same need — to compare an
+// accepted offer against. The mockup's confident "348 750 $" would have to be
+// invented, and a dashboard number nobody can derive is worse than a missing
+// one. It comes back the day intake captures a target price (ADR-002 conflict
+// #9), and not before.
 
 // Suppliers & matches now live in the database (supplier/match tables) —
 // seeded via src/database/seed.ts, produced by the worker for new requests.
@@ -83,12 +84,11 @@ export const etapesTransaction = [
 
 export type KpiData = { key: string; valeur: string; delta: string };
 
-export const kpisAnalyses: KpiData[] = [
-  { key: "totalSpend", valeur: "245 680 $", delta: "+12%" },
-  { key: "savings", valeur: "45 680 $", delta: "+18%" },
-  { key: "transactions", valeur: "23", delta: "+9%" },
-  { key: "activeSuppliers", valeur: "156", delta: "+15%" },
-];
+// `kpisAnalyses` REMOVED 2026-08-29 with the Économies tile. It had no
+// consumers — four invented figures ("245 680 $", "45 680 $") kept alive only
+// by being exported, and the savings one could not be computed even in
+// principle. /analyses reads real aggregates from getAnalyticsFn, which
+// returns null for spend and savings rather than a number nobody can derive.
 
 // key: i18n key under "regions"
 export const repartition = [

@@ -27,6 +27,10 @@ export type RequestSummary = {
   /** Who created it — live name while the account exists, the at-creation
    *  snapshot after deletion (UC-6), null only on pre-snapshot legacy rows. */
   createdByName: string | null;
+  /** How many suppliers were asked for an offer on this need (P2). The visual
+   *  dossier puts it on the dashboard row, and it is the number that says
+   *  whether a dossier is moving. */
+  quoteCount: number;
 };
 
 /** YOUR sourcing requests, newest first — personal surfaces are own-workspace
@@ -54,6 +58,7 @@ export const getMyRequestsFn = createServerFn({ method: "GET" }).handler(
         compatibilityScore: schema.request.compatibilityScore,
         updatedAt: schema.request.updatedAt,
         createdAt: schema.request.createdAt,
+        quoteCount: sql<number>`(select count(*)::int from "quote" where "quote"."request_id" = ${schema.request.id})`,
         // Live name while the account exists; the snapshot survives deletion.
         createdByName: sql<string | null>`coalesce("user"."name", ${schema.request.createdByName})`,
       })
@@ -102,6 +107,7 @@ export const getAllRequestsFn = createServerFn({ method: "GET" }).handler(
         createdAt: schema.request.createdAt,
         workspaceName: schema.organization.name,
         organizationId: schema.request.organizationId,
+        quoteCount: sql<number>`(select count(*)::int from "quote" where "quote"."request_id" = ${schema.request.id})`,
         createdByName: sql<string | null>`coalesce("user"."name", ${schema.request.createdByName})`,
       })
       .from(schema.request)
@@ -119,6 +125,7 @@ export const getAllRequestsFn = createServerFn({ method: "GET" }).handler(
       workspaceName: row.organizationId === ownWorkspaceId ? null : row.workspaceName,
       organizationId: row.organizationId,
       organizationName: row.workspaceName,
+      quoteCount: row.quoteCount,
       createdByName: row.createdByName,
     }));
   },
@@ -420,7 +427,7 @@ export const startRequestPipelineFn = createServerFn({ method: "POST" })
 export const getRequestDetailFn = createServerFn({ method: "GET" })
   .inputValidator(z.object({ id: z.string() }))
   .handler(async ({ data }): Promise<RequestDetail | null> => {
-    const [{ auth }, { getRequest }, { db }, { asc, eq }, schema] = await Promise.all([
+    const [{ auth }, { getRequest }, { db }, { asc, count, eq }, schema] = await Promise.all([
       import("@/server/auth"),
       import("@tanstack/react-start/server"),
       import("@/database"),
@@ -513,6 +520,13 @@ export const getRequestDetailFn = createServerFn({ method: "GET" })
       }
     }
 
+    // How many suppliers were solicited on this need (P2).
+    const [quoteRow] = await db
+      .select({ value: count() })
+      .from(schema.quote)
+      .where(eq(schema.quote.requestId, row.id));
+    const quotesForRequest = quoteRow?.value ?? 0;
+
     // Live name while the account exists; the snapshot survives deletion.
     const creator = row.createdBy
       ? await db.query.user.findFirst({
@@ -530,6 +544,7 @@ export const getRequestDetailFn = createServerFn({ method: "GET" })
       workspaceName,
       organizationId: row.organizationId,
       organizationName: workspaceName ?? "",
+      quoteCount: quotesForRequest,
       createdByName: creator?.name ?? row.createdByName,
       descriptionRaw: row.descriptionRaw,
       createdAt: row.createdAt.toISOString(),
@@ -702,6 +717,7 @@ export const getRequestFn = createServerFn({ method: "GET" })
       workspaceName,
       organizationId: row.organizationId,
       organizationName: workspaceName ?? "",
+      quoteCount: 0,
       createdByName: row.createdByName,
     };
   });

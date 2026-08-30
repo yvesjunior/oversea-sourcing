@@ -412,13 +412,20 @@
     "dashboardSubtitle": "Voici un aperçu de vos activités d'approvisionnement.",
     "draftRestored": "Votre saisie a été conservée — vérifiez-la puis lancez la recherche.",
     "internalWorkspaceTitle": "Espace interne OSI",
-    "internalWorkspace": "L'espace interne ne contient aucune demande client. Basculez vers un espace acheteur pour créer une demande."
+    "internalWorkspace": "L'espace interne ne contient aucune demande client. Basculez vers un espace acheteur pour créer une demande.",
+    "activity": "Activités récentes",
+    "col": {
+      "id": "ID demande",
+      "product": "Produit / service",
+      "status": "Statut",
+      "quotes": "Soumissions",
+      "updated": "Mis à jour"
+    }
   },
   "stats": {
     "activeRequests": "Demandes actives",
     "evaluatedSuppliers": "Fournisseurs évalués",
     "ongoingTransactions": "Transactions en cours",
-    "savings": "Économies générées",
     "thisWeek": "cette semaine",
     "thisMonth": "ce mois-ci"
   },
@@ -559,7 +566,15 @@
     "research_store_hit": "Réponse depuis la base fournisseurs d'OSI ({{qualifying}} candidats qualifiés sur {{pool}}) — aucune nouvelle recherche web nécessaire",
     "attachment_added": "{{count}} pièce(s) jointe(s) ajoutée(s)",
     "matches_created": "Top {{count}} sélectionné sur {{analyzed}} fournisseurs analysés",
-    "criteria_fromAttachment": "{{count}} critère(s) extrait(s) des pièces jointes"
+    "criteria_fromAttachment": "{{count}} critère(s) extrait(s) des pièces jointes",
+    "quotes_requested": "Soumissions demandées",
+    "deal_opened": "Dossier de transaction ouvert",
+    "contracts_drafted": "Contrats préparés",
+    "status_contracting": "Contractualisation",
+    "status_in_production": "En production",
+    "status_shipping": "En transit",
+    "status_delivered": "Livré",
+    "status_reviewed": "Évalué par le client"
   },
   "stepsDemande": {
     "received": {
@@ -652,7 +667,6 @@
   },
   "kpis": {
     "totalSpend": "Dépenses totales",
-    "savings": "Économies générées",
     "transactions": "Transactions",
     "activeSuppliers": "Fournisseurs actifs"
   },
@@ -994,7 +1008,9 @@
       "party": "Partie",
       "role": "Rôle",
       "status": "Statut",
-      "action": "Action"
+      "action": "Action",
+      "signedBy": "Signé par",
+      "signedAt": "Date de signature"
     },
     "pendingHint": "Ces dossiers attendent leurs contrats obligatoires.",
     "document": "Document",
@@ -1013,7 +1029,7 @@
     "recordSave": "Enregistrer",
     "recordHint": "Le PDF contresigné est facultatif — enregistrez le fait dès qu'il est connu.",
     "signatoryName": "Nom du signataire",
-    "remind": "Relancer",
+    "remind": "Envoyer rappel",
     "noEmail": "Aucune adresse enregistrée",
     "uploadFailed": "Le téléversement a échoué.",
     "noHistory": "Aucun évènement pour l'instant.",
@@ -1042,7 +1058,8 @@
       "not_draft": "Ce contrat n'est plus un brouillon.",
       "not_pending": "Cette partie n'attend plus de signature.",
       "not_found": "Introuvable."
-    }
+    },
+    "viewSignedDoc": "Voir"
   },
   "dealBox": {
     "title": "Dossier de transaction",

@@ -412,13 +412,20 @@
     "dashboardSubtitle": "Here's an overview of your sourcing activity.",
     "draftRestored": "Your input was kept — check it, then start the search.",
     "internalWorkspaceTitle": "OSI internal workspace",
-    "internalWorkspace": "The internal workspace holds no client requests. Switch to a buyer workspace to create one."
+    "internalWorkspace": "The internal workspace holds no client requests. Switch to a buyer workspace to create one.",
+    "activity": "Recent activity",
+    "col": {
+      "id": "Request ID",
+      "product": "Product / service",
+      "status": "Status",
+      "quotes": "Quotes",
+      "updated": "Updated"
+    }
   },
   "stats": {
     "activeRequests": "Active requests",
     "evaluatedSuppliers": "Suppliers evaluated",
     "ongoingTransactions": "Ongoing transactions",
-    "savings": "Savings generated",
     "thisWeek": "this week",
     "thisMonth": "this month"
   },
@@ -559,7 +566,15 @@
     "research_store_hit": "Matched from OSI's supplier base ({{qualifying}} qualified candidates of {{pool}}) — no new web research was needed",
     "attachment_added": "{{count}} attachment(s) added",
     "matches_created": "Top {{count}} selected out of {{analyzed}} suppliers analyzed",
-    "criteria_fromAttachment": "{{count}} criteria extracted from the attachments"
+    "criteria_fromAttachment": "{{count}} criteria extracted from the attachments",
+    "quotes_requested": "Quotes requested",
+    "deal_opened": "Transaction file opened",
+    "contracts_drafted": "Contracts drafted",
+    "status_contracting": "Contracting",
+    "status_in_production": "In production",
+    "status_shipping": "Shipping",
+    "status_delivered": "Delivered",
+    "status_reviewed": "Reviewed by the client"
   },
   "stepsDemande": {
     "received": {
@@ -652,7 +667,6 @@
   },
   "kpis": {
     "totalSpend": "Total spend",
-    "savings": "Savings generated",
     "transactions": "Transactions",
     "activeSuppliers": "Active suppliers"
   },
@@ -994,7 +1008,9 @@
       "party": "Party",
       "role": "Role",
       "status": "Status",
-      "action": "Action"
+      "action": "Action",
+      "signedBy": "Signed by",
+      "signedAt": "Signature date"
     },
     "pendingHint": "These dossiers are still missing their required contracts.",
     "document": "Document",
@@ -1013,7 +1029,7 @@
     "recordSave": "Record",
     "recordHint": "The countersigned PDF is optional — record the fact as soon as you know it.",
     "signatoryName": "Signatory name",
-    "remind": "Remind",
+    "remind": "Send reminder",
     "noEmail": "No address on file",
     "uploadFailed": "Upload failed.",
     "noHistory": "Nothing has happened yet.",
@@ -1042,7 +1058,8 @@
       "not_draft": "This contract is no longer a draft.",
       "not_pending": "This party is no longer awaiting signature.",
       "not_found": "Not found."
-    }
+    },
+    "viewSignedDoc": "View"
   },
   "dealBox": {
     "title": "Transaction file",

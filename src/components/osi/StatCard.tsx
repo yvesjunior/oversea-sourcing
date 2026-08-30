@@ -1,4 +1,4 @@
-import { BarChart3, FileBox, PiggyBank, Repeat, Users } from "lucide-react";
+import { BarChart3, FileBox, Repeat, Users } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { StatCardConfig } from "@/data/osi";
 import { cn } from "@/lib/utils";
@@ -7,7 +7,6 @@ const icones = {
   demandes: FileBox,
   fournisseurs: Users,
   transactions: Repeat,
-  economies: PiggyBank,
   analyses: BarChart3,
 } as const;
 

@@ -3,12 +3,19 @@ import { ChevronRight } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { HeroPrompt } from "@/components/osi/HeroPrompt";
 import { StatCard } from "@/components/osi/StatCard";
-import { DossierCard } from "@/components/osi/DossierCard";
 import { EmptyRequests } from "@/components/osi/EmptyRequests";
+import { StatusPill } from "@/components/osi/StatusPill";
 import { statsConfig, valeurs } from "@/data/osi";
+import { formatDay, formatDayTime } from "@/lib/instant";
 import { canSeeAllRequests } from "@/lib/roles";
 import { getAllRequestsFn, getMyRequestsFn, type RequestSummary } from "@/lib/requests-fns";
-import { getAllStatsFn, getDashboardStatsFn, type DashboardStats } from "@/lib/stats-fns";
+import {
+  getAllStatsFn,
+  getDashboardStatsFn,
+  getRecentActivityFn,
+  type ActivityEntry,
+  type DashboardStats,
+} from "@/lib/stats-fns";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -31,13 +38,14 @@ export const Route = createFileRoute("/")({
   // Real data, visibility by role: buyers → own · employees → global + own,
   // grouped under one tab switcher. Anonymous → zeros (the page stays public).
   loader: async () => {
-    const [stats, statsAll, demandes, toutes] = await Promise.all([
+    const [stats, statsAll, demandes, toutes, activity] = await Promise.all([
       getDashboardStatsFn(),
       getAllStatsFn(), // null unless owner/manager
       getMyRequestsFn(),
       getAllRequestsFn(), // [] unless owner/manager
+      getRecentActivityFn(), // [] when anonymous
     ]);
-    return { stats, statsAll, demandes, toutes };
+    return { stats, statsAll, demandes, toutes, activity };
   },
   component: Accueil,
 });
@@ -57,6 +65,17 @@ function StatsGrid({ stats }: { stats: DashboardStats }) {
   );
 }
 
+/**
+ * Recent requests as a TABLE (visual dossier §1), not cards.
+ *
+ * The dossier's columns are ID · Produit · Quantité · Statut · Soumissions ·
+ * Date limite. Four of those exist here. **Quantité and Date limite do not**:
+ * quantity lives inside the structured intake as free text ("5 000 unités",
+ * "12 palettes" — the buyer's own wording, deliberately not something to
+ * compute with) and there is no deadline field at all. Inventing either column
+ * would be the Économies tile again, so the table shows what the row actually
+ * knows and stops there.
+ */
 function DossiersRecents({
   demandes,
   mine,
@@ -66,7 +85,7 @@ function DossiersRecents({
   mine: boolean;
   seeAllTo: string;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   return (
     <section>
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4">
@@ -88,13 +107,92 @@ function DossiersRecents({
             </p>
           )
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            {demandes.slice(0, 4).map((demande) => (
-              <DossierCard key={demande.id} demande={demande} />
-            ))}
+          <div className="card-surface overflow-x-auto">
+            <table className="w-full min-w-[640px] text-sm">
+              <thead>
+                <tr className="border-b border-border text-left text-[11px] uppercase tracking-wide text-muted-foreground">
+                  <th className="px-4 py-3 font-medium">{t("home.col.id")}</th>
+                  <th className="px-4 py-3 font-medium">{t("home.col.product")}</th>
+                  <th className="px-4 py-3 font-medium">{t("home.col.status")}</th>
+                  <th className="px-4 py-3 font-medium">{t("home.col.quotes")}</th>
+                  <th className="px-4 py-3 font-medium">{t("home.col.updated")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {demandes.slice(0, 6).map((demande) => (
+                  <tr
+                    key={demande.id}
+                    className="border-b border-border last:border-0 transition-colors hover:bg-secondary/40"
+                  >
+                    <td className="px-4 py-3">
+                      <Link
+                        to="/demandes/$id"
+                        params={{ id: demande.id }}
+                        className="font-mono text-xs font-semibold text-gold hover:underline"
+                      >
+                        #{demande.id}
+                      </Link>
+                    </td>
+                    <td className="max-w-[260px] px-4 py-3">
+                      <span className="block truncate" title={demande.title}>
+                        {demande.title}
+                      </span>
+                      {demande.workspaceName && (
+                        <span className="text-[11px] text-muted-foreground">
+                          {demande.workspaceName}
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      <StatusPill statut={demande.status} />
+                    </td>
+                    <td className="px-4 py-3 tabular-nums text-muted-foreground">
+                      {demande.quoteCount}
+                    </td>
+                    <td className="px-4 py-3 text-xs text-muted-foreground">
+                      {formatDay(demande.updatedAt, i18n.language)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </div>
+    </section>
+  );
+}
+
+/** "Activités récentes" (visual dossier §1) — merged from the three event
+ *  tables the state machines already write, so the feed and the timeline a
+ *  user opens from it can never tell different stories. */
+function ActivitesRecentes({ entries }: { entries: ActivityEntry[] }) {
+  const { t, i18n } = useTranslation();
+  if (entries.length === 0) return null;
+  return (
+    <section>
+      <h2 className="text-lg font-semibold">{t("home.activity")}</h2>
+      <ul className="card-surface mt-5 divide-y divide-border">
+        {entries.map((entry) => (
+          <li key={entry.id} className="px-5 py-3">
+            <Link to={entry.link} className="group grid grid-cols-[minmax(0,1fr)_auto] gap-4">
+              <span className="min-w-0 truncate text-sm">
+                <span className="transition-colors group-hover:text-gold">
+                  {t(`events.${entry.type.replace(".", "_")}`, {
+                    defaultValue: t(`contrats.event.${entry.type.replace(".", "_")}`, {
+                      defaultValue: entry.type,
+                    }),
+                  })}
+                </span>
+                <span className="ml-2 text-muted-foreground">{entry.subject}</span>
+              </span>
+              <span className="shrink-0 text-[11px] text-muted-foreground">
+                {formatDayTime(entry.at, i18n.language, { withYear: false })}
+              </span>
+            </Link>
+          </li>
+        ))}
+      </ul>
     </section>
   );
 }
@@ -107,7 +205,7 @@ function Accueil() {
   // the DASHBOARD. The form moved to /demandes for them, so this route keeps
   // its own header rather than borrowing the hero's greeting.
   const { session } = Route.useRouteContext();
-  const { stats, statsAll, demandes, toutes } = Route.useLoaderData();
+  const { stats, statsAll, demandes, toutes, activity } = Route.useLoaderData();
   const loggedIn = Boolean(session);
   const platformRole = (session?.user as { platformRole?: string } | undefined)?.platformRole;
   // Employees (owner/manager) standing in OSI's own workspace: the global
@@ -136,12 +234,14 @@ function Accueil() {
         <>
           <StatsGrid stats={statsAll} />
           <DossiersRecents demandes={toutes} mine={false} seeAllTo="/interne/facilitation" />
+          <ActivitesRecentes entries={activity} />
         </>
       ) : (
         <>
           {/* Buyers → own numbers · anonymous → zeros. */}
           <StatsGrid stats={stats} />
           {loggedIn && <DossiersRecents demandes={demandes} mine seeAllTo="/demandes" />}
+          {loggedIn && <ActivitesRecentes entries={activity} />}
         </>
       )}
 

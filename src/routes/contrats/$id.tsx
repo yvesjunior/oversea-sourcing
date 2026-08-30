@@ -113,12 +113,15 @@ function ContractDetail() {
     <div className="space-y-6 pt-6">
       <header className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-4">
         <div className="min-w-0">
-          <Link
-            to="/contrats"
-            className="inline-flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-gold"
-          >
-            <ArrowLeft className="size-3.5" /> {t("contrats.title")}
-          </Link>
+          {/* Breadcrumb rather than a bare back-link: on a fiche reached from
+              a filtered list, "where am I" is the more useful question. */}
+          <nav className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <Link to="/contrats" className="transition-colors hover:text-gold">
+              <ArrowLeft className="inline size-3.5" /> {t("contrats.title")}
+            </Link>
+            <span aria-hidden>›</span>
+            <span className="font-mono text-gold">{contract.number}</span>
+          </nav>
           <h1 className="mt-2 truncate font-display text-2xl font-semibold">
             <span className="font-mono text-gold">{contract.number}</span>
           </h1>
@@ -234,6 +237,8 @@ function ContractDetail() {
                 <th className="px-3 py-2 font-medium">{t("contrats.partyCol.party")}</th>
                 <th className="px-3 py-2 font-medium">{t("contrats.partyCol.role")}</th>
                 <th className="px-3 py-2 font-medium">{t("contrats.partyCol.status")}</th>
+                <th className="px-3 py-2 font-medium">{t("contrats.partyCol.signedBy")}</th>
+                <th className="px-3 py-2 font-medium">{t("contrats.partyCol.signedAt")}</th>
                 <th className="px-3 py-2 font-medium">{t("contrats.partyCol.action")}</th>
               </tr>
             </thead>
@@ -261,11 +266,14 @@ function ContractDetail() {
                     >
                       {t(`contrats.partyStatus.${party.signatureStatus}`)}
                     </span>
-                    {party.signedByName && (
-                      <span className="ml-2 text-[11px] text-muted-foreground">
-                        {party.signedByName}
-                      </span>
-                    )}
+                  </td>
+                  {/* Who actually put their name to it, and when — the two
+                      facts a signature is FOR. They were buried beside the
+                      status chip; the visual dossier is right that they are
+                      columns. */}
+                  <td className="px-3 py-3 text-muted-foreground">{party.signedByName ?? "—"}</td>
+                  <td className="px-3 py-3 text-[11px] text-muted-foreground">
+                    {party.signedAt ? formatDay(party.signedAt, i18n.language) : "—"}
                   </td>
                   <td className="px-3 py-3">
                     <PartyActions
@@ -372,8 +380,20 @@ function PartyActions({
 
   if (party.signatureStatus === "signed") {
     return (
-      <span className="text-[11px] text-muted-foreground">
+      <span className="flex items-center gap-2 text-[11px] text-muted-foreground">
         {party.method ? t(`contrats.method.${party.method}`) : "—"}
+        {/* Only when a document actually exists: an in-platform signature has
+            no PDF to open, and a "Voir" that opens nothing is worse than none. */}
+        {party.signedFileId && (
+          <a
+            href={`/api/files/${party.signedFileId}`}
+            target="_blank"
+            rel="noreferrer"
+            className="text-gold hover:underline"
+          >
+            {t("contrats.viewSignedDoc")}
+          </a>
+        )}
       </span>
     );
   }

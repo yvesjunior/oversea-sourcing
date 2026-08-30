@@ -190,6 +190,41 @@ Also shipped outside Phase P: **per-request country origin** (mig 0037) with a
 **English-first search**; the **bilingual pool** and **cross-language
 criteria**.
 
+#### 3b · The visual dossier (owner's mockup, reviewed 2026-08-29)
+
+The owner's `PORTAIL ENTREPRISE — DOSSIER VISUEL` mockup was compared against
+what is built. **Most of it already matches** — the contract list's columns and
+five filters, the parties-and-signatures table, the activity trail and the nav
+are shipped. What it changed:
+
+- ✅ **Adopted:** the parties table gained **Signé par** and **Date de
+  signature** as columns (the two facts a signature is FOR, previously buried
+  beside the status chip) and a **Voir** link on a row whose signature came
+  with a document; the fiche gained a **breadcrumb**; the reminder action is
+  now worded **Envoyer rappel**; the dashboard gained **Activités récentes**
+  (merged from `request_event` + `deal_event` + `contract_event` — no fourth
+  store, so the feed and the timeline it links to cannot disagree) and turned
+  **Dossiers récents into a table** with a **Soumissions** count.
+- ✂️ **Dropped:** the **Économies totales** tile — see the gaps below.
+- ⏸️ **Not yet:** pagination on the contract list (matters at volume);
+  **+ Nouveau contrat** (the ADR's "staff may add a contract the mapping did
+  not predict" affordance — legitimate, unbuilt); *Documents associés* (P8);
+  the two spend charts (P9 — there is no spend in the model at all).
+- ❌ **Not adopted, and why:** the mockup's **sidebar profile card** would
+  revert deploy #11, which deliberately moved it to the header menu (owner
+  confirmed 2026-08-29: leave it); **Inter** as the type family — we ship
+  Outfit + DM Sans, and swapping is a whole-app change, not a detail;
+  **DocuSign / Adobe Sign** — no vendor (G1), and the intended successor is a
+  private signing link, not a vendor; **Next.js / AWS S3** are graphic-designer
+  notes already resolved in ADR-002 conflict #10. The mockup also treats
+  *Actif* as a stored contract STATUS — ours derives the five filters at read
+  time, which is why the indicator and the status cannot drift; do not adopt
+  its vocabulary.
+- ⚠️ Its *Demandes récentes* table has **Quantité** and **Date limite**
+  columns. Neither exists: quantity is free text inside the structured intake
+  (the buyer's own wording, deliberately not computable) and there is no
+  deadline field. The table shows what the row actually knows.
+
 #### 4 · What REMAINS, in order
 
 **Phase P — P1 through P6 are DONE and live. What is left:**
@@ -259,8 +294,15 @@ criteria**.
   right order (step 12)? who updates production milestones (step 14) — every
   update is an email then a manual entry, which is the real cost of "no
   supplier access".
-- ❓ **The « économies » tile cannot be computed honestly** — nothing holds a
-  baseline price. Either capture a target price at intake or drop the tile.
+- ✅ **The « économies » tile is GONE** (owner, 2026-08-29 — "remove that
+  Économies totales"). Nothing in the model can compute a saving: there is no
+  baseline — no target price, no market price, no earlier quote for the same
+  need — to compare an accepted offer against, so the tile showed 0 $ and the
+  visual dossier's confident "348 750 $" would have had to be invented.
+  Removed with its stat, its delta, its icon and its i18n labels, plus the
+  dead `kpisAnalyses` constants that carried three more invented figures and
+  had no consumers. It comes back the day intake captures a target price
+  (ADR-002 conflict #9), and not before.
 - ❓ **Plan dimension**: nothing stops a Free-trial workspace reaching
   contracts and payments.
 - ⚠️ **~40 suppliers predate the bilingual pool** and have no `description_en`;
@@ -2849,8 +2891,14 @@ in the browser before committing; deploy only when the owner asks.
       user files** — deleting a request drops its `file` rows and orphans the
       bytes. Brief §7 asks for a policy.
 - ✅ **G1 — e-sign vendor: NOT BOUGHT** (owner 2026-08-29). Buyer and OSI sign
-      in-platform; external parties are manual upload. No recurring bill. A
-      vendor would only ever replace the external path.
+      in-platform; external parties are manual upload. No recurring bill.
+      **The intended successor is not a vendor either** (owner, same day): a
+      **private signing link** — ADR-002's Option B — emailed to a party with
+      no account, added behind `src/server/esign.ts` as a `link` provider when
+      the external path deserves more than email. **Optional and additive:**
+      manual upload keeps working, because some counterparties will always
+      return a signed PDF by post and a link that replaced upload would strand
+      them.
 - ❓ **G2 — supplier/sub-contractor portal access.** Owner-deferred 2026-08-29;
       brief §6's last two rows are out of scope. `contract_party` is where it
       attaches later.

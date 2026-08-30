@@ -4,14 +4,11 @@ export type DashboardStats = {
   activeRequests: number;
   suppliersEvaluated: number;
   ongoingTransactions: number;
-  /** In dollars. */
-  savingsGenerated: number;
   /** Week-over-week deltas — null until there is history to compare. */
   deltas: {
     activeRequests: number | null;
     suppliersEvaluated: number | null;
     ongoingTransactions: number | null;
-    savingsGenerated: number | null;
   };
 };
 
@@ -19,12 +16,10 @@ const ZERO_STATS: DashboardStats = {
   activeRequests: 0,
   suppliersEvaluated: 0,
   ongoingTransactions: 0,
-  savingsGenerated: 0,
   deltas: {
     activeRequests: null,
     suppliersEvaluated: null,
     ongoingTransactions: null,
-    savingsGenerated: null,
   },
 };
 
@@ -220,5 +215,124 @@ export const getAnalyticsFn = createServerFn({ method: "GET" }).handler(
       spend: null,
       savings: null,
     };
+  },
+);
+
+/** One line of the dashboard's activity feed. */
+export type ActivityEntry = {
+  id: string;
+  /** `request.*` · `deal.*` · `contract.*` — the i18n key is derived from it. */
+  type: string;
+  /** What it happened to: a request id, a dossier title, a contract number. */
+  subject: string;
+  /** Where clicking should go. */
+  link: string;
+  at: string;
+};
+
+/**
+ * The dashboard's "Activités récentes" (visual dossier §1).
+ *
+ * Merged from the three event tables that already exist — `request_event`,
+ * `deal_event`, `contract_event` — rather than a new "activity" table. Those
+ * rows are written by the state machines as their timelines; a fourth store
+ * would be a second source of truth that could disagree with the dossier a
+ * user opens from this very feed.
+ *
+ * Workspace-scoped like everything else: staff standing in the internal
+ * workspace see every account's, since that is their queue.
+ */
+export const getRecentActivityFn = createServerFn({ method: "GET" }).handler(
+  async (): Promise<ActivityEntry[]> => {
+    const [
+      { requireWorkspaceRole, effectiveHasPermission },
+      { auth },
+      { getRequest },
+      { db },
+      { desc, eq },
+      schema,
+    ] = await Promise.all([
+      import("@/server/workspace-guard"),
+      import("@/server/auth"),
+      import("@tanstack/react-start/server"),
+      import("@/database"),
+      import("drizzle-orm"),
+      import("@/database/schema"),
+    ]);
+    const headers = getRequest().headers;
+    const caller = await requireWorkspaceRole(headers, "viewer");
+    const session = await auth.api.getSession({ headers });
+    if (!caller || !session) return [];
+    const seesAll = await effectiveHasPermission(session, "requests.all");
+    const LIMIT = 8;
+
+    // Each source is capped before the merge: fetching everything to keep
+    // eight rows would scan three tables in full as they grow.
+    const [requestEvents, dealEvents, contractRows] = await Promise.all([
+      db
+        .select({
+          id: schema.requestEvent.id,
+          type: schema.requestEvent.type,
+          requestId: schema.requestEvent.requestId,
+          at: schema.requestEvent.createdAt,
+        })
+        .from(schema.requestEvent)
+        .where(seesAll ? undefined : eq(schema.requestEvent.organizationId, caller.workspaceId))
+        .orderBy(desc(schema.requestEvent.createdAt))
+        .limit(LIMIT),
+      db
+        .select({
+          id: schema.dealEvent.id,
+          type: schema.dealEvent.type,
+          dealId: schema.dealEvent.dealId,
+          title: schema.deal.title,
+          at: schema.dealEvent.createdAt,
+        })
+        .from(schema.dealEvent)
+        .innerJoin(schema.deal, eq(schema.deal.id, schema.dealEvent.dealId))
+        .where(seesAll ? undefined : eq(schema.dealEvent.organizationId, caller.workspaceId))
+        .orderBy(desc(schema.dealEvent.createdAt))
+        .limit(LIMIT),
+      db
+        .select({
+          id: schema.contractEvent.id,
+          type: schema.contractEvent.type,
+          contractId: schema.contractEvent.contractId,
+          number: schema.contract.number,
+          organizationId: schema.contract.organizationId,
+          at: schema.contractEvent.at,
+        })
+        .from(schema.contractEvent)
+        .innerJoin(schema.contract, eq(schema.contract.id, schema.contractEvent.contractId))
+        .where(seesAll ? undefined : eq(schema.contract.organizationId, caller.workspaceId))
+        .orderBy(desc(schema.contractEvent.at))
+        .limit(LIMIT),
+    ]);
+
+    return [
+      ...requestEvents.map((row) => ({
+        id: row.id,
+        type: row.type,
+        subject: `#${row.requestId}`,
+        link: `/demandes/${row.requestId}`,
+        at: row.at.toISOString(),
+      })),
+      ...dealEvents.map((row) => ({
+        id: row.id,
+        type: row.type,
+        subject: row.title,
+        link: `/contrats`,
+        at: row.at.toISOString(),
+      })),
+      ...contractRows.map((row) => ({
+        id: row.id,
+        type: row.type,
+        subject: row.number,
+        link: `/contrats/${row.contractId}`,
+        at: row.at.toISOString(),
+      })),
+    ]
+      .sort((a, b) => (a.at < b.at ? 1 : -1))
+      .slice(0, LIMIT);
   },
 );
