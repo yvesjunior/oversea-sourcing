@@ -35,46 +35,65 @@ tracked to delivery** — with the PDF report available throughout.
 
 ## Resume here (last session: 2026-08-29 — the portal brief, 15 deploys, P1-P6 + Phase R + the tenancy rules)
 
-### START HERE — handoff, 2026-08-29
+### START HERE — handoff, 2026-08-29 (read this first)
 
-**Prod = `918a189` (deploy #26). Nothing is built and undeployed — main and
-prod are the same commit.** #26 carries **Phase R** (custom staff roles,
-migration 0039) and **P6** (signatures, both mechanisms) — plus the uploads
-volume finally entering the backup. #25 carried the wider "linked supplier"
-definition and the personal-workspace session default. **Deploy #24 failed on its first
-attempt and prod was rolled back** — read "The prod bundle has a latent chunk
-cycle" below before touching route imports, and run the prod-preset build
-check it describes before every deploy.
+**Prod = `75631f2` (deploy #27). Nothing is built and undeployed — main and
+prod are the same commit, and the working tree is clean.**
 Rollback point for the whole day: tag `deploy-11-baseline`.
 
-Read in this order before writing code: **[ADR-002](adr/ADR-002-transaction-and-contract-centre.md)**
-(accepted) → the **Phase P** header and its "How to read these tasks" note →
-**"Contracts a next session must NOT re-derive differently"**. The
-owner-validated 16-step parcours is the artifact linked from the ADR.
+**Before writing any code, in this order:**
+1. **[ADR-002](adr/ADR-002-transaction-and-contract-centre.md)** (accepted) —
+   the transaction dossier and contract centre, which is most of what shipped
+   today. The owner-validated 16-step parcours is the artifact linked from it.
+2. **"Contracts a next session must NOT re-derive differently"** below — the
+   invariants list. It is long because it is load-bearing; skim all of it.
+3. **"The prod bundle has a latent chunk cycle"** under "Things that will bite
+   you" — and then actually run the build check it describes. A deploy went
+   down today for exactly this.
+
+**Before every deploy, without exception:**
+
+```sh
+NODE_ENV=production NITRO_PRESET=node-server npm run build
+DATABASE_URL='postgres://osi:local-test-password@localhost:5433/osi' \
+  PORT=3099 NODE_ENV=production node .output/server/index.mjs &
+curl -s -o /dev/null -w '%{http_code}\n' http://localhost:3099/     # 200 = shippable
+```
+
+`npm run dev` cannot see the failure this catches, and a plain `npm run build`
+cannot either — that produces the Cloudflare Worker preset, while the container
+forces `node-server`.
 
 ---
 
-#### 1 · What the day changed, in two paragraphs
+#### 1 · What this session changed, in three paragraphs
 
 The morning was a design pass on the owner's `.docx` brief for the **Portail
 entreprise B2B**; the afternoon built the first five phases of it. OSI no
 longer stops at `report_ready`: a buyer picks which of their Top-N to approach,
 OSI solicits them, staff record the offers, the buyer compares and accepts one,
 that opens a **dossier de transaction**, and the contracts it requires are
-drafted — with their own text, their parties and a signature indicator. Along
-the way the search itself was repaired (relevance became a gate rather than a
-score component) and both the search and the pool became bilingual.
+drafted with their own text, their parties and a signature indicator. Along the
+way the search was repaired (relevance became a gate, not a score component)
+and both the search and the pool became bilingual.
 
-The evening was about **who sees what**, and it turned up three things that
-were true in the docs but not in the code: OSI's own workspace held no customer
+The evening was about **who sees what**, and it found three rules that were
+true in the docs and false in the code: OSI's own workspace held no customer
 data only by habit (a staff owner could file a request there), the platform
-workspace was one API call from deletion (the org plugin ships its own
+workspace was **one API call from deletion** (the org plugin ships its own
 `/organization/delete`, which never touched our guarded fn), and the
 platform-global supplier directory was being shipped to every signed-in
-browser. All three are now enforced server-side. The ops lists also gained
-per-account and per-period filtering, a session now opens in your personal
-workspace, and both databases were cleared for a cold test. One deploy failed
-in the middle of it and prod was rolled back — see #24.
+browser. All three are enforced server-side now. The ops lists gained
+per-account and per-period filtering, sessions open in the personal workspace,
+and both databases were cleared for a cold test.
+
+The night finished **Phase R** (staff roles are data, and the visibility they
+gate became the permission key `requests.all` instead of a hardcoded role list
+behind 22 call sites) and **P6** (signatures — in-platform for buyer and OSI,
+manual upload for everyone else, reminders, the contract trail, and
+`esign.ts` as the external-path seam), then reviewed the owner's visual dossier
+mockup and took the five things it gets right. One deploy failed mid-session
+and prod was rolled back; see #24.
 
 #### 2 · Deploys (all verified on prod, backup taken before each)
 
@@ -94,7 +113,13 @@ in the middle of it and prod was rolled back — see #24.
 | 23 | `5b90649` | — | **the platform workspace can no longer be deleted** — the org-plugin's own `POST /organization/delete` bypassed `destroyWorkspace`; guard moved into a `beforeDeleteOrganization` hook |
 | 24 | `95b825a` | — | **filters on all four ops lists** (multi-account + week/month/year/custom period) · **the global supplier directory is staff-only** · the DB cleared for fresh testing. *First attempt (`77d37b0`) took prod down — see the chunk-cycle note* |
 | 25 | `b7481d6` | — | **"linked supplier" widened to four traces** (matched · quoted · dealt · contract party) · **a session opens in your PERSONAL workspace** when you have one · the discovery store cleared for a cold research test |
+| 27 | `75631f2` | — | the **Économies tile removed** (uncomputable) · the visual dossier's wins: signature columns + Voir, breadcrumb, **Activités récentes**, **Dossiers récents as a table** with a Soumissions count · Phase P event labels |
 | 26 | `918a189` | 0039 | **Phase R** — staff roles are data, and `requests.all` replaces the hardcoded visibility list · **P6** — signatures in-platform and by manual upload, reminders, the contract trail, `esign.ts` · **`backup.sh` now archives the uploads volume** |
+
+**Deploy #27 verification** — backup `osi-20260829-202233.sql.gz` + its uploads
+archive. Code-only. Prod-preset build served locally before the push; after:
+`/` 200 and three gated routes 307 over the tunnel, five containers up, zero
+`__exportAll` / `TypeError` lines.
 
 **Deploy #26 verification** — backup `osi-20260829-195410.sql.gz` **plus the
 first-ever `osi-files-*.tar.gz`** (85 B, a valid empty archive — prod holds no
@@ -160,35 +185,46 @@ from a missing one. Data intact: 10 users · 67 suppliers · 8 requests · 0
 quotes · 0 deals · 0 contracts — prod has still not run the new flow, as at
 \#19.
 
-#### 3 · Phase P — what is DONE
+#### 3 · What is DONE and live
 
+**Phase P — the facilitation half, P0 through P6:**
+
+- **P0 · shell & designs** — two designs (light/dark, server-rendered from a
+  cookie, no flash), home IS the dashboard, the intake form lives on
+  `/demandes`, merged 20-entry nav.
 - **P1 · spine** (mig 0033) — `quote` · `deal` · `deal_event` · `contract` ·
   `contract_party` · `contract_event` + `contract_number_seq`, and the pure
-  state machines in `src/lib/deal-status.ts` (21 tests).
+  state machines in `src/lib/deal-status.ts`.
 - **P2 · soumissions** — the buyer ticks suppliers on their Top-N, staff send
-  and record. `/soumissions`, `src/lib/quote-fns.ts`, `src/server/deals.ts`.
+  and record. Per-request country origin shipped with it (mig 0037).
 - **P3 · comparison & acceptance** — one transaction: quote accepted, siblings
   declined, deal opened, matches `selected`/`rejected`, timeline + audit.
-- **P4 · contract centre** *(live, deploy #20)* — `/contrats` list with
-  the five derived filters and the N/M indicator, `/contrats/$id` fiche with
-  the parties table, `src/lib/contract-types.ts` mapping parties → required
-  contracts, numbering `OSI-2026-0001`.
+- **P4 · contract centre** — `/contrats` list with five DERIVED filters and the
+  N/M indicator, `/contrats/$id` fiche, parties table, `OSI-2026-0000`
+  numbering.
+- **P5 · templates** (mig 0038) — the two v1 contracts render their own text,
+  frozen at draft time in the REQUEST's language; a missing mandatory contract
+  surfaces on the dossier, visible to the buyer, actionable only by staff.
+- **P6 · signatures** — send · sign in-platform · record an offline signature
+  (optional countersigned PDF) · remind. `src/lib/signature.ts` (pure rules,
+  19 tests), `src/lib/signature-fns.ts` (the only writer), `src/server/esign.ts`
+  (external path only), `/api/contract-file`, the contract's own history on the
+  fiche, and two notification types.
 
-- **P5 · templates + gap surfacing** (mig 0038) — the
-  two v1 contracts render their own text, frozen at draft time in the
-  request's language; a missing mandatory contract now shows on the dossier,
-  visible to the buyer, actionable only by staff.
+**Phase R — custom staff roles** (mig 0039): `platform_role`, a matrix column
+per role with create/delete, both assignment dropdowns, and `requests.all`
+replacing the hardcoded visibility list.
 
-**Shipped alongside Phase P (the tenancy/ops wave, deploys #22-#25):** OSI's
-own workspace refuses customer data · the platform workspace cannot be deleted
-· the global supplier directory is staff-only and "linked" widened to four
-traces · per-account (multi) + per-period filters on all four ops lists ·
-sessions open in the personal workspace · timestamps pinned to one zone.
+**The tenancy/ops wave:** OSI's own workspace refuses customer data · the
+platform workspace cannot be deleted · the global supplier directory is
+staff-only and "linked" means matched OR quoted OR dealt OR contract party ·
+per-account (multi) + per-period filters on the four ops lists · sessions open
+in the personal workspace · timestamps pinned to one zone ·
+**`backup.sh` now archives the uploads volume**.
 
-Also shipped outside Phase P: **per-request country origin** (mig 0037) with a
-24-corridor helper; the **relevance gate** and its product-first refinement;
-**English-first search**; the **bilingual pool** and **cross-language
-criteria**.
+**Also fixed today:** the search relevance gate (product-first), English-first
+search with a bilingual pool, cross-language criteria (mig 0036), the i18n
+hydration fix, drafts that never auto-spend and expire after 1 h.
 
 #### 3b · The visual dossier (owner's mockup, reviewed 2026-08-29)
 
@@ -224,6 +260,43 @@ are shipped. What it changed:
   columns. Neither exists: quantity is free text inside the structured intake
   (the buyer's own wording, deliberately not computable) and there is no
   deadline field. The table shows what the row actually knows.
+
+#### 3c · Working rules a cold session needs on day one
+
+**Environment.** Dev is `./scripts/dev.sh -d` → http://localhost:3010 (six
+containers, same topology as prod). `./scripts/db.sh -c "…"` talks to the dev
+database; add `prod` ONLY on the VM. Migrations must run INSIDE the container:
+`docker compose -f docker-compose.dev.yml exec -T web npm run db:migrate` — from
+the host it reports success and changes nothing.
+
+**Quality gates before any commit:** `npx tsc --noEmit`, `npx eslint src/`,
+`npm test` (132 tests). Then the prod-preset build check at the top of this
+handoff. Markdown is NOT prettier-formatted in this repo — do not reformat the
+docs, it buries the diff.
+
+**Server-fn shape.** `createServerFn().inputValidator(z…).handler()` with
+server-only modules **dynamically imported INSIDE the handler** — a top-level
+`@/server/**` import leaks into the client bundle. Every mutating fn re-reads
+membership through `requireWorkspaceRole`; every staff-gated fn checks
+`effectiveHasPermission(session, key)` and **never `user.platformRole`**.
+
+**i18n.** Every user-facing string is a key in BOTH `fr.json` and `en.json`,
+and **new keys need `docker restart osi-web-1`** or SSR renders raw keys. Check
+for orphans: a key nothing renders is a key someone re-adds a feature for.
+
+**Verify in the browser before committing**, signed in as the role that matters
+— unit tests cannot see the ops half. Open a NEW tab first: the console buffer
+is per tab and survives navigation, and it produced three wrong diagnoses
+today. After `docker restart` of web, RELOAD the tab before calling a server fn
+from the console, or a new fn reports `Invalid server function ID`.
+
+**Deploys.** Only when the owner explicitly asks. Always: push → `./scripts/backup.sh`
+→ `./scripts/deploy.sh` → verify (routes, containers, SSR log, data counts) →
+write the deploy record in the SAME docs pass. Docs are a release gate here.
+
+**Rollback, if a deploy is bad:** on the VM, `git checkout <last-good-sha>` then
+`docker compose -f docker-compose.prod.yml up -d --build web`, and confirm 200
+before diagnosing anything. That took ~4 minutes today.
 
 #### 4 · What REMAINS, in order
 
