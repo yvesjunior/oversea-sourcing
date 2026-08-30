@@ -33,7 +33,7 @@ real need, gets a real Top-N, **OSI solicits quotes, the buyer accepts one, the
 required contracts are signed by every mandatory party, and the commande is
 tracked to delivery** — with the PDF report available throughout.
 
-## Resume here (last session: 2026-08-29 — the portal brief, 14 deploys, P1-P5 + the tenancy rules)
+## Resume here (last session: 2026-08-29 — the portal brief, 15 deploys, P1-P6 + Phase R + the tenancy rules)
 
 ### START HERE — handoff, 2026-08-29
 
@@ -192,36 +192,40 @@ criteria**.
 
 #### 4 · What REMAINS, in order
 
-**Phase P, the product spine:**
+**Phase P — P1 through P6 are DONE and live. What is left:**
 
-1. ~~**P6 · signatures**~~ — ✅ **BUILT 2026-08-29**, both mechanisms, the
-   trail, reminders and the esign seam. `in_platform` for parties with a
-   `user_id` (buyer, OSI) recording IP + user agent; `manual_upload` for
-   parties without an account (staff upload the countersigned PDF into
-   `signed_file_id`). Both write the same `contract_party` row and a
-   `contract_event`; recompute status with `statusFromSignatures()`, never by
-   hand. Create `src/server/esign.ts` as the vendor seam for the EXTERNAL path
-   only, first implementation `manual`. Gate on `contracts.sign`. The fiche's
-   Action column says "Signature — bientôt" — that is the spot.
-2. **P7 · commandes** (needs a new `order_milestone` table — designed then,
-   not now) · **P8 · documents** (no longer blocked — the uploads volume is
-   backed up since 2026-08-29) · **P9 · paiements** ·
-   **P10 · messages** · **P11 · rapports**.
-3. ~~**Phase R · custom staff roles**~~ — ✅ **BUILT 2026-08-29** (mig 0039).
+1. **P7 · commandes.** Needs a new `order_milestone` table (deal_id, kind,
+   status, planned_at, completed_at, note, updated_by + name snapshot) —
+   designed against the screen, not guessed now. Kinds per the brief: dépôt,
+   production, inspection, transport, douanes, livraison. Staff update, the
+   buyer reads. Replaces the showcase constants in `src/data/osi.ts`
+   (`etapesTransaction` finally dies) and rewrites `transactions.tsx`, which
+   is also how item 5 below gets fixed for free.
+   **Still unanswered by the owner:** who updates milestones — is every
+   production update an email to OSI then a manual entry? That is the real
+   cost of "no supplier access".
+2. **P8 · documents** — typed `document` rows, versioned, attached to a deal
+   and/or contract. **No longer blocked:** the uploads volume has been in the
+   backup since 2026-08-29.
+3. **P9 · paiements** (ledger, track-only) · **P10 · messages** ·
+   **P11 · rapports** (the « économies » tile still cannot be computed
+   honestly — no baseline price exists in the model).
 
-**Carried over from the tenancy/ops wave (small, none blocking):**
+**Carried over, small, none blocking:**
 
 4. **`transactions.tsx` still shows a "Mes données" tab.** Every other surface
    lost it; this one could not, because deleting its `EmployeeTabs` import is
-   exactly what broke deploy #24. It needs the chunk cycle fixed first, or a
-   different way to drop the tab. P7 rewrites this page anyway.
-5. **The chunk cycle itself is UNFIXED** — see "The prod bundle has a latent
-   chunk cycle". Two attempts are recorded as failures so nobody retries them
-   blind. Until it is fixed, the prod-preset build check is the safety net and
-   should run before EVERY deploy.
+   exactly what broke deploy #24. P7 rewrites the page anyway.
+5. **The chunk cycle is UNFIXED** — see "The prod bundle has a latent chunk
+   cycle". Two attempts are recorded as failures so nobody retries them blind.
+   Until it is fixed, the prod-preset build check is the safety net and should
+   run before EVERY deploy. It has run before every commit since.
 6. **`matchCount` means two different things** — platform-wide on the staff
    directory, caller-scoped on the linked list. Deliberate, but the field
    comment in `SupplierView` still describes only the first.
+7. **No document retention policy**, and `storage.deleteFile` is still never
+   called on user files. It mattered less when uploads were re-uploadable spec
+   sheets; signed contracts can land there now.
 
 #### 5 · Gaps and open questions a next session must not lose
 
@@ -279,6 +283,15 @@ criteria**.
 
 #### 6 · Lessons this session paid for — do not re-learn them
 
+- **After `docker restart` of the dev web container, RELOAD the browser tab
+  before calling a server fn from the console.** The open tab holds the old
+  client module graph, and a fn added since the restart fails with
+  `Invalid server function ID …` — which reads like a broken export and is
+  just a stale tab.
+- **An empty backup artifact can be the correct answer.** The first
+  `osi-files-*.tar.gz` came back at 85 bytes; that is a valid tar of an empty
+  directory, because prod holds no uploads yet. Check `tar -tzf` before
+  concluding the archiving failed.
 - **A green dev run says nothing about the production bundle.** Deploy #24
   passed tsc, eslint, 113 tests and worked in `vite dev`, then 500'd on every
   SSR request in the container. `npm run build` alone would not have caught it
