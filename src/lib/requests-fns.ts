@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { eventParams, type EventParams } from "@/lib/event-params";
 import { canSeeAllRequests } from "@/lib/roles";
 import type { CriteriaCategory, RequestStatus } from "@/database/schema";
 
@@ -154,7 +155,7 @@ export type RequestEventView = {
   id: string;
   type: string;
   /** Parsed i18n interpolation params (from the JSON `message` column). */
-  params: Record<string, string | number>;
+  params: EventParams;
   /** ISO timestamp */
   createdAt: string;
 };
@@ -596,17 +597,12 @@ export const getRequestDetailFn = createServerFn({ method: "GET" })
         content: message.content,
         createdAt: message.createdAt.toISOString(),
       })),
-      events: events.map((event) => {
-        let params: Record<string, string | number> = {};
-        if (event.message) {
-          try {
-            params = JSON.parse(event.message) as Record<string, string | number>;
-          } catch {
-            params = {};
-          }
-        }
-        return { id: event.id, type: event.type, params, createdAt: event.createdAt.toISOString() };
-      }),
+      events: events.map((event) => ({
+        id: event.id,
+        type: event.type,
+        params: eventParams(event.message),
+        createdAt: event.createdAt.toISOString(),
+      })),
       attachments,
       aiChatEnabled,
       matches: matches.map((m) => ({

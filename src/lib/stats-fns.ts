@@ -1,4 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
+// Pure and client-safe, so a static import is fine here — no server module
+// leaks into the browser bundle through it.
+import { detailParams, eventParams, type EventParams } from "@/lib/event-params";
 
 export type DashboardStats = {
   activeRequests: number;
@@ -228,6 +231,10 @@ export type ActivityEntry = {
   /** Where clicking should go. */
   link: string;
   at: string;
+  /** Interpolation values for the label — the numbers live here, not in the
+   *  sentence (see src/lib/event-params.ts). Empty for the many event types
+   *  that take none; the renderer passes it either way. */
+  params: EventParams;
 };
 
 /**
@@ -274,6 +281,7 @@ export const getRecentActivityFn = createServerFn({ method: "GET" }).handler(
           id: schema.requestEvent.id,
           type: schema.requestEvent.type,
           requestId: schema.requestEvent.requestId,
+          message: schema.requestEvent.message,
           at: schema.requestEvent.createdAt,
         })
         .from(schema.requestEvent)
@@ -286,6 +294,7 @@ export const getRecentActivityFn = createServerFn({ method: "GET" }).handler(
           type: schema.dealEvent.type,
           dealId: schema.dealEvent.dealId,
           title: schema.deal.title,
+          message: schema.dealEvent.message,
           at: schema.dealEvent.createdAt,
         })
         .from(schema.dealEvent)
@@ -300,6 +309,7 @@ export const getRecentActivityFn = createServerFn({ method: "GET" }).handler(
           contractId: schema.contractEvent.contractId,
           number: schema.contract.number,
           organizationId: schema.contract.organizationId,
+          detail: schema.contractEvent.detail,
           at: schema.contractEvent.at,
         })
         .from(schema.contractEvent)
@@ -316,6 +326,7 @@ export const getRecentActivityFn = createServerFn({ method: "GET" }).handler(
         subject: `#${row.requestId}`,
         link: `/demandes/${row.requestId}`,
         at: row.at.toISOString(),
+        params: eventParams(row.message),
       })),
       ...dealEvents.map((row) => ({
         id: row.id,
@@ -323,6 +334,7 @@ export const getRecentActivityFn = createServerFn({ method: "GET" }).handler(
         subject: row.title,
         link: `/contrats`,
         at: row.at.toISOString(),
+        params: eventParams(row.message),
       })),
       ...contractRows.map((row) => ({
         id: row.id,
@@ -330,6 +342,7 @@ export const getRecentActivityFn = createServerFn({ method: "GET" }).handler(
         subject: row.number,
         link: `/contrats/${row.contractId}`,
         at: row.at.toISOString(),
+        params: detailParams(row.detail),
       })),
     ]
       .sort((a, b) => (a.at < b.at ? 1 : -1))

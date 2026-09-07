@@ -178,8 +178,15 @@ function ActivitesRecentes({ entries }: { entries: ActivityEntry[] }) {
             <Link to={entry.link} className="group grid grid-cols-[minmax(0,1fr)_auto] gap-4">
               <span className="min-w-0 truncate text-sm">
                 <span className="transition-colors group-hover:text-gold">
+                  {/* The params MUST be spread in: the numbers live on the
+                      event row, not in the sentence, so a label like
+                      "Top {{count}} sélectionné sur {{analyzed}}…" prints its
+                      placeholders raw without them. They also carry `count`,
+                      which is what selects the plural form. */}
                   {t(`events.${entry.type.replace(".", "_")}`, {
+                    ...entry.params,
                     defaultValue: t(`contrats.event.${entry.type.replace(".", "_")}`, {
+                      ...entry.params,
                       defaultValue: entry.type,
                     }),
                   })}

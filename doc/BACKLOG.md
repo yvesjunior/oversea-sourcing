@@ -44,6 +44,9 @@ in **"A research pass that never searched"** below — read it before touching
 `src/server/ai/research.ts`, because the fix looks like a retry and is really
 about a request being sealed forever.
 
+`main` also carries the **event-label interpolation fix** (see "Event labels
+interpolate" below) — NOT yet deployed at the time of writing.
+
 Prod now holds **exactly one request: 3019** (`report_ready`, 5 suppliers,
 Renaud's workspace). Request 3018 — the incident — was deleted at the owner's
 instruction; its `source_run` row survives with `request_id` NULL, so the
@@ -1712,6 +1715,36 @@ in the internal workspace see it on another workspace's dossier.
 Covered by `src/lib/request-status.test.ts` — including that `report_ready` did
 NOT become a general re-entry point and that the terminal states stayed
 terminal.
+
+### Event labels interpolate — pass the params or ship `{{count}}`
+
+Fixed 2026-09-07. The dashboard's **Activités récentes** shipped with deploy
+#27 printing its placeholders literally — *"Top {{count}} sélectionné sur
+{{analyzed}} fournisseurs analysés"*, in production, for over a week.
+
+**The convention, which every event surface has to honour:** the three event
+tables keep their numbers OUT of the sentence. `recordEvent` and
+`recordDealEvent` JSON-stringify `{count: 6}` into `message`;
+`contract_event` keeps the same idea in a jsonb `detail`. The label stays a
+translatable sentence containing `{{count}}` — which is the only way FR and EN
+can put the number in a different place, and the only way i18next can pick a
+plural form.
+
+So a renderer MUST pass the params into `t()`. Forgetting does not throw and
+does not log: i18next prints the placeholder. `getRecentActivityFn` never even
+selected the `message` column, and `src/routes/index.tsx` called `t()` with a
+`defaultValue` and nothing else.
+
+**`src/lib/event-params.ts`** now owns the parsing — `eventParams(message)` for
+the two text columns, `detailParams(detail)` for the jsonb one. It drops
+non-scalars on purpose: a label can only print a scalar, and passing objects
+through would invite `{{supplier.name}}`-shaped keys that no translator can see
+in the locale file. `getRequestDetailFn`'s inline copy of the same try/catch is
+gone — one convention, one implementation, 5 tests.
+
+Checked while fixing: `/contrats/$id` is fine. Its `contrats.event.*` labels
+carry no placeholders and it renders `partyName`, `actorName` and
+`detail.method` as explicit spans rather than interpolating them.
 
 ### The prod bundle can grow a chunk cycle — the deploy is GATED on it now
 
