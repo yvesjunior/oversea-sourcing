@@ -29,6 +29,10 @@ const MAX_CANDIDATES = RESEARCH_CANDIDATE_CAP;
 /** `pause_turn` continuations before we take what we have (runaway guard). */
 const MAX_CONTINUATIONS = 4;
 
+/** Whole search passes to sample before giving up — the first go plus one
+ *  fresh retry. See NoSearchesError for what it is guarding against. */
+const SEARCH_PASSES = 2;
+
 /** Extra attempts after a transient failure. The SDK already retries twice at
  *  the HTTP layer; this covers blips that outlast that, which we saw drop a
  *  whole research pass. Bounded on purpose — a genuinely down API should fail
@@ -66,6 +70,26 @@ async function withRetry<T>(label: string, run: () => Promise<T>): Promise<T> {
     }
   }
   throw last;
+}
+
+/**
+ * The model answered without ever calling `web_search`: HTTP 200, one text
+ * block, zero `server_tool_use`. Prod request 3018 (2026-08-30) died this way
+ * — 1095 characters of prose from the model's own memory, `queries: []`, and
+ * extraction correctly refusing to invent rows from evidence-free text. It
+ * reproduced 0 times in 8 on the identical brief, so it is a sampling event,
+ * not a property of the brief: one fresh pass is nearly always enough.
+ *
+ * Deliberately NOT folded into withRetry's `isTransient`: that answers "should
+ * we call the API again after a failure", and this call did not fail. It
+ * succeeded at producing nothing, which is a different thing and needs its own
+ * name — a caller that swallowed it as "no suppliers exist" would be lying.
+ */
+export class NoSearchesError extends Error {
+  constructor(passes: number) {
+    super(`the model issued no web_search call in ${passes} pass(es)`);
+    this.name = "NoSearchesError";
+  }
 }
 
 const CandidateSchema = z.object({
@@ -188,8 +212,8 @@ const EXTRACTION_SYSTEM = [
   "when it is a guess.",
 ].join("\n");
 
-/** Phase A — the strong model searches and reads. Returns prose + the queries run. */
-async function searchPhase(ctx: ResearchContext): Promise<{ findings: string; queries: string[] }> {
+/** One search pass: the continuation loop over a single conversation. */
+async function searchPass(ctx: ResearchContext): Promise<{ findings: string; queries: string[] }> {
   const client = getAnthropic();
   const messages: Anthropic.MessageParam[] = [{ role: "user", content: brief(ctx) }];
 
@@ -249,6 +273,32 @@ async function searchPhase(ctx: ResearchContext): Promise<{ findings: string; qu
   }
 
   return { findings: findings.trim(), queries };
+}
+
+/**
+ * Phase A — the strong model searches and reads. Returns prose + the queries run.
+ *
+ * A pass that issued no search is discarded and resampled rather than
+ * returned: its prose comes from the model's memory, not from the web, and
+ * feeding it to extraction produces either nothing (the country/website rules
+ * drop every row) or — worse, if those rules ever loosen — invented suppliers.
+ * Cheap to retry: a silent pass buys no searches, so it costs tokens only.
+ *
+ * The retry resamples the SAME brief with the SAME prompt on purpose. The
+ * failure is variance, and nudging the model ("you MUST search") would ship a
+ * prompt variant that cannot be tested against the failure it claims to fix.
+ */
+async function searchPhase(ctx: ResearchContext): Promise<{ findings: string; queries: string[] }> {
+  for (let pass = 1; pass <= SEARCH_PASSES; pass++) {
+    const result = await searchPass(ctx);
+    if (result.queries.length > 0) return result;
+    console.warn(
+      `research/search: pass ${pass}/${SEARCH_PASSES} issued no search at all ` +
+        `(${result.findings.length}c of unsourced prose, discarded) — ` +
+        (pass < SEARCH_PASSES ? "resampling" : "giving up"),
+    );
+  }
+  throw new NoSearchesError(SEARCH_PASSES);
 }
 
 /** Phase B — the cheap model turns prose into rows. */

@@ -33,9 +33,26 @@ real need, gets a real Top-N, **OSI solicits quotes, the buyer accepts one, the
 required contracts are signed by every mandatory party, and the commande is
 tracked to delivery** — with the PDF report available throughout.
 
-## Resume here (last session: 2026-08-29 — the portal brief, 15 deploys, P1-P6 + Phase R + the tenancy rules)
+## Resume here (last session: 2026-09-07 — the silent-search incident)
 
-### START HERE — handoff, 2026-08-29 (read this first)
+### START HERE — handoff, 2026-09-07 (read this first)
+
+**Prod = `<deploy-28>` (deploy #28).** One change: the research agent now
+**retries a search pass that never searched**, and a collection pass in which
+every source failed is recorded as `failed` instead of `succeeded`. Full story
+in **"A research pass that never searched"** below — read it before touching
+`src/server/ai/research.ts`, because the fix looks like a retry and is really
+about a request being sealed forever.
+
+Prod now holds **exactly one request: 3019** (`report_ready`, 5 suppliers,
+Renaud's workspace). Request 3018 — the incident — was deleted at the owner's
+instruction; its `source_run` row survives with `request_id` NULL, so the
+audit that a collection ran on 2026-08-30 and found nobody is still there.
+
+Nothing else changed. The tenancy rules, Phase P and Phase R notes in the
+2026-08-29 handoff below are all still current.
+
+### Previous handoff — 2026-08-29
 
 **Prod = `75631f2` (deploy #27).** `main` is 3 commits ahead, and **none of
 them changes the running app**: the deploy gate (`scripts/verify-build.sh`,
@@ -370,6 +387,12 @@ before diagnosing anything. That took ~4 minutes today.
   whatever it proves is not what a customer will see. Owner has not said which
   should move; moving one to `free` caps it at 2 lifetime requests, which may
   cut a live tester off mid-test.
+- ⚠️ **A request can finish with an empty Top-5 and tell the buyer nothing.**
+  The silent-search bug behind prod 3018 is fixed (see **"A research pass that
+  never searched"**), but the *presentation* gap it exposed is not: nothing
+  distinguishes "the web holds nobody for this need" from "our search
+  misfired" on the buyer's screen, and a request whose research failed has no
+  re-run button — `enqueueResearch` is server-side only.
 - ⚠️ **The verification registry stores are still full** (prod 393 474
   registry-ca rows; dev 1.8 M across qc/sg/ca/jp) while the DISCOVERY store is
   empty. That is deliberate — only discovery can warm a search — but it means
@@ -1544,6 +1567,103 @@ writing any code.
 Quality gates are `npm test` (vitest, 27 unit tests),
 `npx tsc --noEmit` and `npx eslint src/` — all clean as of this commit.
 
+### A research pass that never searched — ✅ FIXED 2026-09-07
+
+**Prod request 3018 ("dome", Renaud, 2026-08-30 14:38) reached `report_ready`
+with zero suppliers and zero matches**, and every layer of the system called
+that a success. The owner found it a week later.
+
+**What happened.** The search phase called the API, got HTTP 200 back, and the
+response contained **one `text` block and no `server_tool_use` block at all**:
+
+```
+research/search: model=claude-haiku-4-5 turn 1 stop=end_turn blocks=[text]
+                 queries=0 findings=1095c in=2654tok out=290tok est=$0.004
+research/extract: 1095c of findings → 0 candidates
+```
+
+The model answered from its own memory instead of searching. Extraction then did
+exactly the right thing and that is *why* the count was zero rather than wrong:
+`EXTRACTION_SYSTEM` forbids inferring a country or a website and drops any
+company whose country it cannot determine, so evidence-free prose yields no
+rows. **The empty result was the safety net firing** — it just fires
+identically to "the web holds nobody for this need".
+
+**Why nothing caught it.** Three independent judgements, each defensible alone:
+
+1. `withRetry` only retries `APIConnectionError`, 429 and 5xx. A quiet model is
+   a 200, so it is not transient and was never retried.
+2. `source_run` was written `succeeded`, `error: null`.
+3. `research_run` recorded — and this is the line that says it plainest —
+   `status: succeeded`, `queries: []`. *"I ran zero searches, and that went
+   fine."*
+
+Then research's documented failure-tolerance (*"an enrichment step, not a
+precondition"*) carried the request through `matches.created {count:0}` to
+`report_ready`. All green, $0.004 spent, buyer told nothing.
+
+**Why it was permanent.** `runResearchForRequest` skips any request that already
+holds a `running`-or-`succeeded` run — an idempotency guard written to stop the
+recovery sweep paying for the same searches twice. A zero-search "success"
+therefore **sealed the request for good**: re-enqueueing research returned
+`already_ran` and exited without searching. That, not the missed searches, was
+the expensive half of the bug.
+
+**It is variance, not the brief.** The identical brief resampled 8 times
+against the same model and tool searched **8/8** (2-4 queries each). So a
+sub-~12% sampling event, which is why one fresh pass is a real fix.
+
+**The fix, in two parts:**
+
+- `searchPhase` now runs up to `SEARCH_PASSES` (2) whole passes and **discards
+  a pass that issued no query**, resampling instead of returning it. Exhausted,
+  it throws `NoSearchesError` — a named failure, deliberately NOT folded into
+  `isTransient`, because that call did not fail: it succeeded at producing
+  nothing. The retry resamples the SAME brief with the SAME prompt on purpose;
+  nudging the model ("you MUST search") would ship a prompt variant that cannot
+  be tested against the failure it claims to fix. A silent pass buys no
+  searches, so the retry costs tokens only.
+- `runResearchForRequest` counts dynamic sources **attempted vs failed**, and
+  when every one of them threw it writes the run `failed` (with the error) and
+  records `research.failed` rather than `research.completed`. The pipeline still
+  continues and still ranks the existing pool — but the `already_ran` guard no
+  longer seals the request, so a re-enqueue actually re-runs. This fixes the
+  whole class, not just the silent pass: **any** source that threw used to
+  produce a `succeeded` run with zero candidates.
+
+`research_failed` already had bilingual labels ("Recherche web indisponible —
+analyse de la base existante"), so the buyer's timeline needed no new i18n.
+
+Covered by `src/server/ai/research.test.ts` (4 tests, the Anthropic client
+mocked): a silent pass is resampled and the retry's work is what returns; two
+silent passes throw; a pass that searched is not resampled; and a pass that
+searched and honestly found nobody still returns empty rather than throwing —
+that last one is the distinction the whole fix rests on.
+
+**Verified on prod, not just in tests.** Request **3019** was created as Renaud
+with byte-identical criteria and left for the worker's own sweep to adopt:
+3 queries, 9 candidates, 9 stored, **5 promoted** (MegaDome, GGS, Cover-Tech,
+Bulk Storage, Kit Buildings — all at the 70-point AI ceiling), `report_ready`
+in 62 s for $0.061.
+
+**What is still NOT fixed (deliberately out of scope):**
+
+- A request can still reach `report_ready` with an empty Top-5 and **say
+  nothing to the buyer** about why.
+- **No automatic re-run.** A `failed` run makes the request *retryable*; the
+  sweep only re-adopts `received`/`searching`/`validating`, so someone must
+  re-enqueue it. There is still no admin surface for that — `enqueueResearch`
+  exists server-side and nothing exposes it.
+- **The findings prose is never persisted** (not on `source_run`, not on
+  `research_run`), so a future silent pass is undiagnosable beyond its one log
+  line. That is how we lost the ability to know what 3018's 1095 characters
+  actually said.
+- ⚠️ **`max_uses` may not be a hard cap.** Passing `max_uses: 1` produced 2-4
+  `server_tool_use` blocks in the 8-sample probe. If that holds,
+  `RESEARCH_SEARCHES = 3` is not capping the bill either. **Unverified** — it
+  was a side observation, and it needs its own check before anyone relies on
+  that budget.
+
 ### The prod bundle can grow a chunk cycle — the deploy is GATED on it now
 
 **Cost a failed deploy on 2026-08-29 (prod down ~4 min, rolled back).** A build
@@ -1944,6 +2064,14 @@ restarts). `DossierCard` keeps its `suppressHydrationWarning` as prophylaxis —
 that mismatch is real in principle and costs one attribute.
 
 ### Live data (do not assume it is disposable)
+
+**2026-09-07:** prod holds **one** request — `3019` (`report_ready`, 5
+suppliers, Renaud's personal workspace, created by hand for the silent-search
+re-test). Request `3018` was **deleted** at the owner's instruction; its
+`source_run` row survives with `request_id` NULL (that FK is `SET NULL`, not
+cascade), so the 2026-08-30 collection attempt is still auditable. The 393 474
+`registry-ca` verification records are untouched.
+
 
 Production holds **only real accounts** — seven as of 2026-08-22:
 `yves@overseaimportexports.com` (platform `owner`, via Google, `internal` plan

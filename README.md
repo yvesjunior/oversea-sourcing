@@ -1496,7 +1496,11 @@ Browser ──HTTPS──▶ web
   re-adopts anything stranded > 2 min.
 - **Every job is idempotent** (`research_run` guards double collection,
   matching is delete-then-insert), so retries and duplicate enqueues are
-  harmless by construction.
+  harmless by construction. That guard skips a request holding a
+  `running`-or-`succeeded` run only: since 2026-09-07 a pass in which every
+  source failed is recorded `failed`, so it stays re-runnable instead of being
+  sealed by its own failure (doc/BACKLOG.md, "A research pass that never
+  searched").
 - **The dashboards read, never compute**: every state change writes a
   `request_event` row; timelines, stats and the report are pure read-models.
 - Verified 2026-08-22 in dev, both paths: warm store → `store_hit` at ≈ $0

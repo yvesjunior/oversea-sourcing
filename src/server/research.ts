@@ -401,6 +401,13 @@ export async function runResearchForRequest(
     let found = 0;
     let added = 0;
     const allQueries: string[] = [];
+    // Attempted vs failed, to tell "the web holds nobody for this need" apart
+    // from "we never asked". Both used to end as a succeeded run with zero
+    // candidates, and the already-ran guard below then sealed the request
+    // forever — the failure that cost prod request 3018 its Top-5.
+    let attempted = 0;
+    let failed = 0;
+    let lastError: string | null = null;
     for (const source of scope.sources) {
       // STATIC sources never collect at request time (two-kinds rule,
       // 2026-08-24): their store IS their answer, refreshed only by the
@@ -418,6 +425,7 @@ export async function runResearchForRequest(
         trigger: "request",
         requestId,
       });
+      attempted++;
       try {
         const result = await connector.collect(brief);
         const persisted = await persistFromSource(result.candidates, source.id);
@@ -437,6 +445,8 @@ export async function runResearchForRequest(
       } catch (error) {
         // One broken source degrades its contribution, never the request.
         const message = error instanceof Error ? error.message : String(error);
+        failed++;
+        lastError = `${source.code}: ${message}`;
         console.error(`research: ${requestId} source ${source.code} FAILED —`, error);
         await db
           .update(schema.sourceRun)
@@ -445,18 +455,33 @@ export async function runResearchForRequest(
       }
     }
 
+    // Every source we tried threw: no collection happened at all. Recording
+    // that as `succeeded` is what made such a request permanently
+    // un-researchable, since the guard at the top of this function skips any
+    // request holding a running-or-succeeded run. Marking it `failed` costs
+    // nothing and makes a re-enqueue actually re-run.
+    const nothingRan = attempted > 0 && failed === attempted;
     await db
       .update(schema.researchRun)
       .set({
-        status: "succeeded",
+        status: nothingRan ? "failed" : "succeeded",
         queries: allQueries,
         candidatesFound: found,
         suppliersAdded: added,
+        ...(nothingRan && lastError ? { error: lastError.slice(0, 500) } : {}),
         completedAt: new Date(),
       })
       .where(eq(schema.researchRun.id, runId));
 
-    await recordEvent(requestId, organizationId, "research.completed", { found, added });
+    // The pipeline continues either way (research is an enrichment step, not a
+    // precondition) — but the buyer's timeline must not claim a search that
+    // never happened.
+    await recordEvent(
+      requestId,
+      organizationId,
+      nothingRan ? "research.failed" : "research.completed",
+      nothingRan ? undefined : { found, added },
+    );
     console.log(
       `research: ${requestId} — ${allQueries.length} queries across ${scope.sources.length} source(s), ${found} candidates, ${added} new suppliers`,
     );

@@ -54,12 +54,16 @@ for (const [a, deps] of graph) {
   }
 }
 
-const dangerous = pairs.filter(([a, b]) => callsHelperAtTopLevel.has(a) || callsHelperAtTopLevel.has(b));
+const dangerous = pairs.filter(
+  ([a, b]) => callsHelperAtTopLevel.has(a) || callsHelperAtTopLevel.has(b),
+);
 
 console.log(`bundle: ${files.length} SSR chunks · ${pairs.length} mutually-importing pair(s)`);
 for (const [a, b] of pairs) {
   const risky = [a, b].filter((f) => callsHelperAtTopLevel.has(f));
-  console.log(`  ${a} <-> ${b}${risky.length ? `   ⚠ top-level helper call in ${risky.join(", ")}` : "   (benign)"}`);
+  console.log(
+    `  ${a} <-> ${b}${risky.length ? `   ⚠ top-level helper call in ${risky.join(", ")}` : "   (benign)"}`,
+  );
 }
 
 if (dangerous.length > 0) {
