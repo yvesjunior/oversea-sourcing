@@ -7,6 +7,7 @@
 | **Baseline** | main @ `615d7e0` · prod deploy #30 |
 | **Source brief** | [doc/briefs/portail-entreprise.md](../briefs/portail-entreprise.md) (owner's `.docx`, 2026-08-29) |
 | **Implementation plan** | Phase S and Phase P in [doc/BACKLOG.md](../BACKLOG.md) |
+| **Pretty version** | Claude artifact, diagrams + build state: <https://claude.ai/code/artifact/a537df29-e576-4725-b8de-661efd1d1438> |
 
 > **Reading the cross-references.** ~90 code comments and backlog lines cite
 > `ADR-001 §4`, `ADR-001 S6`, `ADR-002 §5`, `ADR-002 conflict #9` and the like.
