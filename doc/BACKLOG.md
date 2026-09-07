@@ -18,7 +18,7 @@
 | **E3** Request core loop | Pipeline, criteria, attachments, dossier | ✅ done |
 | **E4** Supplier data | **Web research**, dedup, directory, sources admin | 🟡 **ADR-001 pivot (2026-08-26) → Phase S**; directory is staff-only and buyers see what they are LINKED to (2026-08-29); import/merge open |
 | **E5** Matching & scoring | Criteria-aware v1 + breakdown | 🟡 the "32 criteria" + comparison view open |
-| **E6** Facilitation | ~~Engagements~~ → **soumissions → dossier de transaction → contrats** | 🟡 **P1-P5 LIVE on prod (2026-08-29)** per [ADR-002](adr/ADR-002-transaction-and-contract-centre.md); **P6 signatures is next**; old task list RETIRED |
+| **E6** Facilitation | ~~Engagements~~ → **soumissions → dossier de transaction → contrats** | 🟡 **P1-P5 LIVE on prod (2026-08-29)** per [ADR-001 Part II](adr/ADR-001-osi-architecture.md); **P6 signatures is next**; old task list RETIRED |
 | **E7** Reports | Printable report + PDF export | 🟡 stored `documents` rows open |
 | **E8** Transactions | Milestones, tracking, paiements | 🔵 **folded into Phase P** by ADR-002 (the `deal` spine); standalone sketch retired |
 | **E9** Notifications | In-app + email | 🟡 bell, emitters, **prefs (2026-08-26)** live; E6 templates gated |
@@ -60,10 +60,21 @@ them changes the running app**: the deploy gate (`scripts/verify-build.sh`,
 when convenient — there is nothing waiting that a user would see.
 Rollback point for the whole day: tag `deploy-11-baseline`.
 
+**There is now exactly ONE ADR** (consolidated 2026-09-07, owner's
+instruction): [doc/adr/ADR-001-osi-architecture.md](adr/ADR-001-osi-architecture.md).
+It merges the former ADR-001 (supplier provisioning) as **Part I** and ADR-002
+(the transaction dossier) as **Part II**, keeps only what is built or still
+live, and preserves the section anchors — so the ~90 code comments citing
+`ADR-001 §4`, `ADR-001 S6` or `ADR-002 §5` still resolve. **Historical
+sentences below that say "ADR-002" are left alone on purpose**: ADR-002 is the
+document that took those decisions, and rewriting them would falsify the record.
+The two original files are in git history at `8dd740d`.
+
 **Before writing any code, in this order:**
-1. **[ADR-002](adr/ADR-002-transaction-and-contract-centre.md)** (accepted) —
-   the transaction dossier and contract centre, which is most of what shipped
-   today. The owner-validated 16-step parcours is the artifact linked from it.
+1. **[The ADR](adr/ADR-001-osi-architecture.md)** (accepted) — Part II is the
+   transaction dossier and contract centre, which is most of what shipped on
+   2026-08-29. The owner-validated 16-step parcours is the artifact linked
+   from it.
 2. **"Contracts a next session must NOT re-derive differently"** below — the
    invariants list. It is long because it is load-bearing; skim all of it.
 3. **"The prod bundle has a latent chunk cycle"** under "Things that will bite
@@ -419,7 +430,8 @@ before diagnosing anything. That took ~4 minutes today.
   Removed with its stat, its delta, its icon and its i18n labels, plus the
   dead `kpisAnalyses` constants that carried three more invented figures and
   had no consumers. It comes back the day intake captures a target price
-  (ADR-002 conflict #9), and not before.
+  (the ADR's open questions; the old conflict-table entry went with the
+  2026-09-07 consolidation), and not before.
 - ❓ **Plan dimension**: nothing stops a Free-trial workspace reaching
   contracts and payments.
 - ⚠️ **~40 suppliers predate the bilingual pool** and have no `description_en`;
@@ -866,7 +878,7 @@ minutes before: `backups/osi-20260827-111706.sql.gz` (30M). Rollback =
 `git checkout adr-001-baseline` + rebuild on the VM + restore if needed.
 
 **Strategy (ADR-001, ACCEPTED then AMENDED — the governing document):**
-[doc/adr/ADR-001-supplier-provisioning.md](adr/ADR-001-supplier-provisioning.md)
+[doc/adr/ADR-001-osi-architecture.md](adr/ADR-001-osi-architecture.md)
 (pretty version with diagrams: the Claude artifact linked inside it).
 Supplier provisioning pivoted to the **demand-pull supplier graph**;
 registries became **verification infrastructure** (never matched, never
@@ -982,7 +994,7 @@ CA; QC records carry activities and clear the bar honestly).
 
 **⚡ ADR-001 ACCEPTED 2026-08-26 — supplier provisioning pivoted to the
 demand-pull supplier graph.** Full decision record:
-[doc/adr/ADR-001-supplier-provisioning.md](adr/ADR-001-supplier-provisioning.md).
+[doc/adr/ADR-001-osi-architecture.md](adr/ADR-001-osi-architecture.md).
 It SUPERSEDES the enrichment decision gate (resolved below) and the
 availability-driven connector roadmap; registries become **verification
 infrastructure** (never matched, never workspace-selectable, stores kept as
@@ -2685,7 +2697,7 @@ suppliers only.
 ### Phase S — ADR-001: the demand-pull supplier graph (ACCEPTED 2026-08-26)
 
 **The supplier-provisioning strategy pivoted** — decision record in
-[doc/adr/ADR-001-supplier-provisioning.md](adr/ADR-001-supplier-provisioning.md)
+[doc/adr/ADR-001-osi-architecture.md](adr/ADR-001-osi-architecture.md)
 (diagrammed artifact linked from there). Principles: **demand-pull** (nothing
 is spent on a supplier until a request needs them) and **the deal loop is
 the data-acquisition engine** (facilitation outcomes are the unscrapable
@@ -2845,7 +2857,7 @@ derived from edges, never set by hand.
 
 **The portal brief** ([doc/briefs/portail-entreprise.md](briefs/portail-entreprise.md))
 brings its own process and it is NOT the one this backlog held. Decision record:
-[ADR-002](adr/ADR-002-transaction-and-contract-centre.md) — **✅ ACCEPTED by the
+[ADR-001 Part II](adr/ADR-001-osi-architecture.md) — **✅ ACCEPTED by the
 owner 2026-08-29**, with four decisions taken at acceptance:
 
 - **The BUYER picks** which of their Top-N are asked for a quote; OSI does the
@@ -2902,7 +2914,7 @@ through the platform (2026-08-29). Parties are ROWS, never users.
       unmounted, so the resume effect always runs.
       ④ **Merged nav — BUILT** (deploy #12): 11 client + 9 interne = 20;
       unbuilt entries are greyed with **no route at all**; `Analyses` moved
-      into the INTERNE block. Full table in ADR-002 §12.
+      into the INTERNE block. Full table in the nav section of this backlog.
       ⑤ **Dead download button removed** from the top bar (owner, 2026-08-29)
       — it had no handler and never did anything; its i18n key went with it.
 - [x] **P1 · Schema spine — BUILT 2026-08-29** (migration **0033**).
@@ -2949,7 +2961,7 @@ through the platform (2026-08-29). Parties are ROWS, never users.
 Each one is written to be executed **cold**, by a session with no memory of
 this one. Before starting any of them, read: this Phase P header, the
 "Contracts a next session must NOT re-derive differently" section above, and
-[ADR-002](adr/ADR-002-transaction-and-contract-centre.md). The parcours the
+[ADR-001 Part II](adr/ADR-001-osi-architecture.md). The parcours the
 owner validated is the 16-step diagram in the artifact linked from the ADR.
 
 **House rules that apply to every task below** (they are not repeated each
@@ -3288,7 +3300,8 @@ in the browser before committing; deploy only when the owner asks.
 - ✅ **G1 — e-sign vendor: NOT BOUGHT** (owner 2026-08-29). Buyer and OSI sign
       in-platform; external parties are manual upload. No recurring bill.
       **The intended successor is not a vendor either** (owner, same day): a
-      **private signing link** — ADR-002's Option B — emailed to a party with
+      **private signing link** — [ADR-001](adr/ADR-001-osi-architecture.md)
+      Part II §3 — emailed to a party with
       no account, added behind `src/server/esign.ts` as a `link` provider when
       the external path deserves more than email. **Optional and additive:**
       manual upload keeps working, because some counterparties will always
@@ -3612,7 +3625,7 @@ feeds C3/C4 value (Recommandé requires Vérifié)
 
 > **⚠️ SUPERSEDED 2026-08-29 — the gate is discharged and the design below is
 > RETIRED.** The owner's portal brief brought its own process; the decision
-> record is [ADR-002](adr/ADR-002-transaction-and-contract-centre.md) and the
+> record is [ADR-001 Part II](adr/ADR-001-osi-architecture.md) and the
 > plan is **Phase P** above. There is no `engagement` entity, no "Engager"
 > button, no ops queue, no "connected" state — a **soumission (quote)** is the
 > unit of facilitation, and accepting one opens the `deal`. The unchecked

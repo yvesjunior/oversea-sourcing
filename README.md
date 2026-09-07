@@ -66,7 +66,7 @@ Consequences, all first-class rather than afterthoughts:
 #### ADR-001 — supplier provisioning is demand-pull (ACCEPTED 2026-08-26)
 
 > **Status: ✅ DECIDED.**
-> [doc/adr/ADR-001-supplier-provisioning.md](doc/adr/ADR-001-supplier-provisioning.md)
+> [doc/adr/ADR-001-osi-architecture.md](doc/adr/ADR-001-osi-architecture.md)
 > is the decision record; **Phase S** in [doc/BACKLOG.md](doc/BACKLOG.md) is
 > the implementation plan. The sections below this one describe the built
 > machinery — still mechanically accurate, but **their roles are redirected
@@ -1242,7 +1242,7 @@ the capability/certification satellite tables exist.
 > acceptance, the contract centre, contract templates, and now sending,
 > signing, recording an offline signature and chasing whoever has not answered.
 > **P7-P11 remain**: commandes, documents, paiements, messages, rapports. Decision
-> record: [ADR-002](doc/adr/ADR-002-transaction-and-contract-centre.md)
+> record: [ADR-001 Part II](doc/adr/ADR-001-osi-architecture.md)
 > (accepted). Plan: **Phase P** in [doc/BACKLOG.md](doc/BACKLOG.md). The
 > owner-validated parcours is drawn step by step in the companion artifact
 > linked from the ADR.
