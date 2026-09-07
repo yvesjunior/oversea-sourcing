@@ -46,6 +46,10 @@ export async function transitionRequest(
       ...(to === "report_ready" || to === "closed" || to === "cancelled"
         ? { completedAt: now }
         : {}),
+      // Reopened (a research re-run sends report_ready back to searching):
+      // a request that is searching again has no completion date, and leaving
+      // the old one would have the dossier claim it finished before it did.
+      ...(to === "searching" ? { completedAt: null } : {}),
     })
     .where(eq(schema.request.id, requestId));
   await recordEvent(requestId, organizationId, `status.${to}`);

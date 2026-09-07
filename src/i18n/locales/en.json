@@ -529,7 +529,12 @@
     "cancelRequest": "Cancel request",
     "visitSite": "Visit site",
     "noSite": "No website available",
-    "originalNeed": "Your request"
+    "originalNeed": "Your request",
+    "researchFailedTitle": "The web research did not complete",
+    "researchFailedBody": "Supplier collection failed for this request, so the report was produced without it. Re-running picks the collection back up.",
+    "rerunResearch": "Re-run the research",
+    "rerunRunning": "Re-running…",
+    "rerunRefused": "This research is no longer failed — nothing to re-run."
   },
   "stepsFlux": {
     "received": "Request received",
@@ -574,7 +579,8 @@
     "status_in_production": "In production",
     "status_shipping": "Shipping",
     "status_delivered": "Delivered",
-    "status_reviewed": "Reviewed by the client"
+    "status_reviewed": "Reviewed by the client",
+    "research_rerun": "Web research re-run"
   },
   "stepsDemande": {
     "received": {

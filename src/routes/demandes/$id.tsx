@@ -3,12 +3,14 @@ import { createFileRoute, Link, redirect, useRouter } from "@tanstack/react-rout
 import { format } from "date-fns";
 import { enUS, fr } from "date-fns/locale";
 import {
+  AlertTriangle,
   ArrowLeft,
   Ban,
   ExternalLink,
   FileText,
   Globe,
   Info,
+  RefreshCw,
   ScanSearch,
   ShieldCheck,
 } from "lucide-react";
@@ -31,7 +33,12 @@ import { AttachmentsList } from "@/components/osi/AttachmentsList";
 import { StatusPill } from "@/components/osi/StatusPill";
 import type { Risque } from "@/data/osi";
 import type { RiskLevel } from "@/database/schema";
-import { cancelRequestFn, getRequestDetailFn, type RequestDetail } from "@/lib/requests-fns";
+import {
+  cancelRequestFn,
+  getRequestDetailFn,
+  rerunResearchFn,
+  type RequestDetail,
+} from "@/lib/requests-fns";
 import { isInFlight, PIPELINE_ORDER, pipelineIndex, progressPct } from "@/lib/request-status";
 import { formatDayTime } from "@/lib/instant";
 import { cn } from "@/lib/utils";
@@ -166,6 +173,25 @@ function DemandeDetail() {
       setAsking(false);
     }
   };
+  // A failed collection is the one dossier state a re-run can repair. The
+  // server decides whether to offer it (canRerunResearch); this only carries
+  // the click. Success sends the request back to `searching`, so `polling`
+  // picks it up on the next invalidate and the page follows it live.
+  const [rerunning, setRerunning] = useState(false);
+  const [rerunRefused, setRerunRefused] = useState(false);
+  const rerunResearch = async () => {
+    if (rerunning) return;
+    setRerunning(true);
+    setRerunRefused(false);
+    try {
+      const result = await rerunResearchFn({ data: { id: demande.id } });
+      if (!result.ok) setRerunRefused(true);
+      await router.invalidate();
+    } finally {
+      setRerunning(false);
+    }
+  };
+
   const pct = progressPct(demande.status);
   const canCancel =
     demande.canEdit && !finished && demande.status !== "cancelled" && demande.status !== "draft";
@@ -399,6 +425,38 @@ function DemandeDetail() {
                   )}
                 </div>
               )}
+            </section>
+          )}
+
+          {/* Shown ONLY for a failed collection — never for a search that ran
+              and honestly found nobody, which is an answer and would cost the
+              same money to be told again. */}
+          {demande.researchFailed && (
+            <section className="card-surface border-l-4 border-l-destructive p-6">
+              <div className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-3">
+                <AlertTriangle className="mt-0.5 size-5 shrink-0 text-destructive" />
+                <div className="min-w-0">
+                  <h2 className="text-base font-semibold">{t("detail.researchFailedTitle")}</h2>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {t("detail.researchFailedBody")}
+                  </p>
+                  {demande.canRerunResearch && (
+                    <Button
+                      variant="gold"
+                      size="sm"
+                      className="mt-4"
+                      disabled={rerunning}
+                      onClick={() => void rerunResearch()}
+                    >
+                      <RefreshCw className={cn("size-4", rerunning && "animate-spin")} />
+                      {rerunning ? t("detail.rerunRunning") : t("detail.rerunResearch")}
+                    </Button>
+                  )}
+                  {rerunRefused && (
+                    <p className="mt-3 text-xs text-muted-foreground">{t("detail.rerunRefused")}</p>
+                  )}
+                </div>
+              </div>
             </section>
           )}
 

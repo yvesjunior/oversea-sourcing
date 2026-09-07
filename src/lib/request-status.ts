@@ -15,7 +15,13 @@ export const REQUEST_TRANSITIONS: Record<RequestStatus, readonly RequestStatus[]
   analyzing: ["searching", "cancelled"],
   searching: ["validating", "cancelled"],
   validating: ["report_ready", "cancelled"],
-  report_ready: ["closed"],
+  // Back to `searching` is the RE-RUN of a failed research pass
+  // (rerunResearchFn, 2026-09-07): the report exists but was built on a
+  // collection that never happened, so reopening the search is the honest
+  // move. Not a general "reopen" — the fn refuses unless the request's latest
+  // research_run is `failed`, and that state only exists because a pass
+  // genuinely produced nothing.
+  report_ready: ["closed", "searching"],
   closed: [],
   cancelled: [],
 };

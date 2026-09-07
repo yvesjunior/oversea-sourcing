@@ -203,6 +203,15 @@ export type RequestDetail = RequestSummary & {
   canEdit: boolean;
   /** Platform flag AI_CHAT — the assistant UI is hidden when false. */
   aiChatEnabled: boolean;
+  /** The last collection pass FAILED, so this dossier's Top-N was built
+   *  without one. Derived at read time from research_run — never stored, so
+   *  it cannot go stale against the runs it describes. False when research
+   *  simply found nobody: that is an answer, and re-running it would just buy
+   *  the same answer again. */
+  researchFailed: boolean;
+  /** Whether THIS caller may act on the above. Computed server-side so the
+   *  button is never offered to someone the fn would refuse. */
+  canRerunResearch: boolean;
 };
 
 /** Outcome of a create attempt. A refusal is data, not an exception: the UI has
@@ -427,7 +436,7 @@ export const startRequestPipelineFn = createServerFn({ method: "POST" })
 export const getRequestDetailFn = createServerFn({ method: "GET" })
   .inputValidator(z.object({ id: z.string() }))
   .handler(async ({ data }): Promise<RequestDetail | null> => {
-    const [{ auth }, { getRequest }, { db }, { asc, count, eq }, schema] = await Promise.all([
+    const [{ auth }, { getRequest }, { db }, { asc, count, desc, eq }, schema] = await Promise.all([
       import("@/server/auth"),
       import("@tanstack/react-start/server"),
       import("@/database"),
@@ -527,6 +536,27 @@ export const getRequestDetailFn = createServerFn({ method: "GET" })
       .where(eq(schema.quote.requestId, row.id));
     const quotesForRequest = quoteRow?.value ?? 0;
 
+    // Did the collection behind this dossier actually happen? The LATEST run
+    // decides — an earlier failure followed by a good pass is not a failure.
+    const [lastRun] = await db
+      .select({ status: schema.researchRun.status })
+      .from(schema.researchRun)
+      .where(eq(schema.researchRun.requestId, row.id))
+      .orderBy(desc(schema.researchRun.createdAt))
+      .limit(1);
+    const researchFailed = lastRun?.status === "failed";
+    // Re-running costs money and reopens the search, so it needs a working
+    // seat in the owning workspace (a viewer may read the dossier, never spend
+    // on it) or staff standing in the internal workspace. Same two-sided rule
+    // the fn itself enforces — this only decides whether to offer it.
+    let canRerunResearch = false;
+    if (researchFailed && row.status !== "cancelled" && row.status !== "closed") {
+      const { requireMember, effectiveHasPermission } = await import("@/server/workspace-guard");
+      canRerunResearch = isOwn
+        ? (await requireMember(session.user.id, workspaceId, "buyer")) !== null
+        : await effectiveHasPermission(session, "requests.all");
+    }
+
     // Live name while the account exists; the snapshot survives deletion.
     const creator = row.createdBy
       ? await db.query.user.findFirst({
@@ -597,6 +627,8 @@ export const getRequestDetailFn = createServerFn({ method: "GET" })
       })),
       suppliersAnalyzed,
       canEdit: isOwn,
+      researchFailed,
+      canRerunResearch,
     };
   });
 
@@ -640,6 +672,74 @@ export const launchSearchFn = createServerFn({ method: "POST" })
     await enqueuePipeline(row.id);
     const { recordEvent } = await import("@/server/requests");
     await recordEvent(row.id, workspaceId, "search.launched");
+    return { ok: true };
+  });
+
+/** Why a re-run was refused. Data, not an exception: the buyer has to be told
+ *  which of these it was, and "nothing happened" is not an answer. */
+export type RerunResearchResult =
+  { ok: true } | { ok: false; reason: "forbidden" | "not_found" | "not_failed" };
+
+/**
+ * Re-run the collection for a request whose last research pass FAILED.
+ *
+ * Only failed. A pass that searched and honestly found nobody is an answer —
+ * re-running it buys the same answer for the same money. A pass that never
+ * ran is not an answer, and before 2026-09-07 the request was stuck with it
+ * forever (see doc/BACKLOG.md, "A research pass that never searched").
+ *
+ * Sends the request back to `searching` FIRST, then enqueues research. That
+ * order matters: the research worker hands back to the pipeline queue when it
+ * finishes, and the pipeline does nothing to a `report_ready` request — the
+ * suppliers would land in the store and never reach the buyer's Top-N.
+ */
+export const rerunResearchFn = createServerFn({ method: "POST" })
+  .inputValidator(z.object({ id: z.string() }))
+  .handler(async ({ data }): Promise<RerunResearchResult> => {
+    const [{ auth }, { getRequest }, { db }, { desc, eq }, schema] = await Promise.all([
+      import("@/server/auth"),
+      import("@tanstack/react-start/server"),
+      import("@/database"),
+      import("drizzle-orm"),
+      import("@/database/schema"),
+    ]);
+    const session = await auth.api.getSession({ headers: getRequest().headers });
+    const workspaceId = session?.session.activeOrganizationId;
+    if (!session || !workspaceId) return { ok: false, reason: "forbidden" };
+
+    const row = await db.query.request.findFirst({ where: eq(schema.request.id, data.id) });
+    if (!row) return { ok: false, reason: "not_found" };
+
+    // Same two-sided rule getRequestDetailFn used to decide whether to offer
+    // the button — re-read here, because the button is a courtesy and this is
+    // the enforcement.
+    const { requireMember, effectiveHasPermission } = await import("@/server/workspace-guard");
+    const allowed =
+      row.organizationId === workspaceId
+        ? (await requireMember(session.user.id, workspaceId, "buyer")) !== null
+        : await effectiveHasPermission(session, "requests.all");
+    if (!allowed) return { ok: false, reason: "forbidden" };
+
+    const [lastRun] = await db
+      .select({ status: schema.researchRun.status })
+      .from(schema.researchRun)
+      .where(eq(schema.researchRun.requestId, row.id))
+      .orderBy(desc(schema.researchRun.createdAt))
+      .limit(1);
+    // Refuses a `running` run too, by construction: the latest would not be
+    // `failed`, so a double click cannot buy two collections.
+    if (lastRun?.status !== "failed") return { ok: false, reason: "not_failed" };
+
+    const { canTransition } = await import("@/lib/request-status");
+    const { recordEvent, transitionRequest } = await import("@/server/requests");
+    if (row.status !== "searching") {
+      if (!canTransition(row.status, "searching")) return { ok: false, reason: "not_failed" };
+      await transitionRequest(row.id, row.organizationId, row.status, "searching");
+    }
+    await recordEvent(row.id, row.organizationId, "research.rerun");
+
+    const { enqueueResearch } = await import("@/server/queue");
+    await enqueueResearch(row.id);
     return { ok: true };
   });
 

@@ -388,12 +388,11 @@ before diagnosing anything. That took ~4 minutes today.
   whatever it proves is not what a customer will see. Owner has not said which
   should move; moving one to `free` caps it at 2 lifetime requests, which may
   cut a live tester off mid-test.
-- ⚠️ **A request can finish with an empty Top-5 and tell the buyer nothing.**
-  The silent-search bug behind prod 3018 is fixed (see **"A research pass that
-  never searched"**), but the *presentation* gap it exposed is not: nothing
-  distinguishes "the web holds nobody for this need" from "our search
-  misfired" on the buyer's screen, and a request whose research failed has no
-  re-run button — `enqueueResearch` is server-side only.
+- ✅ **A failed collection now SAYS so, and offers a re-run** (2026-09-07) —
+  the card on `/demandes/$id`, see **"Re-running a failed research"**. What is
+  still missing is the other half: a search that ran and genuinely found nobody
+  looks like an ordinary empty Top-5, with nothing telling the buyer that the
+  web was actually asked.
 - ⚠️ **The verification registry stores are still full** (prod 393 474
   registry-ca rows; dev 1.8 M across qc/sg/ca/jp) while the DISCOVERY store is
   empty. That is deliberate — only discovery can warm a search — but it means
@@ -1651,10 +1650,9 @@ in 62 s for $0.061.
 
 - A request can still reach `report_ready` with an empty Top-5 and **say
   nothing to the buyer** about why.
-- **No automatic re-run.** A `failed` run makes the request *retryable*; the
-  sweep only re-adopts `received`/`searching`/`validating`, so someone must
-  re-enqueue it. There is still no admin surface for that — `enqueueResearch`
-  exists server-side and nothing exposes it.
+- ✅ **The re-run is now a button** (2026-09-07, same day) — see below. Still
+  no *automatic* re-run: the sweep only re-adopts
+  `received`/`searching`/`validating`, so a human decides.
 - **The findings prose is never persisted** (not on `source_run`, not on
   `research_run`), so a future silent pass is undiagnosable beyond its one log
   line. That is how we lost the ability to know what 3018's 1095 characters
@@ -1664,6 +1662,55 @@ in 62 s for $0.061.
   `RESEARCH_SEARCHES = 3` is not capping the bill either. **Unverified** — it
   was a side observation, and it needs its own check before anyone relies on
   that budget.
+
+### Re-running a failed research — the button, and why only failed
+
+`rerunResearchFn` (src/lib/requests-fns.ts) + the card on `/demandes/$id`.
+
+**Only a FAILED run gets the button.** A pass that searched and honestly found
+nobody is an *answer*; re-running it buys the same answer for the same $0.06.
+A pass that never ran is not an answer. The fn re-reads the LATEST
+`research_run` and refuses anything but `failed` — which also blocks a double
+click for free, since a `running` run is not `failed`.
+
+**Two things had to change for it to actually work**, and both are easy to get
+wrong:
+
+1. **`report_ready → searching` is now a legal transition**
+   (`REQUEST_TRANSITIONS`). Without it the re-run collects suppliers into the
+   store and they **never reach the buyer's Top-N**: the research worker hands
+   back to the pipeline queue, and `handlePipeline` does nothing at all to a
+   `report_ready` request. So the fn sends the request back to `searching`
+   FIRST, then enqueues research. Order matters.
+2. **`transitionRequest` clears `completed_at` on any move to `searching`.**
+   Otherwise a reopened dossier claims it finished before it did.
+
+The match-creation block is guarded by `if (!existing)` — fine here, because a
+request whose research failed has no matches. A re-run on a request that DOES
+have matches would skip matching entirely; nothing offers that today, and
+anything that later does must deal with it.
+
+**Who may click it** — the same two-sided rule in both places, derived
+server-side into `RequestDetail.canRerunResearch` so the button is never shown
+to someone the fn would refuse:
+
+- the owning workspace with a **working seat** (`requireMember(…, "buyer")`) —
+  a viewer may read a dossier, never spend on it;
+- **staff** with `requests.all`, from the internal workspace, on a foreign
+  dossier — they are the ones who notice.
+
+Refused outright on `cancelled` and `closed` requests: reopening one of those
+is a new request, not a re-run.
+
+`researchFailed` is derived at read time from the latest run, never stored, in
+line with the rest of Phase P. Verified in the browser on the dev stack, both
+branches: buyer sees the card on their own dossier and the re-run drove a real
+pass (3 queries → 4 candidates → 4 matches, card replaced by the Top-5); staff
+in the internal workspace see it on another workspace's dossier.
+
+Covered by `src/lib/request-status.test.ts` — including that `report_ready` did
+NOT become a general re-entry point and that the terminal states stayed
+terminal.
 
 ### The prod bundle can grow a chunk cycle — the deploy is GATED on it now
 

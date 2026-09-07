@@ -529,7 +529,12 @@
     "cancelRequest": "Annuler la demande",
     "visitSite": "Voir le site",
     "noSite": "Site web non disponible",
-    "originalNeed": "Votre demande"
+    "originalNeed": "Votre demande",
+    "researchFailedTitle": "La recherche web n'a pas abouti",
+    "researchFailedBody": "La collecte de fournisseurs a échoué pour cette demande — le rapport a donc été produit sans elle. Relancer la recherche reprend la collecte là où elle s'est arrêtée.",
+    "rerunResearch": "Relancer la recherche",
+    "rerunRunning": "Relance en cours…",
+    "rerunRefused": "La recherche n'est plus en échec — rien à relancer."
   },
   "stepsFlux": {
     "received": "Demande reçue",
@@ -574,7 +579,8 @@
     "status_in_production": "En production",
     "status_shipping": "En transit",
     "status_delivered": "Livré",
-    "status_reviewed": "Évalué par le client"
+    "status_reviewed": "Évalué par le client",
+    "research_rerun": "Recherche web relancée"
   },
   "stepsDemande": {
     "received": {
