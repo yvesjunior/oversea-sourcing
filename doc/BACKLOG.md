@@ -37,7 +37,7 @@ tracked to delivery** — with the PDF report available throughout.
 
 ### START HERE — handoff, 2026-09-07 (read this first)
 
-**Prod = `8b66fa5` (deploy #28).** One change: the research agent now
+**Prod = `5f6f44c` (deploy #29).** One change: the research agent now
 **retries a search pass that never searched**, and a collection pass in which
 every source failed is recorded as `failed` instead of `succeeded`. Full story
 in **"A research pass that never searched"** below — read it before touching
@@ -134,6 +134,7 @@ deploy failed mid-session and prod was rolled back; see #24.
 | 23 | `5b90649` | — | **the platform workspace can no longer be deleted** — the org-plugin's own `POST /organization/delete` bypassed `destroyWorkspace`; guard moved into a `beforeDeleteOrganization` hook |
 | 24 | `95b825a` | — | **filters on all four ops lists** (multi-account + week/month/year/custom period) · **the global supplier directory is staff-only** · the DB cleared for fresh testing. *First attempt (`77d37b0`) took prod down — see the chunk-cycle note* |
 | 25 | `b7481d6` | — | **"linked supplier" widened to four traces** (matched · quoted · dealt · contract party) · **a session opens in your PERSONAL workspace** when you have one · the discovery store cleared for a cold research test |
+| 29 | `5f6f44c` | — | **a failed research says so and offers a re-run** on `/demandes/$id` — only `failed` (a search that found nobody is an answer); `report_ready → searching` became legal so the re-run's suppliers actually reach the Top-N |
 | 28 | `8b66fa5` | — | **a search pass that never searched is retried, and a pass whose every source failed is recorded `failed`** — so the `already_ran` guard stops sealing a request that never got searched (prod 3018) |
 | 27 | `75631f2` | — | the **Économies tile removed** (uncomputable) · the visual dossier's wins: signature columns + Voir, breadcrumb, **Activités récentes**, **Dossiers récents as a table** with a Soumissions count · Phase P event labels |
 | 26 | `918a189` | 0039 | **Phase R** — staff roles are data, and `requests.all` replaces the hardcoded visibility list · **P6** — signatures in-platform and by manual upload, reminders, the contract trail, `esign.ts` · **`backup.sh` now archives the uploads volume** |
