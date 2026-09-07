@@ -8,6 +8,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/database";
 import * as schema from "@/database/schema";
 import { channelEnabled } from "@/lib/notification-types";
+import type { PermissionKey } from "@/lib/roles";
 
 export type NotifyInput = {
   userId: string;
@@ -64,5 +65,65 @@ export async function notifyUser(input: NotifyInput): Promise<void> {
     }
   } catch (error) {
     console.error(`notify: failed for user ${input.userId} (${input.type}) —`, error);
+  }
+}
+
+/**
+ * Tell every STAFF member who can act on it (E9, 2026-09-07).
+ *
+ * `notifyUser` addresses one known person; this addresses a job. A buyer
+ * asking OSI to solicit suppliers has no single owner on our side, so the
+ * alert goes to whoever holds the permission that lets them act — not to
+ * "all staff". Notifying an accountant who cannot record a quote only teaches
+ * them to ignore the mail.
+ *
+ * Note it resolves the RAW `user.platform_role`, not `effectivePlatformRole`.
+ * That guard answers "may this session use staff powers right now", which
+ * depends on the workspace the person happens to be standing in — the wrong
+ * question here. A manager reading mail on their phone is still the manager
+ * who should hear about this. Membership of the internal workspace plus the
+ * permission is the honest test.
+ *
+ * The in-app row matters as much as the email: it is the durable record a
+ * future mobile app reads to ring. Email is what reaches someone today.
+ */
+export async function notifyStaff(
+  permission: PermissionKey,
+  input: Omit<NotifyInput, "userId" | "organizationId"> & {
+    /** Skip this user — the person who caused the event does not need to be
+     *  told about it. Staff acting as a buyer in their own workspace can
+     *  legitimately trigger a staff alert. */
+    exceptUserId?: string | null;
+  },
+): Promise<void> {
+  try {
+    const internal = await db.query.organization.findFirst({
+      where: eq(schema.organization.type, "internal"),
+      columns: { id: true },
+    });
+    if (!internal) return;
+
+    const members = await db
+      .select({ userId: schema.member.userId, platformRole: schema.user.platformRole })
+      .from(schema.member)
+      .innerJoin(schema.user, eq(schema.user.id, schema.member.userId))
+      .where(eq(schema.member.organizationId, internal.id));
+
+    const { roleHasPermission } = await import("@/server/permissions");
+    const { exceptUserId, ...notification } = input;
+    for (const member of members) {
+      if (member.userId === exceptUserId) continue;
+      if (!(await roleHasPermission(member.platformRole ?? "user", permission))) continue;
+      await notifyUser({
+        ...notification,
+        userId: member.userId,
+        // The internal workspace is where this work lives — the LINK points at
+        // the customer's request, but the notification belongs to OSI's side.
+        organizationId: internal.id,
+      });
+    }
+  } catch (error) {
+    // Same contract as notifyUser: the bell must never break the action.
+    console.error(`notifyStaff: failed for ${permission} (${input.type}) —`, error);
   }
 }

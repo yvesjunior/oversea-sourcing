@@ -118,7 +118,11 @@
     "renameFailed": "Échec du renommage.",
     "notifTypes": {
       "report_ready": "Rapport prêt (une recherche de fournisseurs est terminée)",
-      "invitation_accepted": "Invitation acceptée (quelqu’un a rejoint votre espace)"
+      "invitation_accepted": "Invitation acceptée (quelqu’un a rejoint votre espace)",
+      "quote_received": "Soumission reçue (un fournisseur a répondu à votre demande)",
+      "contract_to_sign": "Contrat à signer (un contrat attend votre signature)",
+      "contract_signed": "Contrat signé (toutes les signatures sont réunies)",
+      "quotes_requested": "Soumissions à envoyer (un client a choisi ses fournisseurs) — équipe OSI"
     },
     "tabOrganisation": "Organisation",
     "orgInfoTitle": "Informations de l’organisation",
@@ -751,7 +755,8 @@
     "markAllRead": "Tout marquer comme lu",
     "quote_received": "Soumission reçue de {{supplier}}",
     "contract_to_sign": "Un contrat attend votre signature",
-    "contract_signed": "Contrat entièrement signé"
+    "contract_signed": "Contrat entièrement signé",
+    "quotes_requested": "{{count}} fournisseur(s) à solliciter — demande #{{id}}"
   },
   "verificationAdmin": {
     "title": "Vérification des fournisseurs",

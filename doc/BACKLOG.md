@@ -1746,6 +1746,70 @@ Checked while fixing: `/contrats/$id` is fine. Its `contrats.event.*` labels
 carry no placeholders and it renders `partyName`, `actorName` and
 `detail.method` as explicit spans rather than interpolating them.
 
+### Staff get told when a buyer asks for quotes (2026-09-07)
+
+**The gap:** `requestQuotesFn` wrote its quote rows and the `quotes.requested`
+event and told nobody. Every other handoff in the spine has a notification;
+this one did not — so a buyer's request to solicit suppliers sat in a table
+until a staff member happened to open the Soumissions tab. It is also the
+handoff where a delay IS the product: **nothing reaches a supplier until a
+human sends the request by hand.**
+
+**Owner decision, 2026-09-07: email.** *"we will be building a simple mobile
+app, for notification ringing, and then later we will introduce the remaining
+feature as for the web."* So email is the channel that reaches staff today,
+and the in-app `notification` row is the durable record the mobile app will
+read to ring. **No SMS** — it would be a new paid vendor, a new secret, staff
+phone numbers we do not hold, and a channel that cannot carry a link, all to
+do what email already does. If a real SLA ever appears, SMS belongs as an
+escalation on top ("still unacknowledged after 4 h"), never as the primary.
+
+**`notifyStaff(permission, input)`** in `src/server/notify.ts` is the new door.
+`notifyUser` addresses one known person; this addresses a JOB. Three choices
+inside it are load-bearing:
+
+- **Keyed on a PERMISSION, not on "all staff".** `quotes.requested` uses
+  `deals` — the same permission `recordQuoteFn` requires to key the answer back
+  in — so everyone told about it can actually act. In prod that is owner +
+  managers; the accountant is deliberately not told, and dev proved it
+  (owner and manager notified, accountant skipped).
+- **It resolves the RAW `user.platform_role`, not `effectivePlatformRole`.**
+  That guard answers "may this session use staff powers right now", which
+  depends on which workspace the person is standing in — the wrong question for
+  a notification. A manager reading mail on their phone is still the manager.
+  Membership of the internal workspace plus the permission is the honest test.
+- **`exceptUserId`** skips whoever caused the event. Staff acting as a buyer in
+  their own personal workspace can legitimately trigger a staff alert, and
+  emailing someone about their own click is noise.
+
+**One notification per ACTION, not per supplier.** A buyer ticking five
+companies is one decision, and per-supplier would mail every staff member five
+times for one click — the single biggest cost lever here. Guarded by
+`inserted.length > 0`, so a re-ask that changed nothing
+(`onConflictDoNothing`) alerts nobody; verified in dev by asking twice and
+watching the second ask send zero mail.
+
+**The cost ceiling to watch:** SendGrid's free tier is 100 emails/day and it is
+SHARED with `report_ready`, `quote_received`, both contract types, verification,
+resets and invitations. At ~3 staff per quote request that is roughly 30 such
+events/day before the whole allowance is gone. The lever, when it matters, is a
+**digest** — one "3 requests waiting" mail per staff member every 15-30 min on
+a pg-boss schedule — not a second channel. Essentials is ~$20/mo for 50k.
+
+**Also fixed here:** `settings.notifTypes` had labels for only 2 of the 6
+notification types, so Paramètres → Notifications rendered the RAW KEY for
+`quote_received`, `contract_to_sign` and `contract_signed` (the panel calls
+`t()` with no `defaultValue`). All six are labelled now, and
+`src/lib/notification-types.test.ts` asserts every registered type has both a
+bell label and a prefs-panel label in FR and EN — so the next type added cannot
+ship unlabelled.
+
+**Still true, and worth knowing:** `NotificationBell` loads once on mount
+(`useEffect(load, [])`) with no polling. In-app is a mailbox, not an alert;
+email is what actually reaches someone. That is fine while the mobile app is
+the ringing plan, but the web bell will need a poll or SSE when the remaining
+web features land.
+
 ### The prod bundle can grow a chunk cycle — the deploy is GATED on it now
 
 **Cost a failed deploy on 2026-08-29 (prod down ~4 min, rolled back).** A build

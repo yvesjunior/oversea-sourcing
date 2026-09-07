@@ -118,7 +118,11 @@
     "renameFailed": "Rename failed.",
     "notifTypes": {
       "report_ready": "Report ready (a supplier search finished)",
-      "invitation_accepted": "Invitation accepted (someone joined your workspace)"
+      "invitation_accepted": "Invitation accepted (someone joined your workspace)",
+      "quote_received": "Quote received (a supplier answered your request)",
+      "contract_to_sign": "Contract to sign (a contract is waiting for your signature)",
+      "contract_signed": "Contract signed (every signature is in)",
+      "quotes_requested": "Quotes to send out (a customer picked their suppliers) — OSI staff"
     },
     "tabOrganisation": "Organisation",
     "orgInfoTitle": "Organisation information",
@@ -751,7 +755,8 @@
     "markAllRead": "Mark all as read",
     "quote_received": "Quote received from {{supplier}}",
     "contract_to_sign": "A contract awaits your signature",
-    "contract_signed": "Contract fully signed"
+    "contract_signed": "Contract fully signed",
+    "quotes_requested": "{{count}} supplier(s) to solicit — request #{{id}}"
   },
   "verificationAdmin": {
     "title": "Supplier verification",

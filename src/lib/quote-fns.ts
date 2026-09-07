@@ -171,6 +171,31 @@ export const requestQuotesFn = createServerFn({ method: "POST" })
         await recordEvent(data.requestId, caller.workspaceId, "quotes.requested", {
           count: inserted.length,
         });
+
+        // Alert the staff who can act (owner decision 2026-09-07: email, and
+        // an in-app row for the mobile app that will ring on it later).
+        //
+        // ONE notification for the whole action, not one per supplier: the
+        // buyer ticking five companies is a single decision, and per-supplier
+        // would mail every staff member five times for one click.
+        //
+        // Guarded by `inserted.length > 0`, so a re-ask that changed nothing
+        // (onConflictDoNothing above) alerts nobody. Keyed on `deals` — the
+        // same permission recordQuoteFn requires to key the answer back in,
+        // so everyone told about this can actually do something about it.
+        const { notifyStaff } = await import("@/server/notify");
+        await notifyStaff("deals", {
+          type: "quotes_requested",
+          params: { count: inserted.length, id: data.requestId },
+          link: `/soumissions`,
+          exceptUserId: caller.userId,
+          email: {
+            subjectFr: `${inserted.length} fournisseur(s) à solliciter — demande #${data.requestId}`,
+            subjectEn: `${inserted.length} supplier(s) to solicit — request #${data.requestId}`,
+            bodyFr: `Un client a choisi ${inserted.length} fournisseur(s) à solliciter pour la demande #${data.requestId}.\nRien n'est parti : la demande de soumission doit être envoyée à la main.\nOuvrez les soumissions dans OSI pour voir qui contacter.`,
+            bodyEn: `A customer picked ${inserted.length} supplier(s) to solicit for request #${data.requestId}.\nNothing has been sent: the quote request goes out by hand.\nOpen the quotes list in OSI to see who to contact.`,
+          },
+        });
       }
       return { ok: true, created: inserted.length };
     },
