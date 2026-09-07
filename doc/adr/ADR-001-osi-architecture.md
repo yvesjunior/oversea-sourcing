@@ -42,6 +42,56 @@ exactly when spend must be demand-justified.
 
 ---
 
+# Part 0 — The runtime everything else sits on
+
+*(folded in 2026-09-07 from the former "OSI Platform Architecture" and "OSI
+Request Pipeline" artifacts, corrected against the running system)*
+
+A **modular monolith with physical seams**: one codebase, one image, six
+services on a single VM behind a Cloudflare Tunnel. Every module sits behind an
+interface that could become a network boundary — extraction would be a deploy
+change, not a refactor.
+
+| Service | Job |
+|---|---|
+| `web` | Nitro SSR + server functions + `/api/*`. Enqueues; never consumes. |
+| `worker` | The `pipeline` queue: orchestration, matching, and the recovery sweep. |
+| `worker-research` | The `research` queue only: collection and verification — all outbound network. |
+| `database` | Postgres 16 + pgvector. Application state **and** the pg-boss queues. |
+| `redis` | Rate-limit counters only, and **fail-open**: if it is down, requests are allowed. |
+| `migrate` | One-shot, runs to completion before the others start. |
+
+**Containers never call each other. Postgres is the only meeting point** —
+rows in, jobs out — which is what makes each one independently replaceable and
+replicable. The same `src/server/` core runs inside `web` and inside both
+workers as ordinary in-process function calls; core is a *layer*, not a
+process.
+
+**Two queues, split on purpose:** `pipeline` is fast orchestration, `research`
+is slow and expensive. A research burst can never starve status transitions,
+and replicas of `worker-research` are the scaling knob for the one hotspot.
+
+**The pipeline is resume-capable, and that is load-bearing.** It reads a
+request's current status and picks up wherever it rests, so a re-run is safe.
+On boot and every 60 s, the sweep re-enqueues anything sitting in `received`,
+`searching` or `validating` untouched for two minutes — a worker crash, a lost
+job or a container restart mid-flight all self-heal. (`analyzing` is
+deliberately excluded: it is the legacy pause state, and those dossiers wait
+for a manual launch.)
+
+**Every transition writes an event row**, and the timelines, the activity feed
+and the dashboard are pure reads of those tables. Nothing recomputes state to
+display it.
+
+**No broker, deliberately.** pg-boss gives transactional enqueue for free — a
+request and its job commit together — which RabbitMQ would only match through
+an outbox pattern, i.e. a queue in Postgres anyway. `pg_dump` snapshots state
+and in-flight jobs together. All enqueues go through one `queue.ts` seam, so
+swapping it later is an adapter, not a refactor. The bottleneck is the Claude
+API's concurrency, never the queue.
+
+---
+
 # Part I — The demand-pull supplier graph
 
 *(cited elsewhere as `ADR-001 §…` / `S1`–`S6`)*
@@ -309,6 +359,48 @@ the matrix could lock out its own editor.
 
 ---
 
+# The parcours — 16 steps, and where it actually stops
+
+*(folded in 2026-09-07 from the former "Parcours OSI" artifact, re-checked
+against the code — the original claimed the product stopped at step 4)*
+
+The owner-validated journey, with **who acts** at each step. The two steps that
+leave the platform are the whole of decision Part II §2 made concrete: a
+supplier is reached by email and answers by email, and nothing else about them
+touches the product.
+
+| # | Step | Who acts | State |
+|---|---|---|---|
+| 01 | Describes the need | Buyer | ✅ built |
+| 02 | Search — pool first, web only if thin | Platform | ✅ built |
+| 03 | Verification of each candidate | Platform | ✅ built (3 of 6 checks) |
+| 04 | Top-N + printable report | Buyer receives | ✅ built |
+| 05 | **Picks who to solicit** | Buyer — *decision* | ✅ built |
+| 06 | Sends the quote requests | OSI staff | ⚠️ the ask is recorded and staff are alerted; **the email goes out by hand** |
+| 07 | Answers with price, MOQ, lead time | **Supplier — off platform** | by design; no account exists |
+| 08 | Records each offer | OSI staff | ✅ built |
+| 09 | **Compares and accepts ONE** | Buyer — *decision* | ✅ built |
+| 10 | Dossier opens automatically | Platform | ✅ built |
+| 11 | Required contracts drafted | OSI staff | ✅ built |
+| 12 | **Signs** | Buyer + OSI in-platform; **supplier off platform** | ✅ built |
+| 13 | All mandatory signatures in | Platform | ✅ built |
+| 14 | Tracks the order to delivery | OSI staff | ❌ **not built** |
+| 15 | **Validates reception and rates** | Buyer — *decision* | ❌ **not built** |
+| 16 | Closes the dossier | OSI staff | ❌ **not built** |
+
+**Where it actually stops, precisely.** The `deal` table already carries
+`satisfaction`, `reviewed_at`, `reviewed_by`, `review_comment`, `closed_at` and
+`closed_by`, and `DEAL_TRANSITIONS` enforces the full ladder
+`open → contracting → in_production → shipping → delivered → reviewed →
+closed`. But **`transitionDeal` has exactly one caller**: sending a contract
+moves the dossier `open → contracting` (`signature-fns.ts`). Nothing moves it
+after that.
+
+So a dossier today opens, advances one step when its first contract goes out,
+and then cannot progress — not because the machine is missing, but because no
+surface drives it. That is the honest shape of steps 14-16, and it is why P7
+(commandes) is the next real piece of work rather than a late polish.
+
 # Standing constraints
 
 The rules that bind every future design. Breaking one needs the owner, not a
@@ -349,6 +441,7 @@ pull request.
 | **S4 — lazy per-request enrichment.** No scrape/enrich stage exists; descriptions come straight from the discovery findings. | Part I |
 | **Checks ④ ⑤** — export record (dormant by §1) and certifications. | Part I §4 |
 | **P7 commandes** (`order_milestone`) · **P8 documents** · **P9 paiements** · **P10 messages** · **P11 rapports** | Part II |
+| **The deal lifecycle past `contracting`.** The columns and the guarded ladder exist; `transitionDeal` has one caller. Steps 14-16 of the parcours have no surface. | Part II §8 |
 
 # Open questions
 
