@@ -37,15 +37,12 @@ tracked to delivery** — with the PDF report available throughout.
 
 ### START HERE — handoff, 2026-09-07 (read this first)
 
-**Prod = `5f6f44c` (deploy #29).** One change: the research agent now
+**Prod = `615d7e0` (deploy #30).** One change: the research agent now
 **retries a search pass that never searched**, and a collection pass in which
 every source failed is recorded as `failed` instead of `succeeded`. Full story
 in **"A research pass that never searched"** below — read it before touching
 `src/server/ai/research.ts`, because the fix looks like a retry and is really
 about a request being sealed forever.
-
-`main` also carries the **event-label interpolation fix** (see "Event labels
-interpolate" below) — NOT yet deployed at the time of writing.
 
 Prod now holds **exactly one request: 3019** (`report_ready`, 5 suppliers,
 Renaud's workspace). Request 3018 — the incident — was deleted at the owner's
@@ -137,6 +134,7 @@ deploy failed mid-session and prod was rolled back; see #24.
 | 23 | `5b90649` | — | **the platform workspace can no longer be deleted** — the org-plugin's own `POST /organization/delete` bypassed `destroyWorkspace`; guard moved into a `beforeDeleteOrganization` hook |
 | 24 | `95b825a` | — | **filters on all four ops lists** (multi-account + week/month/year/custom period) · **the global supplier directory is staff-only** · the DB cleared for fresh testing. *First attempt (`77d37b0`) took prod down — see the chunk-cycle note* |
 | 25 | `b7481d6` | — | **"linked supplier" widened to four traces** (matched · quoted · dealt · contract party) · **a session opens in your PERSONAL workspace** when you have one · the discovery store cleared for a cold research test |
+| 30 | `615d7e0` | — | **staff are told when a buyer asks for quotes** (email + in-app, `deals` holders only, one per action) · event labels stopped printing `{{count}}` on the dashboard · the prefs panel labels its last four notification types |
 | 29 | `5f6f44c` | — | **a failed research says so and offers a re-run** on `/demandes/$id` — only `failed` (a search that found nobody is an answer); `report_ready → searching` became legal so the re-run's suppliers actually reach the Top-N |
 | 28 | `8b66fa5` | — | **a search pass that never searched is retried, and a pass whose every source failed is recorded `failed`** — so the `already_ran` guard stops sealing a request that never got searched (prod 3018) |
 | 27 | `75631f2` | — | the **Économies tile removed** (uncomputable) · the visual dossier's wins: signature columns + Voir, breadcrumb, **Activités récentes**, **Dossiers récents as a table** with a Soumissions count · Phase P event labels |
@@ -1795,6 +1793,11 @@ resets and invitations. At ~3 staff per quote request that is roughly 30 such
 events/day before the whole allowance is gone. The lever, when it matters, is a
 **digest** — one "3 requests waiting" mail per staff member every 15-30 min on
 a pg-boss schedule — not a second channel. Essentials is ~$20/mo for 50k.
+
+**On prod this sends real mail.** `SENDGRID_API_KEY` is set and `MAIL_SILENT`
+is NOT, so the next quote request emails **all three** internal members —
+yves (owner), henrik and renaud (managers). `platform_permission` holds no
+`deals` row, so the grant comes from `defaultGrant` (`owner` + `manager`).
 
 **Also fixed here:** `settings.notifTypes` had labels for only 2 of the 6
 notification types, so Paramètres → Notifications rendered the RAW KEY for
