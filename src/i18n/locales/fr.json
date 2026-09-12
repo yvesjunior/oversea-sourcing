@@ -882,7 +882,8 @@
     "auth.sign_in_failed": "Échec de connexion",
     "quote.sent": "Demande de soumission envoyée",
     "quote.corrected": "Offre corrigée",
-    "document.uploaded": "Document téléversé"
+    "document.uploaded": "Document téléversé",
+    "document.retention_swept": "Rétention des documents appliquée"
   },
   "twofa": {
     "title": "Vérification en deux étapes",

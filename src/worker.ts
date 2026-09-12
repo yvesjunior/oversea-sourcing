@@ -28,9 +28,13 @@ import { recordEvent, transitionRequest } from "@/server/requests";
 import { createMatchesForRequest } from "@/server/matching";
 import { researchEnabled } from "@/server/ai/flags";
 import { evaluateStoreCoverage, runAdminRefresh, runResearchForRequest } from "@/server/research";
+import { sweepDocumentRetention } from "@/server/retention";
 
 const STAGE_MS = 8_000;
 const SWEEP_INTERVAL_MS = 60_000;
+/** How often the retention policy is applied. Six-hourly against a six-month
+ *  window: the cadence decides latency, never outcome. */
+const RETENTION_INTERVAL_MS = 6 * 60 * 60 * 1000;
 /** A request untouched this long in an in-flight state is considered stranded. */
 const STRANDED_AFTER_MS = 2 * 60_000;
 
@@ -225,11 +229,21 @@ async function main() {
   // Crash recovery: on boot and on an interval, re-adopt stranded requests.
   // Only the pipeline worker sweeps — two sweepers would double-enqueue.
   let sweepTimer: ReturnType<typeof setInterval> | null = null;
+  let retentionTimer: ReturnType<typeof setInterval> | null = null;
   if (SERVED_QUEUES.includes("pipeline")) {
     await sweepStranded(enqueue).catch((error) => console.error("sweep failed:", error));
     sweepTimer = setInterval(() => {
       void sweepStranded(enqueue).catch((error) => console.error("sweep failed:", error));
     }, SWEEP_INTERVAL_MS);
+
+    // Document retention, on the same worker and for the same reason as the
+    // sweep above: exactly one of these must run. Six-hourly against a
+    // six-month window — the cadence decides how soon an expired document
+    // goes, never whether it does.
+    const retention = () =>
+      void sweepDocumentRetention().catch((error) => console.error("retention failed:", error));
+    retention();
+    retentionTimer = setInterval(retention, RETENTION_INTERVAL_MS);
   }
 
   console.log(
@@ -240,6 +254,7 @@ async function main() {
   const shutdown = async (signal: string) => {
     console.log(`worker: ${signal} received, stopping…`);
     if (sweepTimer) clearInterval(sweepTimer);
+    if (retentionTimer) clearInterval(retentionTimer);
     await boss.stop();
     process.exit(0);
   };

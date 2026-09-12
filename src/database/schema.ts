@@ -1299,6 +1299,18 @@ export const document = pgTable(
      *  the list must stay readable after the uploader's account is gone. */
     uploadedBy: text("uploaded_by").references(() => user.id, { onDelete: "set null" }),
     uploadedByName: text("uploaded_by_name"),
+    /**
+     * When this document lost everything it hung from — retention starts here.
+     *
+     * The request and quote references are SET NULL, which is what lets a
+     * document survive its source; the cost is that the row cannot say WHEN it
+     * was orphaned, and a retention rule needs that date. The sweep stamps it
+     * the first time it sees a document with both references gone, then purges
+     * six months later (DOCUMENT_RETENTION_MONTHS, owner 2026-09-12).
+     *
+     * Null is the normal state: a document still attached to something.
+     */
+    orphanedAt: timestamp("orphaned_at"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (table) => [

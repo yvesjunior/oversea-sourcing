@@ -1,0 +1,1 @@
+ALTER TABLE "document" ADD COLUMN "orphaned_at" timestamp;
