@@ -41,7 +41,10 @@ function Grille({ demandes, mine }: { demandes: RequestSummary[]; mine: boolean 
   const { t } = useTranslation();
   if (demandes.length === 0) {
     return mine ? (
-      <EmptyRequests />
+      // No call to action here: the intake form is open directly above this
+      // block whenever the list is empty, so a button would point at the page
+      // the buyer is already looking at.
+      <EmptyRequests cta={false} />
     ) : (
       <p className="card-surface border-dashed px-6 py-10 text-center text-sm text-muted-foreground">
         {t("tabs.nothingMine")}
