@@ -13,9 +13,12 @@ export type DocumentView = {
   mime: string;
   size: number;
   kind: DocumentKind;
-  /** Where it came from — both null for a document that outlived its source. */
+  /** Where it came from. Both references are SET NULL rather than cascade, so
+   *  a document outlives the request or quote it arrived against — the name
+   *  snapshots below are what keep the row readable when that happens. */
   requestId: string | null;
   requestTitle: string | null;
+  quoteId: string | null;
   supplierName: string | null;
   uploadedByName: string | null;
   createdAt: string;
@@ -91,6 +94,7 @@ export const getDocumentsFn = createServerFn({ method: "GET" }).handler(
         kind: row.document.kind,
         requestId: row.document.requestId,
         requestTitle: row.requestTitle ?? null,
+        quoteId: row.document.quoteId,
         supplierName: row.supplierName ?? null,
         uploadedByName: row.document.uploadedByName,
         createdAt: row.document.createdAt.toISOString(),

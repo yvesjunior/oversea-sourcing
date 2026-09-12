@@ -5,8 +5,8 @@
 // entry form — the supplier has no account, so every offer is keyed in by the
 // person who received it.
 
-import { useState } from "react";
-import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
+import { createFileRoute, Link, useRouter, useRouterState } from "@tanstack/react-router";
 import { ChevronRight, ClipboardList } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
@@ -361,6 +361,15 @@ function QuoteList({
   showAccount?: boolean;
 }) {
   const { t, i18n } = useTranslation();
+  // Arriving from a document's "soumission" link: bring the row into view and
+  // mark it, because a list of offers all look alike and "it scrolled a bit"
+  // is not an answer to "which one".
+  const hash = useRouterState({ select: (state) => state.location.hash });
+  const highlighted = hash.startsWith("quote-") ? hash.slice("quote-".length) : null;
+  useEffect(() => {
+    if (!highlighted) return;
+    document.getElementById(`quote-${highlighted}`)?.scrollIntoView({ block: "center" });
+  }, [highlighted]);
   const router = useRouter();
   const [openForm, setOpenForm] = useState<string | null>(null);
   const [accepting, setAccepting] = useState<string | null>(null);
@@ -463,7 +472,17 @@ function QuoteList({
 
               <ul className="mt-4 space-y-3">
                 {list.map((quote) => (
-                  <li key={quote.id} className="rounded-lg border border-border p-4">
+                  // Anchor target for the Documents page: a document names the
+                  // quote it arrived against, and the reader must be able to
+                  // GET there, not just read a supplier's name.
+                  <li
+                    key={quote.id}
+                    id={`quote-${quote.id}`}
+                    className={cn(
+                      "rounded-lg border p-4 scroll-mt-24",
+                      highlighted === quote.id ? "border-gold bg-gold-soft/30" : "border-border",
+                    )}
+                  >
                     <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
                       <div className="min-w-0">
                         <span className="block truncate text-sm font-semibold">

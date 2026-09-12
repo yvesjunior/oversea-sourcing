@@ -101,24 +101,48 @@ function Documents() {
                     </span>
                   </td>
                   <td className="px-4 py-3 text-xs">{t(`documents.kind.${doc.kind}`)}</td>
+                  {/* BOTH sources, each named and each reachable. A bare
+                      supplier name told the reader a document came from
+                      somewhere without saying where, or letting them go.
+                      Either can be null: the references are SET NULL, so a
+                      document survives the request or quote it arrived
+                      against, and then the snapshot is all that is left. */}
                   <td className="px-4 py-3 text-xs">
-                    {doc.requestId ? (
-                      <Link
-                        to="/demandes/$id"
-                        params={{ id: doc.requestId }}
-                        className="hover:text-gold"
-                      >
-                        #{doc.requestId}
-                        {doc.requestTitle ? ` — ${doc.requestTitle}` : ""}
-                      </Link>
-                    ) : (
-                      <span className="text-muted-foreground">—</span>
-                    )}
-                    {doc.supplierName && (
-                      <span className="block text-[11px] text-muted-foreground">
-                        {doc.supplierName}
+                    <span className="flex items-baseline gap-1.5">
+                      <span className="shrink-0 text-[10px] uppercase tracking-wider text-muted-foreground">
+                        {t("documents.fromRequest")}
                       </span>
-                    )}
+                      {doc.requestId ? (
+                        <Link
+                          to="/demandes/$id"
+                          params={{ id: doc.requestId }}
+                          className="min-w-0 truncate hover:text-gold"
+                        >
+                          #{doc.requestId}
+                          {doc.requestTitle ? ` — ${doc.requestTitle}` : ""}
+                        </Link>
+                      ) : (
+                        <span className="text-muted-foreground">{t("documents.sourceGone")}</span>
+                      )}
+                    </span>
+                    <span className="mt-0.5 flex items-baseline gap-1.5">
+                      <span className="shrink-0 text-[10px] uppercase tracking-wider text-muted-foreground">
+                        {t("documents.fromQuote")}
+                      </span>
+                      {doc.quoteId ? (
+                        <Link
+                          to="/soumissions"
+                          hash={`quote-${doc.quoteId}`}
+                          className="min-w-0 truncate hover:text-gold"
+                        >
+                          {doc.supplierName ?? t("documents.sourceGone")}
+                        </Link>
+                      ) : (
+                        <span className="text-muted-foreground">
+                          {doc.supplierName ?? t("documents.sourceGone")}
+                        </span>
+                      )}
+                    </span>
                   </td>
                   {crossAccount && (
                     <td className="px-4 py-3 text-xs">{doc.organizationName ?? "—"}</td>

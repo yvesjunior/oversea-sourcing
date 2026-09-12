@@ -1150,6 +1150,9 @@
     "kind": {
       "offer": "Offre fournisseur",
       "other": "Autre"
-    }
+    },
+    "fromRequest": "Demande",
+    "fromQuote": "Soumission",
+    "sourceGone": "supprimée"
   }
 }
