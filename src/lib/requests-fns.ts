@@ -386,6 +386,15 @@ export const createRequestFn = createServerFn({ method: "POST" })
       await recordEvent(id, workspaceId, "criteria.extracted", { count: criteria.length });
     }
 
+    const { logAudit, actorOf } = await import("@/server/audit");
+    await logAudit({
+      ...actorOf(session),
+      organizationId: workspaceId,
+      action: "request.created",
+      target: `#${id}`,
+      detail: { title, ...(categoryId ? { category: categoryId } : {}) },
+    });
+
     // Attachments coming: startRequestPipelineFn enqueues once they are stored.
     // If the browser dies in between, the worker's sweep re-adopts the request
     // from "received" after two minutes — delaying the launch, never losing it.
@@ -734,6 +743,14 @@ export const rerunResearchFn = createServerFn({ method: "POST" })
     }
     await recordEvent(row.id, row.organizationId, "research.rerun");
 
+    const { logAudit, actorOf } = await import("@/server/audit");
+    await logAudit({
+      ...actorOf(session),
+      organizationId: row.organizationId,
+      action: "research.rerun",
+      target: `#${row.id}`,
+    });
+
     const { enqueueResearch } = await import("@/server/queue");
     await enqueueResearch(row.id);
     return { ok: true };
@@ -767,6 +784,15 @@ export const cancelRequestFn = createServerFn({ method: "POST" })
 
     const { transitionRequest } = await import("@/server/requests");
     await transitionRequest(row.id, workspaceId, row.status, "cancelled");
+
+    const { logAudit, actorOf } = await import("@/server/audit");
+    await logAudit({
+      ...actorOf(session),
+      organizationId: workspaceId,
+      action: "request.cancelled",
+      target: `#${row.id}`,
+      detail: { from: row.status },
+    });
     return { ok: true };
   });
 

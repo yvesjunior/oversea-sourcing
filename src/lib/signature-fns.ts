@@ -145,6 +145,9 @@ export const sendContractFn = createServerFn({ method: "POST" })
       const { logAudit, actorOf } = await import("@/server/audit");
       await logAudit({
         ...actorOf(session),
+        // The BUYER's workspace: without it the row lands in the staff view
+        // only and never reaches the journal of the account it concerns.
+        organizationId: contract.organizationId,
         action: "contract.sent",
         target: contract.number,
         detail: { parties: parties.length, notified },
@@ -240,6 +243,18 @@ export const signContractFn = createServerFn({ method: "POST" })
       detail: { method: "in_platform", role: party.role },
     });
 
+    // contract_event above is the permanent signature EVIDENCE (ADR Part II
+    // §4); this is the operational row, which the journal shows and which the
+    // 3-month purge may drop. Two trails, two retentions, on purpose.
+    const { logAudit, actorOf } = await import("@/server/audit");
+    await logAudit({
+      ...actorOf(session),
+      organizationId: contract.organizationId,
+      action: "contract.signed",
+      target: contract.number,
+      detail: { role: party.role, method: "in_platform" },
+    });
+
     const status = await syncContractStatus(contract.id);
     if (status === "signed") await notifyContractComplete(contract.id);
     return { ok: true, status };
@@ -327,6 +342,19 @@ export const recordManualSignatureFn = createServerFn({ method: "POST" })
       },
     });
 
+    const { logAudit, actorOf } = await import("@/server/audit");
+    await logAudit({
+      ...actorOf(session),
+      organizationId: contract.organizationId,
+      action: "contract.signature_recorded",
+      target: contract.number,
+      detail: {
+        role: party.role,
+        signedByName: data.signedByName.trim(),
+        hasDocument: Boolean(data.fileId),
+      },
+    });
+
     const status = await syncContractStatus(contract.id);
     if (status === "signed") await notifyContractComplete(contract.id);
     return { ok: true, status };
@@ -392,6 +420,15 @@ export const remindPartyFn = createServerFn({ method: "POST" })
       partyId: party.id,
       partyName: party.name,
       detail: { mailed },
+    });
+
+    const { logAudit, actorOf } = await import("@/server/audit");
+    await logAudit({
+      ...actorOf(session),
+      organizationId: contract.organizationId,
+      action: "contract.reminded",
+      target: contract.number,
+      detail: { party: party.name, mailed },
     });
     return { ok: true, mailed };
   });

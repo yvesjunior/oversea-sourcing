@@ -861,7 +861,22 @@
     "workspace.renamed": "Workspace renamed",
     "platform_role.updated": "Platform role changed",
     "log.purged": "Journal purged",
-    "permission.updated": "Role access changed"
+    "permission.updated": "Role access changed",
+    "deal.opened": "Transaction file opened",
+    "contract.sent": "Contract sent to the parties",
+    "role.created": "Platform role created",
+    "role.deleted": "Platform role deleted",
+    "request.created": "Request created",
+    "request.cancelled": "Request cancelled",
+    "research.rerun": "Web research re-run",
+    "quotes.requested": "Quotes requested",
+    "quote.received": "Quote recorded",
+    "quote.declined": "Quote declined",
+    "contracts.drafted": "Contracts drafted",
+    "contract.redrafted": "Contract text regenerated",
+    "contract.signed": "Contract signed",
+    "contract.signature_recorded": "External signature recorded",
+    "contract.reminded": "Signature reminder sent"
   },
   "twofa": {
     "title": "Two-step verification",

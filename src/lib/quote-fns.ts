@@ -102,14 +102,21 @@ export const requestQuotesFn = createServerFn({ method: "POST" })
     }): Promise<
       { ok: true; created: number } | { ok: false; reason: "forbidden" | "not_found" }
     > => {
-      const [{ requireWorkspaceRole }, { getRequest }, { db }, { and, eq, inArray }, schema] =
-        await Promise.all([
-          import("@/server/workspace-guard"),
-          import("@tanstack/react-start/server"),
-          import("@/database"),
-          import("drizzle-orm"),
-          import("@/database/schema"),
-        ]);
+      const [
+        { requireWorkspaceRole },
+        { auth },
+        { getRequest },
+        { db },
+        { and, eq, inArray },
+        schema,
+      ] = await Promise.all([
+        import("@/server/workspace-guard"),
+        import("@/server/auth"),
+        import("@tanstack/react-start/server"),
+        import("@/database"),
+        import("drizzle-orm"),
+        import("@/database/schema"),
+      ]);
       const caller = await requireWorkspaceRole(getRequest().headers, "buyer");
       if (!caller) return { ok: false, reason: "forbidden" };
       // No internal-workspace check here on purpose: this fn only ever finds a
@@ -183,6 +190,19 @@ export const requestQuotesFn = createServerFn({ method: "POST" })
         // (onConflictDoNothing above) alerts nobody. Keyed on `deals` — the
         // same permission recordQuoteFn requires to key the answer back in,
         // so everyone told about this can actually do something about it.
+        // The name is a SNAPSHOT — it is what keeps the row readable after the
+        // account is deleted, which is the whole point of the tombstone columns.
+        const actor = await auth.api.getSession({ headers: getRequest().headers });
+        const { logAudit } = await import("@/server/audit");
+        await logAudit({
+          actorId: caller.userId,
+          actorName: actor?.user.name ?? null,
+          organizationId: caller.workspaceId,
+          action: "quotes.requested",
+          target: `#${data.requestId}`,
+          detail: { count: inserted.length },
+        });
+
         const { notifyStaff } = await import("@/server/notify");
         await notifyStaff("deals", {
           type: "quotes_requested",
@@ -389,6 +409,22 @@ export const recordQuoteFn = createServerFn({ method: "POST" })
       return { ok: false, reason: "illegal_transition" };
     }
 
+    const { logAudit, actorOf } = await import("@/server/audit");
+    await logAudit({
+      ...actorOf(session),
+      // The buyer's workspace, not OSI's: the row is about their dossier, and
+      // their own journal filters on it.
+      organizationId: quote.organizationId,
+      action: "quote.received",
+      target: quote.supplierName,
+      detail: {
+        request: quote.requestId,
+        ...(data.amountCents != null ? { amountCents: data.amountCents } : {}),
+        ...(data.currency ? { currency: data.currency } : {}),
+        ...(data.leadTimeDays != null ? { leadTimeDays: data.leadTimeDays } : {}),
+      },
+    });
+
     const request = await db.query.request.findFirst({
       where: eq(schema.request.id, quote.requestId),
     });
@@ -441,6 +477,15 @@ export const declineQuoteFn = createServerFn({ method: "POST" })
     } catch {
       return { ok: false };
     }
+
+    const { logAudit, actorOf } = await import("@/server/audit");
+    await logAudit({
+      ...actorOf(session),
+      organizationId: quote.organizationId,
+      action: "quote.declined",
+      target: quote.supplierName,
+      detail: { request: quote.requestId, ...(data.reason ? { reason: data.reason } : {}) },
+    });
     return { ok: true };
   });
 

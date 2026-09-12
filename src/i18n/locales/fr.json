@@ -861,7 +861,22 @@
     "workspace.renamed": "Espace renommé",
     "platform_role.updated": "Rôle plateforme modifié",
     "log.purged": "Journal purgé",
-    "permission.updated": "Accès de rôle modifié"
+    "permission.updated": "Accès de rôle modifié",
+    "deal.opened": "Dossier de transaction ouvert",
+    "contract.sent": "Contrat envoyé aux parties",
+    "role.created": "Rôle plateforme créé",
+    "role.deleted": "Rôle plateforme supprimé",
+    "request.created": "Demande créée",
+    "request.cancelled": "Demande annulée",
+    "research.rerun": "Recherche web relancée",
+    "quotes.requested": "Soumissions demandées",
+    "quote.received": "Soumission enregistrée",
+    "quote.declined": "Soumission refusée",
+    "contracts.drafted": "Contrats préparés",
+    "contract.redrafted": "Texte du contrat régénéré",
+    "contract.signed": "Contrat signé",
+    "contract.signature_recorded": "Signature externe enregistrée",
+    "contract.reminded": "Relance de signature envoyée"
   },
   "twofa": {
     "title": "Vérification en deux étapes",

@@ -423,6 +423,15 @@ export const draftContractsFn = createServerFn({ method: "POST" })
 
     const { recordDealEvent } = await import("@/server/deals");
     await recordDealEvent(deal.id, deal.organizationId, "contracts.drafted", { count: created });
+
+    const { logAudit, actorOf } = await import("@/server/audit");
+    await logAudit({
+      ...actorOf(session),
+      organizationId: deal.organizationId,
+      action: "contracts.drafted",
+      target: deal.title,
+      detail: { count: created },
+    });
     return { ok: true, created };
   });
 
@@ -507,6 +516,18 @@ export const regenerateContractContentFn = createServerFn({ method: "POST" })
       type: "contract.redrafted",
       actorId: session.user.id,
       actorName: session.user.name,
+      detail: { version: content.version, locale: content.locale },
+    });
+
+    // …and an operational row beside it. The contract trail above is the
+    // permanent record of WHAT the document says; this is the journal entry
+    // that lets someone see WHO regenerated it while looking at activity.
+    const { logAudit, actorOf } = await import("@/server/audit");
+    await logAudit({
+      ...actorOf(session),
+      organizationId: contract.organizationId,
+      action: "contract.redrafted",
+      target: contract.number,
       detail: { version: content.version, locale: content.locale },
     });
     return { ok: true };
