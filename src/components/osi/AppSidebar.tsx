@@ -79,8 +79,15 @@ const itemsInterne: {
   key: PlatformFeature;
   url: string;
   icone: typeof Home;
+  disabled?: boolean;
 }[] = [
-  { key: "facilitation", url: "/interne/facilitation", icone: Handshake },
+  // Greyed since 2026-09-12 (owner): the screen only ever listed requests —
+  // two tabs of DossierCards over getAllRequestsFn — which /demandes already
+  // does for staff, with filters and without the "Mes dossiers" tab that the
+  // internal workspace is not supposed to have. Route deleted rather than
+  // left hollow: the house rule for an unbuilt entry is greyed with NO route,
+  // so nothing can be reached by typing the URL.
+  { key: "facilitation", url: "/interne/facilitation", icone: Handshake, disabled: true },
   // Moved out of the client block 2026-08-29 (ADR-002 §12): it has always
   // been staff-only (PLATFORM_FEATURES.analytics) and merely SAT in the
   // buyer list. The buyer-facing counterpart is "Rapports" (Phase P).
@@ -100,6 +107,61 @@ const itemsInterne: {
   { key: "sources", url: "/interne/sources", icone: Database },
 ];
 
+/**
+ * One sidebar row, shared by the client and INTERNE blocks.
+ *
+ * The greyed treatment lives here rather than in each loop: an entry whose
+ * module is not built renders as a <span>, never as a styled <Link>, because
+ * an anchor carrying an href stays followable by keyboard and middle-click
+ * however it is painted.
+ */
+function NavRow({
+  item,
+  active,
+  onNavigate,
+}: {
+  item: { key: string; url: string; icone: typeof Home; disabled?: boolean | undefined };
+  active: boolean;
+  onNavigate?: (() => void) | undefined;
+}) {
+  const { t } = useTranslation();
+  const rowBase =
+    "flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-colors";
+  const label = (
+    <>
+      <item.icone className="size-[18px] shrink-0" />
+      <span className="truncate">{t(`nav.${item.key}`)}</span>
+    </>
+  );
+
+  if (item.disabled === true) {
+    return (
+      <span
+        aria-disabled="true"
+        title={t("nav.soon")}
+        className={cn(rowBase, "cursor-not-allowed text-sidebar-foreground/30")}
+      >
+        {label}
+      </span>
+    );
+  }
+
+  return (
+    <Link
+      to={item.url}
+      onClick={onNavigate}
+      className={cn(
+        rowBase,
+        active
+          ? "bg-sidebar-primary text-sidebar-primary-foreground"
+          : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+      )}
+    >
+      {label}
+    </Link>
+  );
+}
+
 export function AppSidebar({
   session,
   onNavigate,
@@ -113,7 +175,6 @@ export function AppSidebar({
   const itemsVisible = items.filter(
     (item) => !item.feature || hasSessionFeature(session, item.feature),
   );
-  const isDisabled = (item: { disabled?: boolean }) => item.disabled === true;
   const interneVisible = itemsInterne.filter((item) => hasSessionFeature(session, item.key));
 
   return (
@@ -128,72 +189,28 @@ export function AppSidebar({
       </div>
 
       <nav className="flex-1 space-y-1 px-3 py-2">
-        {itemsVisible.map((item) => {
-          const actif = item.url === "/" ? pathname === "/" : pathname.startsWith(item.url);
-          const rowBase =
-            "flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-colors";
-
-          // Rendered as a span, not a disabled Link: an anchor with a href is
-          // still followable by keyboard and middle-click however it is styled.
-          if (isDisabled(item)) {
-            return (
-              <span
-                key={item.url}
-                aria-disabled="true"
-                title={t("nav.soon")}
-                className={cn(rowBase, "cursor-not-allowed text-sidebar-foreground/30")}
-              >
-                <item.icone className="size-[18px] shrink-0" />
-                <span className="truncate">{t(`nav.${item.key}`)}</span>
-              </span>
-            );
-          }
-
-          return (
-            <Link
-              key={item.url}
-              to={item.url}
-              onClick={onNavigate}
-              className={cn(
-                rowBase,
-                actif
-                  ? "bg-sidebar-primary text-sidebar-primary-foreground"
-                  : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-              )}
-            >
-              <item.icone className="size-[18px] shrink-0" />
-              <span className="truncate">{t(`nav.${item.key}`)}</span>
-            </Link>
-          );
-        })}
+        {itemsVisible.map((item) => (
+          <NavRow
+            key={item.url}
+            item={item}
+            active={item.url === "/" ? pathname === "/" : pathname.startsWith(item.url)}
+            onNavigate={onNavigate}
+          />
+        ))}
 
         {interneVisible.length > 0 && (
           <>
             <p className="px-4 pb-1 pt-5 text-[10px] font-semibold uppercase tracking-widest text-sidebar-foreground/40">
               {t("nav.interne")}
             </p>
-            {interneVisible.map((item) => {
-              const actif = pathname.startsWith(item.url);
-              const rowBase =
-                "flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-colors";
-
-              return (
-                <Link
-                  key={item.url}
-                  to={item.url}
-                  onClick={onNavigate}
-                  className={cn(
-                    rowBase,
-                    actif
-                      ? "bg-sidebar-primary text-sidebar-primary-foreground"
-                      : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-                  )}
-                >
-                  <item.icone className="size-[18px] shrink-0" />
-                  <span className="truncate">{t(`nav.${item.key}`)}</span>
-                </Link>
-              );
-            })}
+            {interneVisible.map((item) => (
+              <NavRow
+                key={item.url}
+                item={item}
+                active={pathname.startsWith(item.url)}
+                onNavigate={onNavigate}
+              />
+            ))}
           </>
         )}
       </nav>

@@ -240,7 +240,7 @@ function Accueil() {
       {employee ? (
         <>
           <StatsGrid stats={statsAll} />
-          <DossiersRecents demandes={toutes} mine={false} seeAllTo="/interne/facilitation" />
+          <DossiersRecents demandes={toutes} mine={false} seeAllTo="/demandes" />
           <ActivitesRecentes entries={activity} />
         </>
       ) : (

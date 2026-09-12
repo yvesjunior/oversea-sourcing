@@ -693,8 +693,6 @@
     "others": "Others"
   },
   "empty": {
-    "facilitationTitle": "Facilitation",
-    "facilitationText": "The buyer–supplier connection queue will appear here.",
     "verificationTitle": "Supplier verification",
     "verificationText": "Suppliers awaiting verification will appear here.",
     "financeTitle": "Finance",
@@ -703,10 +701,6 @@
     "documentsText": "Contracts, certificates and inspection reports will be gathered here.",
     "parametresTitle": "Settings",
     "parametresText": "Profile, team, language and sourcing rules will be configurable here."
-  },
-  "facilitation": {
-    "tabAll": "All files",
-    "tabMine": "My files"
   },
   "tabs": {
     "nothingMine": "Nothing yet"

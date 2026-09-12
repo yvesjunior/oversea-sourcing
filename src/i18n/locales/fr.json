@@ -693,8 +693,6 @@
     "others": "Autres"
   },
   "empty": {
-    "facilitationTitle": "Facilitation",
-    "facilitationText": "La file des mises en relation acheteur–fournisseur apparaîtra ici.",
     "verificationTitle": "Vérification fournisseurs",
     "verificationText": "Les fournisseurs en attente de vérification apparaîtront ici.",
     "financeTitle": "Finance",
@@ -703,10 +701,6 @@
     "documentsText": "Contrats, certificats et rapports d’inspection seront regroupés ici.",
     "parametresTitle": "Paramètres",
     "parametresText": "Profil, équipe, langue et règles de sourcing seront configurables ici."
-  },
-  "facilitation": {
-    "tabAll": "Tous les dossiers",
-    "tabMine": "Mes dossiers"
   },
   "tabs": {
     "nothingMine": "Rien pour l’instant"

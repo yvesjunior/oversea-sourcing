@@ -29,7 +29,6 @@ import { Route as ContratsIdRouteImport } from './routes/contrats/$id'
 import { Route as DemandesIndexRouteImport } from './routes/demandes/index'
 import { Route as DemandesIdRouteImport } from './routes/demandes/$id'
 import { Route as InterneClientsRouteImport } from './routes/interne/clients'
-import { Route as InterneFacilitationRouteImport } from './routes/interne/facilitation'
 import { Route as InterneFinanceRouteImport } from './routes/interne/finance'
 import { Route as InterneLoggingRouteImport } from './routes/interne/logging'
 import { Route as InternePlansRouteImport } from './routes/interne/plans'
@@ -141,11 +140,6 @@ const InterneClientsRoute = InterneClientsRouteImport.update({
   path: '/interne/clients',
   getParentRoute: () => rootRouteImport,
 } as any)
-const InterneFacilitationRoute = InterneFacilitationRouteImport.update({
-  id: '/interne/facilitation',
-  path: '/interne/facilitation',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const InterneFinanceRoute = InterneFinanceRouteImport.update({
   id: '/interne/finance',
   path: '/interne/finance',
@@ -216,7 +210,6 @@ export interface FileRoutesByFullPath {
   '/contrats/$id': typeof ContratsIdRoute
   '/demandes/$id': typeof DemandesIdRouteWithChildren
   '/interne/clients': typeof InterneClientsRoute
-  '/interne/facilitation': typeof InterneFacilitationRoute
   '/interne/finance': typeof InterneFinanceRoute
   '/interne/logging': typeof InterneLoggingRoute
   '/interne/plans': typeof InternePlansRoute
@@ -249,7 +242,6 @@ export interface FileRoutesByTo {
   '/contrats/$id': typeof ContratsIdRoute
   '/demandes/$id': typeof DemandesIdRouteWithChildren
   '/interne/clients': typeof InterneClientsRoute
-  '/interne/facilitation': typeof InterneFacilitationRoute
   '/interne/finance': typeof InterneFinanceRoute
   '/interne/logging': typeof InterneLoggingRoute
   '/interne/plans': typeof InternePlansRoute
@@ -283,7 +275,6 @@ export interface FileRoutesById {
   '/contrats/$id': typeof ContratsIdRoute
   '/demandes/$id': typeof DemandesIdRouteWithChildren
   '/interne/clients': typeof InterneClientsRoute
-  '/interne/facilitation': typeof InterneFacilitationRoute
   '/interne/finance': typeof InterneFinanceRoute
   '/interne/logging': typeof InterneLoggingRoute
   '/interne/plans': typeof InternePlansRoute
@@ -318,7 +309,6 @@ export interface FileRouteTypes {
     | '/contrats/$id'
     | '/demandes/$id'
     | '/interne/clients'
-    | '/interne/facilitation'
     | '/interne/finance'
     | '/interne/logging'
     | '/interne/plans'
@@ -351,7 +341,6 @@ export interface FileRouteTypes {
     | '/contrats/$id'
     | '/demandes/$id'
     | '/interne/clients'
-    | '/interne/facilitation'
     | '/interne/finance'
     | '/interne/logging'
     | '/interne/plans'
@@ -384,7 +373,6 @@ export interface FileRouteTypes {
     | '/contrats/$id'
     | '/demandes/$id'
     | '/interne/clients'
-    | '/interne/facilitation'
     | '/interne/finance'
     | '/interne/logging'
     | '/interne/plans'
@@ -418,7 +406,6 @@ export interface RootRouteChildren {
   ContratsIdRoute: typeof ContratsIdRoute
   DemandesIdRoute: typeof DemandesIdRouteWithChildren
   InterneClientsRoute: typeof InterneClientsRoute
-  InterneFacilitationRoute: typeof InterneFacilitationRoute
   InterneFinanceRoute: typeof InterneFinanceRoute
   InterneLoggingRoute: typeof InterneLoggingRoute
   InternePlansRoute: typeof InternePlansRoute
@@ -574,13 +561,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof InterneClientsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/interne/facilitation': {
-      id: '/interne/facilitation'
-      path: '/interne/facilitation'
-      fullPath: '/interne/facilitation'
-      preLoaderRoute: typeof InterneFacilitationRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/interne/finance': {
       id: '/interne/finance'
       path: '/interne/finance'
@@ -685,7 +665,6 @@ const rootRouteChildren: RootRouteChildren = {
   ContratsIdRoute: ContratsIdRoute,
   DemandesIdRoute: DemandesIdRouteWithChildren,
   InterneClientsRoute: InterneClientsRoute,
-  InterneFacilitationRoute: InterneFacilitationRoute,
   InterneFinanceRoute: InterneFinanceRoute,
   InterneLoggingRoute: InterneLoggingRoute,
   InternePlansRoute: InternePlansRoute,
