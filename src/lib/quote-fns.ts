@@ -10,6 +10,7 @@
 // a by-product of the tab the brief asked for.
 
 import { createServerFn } from "@tanstack/react-start";
+import { QUOTE_DECLINE_REASONS, type QuoteDeclineReason } from "@/database/schema";
 import { z } from "zod";
 import type { QuoteStatus } from "@/database/schema";
 
@@ -36,9 +37,18 @@ export type QuoteView = {
   /** ISO strings — the client formats. */
   requestedAt: string;
   respondedAt: string | null;
+  /** When OSI actually sent the request to the supplier — null until staff
+   *  mark it sent, and on every row created before 2026-09-12. */
+  sentAt: string | null;
+  /** Why the offer is out of the running. Only set when status is `declined`. */
+  declineReason: QuoteDeclineReason | null;
   /** Hours between the ask and the answer; null until they answer. The
    *  supplier-responsiveness signal, computed rather than stored. */
   responseHours: number | null;
+  /** Which clock `responseHours` was measured from. `requested` means the row
+   *  predates `sent_at` or was never marked sent, so the figure still includes
+   *  OSI's own lag — do not present it as a supplier metric without saying so. */
+  responseFrom: "sent" | "requested";
 };
 
 /** What the buyer may do with a quote, resolved server-side so the UI never
@@ -75,10 +85,21 @@ function toView(
     paymentTerms: quote.paymentTerms,
     notes: quote.notes,
     requestedAt: quote.requestedAt.toISOString(),
+    sentAt: quote.sentAt ? quote.sentAt.toISOString() : null,
+    declineReason: quote.declineReason ?? null,
     respondedAt: responded ? responded.toISOString() : null,
+    // Measured from when OSI actually SENT the request, not from when the
+    // buyer asked for it — the gap between those two is ours, not the
+    // supplier's, and this figure is meant to be a supplier signal (ADR Part I
+    // §6). Falls back to requestedAt for rows that predate sent_at, and
+    // `responseFrom` tells the reader which clock was used rather than
+    // presenting both as the same measurement.
     responseHours: responded
-      ? Math.round(((responded.getTime() - quote.requestedAt.getTime()) / 3_600_000) * 10) / 10
+      ? Math.round(
+          ((responded.getTime() - (quote.sentAt ?? quote.requestedAt).getTime()) / 3_600_000) * 10,
+        ) / 10
       : null,
+    responseFrom: quote.sentAt ? ("sent" as const) : ("requested" as const),
   };
 }
 
@@ -447,10 +468,88 @@ export const recordQuoteFn = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-/** The supplier said no, or did not answer in time. Staff-only, same reason. */
+/**
+ * Staff mark the request as actually sent to the supplier (parcours step 06).
+ *
+ * The send itself is an email, by hand, outside the platform — suppliers have
+ * no account (ADR Part II §2), so the platform can only record that it
+ * happened. That record is what makes `responseHours` a supplier metric
+ * instead of a mixed one: before this existed the clock started when the BUYER
+ * asked, so an afternoon's delay at OSI's end was published as a slow supplier.
+ *
+ * Idempotent: marking an already-sent request again is a no-op rather than a
+ * refusal, because a second click must never rewrite the clock the response
+ * time is measured from.
+ */
+export const markQuoteSentFn = createServerFn({ method: "POST" })
+  .inputValidator(z.object({ quoteIds: z.array(z.string().min(1)).min(1).max(20) }))
+  .handler(async ({ data }): Promise<{ ok: boolean; marked: number }> => {
+    const [
+      { effectiveHasPermission },
+      { auth },
+      { getRequest },
+      { db },
+      { and, eq, inArray, isNull },
+      schema,
+    ] = await Promise.all([
+      import("@/server/workspace-guard"),
+      import("@/server/auth"),
+      import("@tanstack/react-start/server"),
+      import("@/database"),
+      import("drizzle-orm"),
+      import("@/database/schema"),
+    ]);
+    const headers = getRequest().headers;
+    const session = await auth.api.getSession({ headers });
+    // Same gate as recording an answer: this is OSI's side of the exchange.
+    if (!session || !(await effectiveHasPermission(session, "deals"))) {
+      return { ok: false, marked: 0 };
+    }
+
+    const now = new Date();
+    const marked = await db
+      .update(schema.quote)
+      .set({ sentAt: now, sentBy: session.user.id, updatedAt: now })
+      .where(
+        and(
+          inArray(schema.quote.id, data.quoteIds),
+          // Only ones still awaiting an answer, and only once.
+          eq(schema.quote.status, "requested"),
+          isNull(schema.quote.sentAt),
+        ),
+      )
+      .returning({ id: schema.quote.id });
+    if (marked.length === 0) return { ok: true, marked: 0 };
+
+    const first = await db.query.quote.findFirst({
+      where: eq(schema.quote.id, marked[0]!.id),
+    });
+    const { logAudit, actorOf } = await import("@/server/audit");
+    await logAudit({
+      ...actorOf(session),
+      organizationId: first?.organizationId ?? null,
+      action: "quote.sent",
+      target: first ? `#${first.requestId}` : null,
+      detail: { count: marked.length },
+    });
+    return { ok: true, marked: marked.length };
+  });
+
+/**
+ * The offer is out of the running, and WHY is part of the record.
+ *
+ * `reason` is required and typed: a free-text note cannot be aggregated, and
+ * this field exists precisely so the supplier graph can tell "never answered"
+ * (a supplier signal) from "we picked someone else" (not one). The note stays
+ * for the human detail that no enum can carry.
+ */
 export const declineQuoteFn = createServerFn({ method: "POST" })
   .inputValidator(
-    z.object({ quoteId: z.string().min(1), reason: z.string().trim().max(300).optional() }),
+    z.object({
+      quoteId: z.string().min(1),
+      reason: z.enum(QUOTE_DECLINE_REASONS),
+      note: z.string().trim().max(300).optional(),
+    }),
   )
   .handler(async ({ data }): Promise<{ ok: boolean }> => {
     const [{ effectiveHasPermission }, { auth }, { getRequest }, { db }, { eq }, schema] =
@@ -472,7 +571,8 @@ export const declineQuoteFn = createServerFn({ method: "POST" })
     const { transitionQuote } = await import("@/server/deals");
     try {
       await transitionQuote(quote.id, quote.status, "declined", {
-        notes: data.reason ?? quote.notes,
+        declineReason: data.reason,
+        notes: data.note ?? quote.notes,
       });
     } catch {
       return { ok: false };
@@ -484,7 +584,7 @@ export const declineQuoteFn = createServerFn({ method: "POST" })
       organizationId: quote.organizationId,
       action: "quote.declined",
       target: quote.supplierName,
-      detail: { request: quote.requestId, ...(data.reason ? { reason: data.reason } : {}) },
+      detail: { request: quote.requestId, reason: data.reason },
     });
     return { ok: true };
   });
@@ -546,9 +646,14 @@ export const acceptQuoteFn = createServerFn({ method: "POST" })
           // Everything else on this request is out of the running. Not
           // cosmetic: `accepted` is terminal, so leaving siblings open would
           // suggest a choice that can no longer be made.
+          //
+          // `lost` is the whole point of the reason column: these suppliers
+          // did nothing wrong — several will have answered quickly with good
+          // terms — and recording them the same way as a supplier who never
+          // replied would teach the graph the opposite of the truth.
           await tx
             .update(schema.quote)
-            .set({ status: "declined", updatedAt: new Date() })
+            .set({ status: "declined", declineReason: "lost", updatedAt: new Date() })
             .where(
               and(
                 eq(schema.quote.requestId, quote.requestId),

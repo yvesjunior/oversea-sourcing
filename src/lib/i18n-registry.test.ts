@@ -17,7 +17,12 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import fr from "@/i18n/locales/fr.json";
 import en from "@/i18n/locales/en.json";
-import { CONTRACT_STATUSES, CONTRACT_TYPES, QUOTE_STATUSES } from "@/database/schema";
+import {
+  CONTRACT_STATUSES,
+  CONTRACT_TYPES,
+  QUOTE_DECLINE_REASONS,
+  QUOTE_STATUSES,
+} from "@/database/schema";
 import { NOTIFICATION_TYPES } from "@/lib/notification-types";
 
 function sourceFiles(dir: string, found: string[] = []): string[] {
@@ -47,7 +52,7 @@ function emitted(pattern: RegExp): string[] {
  * accepts either rather than imposing a convention it would then have to
  * enforce across 900 existing keys.
  */
-function labelled(section: Record<string, string>, code: string): boolean {
+function labelled(section: Record<string, unknown>, code: string): boolean {
   return [code, code.replace(/\./g, "_")].some(
     (key) =>
       key in section ||
@@ -60,8 +65,11 @@ function labelled(section: Record<string, string>, code: string): boolean {
 const REGISTRIES: {
   name: string;
   codes: string[];
-  fr: Record<string, string>;
-  en: Record<string, string>;
+  // `unknown` values: a section may hold nested groups beside its labels —
+  // `soumissions` carries declineReason.* as an object — and presence is all
+  // this test asserts.
+  fr: Record<string, unknown>;
+  en: Record<string, unknown>;
 }[] = [
   {
     name: "audit actions (auditActions.*)",
@@ -98,6 +106,12 @@ const REGISTRIES: {
     codes: [...QUOTE_STATUSES],
     fr: fr.soumissions,
     en: en.soumissions,
+  },
+  {
+    name: "quote decline reasons (soumissions.declineReason.*)",
+    codes: [...QUOTE_DECLINE_REASONS],
+    fr: fr.soumissions.declineReason,
+    en: en.soumissions.declineReason,
   },
   {
     name: "contract statuses (contrats.status.*)",

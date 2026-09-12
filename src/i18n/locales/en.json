@@ -879,7 +879,8 @@
     "contract.signature_recorded": "External signature recorded",
     "contract.reminded": "Signature reminder sent",
     "auth.signed_in": "Signed in",
-    "auth.sign_in_failed": "Failed sign-in"
+    "auth.sign_in_failed": "Failed sign-in",
+    "quote.sent": "Quote request sent"
   },
   "twofa": {
     "title": "Two-step verification",
@@ -962,7 +963,16 @@
     "refusal_forbidden": "Your role in this workspace cannot accept an offer.",
     "refusal_not_found": "That offer no longer exists.",
     "refusal_not_received": "That offer has not arrived yet.",
-    "refusal_already_accepted": "An offer has already been accepted for this request. For a second supplier, create a new request."
+    "refusal_already_accepted": "An offer has already been accepted for this request. For a second supplier, create a new request.",
+    "markSent": "Mark as sent",
+    "declineReasonLabel": "Reason for declining",
+    "declineReason": {
+      "no_response": "No response",
+      "supplier_declined": "The supplier declined",
+      "lost": "The customer chose another supplier"
+    },
+    "sentAt": "Sent on",
+    "responseFromRequested": "measured from the customer's request — the send was never timestamped"
   },
   "contrats": {
     "title": "Contracts",

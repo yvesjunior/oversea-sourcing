@@ -281,6 +281,13 @@
       "when": 1788045154146,
       "tag": "0039_foamy_leech",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1789230119765,
+      "tag": "0040_romantic_moon_knight",
+      "breakpoints": true
     }
   ]
 }

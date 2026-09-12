@@ -879,7 +879,8 @@
     "contract.signature_recorded": "Signature externe enregistrée",
     "contract.reminded": "Relance de signature envoyée",
     "auth.signed_in": "Connexion",
-    "auth.sign_in_failed": "Échec de connexion"
+    "auth.sign_in_failed": "Échec de connexion",
+    "quote.sent": "Demande de soumission envoyée"
   },
   "twofa": {
     "title": "Vérification en deux étapes",
@@ -962,7 +963,16 @@
     "refusal_forbidden": "Votre rôle dans cet espace ne permet pas d'accepter une offre.",
     "refusal_not_found": "Cette offre est introuvable.",
     "refusal_not_received": "Cette offre n'est pas encore arrivée.",
-    "refusal_already_accepted": "Une offre a déjà été acceptée pour cette demande. Pour un second fournisseur, créez une nouvelle demande."
+    "refusal_already_accepted": "Une offre a déjà été acceptée pour cette demande. Pour un second fournisseur, créez une nouvelle demande.",
+    "markSent": "Marquer comme envoyée",
+    "declineReasonLabel": "Motif du refus",
+    "declineReason": {
+      "no_response": "Sans réponse",
+      "supplier_declined": "Le fournisseur a refusé",
+      "lost": "Le client a choisi un autre fournisseur"
+    },
+    "sentAt": "Envoyée le",
+    "responseFromRequested": "délai mesuré depuis la demande du client — l’envoi n’a pas été horodaté"
   },
   "contrats": {
     "title": "Contrats",

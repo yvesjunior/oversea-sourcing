@@ -909,6 +909,22 @@ export const match = pgTable(
 export const QUOTE_STATUSES = ["requested", "received", "declined", "accepted", "expired"] as const;
 export type QuoteStatus = (typeof QUOTE_STATUSES)[number];
 
+/**
+ * WHY a quote was declined — the distinction `status` alone destroys.
+ *
+ * `declined` used to carry three unrelated facts at once, and the third is the
+ * majority by volume: the supplier refused, the supplier never answered, or
+ * the BUYER picked someone else and the siblings were closed automatically.
+ *
+ * For the supplier graph (ADR Part I §6) those are opposites. "Lost to a
+ * competitor" says nothing about a supplier — they may have answered fast with
+ * a fine offer. "Never answered" is the strongest negative signal the platform
+ * can own, and it cannot be scraped from anywhere. Folding them together
+ * poisons the data the whole demand-pull strategy rests on, at the source.
+ */
+export const QUOTE_DECLINE_REASONS = ["supplier_declined", "no_response", "lost"] as const;
+export type QuoteDeclineReason = (typeof QUOTE_DECLINE_REASONS)[number];
+
 /** A soumission: one supplier asked for one request. The buyer picks WHO is
  *  asked (owner 2026-08-29), staff send and record what comes back.
  *
@@ -945,9 +961,27 @@ export const quote = pgTable(
     validUntil: timestamp("valid_until"),
     notes: text("notes"),
 
+    /** Set whenever `status` is `declined`; null otherwise. See
+     *  QUOTE_DECLINE_REASONS for why the status alone is not enough. */
+    declineReason: text("decline_reason").$type<QuoteDeclineReason>(),
+
     // ── trail ────────────────────────────────────────────────────────────
+    /** When the BUYER asked OSI to solicit this supplier. */
     requestedAt: timestamp("requested_at").notNull().defaultNow(),
     requestedBy: text("requested_by").references(() => user.id, { onDelete: "set null" }),
+    /**
+     * When OSI actually sent the request to the supplier — a human act, by
+     * email, outside the platform.
+     *
+     * Without it the response time measured `requested_at → responded_at`,
+     * which is OSI's own lag PLUS the supplier's. That is not what ADR Part I
+     * §6 promises: supplier responsiveness is the unscrapable signal, and a
+     * slow afternoon at OSI's end was being recorded as a slow supplier.
+     * Null on rows created before 2026-09-12 and whenever staff have not
+     * marked the request sent — readers fall back to `requested_at` and say so.
+     */
+    sentAt: timestamp("sent_at"),
+    sentBy: text("sent_by").references(() => user.id, { onDelete: "set null" }),
     /** When the supplier actually answered — the response-time signal. */
     respondedAt: timestamp("responded_at"),
     /** The staff member who keyed the offer in (nobody else can: the supplier

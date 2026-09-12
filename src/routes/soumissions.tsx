@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
   acceptQuoteFn,
+  markQuoteSentFn,
   getAllQuotesFn,
   getMyQuotesFn,
   recordQuoteFn,
@@ -70,6 +71,7 @@ function RecordForm({ quote, onDone }: { quote: QuoteView; onDone: () => void })
   const [moq, setMoq] = useState("");
   const [incoterm, setIncoterm] = useState("");
   const [notes, setNotes] = useState("");
+  const [declineReason, setDeclineReason] = useState<StaffDeclineReason>("no_response");
   const [saving, setSaving] = useState(false);
 
   const save = async () => {
@@ -170,15 +172,35 @@ function RecordForm({ quote, onDone }: { quote: QuoteView; onDone: () => void })
           className="min-h-[56px] resize-none text-sm"
         />
       </div>
-      <div className="mt-3 flex gap-2">
+      <div className="mt-3 flex flex-wrap items-center gap-2">
         <Button variant="gold" size="sm" disabled={saving} onClick={() => void save()}>
           {t("soumissions.save")}
         </Button>
+        {/* The reason is REQUIRED, so it is picked here rather than asked for
+            in a second step: a decline with no reason is the row that taught
+            the supplier graph nothing. `lost` is absent on purpose — staff
+            never choose it, acceptQuoteFn writes it for the siblings. */}
+        <select
+          aria-label={t("soumissions.declineReasonLabel")}
+          value={declineReason}
+          onChange={(e) => setDeclineReason(e.target.value as StaffDeclineReason)}
+          className="h-9 rounded-lg border border-border bg-background px-2 text-sm"
+        >
+          {STAFF_DECLINE_REASONS.map((reason) => (
+            <option key={reason} value={reason}>
+              {t(`soumissions.declineReason.${reason}`)}
+            </option>
+          ))}
+        </select>
         <Button
           variant="outline"
           size="sm"
           disabled={saving}
-          onClick={() => void declineQuoteFn({ data: { quoteId: quote.id } }).then(onDone)}
+          onClick={() =>
+            void declineQuoteFn({
+              data: { quoteId: quote.id, reason: declineReason, ...(notes ? { note: notes } : {}) },
+            }).then(onDone)
+          }
         >
           {t("soumissions.decline")}
         </Button>
@@ -186,6 +208,13 @@ function RecordForm({ quote, onDone }: { quote: QuoteView; onDone: () => void })
     </div>
   );
 }
+
+/** What staff can choose when closing an offer. `lost` is deliberately not
+ *  here: it means "the buyer accepted someone else", which acceptQuoteFn
+ *  writes for the siblings — offering it as a manual choice would invite the
+ *  one value that must stay machine-written to stay trustworthy. */
+const STAFF_DECLINE_REASONS = ["no_response", "supplier_declined"] as const;
+type StaffDeclineReason = (typeof STAFF_DECLINE_REASONS)[number];
 
 function Soumissions() {
   const { t } = useTranslation();
@@ -259,6 +288,17 @@ function QuoteList({
   const [openForm, setOpenForm] = useState<string | null>(null);
   const [accepting, setAccepting] = useState<string | null>(null);
   const [refusal, setRefusal] = useState<string | null>(null);
+  const [marking, setMarking] = useState<string | null>(null);
+
+  const markSent = async (quote: QuoteView) => {
+    setMarking(quote.id);
+    try {
+      await markQuoteSentFn({ data: { quoteIds: [quote.id] } });
+      await router.invalidate();
+    } finally {
+      setMarking(null);
+    }
+  };
 
   const accept = async (quote: QuoteView) => {
     setAccepting(quote.id);
@@ -335,9 +375,28 @@ function QuoteList({
                         </span>
                       </div>
                       <div className="flex items-center gap-3">
-                        {quote.responseHours !== null && (
+                        {/* WHY it is out of the running, not just that it is —
+                            "lost" and "no response" look identical otherwise,
+                            and they mean opposite things about a supplier. */}
+                        {quote.status === "declined" && quote.declineReason && (
                           <span className="text-[11px] text-muted-foreground">
+                            {t(`soumissions.declineReason.${quote.declineReason}`)}
+                          </span>
+                        )}
+                        {quote.responseHours !== null && (
+                          <span
+                            className="text-[11px] text-muted-foreground"
+                            // A figure measured from the buyer's ask still
+                            // contains OSI's own lag. Say so rather than let it
+                            // be read as supplier responsiveness.
+                            title={
+                              quote.responseFrom === "requested"
+                                ? t("soumissions.responseFromRequested")
+                                : undefined
+                            }
+                          >
                             {t("soumissions.responseTime")}: {quote.responseHours} h
+                            {quote.responseFrom === "requested" && " *"}
                           </span>
                         )}
                         <span
@@ -356,6 +415,20 @@ function QuoteList({
                             onClick={() => void accept(quote)}
                           >
                             {t("soumissions.accept")}
+                          </Button>
+                        )}
+                        {/* Step 06: the email goes out by hand, so the only
+                            thing the platform can do is record that it did —
+                            and that stamp is what makes the response time a
+                            SUPPLIER measurement rather than ours plus theirs. */}
+                        {canRecord && quote.status === "requested" && !quote.sentAt && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={marking === quote.id}
+                            onClick={() => void markSent(quote)}
+                          >
+                            {t("soumissions.markSent")}
                           </Button>
                         )}
                         {canRecord && quote.status === "requested" && (
