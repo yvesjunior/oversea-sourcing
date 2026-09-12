@@ -584,7 +584,8 @@
     "status_shipping": "En transit",
     "status_delivered": "Livré",
     "status_reviewed": "Évalué par le client",
-    "research_rerun": "Recherche web relancée"
+    "research_rerun": "Recherche web relancée",
+    "quote_accepted": "Soumission acceptée — dossier ouvert"
   },
   "stepsDemande": {
     "received": {

@@ -584,7 +584,8 @@
     "status_shipping": "Shipping",
     "status_delivered": "Delivered",
     "status_reviewed": "Reviewed by the client",
-    "research_rerun": "Web research re-run"
+    "research_rerun": "Web research re-run",
+    "quote_accepted": "Quote accepted — transaction file opened"
   },
   "stepsDemande": {
     "received": {

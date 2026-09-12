@@ -55,6 +55,35 @@ export function getI18n(lang: Language): I18nInstance {
     supportedLngs: LANGUAGES,
     interpolation: { escapeValue: false },
     react: { useSuspense: false },
+    // ── Missing keys must be LOUD in dev (2026-09-12) ───────────────────
+    // A missing key is the quietest bug this codebase has: `t()` returns the
+    // key itself, React renders it, nothing throws and nothing logs. Four
+    // shipped that way in one week — the dashboard printed "{{count}}", the
+    // preferences panel and the audit journal printed raw keys, and a buyer
+    // accepting an offer saw "quote.accepted" on their own dossier. Every one
+    // was found by a human looking at a screen.
+    //
+    // Parity between the locale files would not have caught any of them: both
+    // files are identical (916 keys each). The failure is always "the code
+    // emits a key that exists in NEITHER file", which only the render knows.
+    //
+    // DEV ONLY. In production a missing key must stay a degraded string, never
+    // a console full of errors for the visitor.
+    ...(import.meta.env.DEV
+      ? {
+          saveMissing: true,
+          missingKeyHandler: (
+            languages: readonly string[],
+            namespace: string,
+            key: string,
+          ): void => {
+            console.error(
+              `i18n: MISSING KEY "${key}" (${namespace}, ${languages.join("/")}) — ` +
+                `it will render as the key itself. Add it to BOTH locale files.`,
+            );
+          },
+        }
+      : {}),
   });
   instances.set(lang, instance);
   return instance;
