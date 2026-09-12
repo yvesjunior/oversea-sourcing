@@ -37,7 +37,7 @@ tracked to delivery** — with the PDF report available throughout.
 
 ### START HERE — handoff, 2026-09-07 (read this first)
 
-**Prod = `615d7e0` (deploy #30).** One change: the research agent now
+**Prod = `570ac3b` (deploy #31).** One change: the research agent now
 **retries a search pass that never searched**, and a collection pass in which
 every source failed is recorded as `failed` instead of `succeeded`. Full story
 in **"A research pass that never searched"** below — read it before touching
@@ -145,6 +145,7 @@ deploy failed mid-session and prod was rolled back; see #24.
 | 23 | `5b90649` | — | **the platform workspace can no longer be deleted** — the org-plugin's own `POST /organization/delete` bypassed `destroyWorkspace`; guard moved into a `beforeDeleteOrganization` hook |
 | 24 | `95b825a` | — | **filters on all four ops lists** (multi-account + week/month/year/custom period) · **the global supplier directory is staff-only** · the DB cleared for fresh testing. *First attempt (`77d37b0`) took prod down — see the chunk-cycle note* |
 | 25 | `b7481d6` | — | **"linked supplier" widened to four traces** (matched · quoted · dealt · contract party) · **a session opens in your PERSONAL workspace** when you have one · the discovery store cleared for a cold research test |
+| 31 | `570ac3b` | — | **the empty state stopped being a dead end** — "Décrire un besoin" pointed at `/`, which stopped being the intake form on 2026-08-29; it now goes to `/demandes`, and is gone from `/demandes` itself where the form is already open above it · the **single consolidated ADR** (both parts, the runtime, the parcours) replacing two records and three diagrams |
 | 30 | `615d7e0` | — | **staff are told when a buyer asks for quotes** (email + in-app, `deals` holders only, one per action) · event labels stopped printing `{{count}}` on the dashboard · the prefs panel labels its last four notification types |
 | 29 | `5f6f44c` | — | **a failed research says so and offers a re-run** on `/demandes/$id` — only `failed` (a search that found nobody is an answer); `report_ready → searching` became legal so the re-run's suppliers actually reach the Top-N |
 | 28 | `8b66fa5` | — | **a search pass that never searched is retried, and a pass whose every source failed is recorded `failed`** — so the `already_ran` guard stops sealing a request that never got searched (prod 3018) |
@@ -2223,6 +2224,24 @@ exactly like "no errors". Both produced a confidently wrong first diagnosis
 (blamed on `DossierCard`'s relative timestamp, then on dev-container
 restarts). `DossierCard` keeps its `suppressHydrationWarning` as prophylaxis —
 that mismatch is real in principle and costs one attribute.
+
+### The empty-request state has three callers, and one is unresolved
+
+`EmptyRequests` renders on `/` (dashboard), `/demandes`, and
+`/interne/facilitation`. Its call to action takes a `cta` flag because only the
+first one needs it:
+
+- **Dashboard** — keeps the button; it is the one thing that moves a buyer with
+  nothing forward. It linked to `/` until 2026-09-12, which reloaded the page
+  they were already on.
+- **`/demandes`** — no button. That page opens its intake form whenever the
+  list is empty, so the CTA pointed at the current page.
+- **`/interne/facilitation`** — ⚠️ **still has the button, and it is probably
+  wrong.** Staff cannot file a request from the internal workspace at all
+  (`createRequestFn` refuses it), so the button offers them something the
+  server would reject, and `/demandes` hides the form for employees anyway.
+  Unresolved on purpose: it needs a decision on whether that empty block should
+  lose its CTA or not render for staff at all.
 
 ### Live data (do not assume it is disposable)
 
