@@ -175,6 +175,39 @@ export const auth = betterAuth({
     // (previous role, target email; both unrecoverable after the mutation).
     after: createAuthMiddleware(async (ctx) => {
       const path = ctx.path;
+
+      // ── Failed sign-in (owner, 2026-09-12) ─────────────────────────────
+      // The successful half is hooked on session creation (see databaseHooks)
+      // because that catches every path in. A FAILURE creates no session, so
+      // it has to be caught here — and it is reachable: better-auth catches an
+      // APIError thrown by the endpoint, assigns it to `context.returned`, and
+      // runs the after-hooks anyway (dist/api/dispatch.mjs). So a non-error
+      // `returned` on this path means the password was right.
+      //
+      // The attempted address is recorded deliberately, including when no such
+      // account exists: "six failures for an address we have never issued" is
+      // exactly the pattern this row exists to make visible. It is the same
+      // class of subject the schema already documents for `target` (an email,
+      // a supplier name, a plan code).
+      if (path === "/sign-in/email" || path === "/sign-in/username") {
+        if (!(ctx.context.returned instanceof APIError)) return;
+        const attempted = (ctx.body as { email?: unknown } | undefined)?.email;
+        const { logAudit } = await import("@/server/audit");
+        await logAudit({
+          actorId: null,
+          actorName: null,
+          action: "auth.sign_in_failed",
+          target: typeof attempted === "string" ? attempted.toLowerCase().slice(0, 160) : null,
+          detail: {
+            status: ctx.context.returned.status,
+            ...(ctx.headers?.get("user-agent")
+              ? { userAgent: ctx.headers.get("user-agent")!.slice(0, 200) }
+              : {}),
+          },
+        });
+        return;
+      }
+
       if (path !== "/organization/remove-member" && path !== "/organization/update-member-role")
         return;
       type MemberShape = { id: string; userId: string; organizationId: string; role: string };
@@ -533,6 +566,36 @@ export const auth = betterAuth({
           return {
             data: { ...newSession, activeOrganizationId: active?.organizationId ?? null },
           };
+        },
+        // Sign-in lands in the journal (owner, 2026-09-12). Hooked on SESSION
+        // CREATION rather than on /sign-in/email, because that endpoint is
+        // only one of the ways in: a social sign-in never touches it, and an
+        // account with 2FA on gets a `twoFactorRedirect` from it and its real
+        // session minutes later from /two-factor/verify-totp. A session row is
+        // the one thing every successful path produces exactly once.
+        after: async (newSession) => {
+          const actor = await db.query.user.findFirst({
+            where: eq(schema.user.id, newSession.userId),
+            columns: { name: true },
+          });
+          const { logAudit } = await import("@/server/audit");
+          await logAudit({
+            actorId: newSession.userId,
+            actorName: actor?.name ?? null,
+            // The hook's session type carries extra fields through an index
+            // signature, so the workspace arrives untyped — narrow it rather
+            // than widening the audit input.
+            organizationId:
+              typeof newSession["activeOrganizationId"] === "string"
+                ? newSession["activeOrganizationId"]
+                : null,
+            action: "auth.signed_in",
+            // Where from, which is the whole security value of the row.
+            detail: {
+              ...(newSession.ipAddress ? { ip: newSession.ipAddress } : {}),
+              ...(newSession.userAgent ? { userAgent: newSession.userAgent.slice(0, 200) } : {}),
+            },
+          });
         },
       },
     },

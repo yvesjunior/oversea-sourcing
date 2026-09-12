@@ -877,7 +877,9 @@
     "contract.redrafted": "Contract text regenerated",
     "contract.signed": "Contract signed",
     "contract.signature_recorded": "External signature recorded",
-    "contract.reminded": "Signature reminder sent"
+    "contract.reminded": "Signature reminder sent",
+    "auth.signed_in": "Signed in",
+    "auth.sign_in_failed": "Failed sign-in"
   },
   "twofa": {
     "title": "Two-step verification",

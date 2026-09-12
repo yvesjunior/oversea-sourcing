@@ -877,7 +877,9 @@
     "contract.redrafted": "Texte du contrat régénéré",
     "contract.signed": "Contrat signé",
     "contract.signature_recorded": "Signature externe enregistrée",
-    "contract.reminded": "Relance de signature envoyée"
+    "contract.reminded": "Relance de signature envoyée",
+    "auth.signed_in": "Connexion",
+    "auth.sign_in_failed": "Échec de connexion"
   },
   "twofa": {
     "title": "Vérification en deux étapes",
