@@ -151,7 +151,10 @@ function DemandeDetail() {
   // solicited without this selection: no automatic outreach, ever.
   const [picked, setPicked] = useState<string[]>([]);
   const [asking, setAsking] = useState(false);
-  const [asked, setAsked] = useState(0);
+  // What the last ask actually did. "0 approached" with no reason is what made
+  // a re-ask look broken: the supplier was already being solicited, or had
+  // already answered, and nothing on screen said so.
+  const [askOutcome, setAskOutcome] = useState<string | null>(null);
   const togglePick = (supplierId: string) =>
     setPicked((current) =>
       current.includes(supplierId)
@@ -165,10 +168,16 @@ function DemandeDetail() {
       const result = await requestQuotesFn({
         data: { requestId: demande.id, supplierIds: picked },
       });
-      if (result.ok) {
-        setAsked(result.created);
-        setPicked([]);
+      if (!result.ok) {
+        setAskOutcome(t(`soumissions.askRefusal_${result.reason}`));
+        return;
       }
+      const parts: string[] = [];
+      if (result.created > 0) parts.push(t("soumissions.askCreated", { count: result.created }));
+      if (result.reopened > 0) parts.push(t("soumissions.askReopened", { count: result.reopened }));
+      if (result.skipped > 0) parts.push(t("soumissions.askSkipped", { count: result.skipped }));
+      setAskOutcome(parts.join(" · "));
+      setPicked([]);
     } finally {
       setAsking(false);
     }
@@ -476,9 +485,7 @@ function DemandeDetail() {
               {demande.canEdit && (
                 <div className="mt-4 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 rounded-lg border border-border bg-secondary/40 px-4 py-3">
                   <p className="min-w-0 text-xs text-muted-foreground">
-                    {asked > 0
-                      ? t("soumissions.askDone", { count: asked })
-                      : t("soumissions.askHint")}
+                    {askOutcome ?? t("soumissions.askHint")}
                   </p>
                   <Button
                     variant="gold"

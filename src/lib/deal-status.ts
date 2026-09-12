@@ -19,8 +19,17 @@ export const QUOTE_TRANSITIONS: Record<QuoteStatus, readonly QuoteStatus[]> = {
   // Terminal: an accepted offer is what a dossier is built on. Changing
   // supplier means a new request, not a re-acceptance (see "no splitting").
   accepted: [],
-  declined: [],
-  expired: [],
+  // Back to `requested` is RE-ASKING a supplier (2026-09-12). A supplier who
+  // declined, or never answered, may be worth approaching again — circumstances
+  // change, and a buyer who wants to should not have to file a whole new
+  // request to do it. Before this the ask was silently dropped:
+  // `onConflictDoNothing` on (request_id, supplier_id) meant the second
+  // solicitation did nothing at all and the buyer was told "0 approached".
+  //
+  // Only from these two. `received` and `accepted` are NOT reopenable: asking
+  // again would throw away an answer we already have.
+  declined: ["requested"],
+  expired: ["requested"],
 };
 
 export function canTransitionQuote(from: QuoteStatus, to: QuoteStatus): boolean {

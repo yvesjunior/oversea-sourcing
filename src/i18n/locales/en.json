@@ -984,7 +984,16 @@
     "attachDone_one": "{{count}} document attached",
     "attachDone_other": "{{count}} documents attached",
     "attachError": "Upload failed — check the format and the size.",
-    "viewRequest": "View the customer's request"
+    "viewRequest": "View the customer's request",
+    "askCreated_one": "{{count}} supplier approached",
+    "askCreated_other": "{{count}} suppliers approached",
+    "askReopened_one": "{{count}} asked again",
+    "askReopened_other": "{{count}} asked again",
+    "askSkipped_one": "{{count}} already under way",
+    "askSkipped_other": "{{count}} already under way",
+    "askRefusal_already_decided": "An offer has already been accepted for this request.",
+    "askRefusal_forbidden": "You do not have the rights to solicit a supplier.",
+    "askRefusal_not_found": "Request not found."
   },
   "contrats": {
     "title": "Contracts",

@@ -984,7 +984,16 @@
     "attachDone_one": "{{count}} document joint",
     "attachDone_other": "{{count}} documents joints",
     "attachError": "Le téléversement a échoué — vérifiez le format et la taille.",
-    "viewRequest": "Voir la demande du client"
+    "viewRequest": "Voir la demande du client",
+    "askCreated_one": "{{count}} fournisseur sollicité",
+    "askCreated_other": "{{count}} fournisseurs sollicités",
+    "askReopened_one": "{{count}} relancé",
+    "askReopened_other": "{{count}} relancés",
+    "askSkipped_one": "{{count}} déjà en cours",
+    "askSkipped_other": "{{count}} déjà en cours",
+    "askRefusal_already_decided": "Une offre a déjà été acceptée pour cette demande.",
+    "askRefusal_forbidden": "Vous n’avez pas les droits pour solliciter un fournisseur.",
+    "askRefusal_not_found": "Demande introuvable."
   },
   "contrats": {
     "title": "Contrats",

@@ -119,6 +119,16 @@ function toView(
 }
 
 /**
+ * What one solicitation did. Counted rather than boolean, because "nothing
+ * happened" has three different causes and the buyer is owed the right one:
+ * every supplier picked was already being asked, or has already answered, or
+ * the request is already settled on someone else.
+ */
+export type RequestQuotesResult =
+  | { ok: true; created: number; reopened: number; skipped: number }
+  | { ok: false; reason: "forbidden" | "not_found" | "already_decided" };
+
+/**
  * The buyer asks OSI to approach the suppliers they picked from their Top-N.
  *
  * Nothing is sent without this: no automatic solicitation, ever. Supplier ids
@@ -132,130 +142,165 @@ export const requestQuotesFn = createServerFn({ method: "POST" })
       supplierIds: z.array(z.string().min(1)).min(1).max(20),
     }),
   )
-  .handler(
-    async ({
-      data,
-    }): Promise<
-      { ok: true; created: number } | { ok: false; reason: "forbidden" | "not_found" }
-    > => {
-      const [
-        { requireWorkspaceRole },
-        { auth },
-        { getRequest },
-        { db },
-        { and, eq, inArray },
-        schema,
-      ] = await Promise.all([
-        import("@/server/workspace-guard"),
-        import("@/server/auth"),
-        import("@tanstack/react-start/server"),
-        import("@/database"),
-        import("drizzle-orm"),
-        import("@/database/schema"),
-      ]);
-      const caller = await requireWorkspaceRole(getRequest().headers, "buyer");
-      if (!caller) return { ok: false, reason: "forbidden" };
-      // No internal-workspace check here on purpose: this fn only ever finds a
-      // request already scoped to the caller's workspace, and a request cannot
-      // exist in OSI's own workspace (createRequestFn refuses it). The choke
-      // point is where customer data ENTERS. A guard here would also be the
-      // wrong shape the day staff act on a buyer's behalf.
+  .handler(async ({ data }): Promise<RequestQuotesResult> => {
+    const [
+      { requireWorkspaceRole },
+      { auth },
+      { getRequest },
+      { db },
+      { and, eq, inArray },
+      schema,
+    ] = await Promise.all([
+      import("@/server/workspace-guard"),
+      import("@/server/auth"),
+      import("@tanstack/react-start/server"),
+      import("@/database"),
+      import("drizzle-orm"),
+      import("@/database/schema"),
+    ]);
+    const caller = await requireWorkspaceRole(getRequest().headers, "buyer");
+    if (!caller) return { ok: false, reason: "forbidden" };
+    // No internal-workspace check here on purpose: this fn only ever finds a
+    // request already scoped to the caller's workspace, and a request cannot
+    // exist in OSI's own workspace (createRequestFn refuses it). The choke
+    // point is where customer data ENTERS. A guard here would also be the
+    // wrong shape the day staff act on a buyer's behalf.
 
-      const request = await db.query.request.findFirst({
-        where: and(
-          eq(schema.request.id, data.requestId),
-          eq(schema.request.organizationId, caller.workspaceId),
-        ),
-      });
-      if (!request) return { ok: false, reason: "not_found" };
+    const request = await db.query.request.findFirst({
+      where: and(
+        eq(schema.request.id, data.requestId),
+        eq(schema.request.organizationId, caller.workspaceId),
+      ),
+    });
+    if (!request) return { ok: false, reason: "not_found" };
 
-      // Only suppliers this request actually presented. Anything else is
-      // either a mistake or someone probing the endpoint.
-      const matches = await db.query.match.findMany({
-        where: and(
-          eq(schema.match.requestId, data.requestId),
-          inArray(schema.match.supplierId, data.supplierIds),
-        ),
-      });
-      if (matches.length === 0) return { ok: false, reason: "not_found" };
+    // Only suppliers this request actually presented. Anything else is
+    // either a mistake or someone probing the endpoint.
+    const matches = await db.query.match.findMany({
+      where: and(
+        eq(schema.match.requestId, data.requestId),
+        inArray(schema.match.supplierId, data.supplierIds),
+      ),
+    });
+    if (matches.length === 0) return { ok: false, reason: "not_found" };
 
-      const suppliers = await db.query.supplier.findMany({
-        where: inArray(
-          schema.supplier.id,
+    const suppliers = await db.query.supplier.findMany({
+      where: inArray(
+        schema.supplier.id,
+        matches.map((m) => m.supplierId),
+      ),
+    });
+    const nameById = new Map(suppliers.map((s) => [s.id, s.name]));
+
+    // What is already on this request for the suppliers being asked. One
+    // row per (request, supplier) — quote_request_supplier_uq — so a second
+    // ask REOPENS the existing row rather than adding another.
+    const existing = await db.query.quote.findMany({
+      where: and(
+        eq(schema.quote.requestId, data.requestId),
+        inArray(
+          schema.quote.supplierId,
           matches.map((m) => m.supplierId),
         ),
-      });
-      const nameById = new Map(suppliers.map((s) => [s.id, s.name]));
+      ),
+    });
+    const bySupplier = new Map(existing.map((q) => [q.supplierId, q]));
+    // A request with an accepted offer is settled. Soliciting more suppliers
+    // against it would invite a second acceptance the partial unique index
+    // forbids anyway, so refuse the whole call rather than half of it.
+    if (existing.some((q) => q.status === "accepted")) {
+      return { ok: false, reason: "already_decided" };
+    }
 
-      const rows = matches.map((match) => ({
-        id: crypto.randomUUID(),
-        requestId: data.requestId,
-        organizationId: caller.workspaceId,
-        supplierId: match.supplierId,
-        // Snapshot: the row must stay readable if the supplier is ever gone.
-        supplierName: nameById.get(match.supplierId) ?? "—",
-        status: "requested" as const,
+    const fresh = matches.filter((m) => !bySupplier.has(m.supplierId));
+    const reopenable = existing.filter((q) => q.status === "declined" || q.status === "expired");
+    // requested / received: already in flight or already answered. Skipped,
+    // and COUNTED, because "nothing happened" needs a reason on screen.
+    const skipped = existing.length - reopenable.length;
+
+    const inserted =
+      fresh.length === 0
+        ? []
+        : await db
+            .insert(schema.quote)
+            .values(
+              fresh.map((match) => ({
+                id: crypto.randomUUID(),
+                requestId: data.requestId,
+                organizationId: caller.workspaceId,
+                supplierId: match.supplierId,
+                // Snapshot: the row stays readable if the supplier is gone.
+                supplierName: nameById.get(match.supplierId) ?? "—",
+                status: "requested" as const,
+                requestedBy: caller.userId,
+              })),
+            )
+            .returning({ id: schema.quote.id });
+
+    const { transitionQuote } = await import("@/server/deals");
+    for (const quote of reopenable) {
+      // A fresh solicitation, so the clocks start again: the previous
+      // decline reason, send stamp and answer belong to the round that
+      // ended, and leaving them would make the new response time nonsense.
+      await transitionQuote(quote.id, quote.status, "requested", {
+        declineReason: null,
+        sentAt: null,
+        sentBy: null,
+        respondedAt: null,
+        requestedAt: new Date(),
         requestedBy: caller.userId,
-      }));
-      // Re-asking the same supplier updates rather than duplicating
-      // (quote_request_supplier_uq); an offer already received is left alone.
-      const inserted = await db
-        .insert(schema.quote)
-        .values(rows)
-        .onConflictDoNothing({
-          target: [schema.quote.requestId, schema.quote.supplierId],
-        })
-        .returning({ id: schema.quote.id });
+      });
+    }
+    const touched = inserted.length + reopenable.length;
 
-      if (inserted.length > 0) {
-        const { recordEvent } = await import("@/server/requests");
-        // There is no dossier yet, so this belongs on the request's own
-        // timeline where the buyer is already looking.
-        await recordEvent(data.requestId, caller.workspaceId, "quotes.requested", {
-          count: inserted.length,
-        });
+    if (touched > 0) {
+      const { recordEvent } = await import("@/server/requests");
+      // There is no dossier yet, so this belongs on the request's own
+      // timeline where the buyer is already looking.
+      await recordEvent(data.requestId, caller.workspaceId, "quotes.requested", {
+        count: touched,
+      });
 
-        // Alert the staff who can act (owner decision 2026-09-07: email, and
-        // an in-app row for the mobile app that will ring on it later).
-        //
-        // ONE notification for the whole action, not one per supplier: the
-        // buyer ticking five companies is a single decision, and per-supplier
-        // would mail every staff member five times for one click.
-        //
-        // Guarded by `inserted.length > 0`, so a re-ask that changed nothing
-        // (onConflictDoNothing above) alerts nobody. Keyed on `deals` — the
-        // same permission recordQuoteFn requires to key the answer back in,
-        // so everyone told about this can actually do something about it.
-        // The name is a SNAPSHOT — it is what keeps the row readable after the
-        // account is deleted, which is the whole point of the tombstone columns.
-        const actor = await auth.api.getSession({ headers: getRequest().headers });
-        const { logAudit } = await import("@/server/audit");
-        await logAudit({
-          actorId: caller.userId,
-          actorName: actor?.user.name ?? null,
-          organizationId: caller.workspaceId,
-          action: "quotes.requested",
-          target: `#${data.requestId}`,
-          detail: { count: inserted.length },
-        });
+      // Alert the staff who can act (owner decision 2026-09-07: email, and
+      // an in-app row for the mobile app that will ring on it later).
+      //
+      // ONE notification for the whole action, not one per supplier: the
+      // buyer ticking five companies is a single decision, and per-supplier
+      // would mail every staff member five times for one click.
+      //
+      // Guarded by `inserted.length > 0`, so a re-ask that changed nothing
+      // (onConflictDoNothing above) alerts nobody. Keyed on `deals` — the
+      // same permission recordQuoteFn requires to key the answer back in,
+      // so everyone told about this can actually do something about it.
+      // The name is a SNAPSHOT — it is what keeps the row readable after the
+      // account is deleted, which is the whole point of the tombstone columns.
+      const actor = await auth.api.getSession({ headers: getRequest().headers });
+      const { logAudit } = await import("@/server/audit");
+      await logAudit({
+        actorId: caller.userId,
+        actorName: actor?.user.name ?? null,
+        organizationId: caller.workspaceId,
+        action: "quotes.requested",
+        target: `#${data.requestId}`,
+        detail: { count: touched, created: inserted.length, reopened: reopenable.length },
+      });
 
-        const { notifyStaff } = await import("@/server/notify");
-        await notifyStaff("deals", {
-          type: "quotes_requested",
-          params: { count: inserted.length, id: data.requestId },
-          link: `/soumissions`,
-          exceptUserId: caller.userId,
-          email: {
-            subjectFr: `${inserted.length} fournisseur(s) à solliciter — demande #${data.requestId}`,
-            subjectEn: `${inserted.length} supplier(s) to solicit — request #${data.requestId}`,
-            bodyFr: `Un client a choisi ${inserted.length} fournisseur(s) à solliciter pour la demande #${data.requestId}.\nRien n'est parti : la demande de soumission doit être envoyée à la main.\nOuvrez les soumissions dans OSI pour voir qui contacter.`,
-            bodyEn: `A customer picked ${inserted.length} supplier(s) to solicit for request #${data.requestId}.\nNothing has been sent: the quote request goes out by hand.\nOpen the quotes list in OSI to see who to contact.`,
-          },
-        });
-      }
-      return { ok: true, created: inserted.length };
-    },
-  );
+      const { notifyStaff } = await import("@/server/notify");
+      await notifyStaff("deals", {
+        type: "quotes_requested",
+        params: { count: touched, id: data.requestId },
+        link: `/soumissions`,
+        exceptUserId: caller.userId,
+        email: {
+          subjectFr: `${touched} fournisseur(s) à solliciter — demande #${data.requestId}`,
+          subjectEn: `${touched} supplier(s) to solicit — request #${data.requestId}`,
+          bodyFr: `Un client a choisi ${touched} fournisseur(s) à solliciter pour la demande #${data.requestId}.\nRien n'est parti : la demande de soumission doit être envoyée à la main.\nOuvrez les soumissions dans OSI pour voir qui contacter.`,
+          bodyEn: `A customer picked ${touched} supplier(s) to solicit for request #${data.requestId}.\nNothing has been sent: the quote request goes out by hand.\nOpen the quotes list in OSI to see who to contact.`,
+        },
+      });
+    }
+    return { ok: true, created: inserted.length, reopened: reopenable.length, skipped };
+  });
 
 /** Every quote in the caller's workspace, newest request first. Staff see
  *  their own workspace here too — the global ops view is a separate surface. */
