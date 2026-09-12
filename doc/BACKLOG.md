@@ -19,7 +19,7 @@
 | **E4** Supplier data | **Web research**, dedup, directory, sources admin | 🟡 **ADR-001 pivot (2026-08-26) → Phase S**; directory is staff-only and buyers see what they are LINKED to (2026-08-29); import/merge open |
 | **E5** Matching & scoring | Criteria-aware v1 + breakdown | 🟡 the "32 criteria" + comparison view open |
 | **E6** Facilitation | ~~Engagements~~ → **soumissions → dossier de transaction → contrats** | 🟡 **P1-P5 LIVE on prod (2026-08-29)** per [ADR-001 Part II](adr/ADR-001-osi-architecture.md); **P6 signatures is next**; old task list RETIRED |
-| **E7** Reports | Printable report + PDF export | 🟡 stored `documents` rows open |
+| **E7** Reports | Printable report + PDF export | 🟡 the `document` table exists since 2026-09-12 (P8 slice 1) — the stored PDF report itself is still open |
 | **E8** Transactions | Milestones, tracking, paiements | 🔵 **folded into Phase P** by ADR-002 (the `deal` spine); standalone sketch retired |
 | **E9** Notifications | In-app + email | 🟡 bell, emitters, **prefs (2026-08-26)** live; E6 templates gated |
 | **E10** Admin surfaces | Verification, imports, ops queue | 🟡 **verification LIVE (S5b/S5c, 2026-08-26)**; imports/ops queue placeholders |
@@ -37,7 +37,7 @@ tracked to delivery** — with the PDF report available throughout.
 
 ### START HERE — handoff, 2026-09-07 (read this first)
 
-**Prod = `c14a011` (deploy #34, migration 0040).** One change: the research agent now
+**Prod = `380f5a5` (deploy #35, migrations 0040-0041).** One change: the research agent now
 **retries a search pass that never searched**, and a collection pass in which
 every source failed is recorded as `failed` instead of `succeeded`. Full story
 in **"A research pass that never searched"** below — read it before touching
@@ -145,6 +145,7 @@ deploy failed mid-session and prod was rolled back; see #24.
 | 23 | `5b90649` | — | **the platform workspace can no longer be deleted** — the org-plugin's own `POST /organization/delete` bypassed `destroyWorkspace`; guard moved into a `beforeDeleteOrganization` hook |
 | 24 | `95b825a` | — | **filters on all four ops lists** (multi-account + week/month/year/custom period) · **the global supplier directory is staff-only** · the DB cleared for fresh testing. *First attempt (`77d37b0`) took prod down — see the chunk-cycle note* |
 | 25 | `b7481d6` | — | **"linked supplier" widened to four traces** (matched · quoted · dealt · contract party) · **a session opens in your PERSONAL workspace** when you have one · the discovery store cleared for a cold research test |
+| 35 | `380f5a5` | 0041 | **P8 first slice — Documents is live**: staff read the buyer's need beside the offer form, attach the supplier's PDF/PNG/JPG to the quote, and it lists on `/documents` naming AND linking both the request and the quote · **a mistyped price can be corrected** |
 | 34 | `c14a011` | 0040 | **quotes record WHY they were declined** (`supplier_declined` / `no_response` / `lost`) and **whose clock the response time is on** (`sent_at`, stamped by staff) · **sign-ins and failed sign-ins are audited** |
 | 33 | `b642a5b` | — | **the audit trail covers the commercial spine** (13 new actions, rows attributed to the account) · the **journal is for every user**, not only organisations · **a missing i18n key is now loud in dev** and guarded by a registry test · `quote.accepted` labelled — a buyer accepting an offer had been reading the raw code on their own dossier |
 | 32 | `14597b2` | — | **/interne/facilitation deleted and greyed** — it only ever listed requests, which `/demandes` already does for staff; the staff "Voir tout" repointed there, the INTERNE nav learned to grey an entry, and its i18n keys went with it |
@@ -1949,6 +1950,48 @@ cannot be CORRECTED (`received → received` is not a legal transition, so a typ
 in a price is permanent); a declined supplier can never be re-asked
 (`onConflictDoNothing` silently drops the ask and the buyer sees "0
 approached"); and a buyer cannot decline an offer, only accept a different one.
+
+### P8 · Documents — what slice 1 does, and the question it makes urgent
+
+Live since deploy #35 (2026-09-12, migration 0041). `document` is the typed row
+over `file`: `file` is bytes plus a workspace, `document` says what those bytes
+ARE and what they hang from.
+
+**What it covers.** Staff on `/soumissions` see the buyer's specification in an
+expander above the offers (description + criteria, loaded once per list, not per
+row — they were opening the dossier in another tab to read what the supplier had
+been asked, which is how the wrong figure gets typed), attach the supplier's
+paperwork through `/api/quote-document`, and it appears on `/documents`.
+
+**Decisions worth not re-deriving:**
+
+- **PDF · PNG · JPEG only**, max 5 files of 10 MB. Deliberately narrower than
+  `/api/upload`, which also takes CSV and plain text: a quotation is a document
+  or a photo of one.
+- **Ownership follows the paperwork, not the uploader.** Staff upload; the
+  `file` and `document` rows belong to the **BUYER's** workspace, because it is
+  their supplier's offer. Scoping it to OSI's would hide the document from the
+  tenant whose file it is — the rule `/api/contract-file` already followed.
+- **`DOCUMENT_KINDS` is `offer | other`**, not ADR Part II §6's fuller list.
+  Invoices, customs papers and bills of lading arrive with the phases that
+  produce them. A column nobody writes reads as a capability, which is exactly
+  what `quote.valid_until` did for two weeks.
+- **A document names AND links both sources** — `DEMANDE #3045 → /demandes/3045`
+  and `SOUMISSION Shanyo → /soumissions#quote-<id>`, where the quote row is an
+  anchor target that scrolls into view and highlights. A bare supplier name told
+  the reader a document came from somewhere without saying where, and on a
+  request with several offers it did not even identify which.
+- Both references are **SET NULL, not cascade**, so a document outlives the
+  request or quote it arrived against; the name snapshots are what stay
+  readable, and the labels say "supprimée" rather than collapsing.
+
+**❗ The question this makes urgent, and it is the owner's:** there is still NO
+retention policy, and `storage.deleteFile` is never called on user files.
+Deleting a request nulls `document.request_id` and leaves both the row and the
+bytes on disk, forever. That was tolerable while the volume held re-uploadable
+spec sheets. It now holds supplier quotations, and the later P8 slices put
+invoices and signed contracts there. **How long should a customer's documents
+live after their request is gone?**
 
 ### The prod bundle can grow a chunk cycle — the deploy is GATED on it now
 
