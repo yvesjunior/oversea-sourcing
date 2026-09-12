@@ -37,7 +37,7 @@ tracked to delivery** — with the PDF report available throughout.
 
 ### START HERE — handoff, 2026-09-07 (read this first)
 
-**Prod = `b642a5b` (deploy #33).** One change: the research agent now
+**Prod = `c14a011` (deploy #34, migration 0040).** One change: the research agent now
 **retries a search pass that never searched**, and a collection pass in which
 every source failed is recorded as `failed` instead of `succeeded`. Full story
 in **"A research pass that never searched"** below — read it before touching
@@ -145,6 +145,7 @@ deploy failed mid-session and prod was rolled back; see #24.
 | 23 | `5b90649` | — | **the platform workspace can no longer be deleted** — the org-plugin's own `POST /organization/delete` bypassed `destroyWorkspace`; guard moved into a `beforeDeleteOrganization` hook |
 | 24 | `95b825a` | — | **filters on all four ops lists** (multi-account + week/month/year/custom period) · **the global supplier directory is staff-only** · the DB cleared for fresh testing. *First attempt (`77d37b0`) took prod down — see the chunk-cycle note* |
 | 25 | `b7481d6` | — | **"linked supplier" widened to four traces** (matched · quoted · dealt · contract party) · **a session opens in your PERSONAL workspace** when you have one · the discovery store cleared for a cold research test |
+| 34 | `c14a011` | 0040 | **quotes record WHY they were declined** (`supplier_declined` / `no_response` / `lost`) and **whose clock the response time is on** (`sent_at`, stamped by staff) · **sign-ins and failed sign-ins are audited** |
 | 33 | `b642a5b` | — | **the audit trail covers the commercial spine** (13 new actions, rows attributed to the account) · the **journal is for every user**, not only organisations · **a missing i18n key is now loud in dev** and guarded by a registry test · `quote.accepted` labelled — a buyer accepting an offer had been reading the raw code on their own dossier |
 | 32 | `14597b2` | — | **/interne/facilitation deleted and greyed** — it only ever listed requests, which `/demandes` already does for staff; the staff "Voir tout" repointed there, the INTERNE nav learned to grey an entry, and its i18n keys went with it |
 | 31 | `570ac3b` | — | **the empty state stopped being a dead end** — "Décrire un besoin" pointed at `/`, which stopped being the intake form on 2026-08-29; it now goes to `/demandes`, and is gone from `/demandes` itself where the form is already open above it · the **single consolidated ADR** (both parts, the runtime, the parcours) replacing two records and three diagrams |
@@ -1899,6 +1900,55 @@ the workspace OWNER and sees only their own rows.
 failed-login or 2FA event in the trail. Raised 2026-09-12 and not built — it is
 a real behaviour change (every login writes a row, and the journal purges at
 three months), so it needs a decision rather than a guess.
+
+### The quote table: two fields that exist to protect the moat
+
+Both landed 2026-09-12 (deploy #34, migration 0040). They are not UI features —
+they fix data that was being recorded WRONG at the source, which is why they
+could not wait: every day of testing wrote more rows that cannot be untangled
+afterwards.
+
+**`decline_reason` — `supplier_declined` | `no_response` | `lost`.** `declined`
+used to carry three unrelated facts, and the third is the majority by volume:
+the buyer accepted someone else and `acceptQuoteFn` closed the siblings. For a
+supplier graph the first and third are OPPOSITES — "lost to a competitor" says
+nothing about a supplier (several answered fast, with good terms), while "never
+answered" is the strongest negative signal the platform can own and cannot be
+scraped from anywhere.
+
+- The reason is **required and typed** on `declineQuoteFn`. A free-text note
+  cannot be aggregated, which is the whole reason the column exists; the note
+  survives beside it for detail no enum carries.
+- **`lost` is deliberately NOT in the staff picker.** Only `acceptQuoteFn`
+  writes it. Offer it as a manual choice and it becomes a shrug bucket, and the
+  distinction dissolves again — the value has to stay machine-written to stay
+  trustworthy.
+- Rows predating this keep `decline_reason` null, which reads honestly as
+  "declined before we recorded why". Not retroactive, and cannot be.
+
+**`sent_at` / `sent_by` — whose lag the response time measures.**
+`requested_at` is stamped when the BUYER asks, but the email goes out by hand,
+so `requested_at → responded_at` was OSI's lag PLUS the supplier's. A slow
+afternoon at our end was published as a slow supplier — which is exactly the
+number ADR Part I §6 calls unscrapable.
+
+- `markQuoteSentFn` (staff, `deals`) stamps it. **Idempotent on purpose:** a
+  second click must never rewrite the clock a measurement depends on.
+- `responseHours` measures from `sent_at`, falls back to `requested_at`, and
+  the view carries **`responseFrom`** so a reader is told which clock was used.
+  The UI marks a fallback with `*`. Showing a caveated number beats presenting
+  two different measurements as the same one.
+- **Nothing forces staff to mark a quote sent.** Skip it and you get the old
+  mixed figure, flagged. Making it mandatory would mean blocking
+  `recordQuoteFn` until it is stamped — the wrong trade against a workflow that
+  really happens in email.
+
+**Still open on this table** (raised 2026-09-12, not taken): `expired` is an
+unreachable status and `valid_until` a column nobody writes; a recorded offer
+cannot be CORRECTED (`received → received` is not a legal transition, so a typo
+in a price is permanent); a declined supplier can never be re-asked
+(`onConflictDoNothing` silently drops the ask and the buyer sees "0
+approached"); and a buyer cannot decline an offer, only accept a different one.
 
 ### The prod bundle can grow a chunk cycle — the deploy is GATED on it now
 
