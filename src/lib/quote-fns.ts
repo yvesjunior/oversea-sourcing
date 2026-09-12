@@ -410,6 +410,66 @@ export const recordQuoteFn = createServerFn({ method: "POST" })
     const quote = await db.query.quote.findFirst({ where: eq(schema.quote.id, data.quoteId) });
     if (!quote) return { ok: false, reason: "not_found" };
 
+    const { offerEntryMode } = await import("@/lib/deal-status");
+    const mode = offerEntryMode(quote.status);
+    if (mode === null) return { ok: false, reason: "frozen" };
+
+    // A CORRECTION IS NOT A TRANSITION. Driving the state machine for both is
+    // what made a mistyped price permanent: the second call was
+    // `received → received`, which is illegal, so it threw and the UI hid the
+    // form to match. Same fields, same guard, no state change.
+    if (mode === "correct") {
+      const changed: Record<string, unknown> = {};
+      const before = {
+        amountCents: quote.amountCents,
+        currency: quote.currency,
+        quantity: quote.quantity,
+        moq: quote.moq,
+        leadTimeDays: quote.leadTimeDays,
+        incoterm: quote.incoterm,
+        paymentTerms: quote.paymentTerms,
+        notes: quote.notes,
+      };
+      const after = {
+        amountCents: data.amountCents ?? null,
+        currency: data.currency ?? null,
+        quantity: data.quantity ?? null,
+        moq: data.moq ?? null,
+        leadTimeDays: data.leadTimeDays ?? null,
+        incoterm: data.incoterm ?? null,
+        paymentTerms: data.paymentTerms ?? null,
+        notes: data.notes ?? null,
+      };
+      for (const [key, value] of Object.entries(after)) {
+        const was = before[key as keyof typeof before];
+        if (was !== value) changed[key] = { from: was, to: value };
+      }
+      if (Object.keys(changed).length === 0) return { ok: true };
+
+      await db
+        .update(schema.quote)
+        .set({
+          ...after,
+          // respondedAt is NOT touched: a correction is not a new answer, and
+          // rewriting it would move the response time this table exists to
+          // measure. recordedBy IS updated — whoever fixed it owns the figure.
+          recordedBy: session.user.id,
+          updatedAt: new Date(),
+        })
+        .where(eq(schema.quote.id, quote.id));
+
+      const { logAudit, actorOf } = await import("@/server/audit");
+      await logAudit({
+        ...actorOf(session),
+        organizationId: quote.organizationId,
+        action: "quote.corrected",
+        target: quote.supplierName,
+        // The before/after of a money field is the whole point of the row.
+        detail: { request: quote.requestId, changed },
+      });
+      return { ok: true };
+    }
+
     const { transitionQuote } = await import("@/server/deals");
     try {
       await transitionQuote(quote.id, quote.status, "received", {

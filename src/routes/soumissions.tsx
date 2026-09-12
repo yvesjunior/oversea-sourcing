@@ -24,6 +24,7 @@ import {
 import { EmployeeTabs } from "@/components/osi/EmployeeTabs";
 import { accountOptions } from "@/components/osi/AccountFilter";
 import { applyListFilters, ListFiltersBar, useListFilters } from "@/components/osi/ListFilters";
+import { offerEntryMode } from "@/lib/deal-status";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/soumissions")({
@@ -65,12 +66,19 @@ function money(cents: number | null, currency: string | null, lang: string): str
 /** Staff-only: key in what arrived by email. */
 function RecordForm({ quote, onDone }: { quote: QuoteView; onDone: () => void }) {
   const { t } = useTranslation();
-  const [amount, setAmount] = useState("");
-  const [currency, setCurrency] = useState("CAD");
-  const [leadTime, setLeadTime] = useState("");
-  const [moq, setMoq] = useState("");
-  const [incoterm, setIncoterm] = useState("");
-  const [notes, setNotes] = useState("");
+  // Prefilled when correcting: retyping every field to fix one of them is how
+  // the SECOND typo happens.
+  const mode = offerEntryMode(quote.status);
+  const [amount, setAmount] = useState(
+    quote.amountCents !== null ? String(quote.amountCents / 100) : "",
+  );
+  const [currency, setCurrency] = useState(quote.currency ?? "CAD");
+  const [leadTime, setLeadTime] = useState(
+    quote.leadTimeDays !== null ? String(quote.leadTimeDays) : "",
+  );
+  const [moq, setMoq] = useState(quote.moq ?? "");
+  const [incoterm, setIncoterm] = useState(quote.incoterm ?? "");
+  const [notes, setNotes] = useState(quote.notes ?? "");
   const [declineReason, setDeclineReason] = useState<StaffDeclineReason>("no_response");
   const [saving, setSaving] = useState(false);
 
@@ -99,7 +107,9 @@ function RecordForm({ quote, onDone }: { quote: QuoteView; onDone: () => void })
   return (
     <div className="mt-3 rounded-lg border border-border bg-secondary/40 p-4">
       <p className="mb-3 text-xs font-semibold">
-        {t("soumissions.recordTitle", { supplier: quote.supplierName })}
+        {t(mode === "correct" ? "soumissions.correctTitle" : "soumissions.recordTitle", {
+          supplier: quote.supplierName,
+        })}
       </p>
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
         <div>
@@ -174,7 +184,7 @@ function RecordForm({ quote, onDone }: { quote: QuoteView; onDone: () => void })
       </div>
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <Button variant="gold" size="sm" disabled={saving} onClick={() => void save()}>
-          {t("soumissions.save")}
+          {t(mode === "correct" ? "soumissions.saveCorrection" : "soumissions.save")}
         </Button>
         {/* The reason is REQUIRED, so it is picked here rather than asked for
             in a second step: a decline with no reason is the row that taught
@@ -431,13 +441,22 @@ function QuoteList({
                             {t("soumissions.markSent")}
                           </Button>
                         )}
-                        {canRecord && quote.status === "requested" && (
+                        {/* Open for a RECEIVED quote too: a mistyped price
+                            used to be permanent, because this button was the
+                            only way in and it only appeared before the answer
+                            was recorded. Frozen once accepted or declined —
+                            offerEntryMode returns null and the button is gone. */}
+                        {canRecord && offerEntryMode(quote.status) !== null && (
                           <Button
                             variant="outline"
                             size="sm"
                             onClick={() => setOpenForm(openForm === quote.id ? null : quote.id)}
                           >
-                            {t("soumissions.record")}
+                            {t(
+                              offerEntryMode(quote.status) === "correct"
+                                ? "soumissions.correct"
+                                : "soumissions.record",
+                            )}
                           </Button>
                         )}
                       </div>

@@ -9,6 +9,7 @@ import {
   statusFromSignatures,
   awaitsBuyerReview,
   awaitsStaffClosure,
+  offerEntryMode,
 } from "@/lib/deal-status";
 
 const party = (required: boolean, signatureStatus: string) => ({ required, signatureStatus });
@@ -143,5 +144,31 @@ describe("contract transitions", () => {
 
   it("an expired contract can still be voided for tidiness", () => {
     expect(canTransitionContract("expired", "voided")).toBe(true);
+  });
+});
+
+describe("offerEntryMode — correcting a recorded offer", () => {
+  it("records on a solicited quote and corrects one already received", () => {
+    // The gap this closes: recordQuoteFn used to drive the state machine for
+    // both, so a second call was `received → received`, which is illegal — a
+    // typo in a price was permanent, and the UI hid the form to match.
+    expect(offerEntryMode("requested")).toBe("record");
+    expect(offerEntryMode("received")).toBe("correct");
+  });
+
+  it("freezes the offer once it is accepted, declined or expired", () => {
+    // `accepted` matters most: amount, currency and incoterm are SNAPSHOT onto
+    // the deal at acceptance, so a later edit would leave the quote and the
+    // dossier disagreeing about what was agreed.
+    for (const status of ["accepted", "declined", "expired"] as const) {
+      expect(offerEntryMode(status)).toBeNull();
+    }
+  });
+
+  it("stays in step with the transition table it deliberately sits outside", () => {
+    // A correction is not a transition, so `received → received` must NOT be
+    // legal. If someone later adds it, this rule has become redundant and the
+    // two would silently disagree.
+    expect(canTransitionQuote("received", "received")).toBe(false);
   });
 });

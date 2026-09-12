@@ -27,6 +27,26 @@ export function canTransitionQuote(from: QuoteStatus, to: QuoteStatus): boolean 
   return QUOTE_TRANSITIONS[from].includes(to);
 }
 
+/**
+ * What staff may do with the offer form on a quote in this state.
+ *
+ * A CORRECTION IS NOT A TRANSITION, which is why this is a separate rule
+ * rather than a `received → received` self-loop in the table above. The
+ * machine describes how a quote MOVES; fixing a mistyped price moves nothing,
+ * and adding a self-loop would make every reader of that table wonder what
+ * state change it represents.
+ *
+ * Frozen once the quote leaves `received`: an accepted offer has been copied
+ * onto the dossier (amount, currency, incoterm are snapshots on `deal`), so
+ * editing the quote afterwards would leave the two disagreeing about what was
+ * agreed — and a declined one is simply over.
+ */
+export function offerEntryMode(status: QuoteStatus): "record" | "correct" | null {
+  if (status === "requested") return "record";
+  if (status === "received") return "correct";
+  return null;
+}
+
 /** A quote can only be compared once it holds an answer. */
 export function isComparable(status: QuoteStatus): boolean {
   return status === "received" || status === "accepted";

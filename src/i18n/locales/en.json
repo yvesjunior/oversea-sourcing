@@ -880,7 +880,8 @@
     "contract.reminded": "Signature reminder sent",
     "auth.signed_in": "Signed in",
     "auth.sign_in_failed": "Failed sign-in",
-    "quote.sent": "Quote request sent"
+    "quote.sent": "Quote request sent",
+    "quote.corrected": "Offer corrected"
   },
   "twofa": {
     "title": "Two-step verification",
@@ -972,7 +973,10 @@
       "lost": "The customer chose another supplier"
     },
     "sentAt": "Sent on",
-    "responseFromRequested": "measured from the customer's request — the send was never timestamped"
+    "responseFromRequested": "measured from the customer's request — the send was never timestamped",
+    "correct": "Correct the offer",
+    "correctTitle": "Correct {{supplier}}'s offer",
+    "saveCorrection": "Save the correction"
   },
   "contrats": {
     "title": "Contracts",

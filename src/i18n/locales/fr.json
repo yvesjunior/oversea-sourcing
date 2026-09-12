@@ -880,7 +880,8 @@
     "contract.reminded": "Relance de signature envoyée",
     "auth.signed_in": "Connexion",
     "auth.sign_in_failed": "Échec de connexion",
-    "quote.sent": "Demande de soumission envoyée"
+    "quote.sent": "Demande de soumission envoyée",
+    "quote.corrected": "Offre corrigée"
   },
   "twofa": {
     "title": "Vérification en deux étapes",
@@ -972,7 +973,10 @@
       "lost": "Le client a choisi un autre fournisseur"
     },
     "sentAt": "Envoyée le",
-    "responseFromRequested": "délai mesuré depuis la demande du client — l’envoi n’a pas été horodaté"
+    "responseFromRequested": "délai mesuré depuis la demande du client — l’envoi n’a pas été horodaté",
+    "correct": "Corriger l’offre",
+    "correctTitle": "Corriger l’offre de {{supplier}}",
+    "saveCorrection": "Enregistrer la correction"
   },
   "contrats": {
     "title": "Contrats",
