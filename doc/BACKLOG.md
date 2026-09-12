@@ -33,9 +33,65 @@ real need, gets a real Top-N, **OSI solicits quotes, the buyer accepts one, the
 required contracts are signed by every mandatory party, and the commande is
 tracked to delivery** — with the PDF report available throughout.
 
-## Resume here (last session: 2026-09-07 — the silent-search incident)
+## Resume here (last session: 2026-09-12 — audit, quotes, documents)
 
-### START HERE — handoff, 2026-09-07 (read this first)
+### START HERE — handoff, 2026-09-12 (read this first)
+
+**Prod = `380f5a5` (deploy #35).** `main` is THREE commits ahead and **two of
+them change the app, one carrying migration 0042**:
+
+| Commit | What | Deployed |
+|---|---|---|
+| `6030736` | docs: deploy #35 record | docs only |
+| `ec6c063` | **document retention, 6 months** (migration **0042**) | ❌ **no** |
+| `be1e570` | **asking a supplier twice actually asks twice** | ❌ **no** |
+
+So the next deploy runs **migration 0042** (`document.orphaned_at`, one
+nullable column, additive). Both are verified on dev end to end; they were
+finished after the last deploy and simply have not been shipped.
+
+**One decision is waiting on the owner, and it is small:** whether to REMOVE the
+"Marquer comme envoyée" button on a quote. The owner said *"when an offer is
+recorded, user received a notification, it will be by app and email … so [no]
+need for marker as sent"* — but those are two different mechanisms and the
+answer changes what to do:
+
+- The **buyer notification already exists and is untouched**: recording an
+  offer fires `quote_received` in-app and by email.
+- The **button is outbound**: it records that OSI emailed the SUPPLIER. Its
+  only purpose is that `responseHours` measures from the send rather than from
+  the buyer's ask. Remove it and response time goes back to including OSI's own
+  lag, which is the number ADR Part I §6 calls unscrapable.
+
+Ask before deleting it. If the answer is "remove", the change is: drop the
+button and `markQuoteSentFn`, keep `sent_at` (rows already carry it) or drop
+the column too, and revert `responseHours` to `requested_at`.
+
+**What shipped in this session (deploys #31-#35):**
+
+1. **#31** — the empty-state button stopped being a dead end.
+2. **#32** — `/interne/facilitation` deleted and greyed; it only ever listed
+   requests, which `/demandes` already does for staff.
+3. **#33** — **sign-ins and failed sign-ins are audited**; a missing i18n key is
+   now LOUD in dev and guarded by a registry test; `quote.accepted` labelled.
+4. **#34** — quotes record **why** they were declined and **whose clock** the
+   response time is on (migration 0040).
+5. **#35** — **P8 slice 1: Documents is live** (migration 0041) — staff read the
+   buyer's need beside the offer form, attach the supplier's PDF/PNG/JPG, and it
+   lists on `/documents` naming and linking both the request and the quote.
+   Plus: a mistyped price can be corrected.
+
+**Read these before touching the areas they describe:**
+
+- **"A missing i18n key is the quietest bug here"** — four shipped in one week.
+  Locale parity is useless against it; two guards now stand on it and both are
+  load-bearing.
+- **"The quote table: two fields that exist to protect the moat"** — and the
+  four items still open on that table.
+- **"P8 · Documents"** — what slice 1 does and what it deliberately leaves out.
+- **"Document retention"** below.
+
+### Previous handoff — 2026-09-07
 
 **Prod = `380f5a5` (deploy #35, migrations 0040-0041).** One change: the research agent now
 **retries a search pass that never searched**, and a collection pass in which
@@ -381,9 +437,10 @@ before diagnosing anything. That took ~4 minutes today.
 6. **`matchCount` means two different things** — platform-wide on the staff
    directory, caller-scoped on the linked list. Deliberate, but the field
    comment in `SupplierView` still describes only the first.
-7. **No document retention policy**, and `storage.deleteFile` is still never
-   called on user files. It mattered less when uploads were re-uploadable spec
-   sheets; signed contracts can land there now.
+7. ~~**No document retention policy**~~ — **answered 2026-09-12**: six months
+   after a document loses its request and quote, then the row, the `file` row
+   and the bytes go (`ec6c063`, migration 0042, not yet deployed).
+   `storage.deleteFile` is finally called. Account deletion is still open.
 
 #### 5 · Gaps and open questions a next session must not lose
 
@@ -420,8 +477,12 @@ before diagnosing anything. That took ~4 minutes today.
   tarred from inside the `web` container. This was P8's blocker and P6's:
   a countersigned contract living only in a volume no backup covers is not a
   record. **P8 is unblocked.**
-- ❗ **No document retention policy**, and `storage.deleteFile` is never called
-  on user files, so deleting a request orphans its bytes.
+- ✅ **Document retention answered 2026-09-12: six months after the document
+  loses its request and quote**, then the row, the `file` row and the bytes go
+  (`ec6c063`, migration 0042 — see "Document retention" below; **not yet
+  deployed**). `storage.deleteFile` is finally called on user files.
+  ❗ **Account deletion is still unanswered**: destroying a workspace cascades
+  documents away without passing through the sweep, so those bytes linger.
 - ❓ **Three parcours questions still unanswered by the owner:** may OSI nudge
   a buyer who never picks suppliers (step 05)? is signature-before-deposit the
   right order (step 12)? who updates production milestones (step 14) — every
@@ -1985,13 +2046,71 @@ paperwork through `/api/quote-document`, and it appears on `/documents`.
   request or quote it arrived against; the name snapshots are what stay
   readable, and the labels say "supprimée" rather than collapsing.
 
-**❗ The question this makes urgent, and it is the owner's:** there is still NO
-retention policy, and `storage.deleteFile` is never called on user files.
-Deleting a request nulls `document.request_id` and leaves both the row and the
-bytes on disk, forever. That was tolerable while the volume held re-uploadable
-spec sheets. It now holds supplier quotations, and the later P8 slices put
-invoices and signed contracts there. **How long should a customer's documents
-live after their request is gone?**
+**✅ The retention question is answered** (owner, 2026-09-12): six months after
+a document loses everything it hung from. Built in `ec6c063`, migration 0042 —
+see "Document retention" below. Account deletion remains a separate, open
+question.
+
+### Document retention — six months, and the first bytes ever deleted
+
+Owner, 2026-09-12: *"lets keep documents 6 months after request deletion."*
+Built in `ec6c063` (migration 0042), **not yet deployed**.
+
+**Why a new column was needed.** `document.request_id` and `quote_id` are SET
+NULL — that is what lets a document survive its source — so a row knows it is
+orphaned but not WHEN. `orphaned_at` is that stamp, and the sweep is two acts:
+
+- **MARK** a document whose request AND quote are both gone, the first time we
+  notice.
+- **PURGE** an orphan past six months: document row, `file` row, and **the
+  bytes**.
+
+**The bytes are the point.** `storage.deleteFile` existed and had NEVER been
+called on a user file anywhere in this codebase, so every deletion grew the
+upload volume forever. Ordering inside the purge is deliberate: bytes first,
+then rows — a file row without its bytes is a broken download, while bytes
+without a row are invisible and the next pass retries them.
+
+Runs on the **pipeline worker** beside the stranded-request sweep, for the same
+reason (exactly one of these may run), six-hourly against a six-month window so
+the cadence decides latency and never outcome.
+
+The rule is pure in `src/lib/retention.ts` and tested, including two behaviours
+pinned deliberately: a missing day at month end rolls forward (31 August minus
+six months finds no 31 February), and the cutoff drifts by an hour across DST
+because `setMonth` works in local time. **Do not "fix" the second** with the
+civil-date machinery in `period.ts` — that exists because a DAY boundary decides
+which week a row belongs to, and an hour inside six months decides nothing.
+
+**❗ Still open: account deletion is a different policy.** Destroying a
+workspace cascades `document` away without passing through this sweep, so those
+bytes still linger. "Six months after the request is deleted" does not answer
+"what happens when the customer leaves", and that needs its own decision.
+
+### Re-asking a supplier — what `declined` and `expired` now allow
+
+Reported by the owner 2026-09-12 as "buyer can not request quote twice", fixed
+in `be1e570`, **not yet deployed**.
+
+The button always worked; it just did nothing. `onConflictDoNothing` on
+`(request_id, supplier_id)` dropped the second solicitation silently and the
+screen said "0 approached" — while the comment above it claimed the opposite,
+that re-asking "updates rather than duplicating".
+
+- **`declined` and `expired` may return to `requested`.** A supplier who said
+  no, or never answered, may be worth approaching again; a buyer should not have
+  to file a whole new request for that.
+- **`received` and `accepted` stay terminal**, for the opposite reason: asking
+  again would throw away an answer already held.
+- **Reopening resets the clocks** — decline reason, send stamp and answer belong
+  to the round that ended, and leaving them makes the next response time
+  nonsense. That round survives in the audit trail with its reason.
+- **A request with an accepted offer refuses the whole call**, rather than half
+  of it: soliciting against a settled request invites a second acceptance the
+  partial unique index forbids anyway.
+- The result carries **created / reopened / skipped** and the dossier renders
+  them ("1 relancé · 1 déjà en cours"). "Nothing happened" has three causes and
+  the buyer is owed the right one.
 
 ### The prod bundle can grow a chunk cycle — the deploy is GATED on it now
 
@@ -3487,9 +3606,10 @@ in the browser before committing; deploy only when the owner asks.
 - ✅ **The `osi-uploads` volume is backed up** (2026-08-29) — a second
       artifact per run, `osi-files-<stamp>.tar.gz`. Fixed as part of P6, since
       the countersigned PDF is exactly the record the warning was about.
-- ❗ **No document retention policy, and `storage.deleteFile` is never called on
-      user files** — deleting a request drops its `file` rows and orphans the
-      bytes. Brief §7 asks for a policy.
+- ✅ **Document retention answered** (owner, 2026-09-12): six months after a
+      document loses its request and quote. `storage.deleteFile` is finally
+      called on user files — see "Document retention". Brief §7 satisfied for
+      request deletion; **account deletion is still open**.
 - ✅ **G1 — e-sign vendor: NOT BOUGHT** (owner 2026-08-29). Buyer and OSI sign
       in-platform; external parties are manual upload. No recurring bill.
       **The intended successor is not a vendor either** (owner, same day): a
