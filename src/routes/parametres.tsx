@@ -1115,13 +1115,15 @@ function Parametres() {
               {t("settings.tabMembers")}
             </TabsTrigger>
           )}
-          {/* The org owner's journal (2026-08-27): same table as the staff
-              Logging screen, server-scoped to THIS workspace. */}
-          {data.workspace.type !== "individual" && (
-            <TabsTrigger value="journal" className={TAB_TRIGGER} disabled={!isOwner}>
-              {t("settings.tabJournal")}
-            </TabsTrigger>
-          )}
+          {/* The workspace owner's journal (2026-08-27): same table as the
+              staff Logging screen, server-scoped to THIS workspace.
+              Shown on EVERY workspace type since 2026-09-12 (owner: "logging
+              should be done for any user connecting to the platform") — an
+              individual's actions were already being recorded, so hiding the
+              tab only kept the rows from the person they were about. */}
+          <TabsTrigger value="journal" className={TAB_TRIGGER} disabled={!isOwner}>
+            {t("settings.tabJournal")}
+          </TabsTrigger>
         </TabsList>
         <TabsContent value="profil" className="mt-3 space-y-4">
           <ProfilPanel data={data} onSaved={refresh} />
@@ -1158,11 +1160,9 @@ function Parametres() {
             {isOwner && <MembersPanel data={data} onSaved={refresh} />}
           </TabsContent>
         )}
-        {data.workspace.type !== "individual" && (
-          <TabsContent value="journal" className="mt-3">
-            {isOwner && <AuditJournal showOrgFilter={false} />}
-          </TabsContent>
-        )}
+        <TabsContent value="journal" className="mt-3">
+          {isOwner && <AuditJournal showOrgFilter={false} />}
+        </TabsContent>
       </Tabs>
     </div>
   );

@@ -75,21 +75,23 @@ export const getAuditLogFn = createServerFn({ method: "GET" })
     ]);
 
     // Two access tiers (owner rule 2026-08-27): platform staff (standing in
-    // the internal workspace) read everything; otherwise the OWNER of an
-    // organisation workspace reads their own org's rows only — the scope is
-    // FORCED server-side, whatever organizationId the client sent.
+    // the internal workspace) read everything; otherwise the OWNER of a
+    // workspace reads their own rows only — the scope is FORCED server-side,
+    // whatever organizationId the client sent.
+    //
+    // Workspace TYPE does not enter into it (owner, 2026-09-12: "logging
+    // should be done for any user connecting to the platform"). Individual
+    // workspaces used to be refused here on the grounds that one person has
+    // nothing to audit — but their actions were being recorded all along
+    // (profile edits, sourcing rules, deal and contract events), so the rule
+    // did not save a write, it only hid the reader from the person the rows
+    // were about.
     const { effectiveHasPermission, requireWorkspaceRole } =
       await import("@/server/workspace-guard");
     let forcedOrgId: string | null = null;
     if (!(await effectiveHasPermission(session, "logging"))) {
       const caller = await requireWorkspaceRole(getRequest().headers, "owner");
       if (!caller) return EMPTY;
-      const workspace = await db.query.organization.findFirst({
-        where: eq(schema.organization.id, caller.workspaceId),
-        columns: { type: true },
-      });
-      // Individual workspaces are one person — no journal surface for them.
-      if (!workspace || workspace.type === "individual") return EMPTY;
       forcedOrgId = caller.workspaceId;
     }
     const orgScope = forcedOrgId ?? data.organizationId;
