@@ -37,7 +37,7 @@ tracked to delivery** — with the PDF report available throughout.
 
 ### START HERE — handoff, 2026-09-07 (read this first)
 
-**Prod = `14597b2` (deploy #32).** One change: the research agent now
+**Prod = `b642a5b` (deploy #33).** One change: the research agent now
 **retries a search pass that never searched**, and a collection pass in which
 every source failed is recorded as `failed` instead of `succeeded`. Full story
 in **"A research pass that never searched"** below — read it before touching
@@ -145,6 +145,7 @@ deploy failed mid-session and prod was rolled back; see #24.
 | 23 | `5b90649` | — | **the platform workspace can no longer be deleted** — the org-plugin's own `POST /organization/delete` bypassed `destroyWorkspace`; guard moved into a `beforeDeleteOrganization` hook |
 | 24 | `95b825a` | — | **filters on all four ops lists** (multi-account + week/month/year/custom period) · **the global supplier directory is staff-only** · the DB cleared for fresh testing. *First attempt (`77d37b0`) took prod down — see the chunk-cycle note* |
 | 25 | `b7481d6` | — | **"linked supplier" widened to four traces** (matched · quoted · dealt · contract party) · **a session opens in your PERSONAL workspace** when you have one · the discovery store cleared for a cold research test |
+| 33 | `b642a5b` | — | **the audit trail covers the commercial spine** (13 new actions, rows attributed to the account) · the **journal is for every user**, not only organisations · **a missing i18n key is now loud in dev** and guarded by a registry test · `quote.accepted` labelled — a buyer accepting an offer had been reading the raw code on their own dossier |
 | 32 | `14597b2` | — | **/interne/facilitation deleted and greyed** — it only ever listed requests, which `/demandes` already does for staff; the staff "Voir tout" repointed there, the INTERNE nav learned to grey an entry, and its i18n keys went with it |
 | 31 | `570ac3b` | — | **the empty state stopped being a dead end** — "Décrire un besoin" pointed at `/`, which stopped being the intake form on 2026-08-29; it now goes to `/demandes`, and is gone from `/demandes` itself where the form is already open above it · the **single consolidated ADR** (both parts, the runtime, the parcours) replacing two records and three diagrams |
 | 30 | `615d7e0` | — | **staff are told when a buyer asks for quotes** (email + in-app, `deals` holders only, one per action) · event labels stopped printing `{{count}}` on the dashboard · the prefs panel labels its last four notification types |
@@ -1826,6 +1827,78 @@ ship unlabelled.
 email is what actually reaches someone. That is fine while the mobile app is
 the ringing plan, but the web bell will need a poll or SSE when the remaining
 web features land.
+
+### A missing i18n key is the quietest bug here — two guards now stand on it
+
+Four shipped in one week (2026-09-05 → 12): the dashboard printed
+`{{count}}`, the notification preferences panel and the audit journal printed
+raw keys, and **a buyer who accepted an offer read the literal string
+`quote.accepted` on their own dossier** — live on prod from P3 until deploy
+#33.
+
+**Why nothing caught them.** `t()` returns the key when it is missing; React
+renders it; nothing throws and nothing logs. Locale parity is no help
+whatsoever — the two files are identical (916 keys each, zero drift), because
+the failure is always *"the code emits a key that exists in NEITHER file"*.
+Only the render knows. There are ~55 `t(\`namespace.${code}\`)` call sites
+building keys from data, and each one is a place this can happen.
+
+**Guard 1 — dev shouts.** `src/i18n/config.ts` sets `saveMissing` +
+`missingKeyHandler` behind `import.meta.env.DEV`: every missing key
+console.errors with the key, the namespace and the instruction. Verified
+against the running dev app, and verified ABSENT from the production bundle
+(`grep "MISSING KEY" /app/.output` → 0 files) — the guard must not become a
+console full of errors for a visitor.
+
+**Guard 2 — the suite fails first.** `src/lib/i18n-registry.test.ts` reads the
+SOURCE for codes that reach a dynamic lookup and asserts a label in both
+locales, across eight registries: audit actions · request and deal event types
+· contract event types · notification types (bell AND preferences panel) ·
+quote statuses · contract statuses · contract types.
+
+Two properties of that test are load-bearing, so do not simplify them away:
+
+- It was **confirmed to fail** on the real bug — deleting the
+  `quote_accepted` label fails the suite on that exact name. A guard nobody
+  has watched fail is a guard-shaped comment.
+- It asserts every registry **found codes at all**. Refactor a call shape and a
+  registry silently becomes an empty list, and an empty list passes every
+  assertion — the same failure mode one level up.
+
+Sections disagree on punctuation (`auditActions` keeps dots, `events` uses
+underscores) and the test accepts either, rather than imposing a convention it
+would then have to enforce across 900 existing keys.
+
+### The audit trail, and what it deliberately does not record
+
+Before 2026-09-12 the trail was thorough on ADMIN actions and almost silent on
+the product: nothing recorded a request created or cancelled, research re-run,
+quotes requested, an offer keyed in or declined, contracts drafted or
+regenerated, a contract signed, an external signature recorded, a reminder
+sent. Thirteen `logAudit` calls now cover those.
+
+**Deliberately NOT logged**, because a trail that records everything records
+nothing: theme choice, marking notifications read, notification preferences,
+chat messages, and `startRequestPipelineFn` (plumbing the browser calls after
+an upload).
+
+**Rows carry `organizationId` wherever an account is behind them.**
+`contract.sent` did not, so it reached the staff view and never the journal of
+the buyer whose contract it was. The column is a deliberate TOMBSTONE, not a
+foreign key, so carrying it is safe even when the workspace is later deleted.
+
+**The journal is not an organisation feature** (owner, 2026-09-12: *"logging
+should be done for any user connecting to the platform"*). `getAuditLogFn`
+used to return an empty list outright for an `individual` workspace, while
+`logAudit` had been writing their rows all along — the rule saved no writes, it
+only hid the rows from the person they were about. Scope is unchanged and still
+forced server-side: staff with `logging` read everything, anyone else must be
+the workspace OWNER and sees only their own rows.
+
+**Still not audited: authentication.** There is no sign-in, sign-out,
+failed-login or 2FA event in the trail. Raised 2026-09-12 and not built — it is
+a real behaviour change (every login writes a row, and the journal purges at
+three months), so it needs a decision rather than a guess.
 
 ### The prod bundle can grow a chunk cycle — the deploy is GATED on it now
 
