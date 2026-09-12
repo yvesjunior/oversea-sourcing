@@ -59,6 +59,21 @@ export type QuoteListResult = {
   canRecord: boolean;
   /** False for a viewer seat: read-only members cannot solicit or accept. */
   canAct: boolean;
+  /**
+   * The buyer's need, per request id — what staff are answering.
+   *
+   * Carried with the list rather than fetched per row: a staff member keying
+   * in a supplier's reply needs the specification in front of them (it is what
+   * the supplier was asked about), and making them open the dossier in another
+   * tab to read it is how the wrong figure gets typed.
+   */
+  needs: Record<string, RequestNeed>;
+};
+
+export type RequestNeed = {
+  title: string;
+  description: string;
+  criteria: { label: string; value: string; unit: string | null }[];
 };
 
 function toView(
@@ -263,7 +278,7 @@ export const getMyQuotesFn = createServerFn({ method: "GET" }).handler(
     ]);
     const headers = getRequest().headers;
     const caller = await requireWorkspaceRole(headers, "viewer");
-    if (!caller) return { quotes: [], canRecord: false, canAct: false };
+    if (!caller) return { quotes: [], canRecord: false, canAct: false, needs: {} };
 
     const session = await auth.api.getSession({ headers });
     const canRecord = session ? await effectiveHasPermission(session, "deals") : false;
@@ -280,8 +295,10 @@ export const getMyQuotesFn = createServerFn({ method: "GET" }).handler(
       .where(eq(schema.quote.organizationId, caller.workspaceId))
       .orderBy(desc(schema.quote.requestedAt));
 
+    const quotes = rows.map((r) => toView(r.quote, r.title, r.workspaceName));
     return {
-      quotes: rows.map((r) => toView(r.quote, r.title, r.workspaceName)),
+      quotes,
+      needs: await loadNeeds(quotes.map((q) => q.requestId)),
       canRecord,
       // A viewer seat is read-only: they may look, not solicit or accept.
       canAct: caller.role !== "viewer",
@@ -298,7 +315,7 @@ export const getMyQuotesFn = createServerFn({ method: "GET" }).handler(
  * emailed — which is the whole job. Same shape as `getAllRequestsFn`.
  */
 export const getAllQuotesFn = createServerFn({ method: "GET" }).handler(
-  async (): Promise<{ quotes: QuoteView[]; canRecord: boolean }> => {
+  async (): Promise<QuoteListResult> => {
     const [{ effectiveHasPermission }, { auth }, { getRequest }, { db }, { desc, eq }, schema] =
       await Promise.all([
         import("@/server/workspace-guard"),
@@ -314,7 +331,7 @@ export const getAllQuotesFn = createServerFn({ method: "GET" }).handler(
     // what effectiveHasPermission does, and it is why raw platformRole is
     // never used here.
     if (!session || !(await effectiveHasPermission(session, "deals"))) {
-      return { quotes: [], canRecord: false };
+      return { quotes: [], canRecord: false, canAct: false, needs: {} };
     }
 
     const rows = await db
@@ -328,12 +345,44 @@ export const getAllQuotesFn = createServerFn({ method: "GET" }).handler(
       .innerJoin(schema.organization, eq(schema.organization.id, schema.quote.organizationId))
       .orderBy(desc(schema.quote.requestedAt));
 
+    const quotes = rows.map((r) => toView(r.quote, r.title, r.workspaceName));
     return {
-      quotes: rows.map((r) => toView(r.quote, r.title, r.workspaceName)),
+      quotes,
       canRecord: true,
+      canAct: true,
+      needs: await loadNeeds(quotes.map((q) => q.requestId)),
     };
   },
 );
+
+/** The specification behind each request in a list, keyed by request id. */
+async function loadNeeds(requestIds: readonly string[]): Promise<Record<string, RequestNeed>> {
+  const ids = [...new Set(requestIds)];
+  if (ids.length === 0) return {};
+  const [{ db }, { asc, inArray }, schema] = await Promise.all([
+    import("@/database"),
+    import("drizzle-orm"),
+    import("@/database/schema"),
+  ]);
+  const [requests, criteria] = await Promise.all([
+    db.query.request.findMany({ where: inArray(schema.request.id, ids) }),
+    db.query.requestCriterion.findMany({
+      where: inArray(schema.requestCriterion.requestId, ids),
+      orderBy: [asc(schema.requestCriterion.position)],
+    }),
+  ]);
+  const needs: Record<string, RequestNeed> = {};
+  for (const request of requests) {
+    needs[request.id] = {
+      title: request.title,
+      description: request.descriptionRaw,
+      criteria: criteria
+        .filter((c) => c.requestId === request.id)
+        .map((c) => ({ label: c.label, value: c.value, unit: c.unit })),
+    };
+  }
+  return needs;
+}
 
 /** The quotes attached to one request — the dossier's Soumissions panel. */
 export const getQuotesForRequestFn = createServerFn({ method: "GET" })

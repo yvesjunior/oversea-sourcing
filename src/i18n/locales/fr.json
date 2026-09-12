@@ -881,7 +881,8 @@
     "auth.signed_in": "Connexion",
     "auth.sign_in_failed": "Échec de connexion",
     "quote.sent": "Demande de soumission envoyée",
-    "quote.corrected": "Offre corrigée"
+    "quote.corrected": "Offre corrigée",
+    "document.uploaded": "Document téléversé"
   },
   "twofa": {
     "title": "Vérification en deux étapes",
@@ -976,7 +977,13 @@
     "responseFromRequested": "délai mesuré depuis la demande du client — l’envoi n’a pas été horodaté",
     "correct": "Corriger l’offre",
     "correctTitle": "Corriger l’offre de {{supplier}}",
-    "saveCorrection": "Enregistrer la correction"
+    "saveCorrection": "Enregistrer la correction",
+    "attach": "Joindre un document",
+    "attachHint": "PDF, PNG ou JPG — 10 Mo maximum",
+    "attachDone_one": "{{count}} document joint",
+    "attachDone_other": "{{count}} documents joints",
+    "attachError": "Le téléversement a échoué — vérifiez le format et la taille.",
+    "viewRequest": "Voir la demande du client"
   },
   "contrats": {
     "title": "Contrats",
@@ -1129,5 +1136,20 @@
   },
   "listFilters": {
     "showing": "{{shown}} sur {{total}} affichés"
+  },
+  "documents": {
+    "title": "Documents",
+    "subtitle_one": "{{count}} document",
+    "subtitle_other": "{{count}} documents",
+    "colFile": "Fichier",
+    "colKind": "Type",
+    "colSource": "Rattaché à",
+    "colAccount": "Compte",
+    "colAdded": "Ajouté",
+    "download": "Télécharger",
+    "kind": {
+      "offer": "Offre fournisseur",
+      "other": "Autre"
+    }
   }
 }

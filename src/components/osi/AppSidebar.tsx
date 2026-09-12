@@ -59,7 +59,10 @@ const items: NavItem[] = [
   { key: "contrats", url: "/contrats", icone: FileSignature },
   // Ex-"transactions": renamed per the brief; still the showcase route.
   { key: "commandes", url: "/commandes", icone: Package, disabled: true },
-  { key: "documents", url: "/documents", icone: FileText, disabled: true },
+  // Live since P8's first slice (2026-09-12): offer paperwork uploaded against
+  // a quote lands here. The fuller vocabulary (invoices, customs, B/L) arrives
+  // with the phases that produce those documents.
+  { key: "documents", url: "/documents", icone: FileText },
   // Banknote, not Wallet/CreditCard — both are taken by Finance and
   // Abonnements in the INTERNE block of this same sidebar.
   { key: "paiements", url: "/paiements", icone: Banknote, disabled: true },

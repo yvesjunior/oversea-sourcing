@@ -20,6 +20,7 @@ import {
   recordQuoteFn,
   declineQuoteFn,
   type QuoteView,
+  type RequestNeed,
 } from "@/lib/quote-fns";
 import { EmployeeTabs } from "@/components/osi/EmployeeTabs";
 import { accountOptions } from "@/components/osi/AccountFilter";
@@ -81,6 +82,33 @@ function RecordForm({ quote, onDone }: { quote: QuoteView; onDone: () => void })
   const [notes, setNotes] = useState(quote.notes ?? "");
   const [declineReason, setDeclineReason] = useState<StaffDeclineReason>("no_response");
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploaded, setUploaded] = useState(0);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
+  const upload = async (chosen: FileList | null) => {
+    if (!chosen || chosen.length === 0) return;
+    setUploading(true);
+    setUploadError(null);
+    try {
+      const body = new FormData();
+      body.set("quoteId", quote.id);
+      for (const file of chosen) body.append("files", file);
+      const response = await fetch("/api/quote-document", { method: "POST", body });
+      if (!response.ok) {
+        // The endpoint refuses by TYPE and SIZE, and the person needs to know
+        // which — a silent no-op reads as a broken button.
+        setUploadError(t("soumissions.attachError"));
+        return;
+      }
+      const result = (await response.json()) as { documents: unknown[] };
+      setUploaded((count) => count + result.documents.length);
+    } catch {
+      setUploadError(t("soumissions.attachError"));
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const save = async () => {
     setSaving(true);
@@ -182,6 +210,31 @@ function RecordForm({ quote, onDone }: { quote: QuoteView; onDone: () => void })
           className="min-h-[56px] resize-none text-sm"
         />
       </div>
+      {/* The supplier answers by email, so their quotation arrives as a PDF or
+          a photo. Staff attach it here, against the quote it belongs to, and
+          it shows up on the buyer's Documents page — the offer and its
+          paperwork stop living in someone's inbox. */}
+      <div className="mt-3 rounded-lg border border-dashed border-border p-3">
+        <label className="text-xs font-medium text-muted-foreground" htmlFor={`doc-${quote.id}`}>
+          {t("soumissions.attach")}
+        </label>
+        <input
+          id={`doc-${quote.id}`}
+          type="file"
+          multiple
+          accept="application/pdf,image/png,image/jpeg"
+          disabled={uploading}
+          onChange={(e) => void upload(e.target.files)}
+          className="mt-1 block w-full text-xs file:mr-3 file:rounded-md file:border file:border-border file:bg-secondary file:px-3 file:py-1.5 file:text-xs file:font-medium"
+        />
+        <p className="mt-1 text-[11px] text-muted-foreground">
+          {uploadError ??
+            (uploaded > 0
+              ? t("soumissions.attachDone", { count: uploaded })
+              : t("soumissions.attachHint"))}
+        </p>
+      </div>
+
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <Button variant="gold" size="sm" disabled={saving} onClick={() => void save()}>
           {t(mode === "correct" ? "soumissions.saveCorrection" : "soumissions.save")}
@@ -244,9 +297,14 @@ function Soumissions() {
           soumissions by rule (owner 2026-08-29). Their own dossiers live in
           their personal workspace, one switch away. */}
       {isStaff ? (
-        <StaffQuotes quotes={all.quotes} />
+        <StaffQuotes quotes={all.quotes} needs={all.needs} />
       ) : (
-        <QuoteList quotes={mine.quotes} canRecord={mine.canRecord} canAccept={mine.canAct} />
+        <QuoteList
+          quotes={mine.quotes}
+          needs={mine.needs}
+          canRecord={mine.canRecord}
+          canAccept={mine.canAct}
+        />
       )}
     </div>
   );
@@ -256,7 +314,13 @@ function Soumissions() {
  *  2026-08-29). Staff see every account's soumissions at once, which is right
  *  for a queue and useless when the question is "where are we with account X",
  *  or "what came in this week". */
-function StaffQuotes({ quotes }: { quotes: QuoteView[] }) {
+function StaffQuotes({
+  quotes,
+  needs,
+}: {
+  quotes: QuoteView[];
+  needs: Record<string, RequestNeed>;
+}) {
   const filters = useListFilters();
   // Filtered on requestedAt — when OSI ASKED. The answer's date would move a
   // dossier between periods every time a supplier replied, which is not what
@@ -274,18 +338,21 @@ function StaffQuotes({ quotes }: { quotes: QuoteView[] }) {
         total={quotes.length}
         shown={shown.length}
       />
-      <QuoteList quotes={shown} canRecord showAccount />
+      <QuoteList quotes={shown} needs={needs} canRecord showAccount />
     </div>
   );
 }
 
 function QuoteList({
   quotes,
+  needs,
   canRecord,
   canAccept = false,
   showAccount = false,
 }: {
   quotes: QuoteView[];
+  /** The specification behind each request, keyed by request id. */
+  needs: Record<string, RequestNeed>;
   canRecord: boolean;
   /** Only the buyer commits their company to a supplier — never staff. */
   canAccept?: boolean;
@@ -355,6 +422,34 @@ function QuoteList({
               </Link>
               {showAccount && list[0] && (
                 <p className="mt-1 text-xs text-muted-foreground">{list[0].organizationName}</p>
+              )}
+
+              {/* What the supplier was actually asked. Staff keying in a reply
+                  need the specification in front of them — sending them to the
+                  dossier in another tab is how the wrong figure gets typed. */}
+              {needs[requestId] && (
+                <details className="mt-3 rounded-lg border border-border bg-secondary/30 p-3">
+                  <summary className="cursor-pointer text-xs font-medium">
+                    {t("soumissions.viewRequest")}
+                  </summary>
+                  <p className="mt-2 whitespace-pre-wrap text-xs text-muted-foreground">
+                    {needs[requestId]?.description}
+                  </p>
+                  {(needs[requestId]?.criteria.length ?? 0) > 0 && (
+                    <ul className="mt-2 flex flex-wrap gap-1.5">
+                      {needs[requestId]?.criteria.map((criterion) => (
+                        <li
+                          key={`${criterion.label}-${criterion.value}`}
+                          className="rounded-full border border-border px-2 py-0.5 text-[11px]"
+                        >
+                          <span className="text-muted-foreground">{criterion.label} : </span>
+                          {criterion.value}
+                          {criterion.unit ? ` ${criterion.unit}` : ""}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </details>
               )}
 
               {list.filter((q) => q.status === "received").length > 1 && canAccept && (

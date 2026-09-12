@@ -1257,6 +1257,56 @@ export const contractEvent = pgTable(
 );
 
 /** Generic file store (E3) — workspace-scoped; bytes live behind src/server/storage.ts. */
+/**
+ * What a stored document IS (Phase P8, first slice 2026-09-12).
+ *
+ * ADR Part II §6 lists a fuller vocabulary — invoice, certificate, customs,
+ * inspection, packing list, B/L, signed contract, annex. Those land with the
+ * phases that PRODUCE them, following the rule the rest of this file follows:
+ * a column nobody writes is worse than a missing one, because it reads as a
+ * capability. `valid_until` on `quote` sat unwritten for two weeks and taught
+ * that lesson.
+ */
+export const DOCUMENT_KINDS = ["offer", "other"] as const;
+export type DocumentKind = (typeof DOCUMENT_KINDS)[number];
+
+/**
+ * A document hanging off the transaction spine — the typed row over `file`.
+ *
+ * `file` is bytes plus a workspace; this says what those bytes ARE and what
+ * they belong to. Ownership follows the paperwork, not the uploader: staff
+ * upload a supplier's quotation, and the row belongs to the BUYER's workspace
+ * — it is their document, and scoping it to OSI's would hide it from the
+ * tenant whose file it is (the same rule /api/contract-file already follows).
+ */
+export const document = pgTable(
+  "document",
+  {
+    id: text("id").primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    /** The bytes. Cascade: a document row without its file is a dead link. */
+    fileId: text("file_id")
+      .notNull()
+      .references(() => file.id, { onDelete: "cascade" }),
+    kind: text("kind").$type<DocumentKind>().notNull().default("other"),
+    /** What it hangs from. Both nullable — a document may arrive against a
+     *  quote, against the request, or (later phases) against a deal. */
+    quoteId: text("quote_id").references(() => quote.id, { onDelete: "set null" }),
+    requestId: text("request_id").references(() => request.id, { onDelete: "set null" }),
+    /** Snapshot beside the reference, same tombstone rule as everywhere else:
+     *  the list must stay readable after the uploader's account is gone. */
+    uploadedBy: text("uploaded_by").references(() => user.id, { onDelete: "set null" }),
+    uploadedByName: text("uploaded_by_name"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => [
+    index("document_org_idx").on(table.organizationId),
+    index("document_quote_idx").on(table.quoteId),
+  ],
+);
+
 export const file = pgTable(
   "file",
   {

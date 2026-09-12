@@ -22,6 +22,7 @@ import { Route as SignupRouteImport } from './routes/signup'
 import { Route as SoumissionsRouteImport } from './routes/soumissions'
 import { Route as TransactionsRouteImport } from './routes/transactions'
 import { Route as ApiContractFileRouteImport } from './routes/api/contract-file'
+import { Route as ApiQuoteDocumentRouteImport } from './routes/api/quote-document'
 import { Route as ApiSourceUploadRouteImport } from './routes/api/source-upload'
 import { Route as ApiUploadRouteImport } from './routes/api/upload'
 import { Route as ContratsIndexRouteImport } from './routes/contrats/index'
@@ -103,6 +104,11 @@ const TransactionsRoute = TransactionsRouteImport.update({
 const ApiContractFileRoute = ApiContractFileRouteImport.update({
   id: '/api/contract-file',
   path: '/api/contract-file',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiQuoteDocumentRoute = ApiQuoteDocumentRouteImport.update({
+  id: '/api/quote-document',
+  path: '/api/quote-document',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiSourceUploadRoute = ApiSourceUploadRouteImport.update({
@@ -205,6 +211,7 @@ export interface FileRoutesByFullPath {
   '/soumissions': typeof SoumissionsRoute
   '/transactions': typeof TransactionsRoute
   '/api/contract-file': typeof ApiContractFileRoute
+  '/api/quote-document': typeof ApiQuoteDocumentRoute
   '/api/source-upload': typeof ApiSourceUploadRoute
   '/api/upload': typeof ApiUploadRoute
   '/contrats/$id': typeof ContratsIdRoute
@@ -237,6 +244,7 @@ export interface FileRoutesByTo {
   '/soumissions': typeof SoumissionsRoute
   '/transactions': typeof TransactionsRoute
   '/api/contract-file': typeof ApiContractFileRoute
+  '/api/quote-document': typeof ApiQuoteDocumentRoute
   '/api/source-upload': typeof ApiSourceUploadRoute
   '/api/upload': typeof ApiUploadRoute
   '/contrats/$id': typeof ContratsIdRoute
@@ -270,6 +278,7 @@ export interface FileRoutesById {
   '/soumissions': typeof SoumissionsRoute
   '/transactions': typeof TransactionsRoute
   '/api/contract-file': typeof ApiContractFileRoute
+  '/api/quote-document': typeof ApiQuoteDocumentRoute
   '/api/source-upload': typeof ApiSourceUploadRoute
   '/api/upload': typeof ApiUploadRoute
   '/contrats/$id': typeof ContratsIdRoute
@@ -304,6 +313,7 @@ export interface FileRouteTypes {
     | '/soumissions'
     | '/transactions'
     | '/api/contract-file'
+    | '/api/quote-document'
     | '/api/source-upload'
     | '/api/upload'
     | '/contrats/$id'
@@ -336,6 +346,7 @@ export interface FileRouteTypes {
     | '/soumissions'
     | '/transactions'
     | '/api/contract-file'
+    | '/api/quote-document'
     | '/api/source-upload'
     | '/api/upload'
     | '/contrats/$id'
@@ -368,6 +379,7 @@ export interface FileRouteTypes {
     | '/soumissions'
     | '/transactions'
     | '/api/contract-file'
+    | '/api/quote-document'
     | '/api/source-upload'
     | '/api/upload'
     | '/contrats/$id'
@@ -401,6 +413,7 @@ export interface RootRouteChildren {
   SoumissionsRoute: typeof SoumissionsRoute
   TransactionsRoute: typeof TransactionsRoute
   ApiContractFileRoute: typeof ApiContractFileRoute
+  ApiQuoteDocumentRoute: typeof ApiQuoteDocumentRoute
   ApiSourceUploadRoute: typeof ApiSourceUploadRoute
   ApiUploadRoute: typeof ApiUploadRoute
   ContratsIdRoute: typeof ContratsIdRoute
@@ -510,6 +523,13 @@ declare module '@tanstack/react-router' {
       path: '/api/contract-file'
       fullPath: '/api/contract-file'
       preLoaderRoute: typeof ApiContractFileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/quote-document': {
+      id: '/api/quote-document'
+      path: '/api/quote-document'
+      fullPath: '/api/quote-document'
+      preLoaderRoute: typeof ApiQuoteDocumentRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/source-upload': {
@@ -660,6 +680,7 @@ const rootRouteChildren: RootRouteChildren = {
   SoumissionsRoute: SoumissionsRoute,
   TransactionsRoute: TransactionsRoute,
   ApiContractFileRoute: ApiContractFileRoute,
+  ApiQuoteDocumentRoute: ApiQuoteDocumentRoute,
   ApiSourceUploadRoute: ApiSourceUploadRoute,
   ApiUploadRoute: ApiUploadRoute,
   ContratsIdRoute: ContratsIdRoute,

@@ -881,7 +881,8 @@
     "auth.signed_in": "Signed in",
     "auth.sign_in_failed": "Failed sign-in",
     "quote.sent": "Quote request sent",
-    "quote.corrected": "Offer corrected"
+    "quote.corrected": "Offer corrected",
+    "document.uploaded": "Document uploaded"
   },
   "twofa": {
     "title": "Two-step verification",
@@ -976,7 +977,13 @@
     "responseFromRequested": "measured from the customer's request — the send was never timestamped",
     "correct": "Correct the offer",
     "correctTitle": "Correct {{supplier}}'s offer",
-    "saveCorrection": "Save the correction"
+    "saveCorrection": "Save the correction",
+    "attach": "Attach a document",
+    "attachHint": "PDF, PNG or JPG — 10 MB maximum",
+    "attachDone_one": "{{count}} document attached",
+    "attachDone_other": "{{count}} documents attached",
+    "attachError": "Upload failed — check the format and the size.",
+    "viewRequest": "View the customer's request"
   },
   "contrats": {
     "title": "Contracts",
@@ -1129,5 +1136,20 @@
   },
   "listFilters": {
     "showing": "showing {{shown}} of {{total}}"
+  },
+  "documents": {
+    "title": "Documents",
+    "subtitle_one": "{{count}} document",
+    "subtitle_other": "{{count}} documents",
+    "colFile": "File",
+    "colKind": "Type",
+    "colSource": "Attached to",
+    "colAccount": "Account",
+    "colAdded": "Added",
+    "download": "Download",
+    "kind": {
+      "offer": "Supplier offer",
+      "other": "Other"
+    }
   }
 }
