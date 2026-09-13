@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { DOCUMENT_RETENTION_MONTHS, isPurgeable, retentionCutoff } from "@/lib/retention";
+import {
+  ARCHIVE_RETENTION_YEARS,
+  archivePurgeDue,
+  DOCUMENT_RETENTION_MONTHS,
+  isPurgeable,
+  retentionCutoff,
+} from "@/lib/retention";
 
 const NOW = new Date("2026-09-12T12:00:00Z");
 
@@ -47,5 +53,27 @@ describe("document retention", () => {
     );
     expect(drift).toBeLessThanOrEqual(1);
     expect(winter.toISOString().slice(0, 7)).toBe("2025-07");
+  });
+});
+
+describe("archive retention", () => {
+  it("keeps an archived workspace for six years, not six months", () => {
+    // Deliberately a different number from DOCUMENT_RETENTION_MONTHS, and the
+    // test says why: six months is a REVERSAL window, six years is a books-and
+    // -records obligation. An archive exists because the workspace holds
+    // contracts OSI is a party to.
+    expect(ARCHIVE_RETENTION_YEARS).toBe(6);
+    expect(DOCUMENT_RETENTION_MONTHS).toBe(6); // months — not the same window
+    expect(archivePurgeDue(new Date("2026-09-13T00:00:00Z")).toISOString()).toBe(
+      "2032-09-13T00:00:00.000Z",
+    );
+  });
+
+  it("handles a leap day without inventing one", () => {
+    // 29 February plus six years is 2032, which IS a leap year — the date
+    // survives. Pinned because the next person will wonder.
+    expect(archivePurgeDue(new Date("2026-02-28T00:00:00Z")).toISOString().slice(0, 10)).toBe(
+      "2032-02-28",
+    );
   });
 });

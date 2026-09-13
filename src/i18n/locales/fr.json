@@ -144,7 +144,8 @@
     "dangerConfirm": "Saisissez « {{name}} » pour confirmer",
     "dangerButton": "Supprimer définitivement",
     "dangerFailed": "Suppression refusée — vérifiez le nom saisi.",
-    "dangerArchiveNotice": "Cet espace contient des contrats ou des transactions : il sera archivé, pas effacé. Vos données sont conservées et vous pourrez le restaurer à votre prochaine connexion."
+    "dangerArchiveNotice": "Cet espace contient des contrats ou des transactions : il sera archivé, pas effacé. Vos données sont conservées et vous pourrez le restaurer à votre prochaine connexion.",
+    "dangerArchiveRetention": "Les archives sont conservées six ans — la durée de conservation des livres et registres."
   },
   "invitation": {
     "title": "Invitation — {{workspace}}",
@@ -1175,6 +1176,7 @@
     "restore": "Restaurer mon espace",
     "restoring": "Restauration…",
     "failed": "La restauration a échoué. Réessayez ou contactez OSI.",
-    "nothingToRecover": "Rien à récupérer — votre espace est actif."
+    "nothingToRecover": "Rien à récupérer — votre espace est actif.",
+    "keptUntil": "Conservé jusqu’au {{date}}."
   }
 }

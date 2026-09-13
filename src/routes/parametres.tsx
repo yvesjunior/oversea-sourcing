@@ -95,6 +95,9 @@ function DangerZone({ workspaceName, type }: { workspaceName: string; type: stri
       {removalKind === "archive" && (
         <p className="mt-2 rounded-lg border border-border bg-secondary/40 p-3 text-xs">
           {t("settings.dangerArchiveNotice")}
+          <span className="mt-1 block text-muted-foreground">
+            {t("settings.dangerArchiveRetention")}
+          </span>
         </p>
       )}
       <div className="mt-3 flex flex-wrap items-center gap-2">

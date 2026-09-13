@@ -4,6 +4,7 @@ import { ArchiveRestore } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { formatDay } from "@/lib/instant";
+import { archivePurgeDue } from "@/lib/retention";
 import { restoreWorkspaceFn } from "@/lib/settings-fns";
 
 // The recovery screen (2026-09-12). A workspace carrying financial activity is
@@ -70,6 +71,16 @@ function Recuperation() {
           })}
         </p>
         <p className="mt-3 text-xs text-muted-foreground">{t("recovery.kept")}</p>
+        {/* A concrete date, not "six years": the person reading this wants to
+            know how long they have, and a duration makes them do arithmetic. */}
+        <p className="mt-1 text-xs text-muted-foreground">
+          {t("recovery.keptUntil", {
+            date: formatDay(
+              archivePurgeDue(new Date(archivedWorkspace.archivedAt)).toISOString(),
+              i18n.language,
+            ),
+          })}
+        </p>
         <Button variant="gold" className="mt-6" disabled={restoring} onClick={() => void restore()}>
           {restoring ? t("recovery.restoring") : t("recovery.restore")}
         </Button>

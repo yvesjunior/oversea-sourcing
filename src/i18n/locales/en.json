@@ -144,7 +144,8 @@
     "dangerConfirm": "Type \"{{name}}\" to confirm",
     "dangerButton": "Delete permanently",
     "dangerFailed": "Deletion refused — check the typed name.",
-    "dangerArchiveNotice": "This workspace holds contracts or transactions: it will be archived, not erased. Your data is kept and you can restore it at your next sign-in."
+    "dangerArchiveNotice": "This workspace holds contracts or transactions: it will be archived, not erased. Your data is kept and you can restore it at your next sign-in.",
+    "dangerArchiveRetention": "Archives are kept for six years — the books-and-records retention period."
   },
   "invitation": {
     "title": "Invitation — {{workspace}}",
@@ -1175,6 +1176,7 @@
     "restore": "Restore my workspace",
     "restoring": "Restoring…",
     "failed": "Restoring failed. Try again, or contact OSI.",
-    "nothingToRecover": "Nothing to recover — your workspace is active."
+    "nothingToRecover": "Nothing to recover — your workspace is active.",
+    "keptUntil": "Kept until {{date}}."
   }
 }
