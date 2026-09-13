@@ -302,6 +302,13 @@
       "when": 1789238086457,
       "tag": "0042_odd_korath",
       "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1789265587965,
+      "tag": "0043_pretty_shotgun",
+      "breakpoints": true
     }
   ]
 }

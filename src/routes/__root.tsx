@@ -6,6 +6,7 @@ import {
   useRouter,
   HeadContent,
   Scripts,
+  redirect,
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
 import { I18nextProvider } from "react-i18next";
@@ -85,9 +86,15 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   beforeLoad: async ({ location }): Promise<RootContext> => {
     // One call: the session AND the language this request renders in (the
     // language comes from the request cookie, which only the server sees).
-    const { session, lang, design } = await getSessionFn();
+    const { session, lang, design, archivedWorkspace } = await getSessionFn();
     enforceAuth(session, location.pathname, location.href);
-    return { session, lang, design };
+    // An archived workspace closes the product until it is restored. Done here
+    // rather than per route so nothing is missed: the data is all still there,
+    // and a half-open app over a deleted account is worse than a closed one.
+    if (archivedWorkspace && location.pathname !== "/recuperation") {
+      throw redirect({ to: "/recuperation" });
+    }
+    return { session, lang, design, archivedWorkspace };
   },
   head: () => ({
     meta: [

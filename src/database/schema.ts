@@ -129,6 +129,25 @@ export const organization = pgTable("organization", {
   type: text("type").$type<OrganizationType>().notNull().default("individual"),
   logo: text("logo"),
   metadata: text("metadata"),
+  /**
+   * Archived instead of destroyed (owner, 2026-09-12) — set when the owner
+   * asks to delete a workspace that carries FINANCIAL activity.
+   *
+   * Deleting an organisation cascades fifteen tables, and among them are the
+   * contract, its parties and its event trail — which is to say the signature
+   * evidence on a mandate OSI ITSELF signed. ADR Part II §4 states that
+   * evidence is "never purged, never FK-cascaded away"; before this column
+   * that was simply untrue, and one Danger Zone confirmation away.
+   *
+   * So a workspace with a contract or a deal is never hard-deleted. The
+   * archive is the deletion: it disappears from the product, the data stays,
+   * and the owner can bring it back by signing in. A workspace with no
+   * financial trace — an abandoned signup, which is most of them — is still
+   * erased outright, because there is nothing there to keep.
+   */
+  archivedAt: timestamp("archived_at"),
+  archivedBy: text("archived_by"),
+  archivedByName: text("archived_by_name"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

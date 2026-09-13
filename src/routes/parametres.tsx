@@ -35,6 +35,7 @@ import {
   updateSourcingRulesFn,
   type OrganizationProfileData,
   type SettingsData,
+  workspaceRemovalKindFn,
 } from "@/lib/settings-fns";
 import { applyTheme, isThemeColor, THEME_KEYS, THEMES, type ThemeColor } from "@/lib/themes";
 
@@ -57,6 +58,12 @@ function DangerZone({ workspaceName, type }: { workspaceName: string; type: stri
   const [confirmName, setConfirmName] = useState("");
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
+  // Asked once on mount: whether this workspace carries financial activity is
+  // a server fact, and the notice below must not guess at it.
+  const [removalKind, setRemovalKind] = useState<"archive" | "delete" | null>(null);
+  useEffect(() => {
+    void workspaceRemovalKindFn().then((result) => setRemovalKind(result.kind));
+  }, []);
 
   const destroy = async () => {
     setBusy(true);
@@ -82,6 +89,14 @@ function DangerZone({ workspaceName, type }: { workspaceName: string; type: stri
       <p className="mt-1 text-xs text-muted-foreground">
         {t(type === "individual" ? "settings.dangerHintIndividual" : "settings.dangerHintOrg")}
       </p>
+      {/* "Delete" and "archive for recovery" are different promises, and the
+          owner is entitled to know which one they are agreeing to BEFORE they
+          type the name — not after, in a toast. */}
+      {removalKind === "archive" && (
+        <p className="mt-2 rounded-lg border border-border bg-secondary/40 p-3 text-xs">
+          {t("settings.dangerArchiveNotice")}
+        </p>
+      )}
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <Input
           value={confirmName}

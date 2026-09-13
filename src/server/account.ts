@@ -37,24 +37,89 @@ export async function deleteUserAccount(
 }
 
 /**
- * Destroy a whole workspace account (owner capability, 2026-08-26): the
- * organisation row goes (every workspace-scoped table cascades — requests,
- * matches, files, subscription, sourcing rules, profile, invitations), and
- * each former member whose ONLY workspace this was loses their account
- * (UC-6 re-interpretation) — org-signup owners included. Individual-first
- * members fall back to their personal workspaces; platform staff are never
- * auto-deleted. The internal workspace is indestructible.
+ * Does this workspace carry financial activity?
  *
- * Returns the number of user accounts deleted alongside the workspace.
+ * A contract or a deal — a deal IS the money: it snapshots the accepted
+ * amount, currency and incoterm. `payment` joins this list the day P9 creates
+ * it; until then there is no third thing to check.
+ *
+ * This is the whole of the archive rule. Everything else about the workspace —
+ * requests, suppliers, sourcing preferences — is the customer's and may be
+ * erased with them.
+ */
+export async function hasFinancialActivity(workspaceId: string): Promise<boolean> {
+  const [contract, deal] = await Promise.all([
+    db.query.contract.findFirst({
+      where: eq(schema.contract.organizationId, workspaceId),
+      columns: { id: true },
+    }),
+    db.query.deal.findFirst({
+      where: eq(schema.deal.organizationId, workspaceId),
+      columns: { id: true },
+    }),
+  ]);
+  return Boolean(contract ?? deal);
+}
+
+export type WorkspaceRemoval =
+  /** Erased outright: nothing financial was attached to it. */
+  | { outcome: "destroyed"; deletedUsers: number }
+  /** Kept, hidden, recoverable by signing in. */
+  | { outcome: "archived" }
+  /** The internal workspace, or no such workspace. */
+  | { outcome: "refused" };
+
+/**
+ * Remove a workspace at its owner's request (owner capability, 2026-08-26;
+ * archive rule added 2026-09-12).
+ *
+ * TWO OUTCOMES, decided by the data and not by the caller:
+ *
+ * - **Financial activity present → ARCHIVED, never deleted.** Destroying the
+ *   organisation cascades fifteen tables, contract → contract_party →
+ *   contract_event among them, which is the signature evidence on a mandate
+ *   OSI signed as a party. ADR Part II §4 promises that evidence is never
+ *   cascaded away; the promise only becomes true here. The workspace vanishes
+ *   from the product and its owner restores it by signing in.
+ * - **Nothing financial → destroyed**, exactly as before: the organisation row
+ *   goes, every workspace-scoped table cascades, and each former member whose
+ *   ONLY workspace this was loses their account (UC-6). An abandoned signup is
+ *   not a record worth keeping.
+ *
+ * Member accounts are NEVER deleted on the archive path — the owner has to be
+ * able to sign in to recover, so deleting their account would lock the archive
+ * shut forever.
  */
 export async function destroyWorkspace(
   workspaceId: string,
   actor?: { actorId: string; actorName: string },
-): Promise<number | null> {
+): Promise<WorkspaceRemoval> {
   const workspace = await db.query.organization.findFirst({
     where: eq(schema.organization.id, workspaceId),
   });
-  if (!workspace || workspace.type === "internal") return null;
+  if (!workspace || workspace.type === "internal") return { outcome: "refused" };
+
+  if (await hasFinancialActivity(workspaceId)) {
+    await db
+      .update(schema.organization)
+      .set({
+        archivedAt: new Date(),
+        archivedBy: actor?.actorId ?? null,
+        archivedByName: actor?.actorName ?? null,
+      })
+      .where(eq(schema.organization.id, workspaceId));
+    const { logAudit } = await import("@/server/audit");
+    await logAudit({
+      ...(actor ?? {}),
+      organizationId: workspaceId,
+      organizationName: workspace.name,
+      action: "workspace.archived",
+      target: workspace.name,
+      detail: { type: workspace.type, reason: "financial_activity" },
+    });
+    console.log(`workspace archived: "${workspace.name}" — financial activity, kept for recovery`);
+    return { outcome: "archived" };
+  }
 
   const members = await db.query.member.findMany({
     where: eq(schema.member.organizationId, workspaceId),
@@ -84,5 +149,35 @@ export async function destroyWorkspace(
   console.log(
     `workspace destroyed: "${workspace.name}" (${workspace.type}) — ${deletedUsers} account(s) deleted with it`,
   );
-  return deletedUsers;
+  return { outcome: "destroyed", deletedUsers };
+}
+
+/**
+ * Bring an archived workspace back (2026-09-12).
+ *
+ * Called from the recovery screen a member lands on when they sign in to an
+ * archived workspace — the archive is meant to be undone by the person who
+ * asked for it, without a support conversation.
+ */
+export async function restoreWorkspace(
+  workspaceId: string,
+  actor?: { actorId: string; actorName: string },
+): Promise<boolean> {
+  const workspace = await db.query.organization.findFirst({
+    where: eq(schema.organization.id, workspaceId),
+  });
+  if (!workspace?.archivedAt) return false;
+  await db
+    .update(schema.organization)
+    .set({ archivedAt: null, archivedBy: null, archivedByName: null })
+    .where(eq(schema.organization.id, workspaceId));
+  const { logAudit } = await import("@/server/audit");
+  await logAudit({
+    ...(actor ?? {}),
+    organizationId: workspaceId,
+    organizationName: workspace.name,
+    action: "workspace.restored",
+    target: workspace.name,
+  });
+  return true;
 }

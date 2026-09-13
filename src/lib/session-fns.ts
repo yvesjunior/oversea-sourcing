@@ -22,7 +22,14 @@ export type SessionData =
  *  along (2026-08-29) because it is resolved from the request cookie, which
  *  only the server can read — and SSR must render in it, or hydration breaks
  *  (see src/i18n/config.ts). One round trip, not two. */
-export type RootContext = { session: SessionData; lang: Language; design: Design };
+export type RootContext = {
+  session: SessionData;
+  lang: Language;
+  design: Design;
+  /** The active workspace is archived — every route but the recovery screen is
+   *  closed until its owner brings it back (2026-09-12). */
+  archivedWorkspace: { id: string; name: string; archivedAt: string } | null;
+};
 
 /** Session (user + session) for the current request — null when anonymous —
  *  plus the language this request must be rendered in.
@@ -44,6 +51,7 @@ export const getSessionFn = createServerFn({ method: "GET" }).handler(
         session: null,
         lang: cookieLang ?? DEFAULT_LANGUAGE,
         design: cookieDesign ?? DEFAULT_DESIGN,
+        archivedWorkspace: null,
       };
     }
     const account = session.user as { locale?: string; design?: string };
@@ -60,6 +68,29 @@ export const getSessionFn = createServerFn({ method: "GET" }).handler(
     // nav and route guards follow the Rôles & accès matrix automatically.
     const { grantedFeatures } = await import("@/server/permissions");
     const platformFeatures = await grantedFeatures(effective);
+    // Signing in to a workspace whose owner deleted it: the data is intact and
+    // one click away, so the session is NOT refused — it lands on recovery.
+    const workspaceId = session.session.activeOrganizationId;
+    let archivedWorkspace: RootContext["archivedWorkspace"] = null;
+    if (workspaceId) {
+      const [{ db }, { eq }, schema] = await Promise.all([
+        import("@/database"),
+        import("drizzle-orm"),
+        import("@/database/schema"),
+      ]);
+      const workspace = await db.query.organization.findFirst({
+        where: eq(schema.organization.id, workspaceId),
+        columns: { id: true, name: true, archivedAt: true },
+      });
+      if (workspace?.archivedAt) {
+        archivedWorkspace = {
+          id: workspace.id,
+          name: workspace.name,
+          archivedAt: workspace.archivedAt.toISOString(),
+        };
+      }
+    }
+
     return {
       session: {
         ...session,
@@ -68,6 +99,7 @@ export const getSessionFn = createServerFn({ method: "GET" }).handler(
       },
       lang,
       design,
+      archivedWorkspace,
     };
   },
 );

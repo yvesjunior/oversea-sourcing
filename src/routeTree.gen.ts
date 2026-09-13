@@ -17,6 +17,7 @@ import { Route as FournisseursRouteImport } from './routes/fournisseurs'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as MotDePasseOublieRouteImport } from './routes/mot-de-passe-oublie'
 import { Route as ParametresRouteImport } from './routes/parametres'
+import { Route as RecuperationRouteImport } from './routes/recuperation'
 import { Route as ReinitialiserRouteImport } from './routes/reinitialiser'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as SoumissionsRouteImport } from './routes/soumissions'
@@ -79,6 +80,11 @@ const MotDePasseOublieRoute = MotDePasseOublieRouteImport.update({
 const ParametresRoute = ParametresRouteImport.update({
   id: '/parametres',
   path: '/parametres',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RecuperationRoute = RecuperationRouteImport.update({
+  id: '/recuperation',
+  path: '/recuperation',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ReinitialiserRoute = ReinitialiserRouteImport.update({
@@ -206,6 +212,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/mot-de-passe-oublie': typeof MotDePasseOublieRoute
   '/parametres': typeof ParametresRoute
+  '/recuperation': typeof RecuperationRoute
   '/reinitialiser': typeof ReinitialiserRoute
   '/signup': typeof SignupRoute
   '/soumissions': typeof SoumissionsRoute
@@ -239,6 +246,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/mot-de-passe-oublie': typeof MotDePasseOublieRoute
   '/parametres': typeof ParametresRoute
+  '/recuperation': typeof RecuperationRoute
   '/reinitialiser': typeof ReinitialiserRoute
   '/signup': typeof SignupRoute
   '/soumissions': typeof SoumissionsRoute
@@ -273,6 +281,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/mot-de-passe-oublie': typeof MotDePasseOublieRoute
   '/parametres': typeof ParametresRoute
+  '/recuperation': typeof RecuperationRoute
   '/reinitialiser': typeof ReinitialiserRoute
   '/signup': typeof SignupRoute
   '/soumissions': typeof SoumissionsRoute
@@ -308,6 +317,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/mot-de-passe-oublie'
     | '/parametres'
+    | '/recuperation'
     | '/reinitialiser'
     | '/signup'
     | '/soumissions'
@@ -341,6 +351,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/mot-de-passe-oublie'
     | '/parametres'
+    | '/recuperation'
     | '/reinitialiser'
     | '/signup'
     | '/soumissions'
@@ -374,6 +385,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/mot-de-passe-oublie'
     | '/parametres'
+    | '/recuperation'
     | '/reinitialiser'
     | '/signup'
     | '/soumissions'
@@ -408,6 +420,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   MotDePasseOublieRoute: typeof MotDePasseOublieRoute
   ParametresRoute: typeof ParametresRoute
+  RecuperationRoute: typeof RecuperationRoute
   ReinitialiserRoute: typeof ReinitialiserRoute
   SignupRoute: typeof SignupRoute
   SoumissionsRoute: typeof SoumissionsRoute
@@ -488,6 +501,13 @@ declare module '@tanstack/react-router' {
       path: '/parametres'
       fullPath: '/parametres'
       preLoaderRoute: typeof ParametresRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/recuperation': {
+      id: '/recuperation'
+      path: '/recuperation'
+      fullPath: '/recuperation'
+      preLoaderRoute: typeof RecuperationRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/reinitialiser': {
@@ -675,6 +695,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   MotDePasseOublieRoute: MotDePasseOublieRoute,
   ParametresRoute: ParametresRoute,
+  RecuperationRoute: RecuperationRoute,
   ReinitialiserRoute: ReinitialiserRoute,
   SignupRoute: SignupRoute,
   SoumissionsRoute: SoumissionsRoute,

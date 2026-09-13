@@ -143,7 +143,8 @@
     "dangerHintIndividual": "Deletes your workspace, all its data and your user account. This cannot be undone.",
     "dangerConfirm": "Type \"{{name}}\" to confirm",
     "dangerButton": "Delete permanently",
-    "dangerFailed": "Deletion refused — check the typed name."
+    "dangerFailed": "Deletion refused — check the typed name.",
+    "dangerArchiveNotice": "This workspace holds contracts or transactions: it will be archived, not erased. Your data is kept and you can restore it at your next sign-in."
   },
   "invitation": {
     "title": "Invitation — {{workspace}}",
@@ -883,7 +884,9 @@
     "quote.sent": "Quote request sent",
     "quote.corrected": "Offer corrected",
     "document.uploaded": "Document uploaded",
-    "document.retention_swept": "Document retention applied"
+    "document.retention_swept": "Document retention applied",
+    "workspace.archived": "Workspace archived",
+    "workspace.restored": "Workspace restored"
   },
   "twofa": {
     "title": "Two-step verification",
@@ -1164,5 +1167,14 @@
     "fromRequest": "Request",
     "fromQuote": "Quote",
     "sourceGone": "deleted"
+  },
+  "recovery": {
+    "title": "Your workspace is archived",
+    "body": "“{{workspace}}” was deleted on {{date}}. Because it holds contracts or transactions, nothing was erased — the workspace was archived instead.",
+    "kept": "Your requests, quotes, contracts and documents are intact and come back exactly as they were.",
+    "restore": "Restore my workspace",
+    "restoring": "Restoring…",
+    "failed": "Restoring failed. Try again, or contact OSI.",
+    "nothingToRecover": "Nothing to recover — your workspace is active."
   }
 }

@@ -143,7 +143,8 @@
     "dangerHintIndividual": "Supprime votre espace, toutes ses données et votre compte utilisateur. Action irréversible.",
     "dangerConfirm": "Saisissez « {{name}} » pour confirmer",
     "dangerButton": "Supprimer définitivement",
-    "dangerFailed": "Suppression refusée — vérifiez le nom saisi."
+    "dangerFailed": "Suppression refusée — vérifiez le nom saisi.",
+    "dangerArchiveNotice": "Cet espace contient des contrats ou des transactions : il sera archivé, pas effacé. Vos données sont conservées et vous pourrez le restaurer à votre prochaine connexion."
   },
   "invitation": {
     "title": "Invitation — {{workspace}}",
@@ -883,7 +884,9 @@
     "quote.sent": "Demande de soumission envoyée",
     "quote.corrected": "Offre corrigée",
     "document.uploaded": "Document téléversé",
-    "document.retention_swept": "Rétention des documents appliquée"
+    "document.retention_swept": "Rétention des documents appliquée",
+    "workspace.archived": "Espace archivé",
+    "workspace.restored": "Espace restauré"
   },
   "twofa": {
     "title": "Vérification en deux étapes",
@@ -1164,5 +1167,14 @@
     "fromRequest": "Demande",
     "fromQuote": "Soumission",
     "sourceGone": "supprimée"
+  },
+  "recovery": {
+    "title": "Votre espace est archivé",
+    "body": "« {{workspace}} » a été supprimé le {{date}}. Comme il contient des contrats ou des transactions, rien n’a été effacé — l’espace a été archivé.",
+    "kept": "Vos demandes, soumissions, contrats et documents sont intacts et reviendront tels quels.",
+    "restore": "Restaurer mon espace",
+    "restoring": "Restauration…",
+    "failed": "La restauration a échoué. Réessayez ou contactez OSI.",
+    "nothingToRecover": "Rien à récupérer — votre espace est actif."
   }
 }

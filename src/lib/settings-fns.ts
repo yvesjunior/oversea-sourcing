@@ -446,7 +446,7 @@ export const updateOrganizationProfileFn = createServerFn({ method: "POST" })
  *  match — a destructive action never rides a single click. */
 export const destroyWorkspaceFn = createServerFn({ method: "POST" })
   .inputValidator(z.object({ confirmName: z.string().trim().min(1).max(200) }))
-  .handler(async ({ data }): Promise<{ ok: boolean; selfDeleted: boolean }> => {
+  .handler(async ({ data }): Promise<{ ok: boolean; selfDeleted: boolean; archived?: boolean }> => {
     const [{ requireWorkspaceRole }, { getRequest }, { db }, { eq }, schema] = await Promise.all([
       import("@/server/workspace-guard"),
       import("@tanstack/react-start/server"),
@@ -466,19 +466,70 @@ export const destroyWorkspaceFn = createServerFn({ method: "POST" })
     const { destroyWorkspace } = await import("@/server/account");
     const actorName = (await db.query.user.findFirst({ where: eq(schema.user.id, caller.userId) }))
       ?.name;
-    const deleted = await destroyWorkspace(caller.workspaceId, {
+    const removal = await destroyWorkspace(caller.workspaceId, {
       actorId: caller.userId,
       actorName: actorName ?? caller.userId,
     });
-    if (deleted === null) return { ok: false, selfDeleted: false };
+    if (removal.outcome === "refused") return { ok: false, selfDeleted: false };
+    // Archived, not erased: the account survives on purpose — the owner has to
+    // be able to sign in to recover it.
+    if (removal.outcome === "archived") {
+      return { ok: true, selfDeleted: false, archived: true };
+    }
 
     // Did the caller's own account go with it? (No remaining user row.)
     const stillExists = await db.query.user.findFirst({
       where: eq(schema.user.id, caller.userId),
       columns: { id: true },
     });
-    return { ok: true, selfDeleted: !stillExists };
+    return { ok: true, selfDeleted: !stillExists, archived: false };
   });
+
+/**
+ * Will deleting this workspace archive it instead? Asked by the Danger Zone so
+ * the confirmation describes what will actually happen — "delete" and "archive
+ * for recovery" are different promises and the owner is entitled to know which
+ * one they are agreeing to before they type the name.
+ */
+export const workspaceRemovalKindFn = createServerFn({ method: "GET" }).handler(
+  async (): Promise<{ kind: "archive" | "delete" }> => {
+    const [{ requireWorkspaceRole }, { getRequest }, { hasFinancialActivity }] = await Promise.all([
+      import("@/server/workspace-guard"),
+      import("@tanstack/react-start/server"),
+      import("@/server/account"),
+    ]);
+    const caller = await requireWorkspaceRole(getRequest().headers, "owner");
+    if (!caller) return { kind: "delete" };
+    return { kind: (await hasFinancialActivity(caller.workspaceId)) ? "archive" : "delete" };
+  },
+);
+
+/** Bring back an archived workspace — the recovery screen's action. */
+export const restoreWorkspaceFn = createServerFn({ method: "POST" }).handler(
+  async (): Promise<{ ok: boolean }> => {
+    const [{ requireWorkspaceRole }, { getRequest }, { db }, { eq }, schema, { restoreWorkspace }] =
+      await Promise.all([
+        import("@/server/workspace-guard"),
+        import("@tanstack/react-start/server"),
+        import("@/database"),
+        import("drizzle-orm"),
+        import("@/database/schema"),
+        import("@/server/account"),
+      ]);
+    // Owner-only, like archiving it: a viewer or buyer seat cannot decide the
+    // company comes back.
+    const caller = await requireWorkspaceRole(getRequest().headers, "owner");
+    if (!caller) return { ok: false };
+    const actorName = (await db.query.user.findFirst({ where: eq(schema.user.id, caller.userId) }))
+      ?.name;
+    return {
+      ok: await restoreWorkspace(caller.workspaceId, {
+        actorId: caller.userId,
+        actorName: actorName ?? caller.userId,
+      }),
+    };
+  },
+);
 
 /** Workspace rename (E2 gap closed 2026-08-27) — owner-only, enterprise
  *  workspaces only: personal workspaces are named after the person, and the
