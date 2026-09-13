@@ -37,18 +37,8 @@ tracked to delivery** — with the PDF report available throughout.
 
 ### START HERE — handoff, 2026-09-12 (read this first)
 
-**Prod = `380f5a5` (deploy #35).** `main` is THREE commits ahead and **two of
-them change the app, one carrying migration 0042**:
-
-| Commit | What | Deployed |
-|---|---|---|
-| `6030736` | docs: deploy #35 record | docs only |
-| `ec6c063` | **document retention, 6 months** (migration **0042**) | ❌ **no** |
-| `be1e570` | **asking a supplier twice actually asks twice** | ❌ **no** |
-
-So the next deploy runs **migration 0042** (`document.orphaned_at`, one
-nullable column, additive). Both are verified on dev end to end; they were
-finished after the last deploy and simply have not been shipped.
+**Prod = `9edf1ac` (deploy #36, migration 0042).** `main` and prod are level —
+nothing is waiting to ship.
 
 **One decision is waiting on the owner, and it is small:** whether to REMOVE the
 "Marquer comme envoyée" button on a quote. The owner said *"when an offer is
@@ -201,6 +191,7 @@ deploy failed mid-session and prod was rolled back; see #24.
 | 23 | `5b90649` | — | **the platform workspace can no longer be deleted** — the org-plugin's own `POST /organization/delete` bypassed `destroyWorkspace`; guard moved into a `beforeDeleteOrganization` hook |
 | 24 | `95b825a` | — | **filters on all four ops lists** (multi-account + week/month/year/custom period) · **the global supplier directory is staff-only** · the DB cleared for fresh testing. *First attempt (`77d37b0`) took prod down — see the chunk-cycle note* |
 | 25 | `b7481d6` | — | **"linked supplier" widened to four traces** (matched · quoted · dealt · contract party) · **a session opens in your PERSONAL workspace** when you have one · the discovery store cleared for a cold research test |
+| 36 | `9edf1ac` | 0042 | **document retention — six months after a document loses its request and quote**, then the row, the `file` row and the bytes go; the first time `storage.deleteFile` has ever run on a user file · **asking a supplier again actually asks them again** (`declined`/`expired` reopen; the screen says created / reopened / skipped instead of "0 approached") |
 | 35 | `380f5a5` | 0041 | **P8 first slice — Documents is live**: staff read the buyer's need beside the offer form, attach the supplier's PDF/PNG/JPG to the quote, and it lists on `/documents` naming AND linking both the request and the quote · **a mistyped price can be corrected** |
 | 34 | `c14a011` | 0040 | **quotes record WHY they were declined** (`supplier_declined` / `no_response` / `lost`) and **whose clock the response time is on** (`sent_at`, stamped by staff) · **sign-ins and failed sign-ins are audited** |
 | 33 | `b642a5b` | — | **the audit trail covers the commercial spine** (13 new actions, rows attributed to the account) · the **journal is for every user**, not only organisations · **a missing i18n key is now loud in dev** and guarded by a registry test · `quote.accepted` labelled — a buyer accepting an offer had been reading the raw code on their own dossier |
@@ -439,7 +430,7 @@ before diagnosing anything. That took ~4 minutes today.
    comment in `SupplierView` still describes only the first.
 7. ~~**No document retention policy**~~ — **answered 2026-09-12**: six months
    after a document loses its request and quote, then the row, the `file` row
-   and the bytes go (`ec6c063`, migration 0042, not yet deployed).
+   and the bytes go (`ec6c063`, migration 0042, deploy #36).
    `storage.deleteFile` is finally called. Account deletion is still open.
 
 #### 5 · Gaps and open questions a next session must not lose
@@ -479,8 +470,7 @@ before diagnosing anything. That took ~4 minutes today.
   record. **P8 is unblocked.**
 - ✅ **Document retention answered 2026-09-12: six months after the document
   loses its request and quote**, then the row, the `file` row and the bytes go
-  (`ec6c063`, migration 0042 — see "Document retention" below; **not yet
-  deployed**). `storage.deleteFile` is finally called on user files.
+  (`ec6c063`, migration 0042, deploy #36 — see "Document retention" below). `storage.deleteFile` is finally called on user files.
   ❗ **Account deletion is still unanswered**: destroying a workspace cascades
   documents away without passing through the sweep, so those bytes linger.
 - ❓ **Three parcours questions still unanswered by the owner:** may OSI nudge
@@ -2054,7 +2044,7 @@ question.
 ### Document retention — six months, and the first bytes ever deleted
 
 Owner, 2026-09-12: *"lets keep documents 6 months after request deletion."*
-Built in `ec6c063` (migration 0042), **not yet deployed**.
+Built in `ec6c063`, shipped in deploy #36 (migration 0042).
 
 **Why a new column was needed.** `document.request_id` and `quote_id` are SET
 NULL — that is what lets a document survive its source — so a row knows it is
@@ -2090,7 +2080,7 @@ bytes still linger. "Six months after the request is deleted" does not answer
 ### Re-asking a supplier — what `declined` and `expired` now allow
 
 Reported by the owner 2026-09-12 as "buyer can not request quote twice", fixed
-in `be1e570`, **not yet deployed**.
+in `be1e570`, shipped in deploy #36.
 
 The button always worked; it just did nothing. `onConflictDoNothing` on
 `(request_id, supplier_id)` dropped the second solicitation silently and the
