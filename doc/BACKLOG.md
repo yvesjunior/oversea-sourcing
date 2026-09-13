@@ -37,8 +37,17 @@ tracked to delivery** — with the PDF report available throughout.
 
 ### START HERE — handoff, 2026-09-12 (read this first)
 
-**Prod = `9edf1ac` (deploy #36, migration 0042).** `main` and prod are level —
-nothing is waiting to ship.
+**Prod = `e7fff21` (deploy #37, migration 0043).** `main` carries ONE commit
+ahead — `fa876ef`, the six-year archive retention (constants, labels and a date
+on the recovery screen; no migration).
+
+⚠️ **Deploy #37 had to be run twice.** The first attempt lost its SSH pipe
+mid-build and exited 0 anyway, leaving prod in a MIXED state: the repo pulled
+and **migration 0043 applied**, while `web`/`worker` kept running the previous
+build for another 18 hours. It was harmless only because 0043 is three nullable
+columns old code ignores. **Do not trust `deploy.sh`'s exit code alone** —
+check `docker compose ps` for container ages and compare the VM's `git log` to
+what is serving. The second run finished cleanly (containers 43 s old).
 
 **One decision is waiting on the owner, and it is small:** whether to REMOVE the
 "Marquer comme envoyée" button on a quote. The owner said *"when an offer is
@@ -191,6 +200,7 @@ deploy failed mid-session and prod was rolled back; see #24.
 | 23 | `5b90649` | — | **the platform workspace can no longer be deleted** — the org-plugin's own `POST /organization/delete` bypassed `destroyWorkspace`; guard moved into a `beforeDeleteOrganization` hook |
 | 24 | `95b825a` | — | **filters on all four ops lists** (multi-account + week/month/year/custom period) · **the global supplier directory is staff-only** · the DB cleared for fresh testing. *First attempt (`77d37b0`) took prod down — see the chunk-cycle note* |
 | 25 | `b7481d6` | — | **"linked supplier" widened to four traces** (matched · quoted · dealt · contract party) · **a session opens in your PERSONAL workspace** when you have one · the discovery store cleared for a cold research test |
+| 37 | `e7fff21` | 0043 | **a workspace carrying money is archived, never erased** — refused outright when a contract or deal exists, every route redirects to `/recuperation`, and its owner restores it by signing in. Makes ADR Part II §4's "signature evidence is never FK-cascaded away" true for the first time, without changing a foreign key |
 | 36 | `9edf1ac` | 0042 | **document retention — six months after a document loses its request and quote**, then the row, the `file` row and the bytes go; the first time `storage.deleteFile` has ever run on a user file · **asking a supplier again actually asks them again** (`declined`/`expired` reopen; the screen says created / reopened / skipped instead of "0 approached") |
 | 35 | `380f5a5` | 0041 | **P8 first slice — Documents is live**: staff read the buyer's need beside the offer form, attach the supplier's PDF/PNG/JPG to the quote, and it lists on `/documents` naming AND linking both the request and the quote · **a mistyped price can be corrected** |
 | 34 | `c14a011` | 0040 | **quotes record WHY they were declined** (`supplier_declined` / `no_response` / `lost`) and **whose clock the response time is on** (`sent_at`, stamped by staff) · **sign-ins and failed sign-ins are audited** |
@@ -2101,6 +2111,47 @@ that re-asking "updates rather than duplicating".
 - The result carries **created / reopened / skipped** and the dossier renders
   them ("1 relancé · 1 déjà en cours"). "Nothing happened" has three causes and
   the buyer is owed the right one.
+
+### Deleting a workspace: archive when money is involved (2026-09-12/13)
+
+Owner: *"as we are manipulating finance related activities … archive the
+account"*, hard deletion **refused outright** when a contract or payment exists,
+and **recoverable by the customer at their next sign-in**.
+
+**Why this was a correctness fix, not only prudence.** Deleting an organisation
+cascades FIFTEEN tables, and among them `contract → contract_party →
+contract_event`: the signature evidence on a mandate **OSI itself signed as a
+party**. ADR Part II §4 states that evidence is *"never purged, never
+FK-cascaded away"* — untrue until now, and one Danger Zone confirmation away
+from any buyer. Making a money-bearing workspace unerasable is what makes the
+promise true, and **no foreign key had to change**.
+
+**Two outcomes, decided by the DATA and never by the caller** — see
+`destroyWorkspace` and `hasFinancialActivity`:
+
+- **contract or deal → ARCHIVED.** `organization.archived_at` plus who did it.
+  Every route redirects to `/recuperation` until it is restored. Member accounts
+  are deliberately **NOT** deleted on this path: the owner must be able to sign
+  in to recover, and deleting their account would lock the archive shut forever.
+- **nothing financial → destroyed**, exactly as before. An abandoned signup is
+  not a record worth keeping, and that is most of them.
+
+A **deal counts as financial** because a deal IS the money: it snapshots the
+accepted amount, currency and incoterm. `payment` joins the check the day P9
+creates that table.
+
+**Two retention numbers, same digit, different units — do not conflate them:**
+
+| Constant | Value | What it is |
+|---|---|---|
+| `DOCUMENT_RETENTION_MONTHS` | 6 months | a **reversal window** for a document whose request is gone |
+| `ARCHIVE_RETENTION_YEARS` | 6 years | a **books-and-records** obligation; OSI is a party to the mandate |
+
+**Nothing purges archives, and nothing should yet.** That code would sit
+unexercised until 2032 while being the most destructive path in the system.
+`archivePurgeDue` records when an archive becomes eligible; what happens then is
+a 2032 decision. The recovery screen shows the customer a DATE rather than a
+duration, so they are not doing arithmetic about their own data.
 
 ### The prod bundle can grow a chunk cycle — the deploy is GATED on it now
 
