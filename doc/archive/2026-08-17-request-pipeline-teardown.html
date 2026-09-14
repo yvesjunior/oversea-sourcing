@@ -1,0 +1,632 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1"><style>:root{color-scheme:light}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}</style></head><body>
+<title>OSI Request Pipeline</title>
+<style>
+  :root {
+    --paper:   #F4F6F7;
+    --surface: #FFFFFF;
+    --sunk:    #E9ECEE;
+    --ink:     #12171C;
+    --muted:   #5C6873;
+    --rule:    #D3D9DE;
+    --brass:   #8A6712;
+    --brass-b: #A67C1A;
+    --live:    #1B6E58;
+    --stub:    #A6412C;
+    --shadow:  0 1px 2px rgba(18,23,28,.06), 0 8px 24px -16px rgba(18,23,28,.28);
+
+    --mono: ui-monospace, "SF Mono", SFMono-Regular, "JetBrains Mono", Menlo, Consolas, monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper:   #0F141A;
+      --surface: #161D25;
+      --sunk:    #1C242D;
+      --ink:     #E3E9ED;
+      --muted:   #94A2AE;
+      --rule:    #2A343E;
+      --brass:   #D9A441;
+      --brass-b: #E8BB63;
+      --live:    #4FBF9A;
+      --stub:    #E08268;
+      --shadow:  0 1px 2px rgba(0,0,0,.4), 0 10px 30px -18px rgba(0,0,0,.8);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --paper:   #0F141A;
+    --surface: #161D25;
+    --sunk:    #1C242D;
+    --ink:     #E3E9ED;
+    --muted:   #94A2AE;
+    --rule:    #2A343E;
+    --brass:   #D9A441;
+    --brass-b: #E8BB63;
+    --live:    #4FBF9A;
+    --stub:    #E08268;
+    --shadow:  0 1px 2px rgba(0,0,0,.4), 0 10px 30px -18px rgba(0,0,0,.8);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.62;
+    margin: 0;
+    padding: 0 24px 96px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: 78ch; margin: 0 auto; }
+  .wide { max-width: 1080px; margin: 0 auto; }
+
+  /* ── Masthead ─────────────────────────────────────────── */
+  header.masthead {
+    border-bottom: 2px solid var(--ink);
+    padding: 56px 0 20px;
+    margin-bottom: 40px;
+  }
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    color: var(--brass);
+    margin: 0 0 14px;
+  }
+  h1 {
+    font-family: var(--mono);
+    font-size: clamp(28px, 5vw, 40px);
+    font-weight: 600;
+    letter-spacing: -.02em;
+    line-height: 1.14;
+    text-wrap: balance;
+    margin: 0 0 14px;
+  }
+  .standfirst {
+    font-size: 18px;
+    color: var(--muted);
+    margin: 0;
+    max-width: 62ch;
+  }
+  .meta {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 22px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 22px;
+  }
+
+  /* ── Verdict ──────────────────────────────────────────── */
+  .verdict {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--stub);
+    border-radius: 3px;
+    padding: 22px 26px;
+    margin: 0 0 52px;
+    box-shadow: var(--shadow);
+  }
+  .verdict h2 {
+    font-family: var(--mono);
+    font-size: 13px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--stub);
+    margin: 0 0 10px;
+    font-weight: 600;
+  }
+  .verdict p { margin: 0 0 10px; }
+  .verdict p:last-child { margin-bottom: 0; }
+
+  /* ── Sections ─────────────────────────────────────────── */
+  section { margin-bottom: 56px; }
+  h2.sec {
+    font-family: var(--mono);
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: -.01em;
+    margin: 0 0 6px;
+    padding-top: 8px;
+    border-top: 1px solid var(--rule);
+    padding-top: 18px;
+  }
+  h2.sec .num {
+    color: var(--brass);
+    margin-right: 12px;
+    font-variant-numeric: tabular-nums;
+  }
+  .sec-note {
+    color: var(--muted);
+    font-size: 15px;
+    margin: 0 0 24px;
+  }
+  p { margin: 0 0 16px; }
+
+  /* ── Inline code / refs ───────────────────────────────── */
+  code, .ref {
+    font-family: var(--mono);
+    font-size: .875em;
+  }
+  code {
+    background: var(--sunk);
+    border-radius: 3px;
+    padding: .12em .38em;
+  }
+  .ref {
+    color: var(--brass);
+    white-space: nowrap;
+    background: none;
+    padding: 0;
+  }
+
+  /* ── Diagram ──────────────────────────────────────────── */
+  figure { margin: 0 0 18px; }
+  .scroller {
+    overflow-x: auto;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    padding: 26px 22px 18px;
+    box-shadow: var(--shadow);
+  }
+  .scroller svg { display: block; min-width: 880px; width: 100%; height: auto; }
+  figcaption {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 12px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 20px;
+    align-items: center;
+  }
+  .key { display: inline-flex; align-items: center; gap: 7px; }
+  .swatch { width: 22px; height: 10px; border-radius: 2px; }
+  .swatch.real { border: 1.5px solid var(--live); background: color-mix(in srgb, var(--live) 14%, transparent); }
+  .swatch.fake { border: 1.5px dashed var(--stub); background: color-mix(in srgb, var(--stub) 12%, transparent); }
+
+  /* ── Step list ────────────────────────────────────────── */
+  ol.steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 26px; }
+  ol.steps > li {
+    display: grid;
+    grid-template-columns: 34px 1fr;
+    gap: 18px;
+    align-items: start;
+  }
+  .step-n {
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--paper);
+    background: var(--ink);
+    border-radius: 2px;
+    text-align: center;
+    padding: 3px 0;
+    font-variant-numeric: tabular-nums;
+  }
+  .step-n.stub { background: var(--stub); color: var(--surface); }
+  .step h3 {
+    font-family: var(--mono);
+    font-size: 15px;
+    font-weight: 600;
+    margin: 0 0 4px;
+    letter-spacing: -.005em;
+  }
+  .step .where {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--brass);
+    margin: 0 0 10px;
+  }
+  .step p { margin: 0 0 10px; }
+  .step p:last-child { margin-bottom: 0; }
+  .step ul { margin: 0 0 10px; padding-left: 20px; }
+  .step li { margin-bottom: 5px; }
+
+  .chip {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    padding: 2px 7px;
+    border-radius: 2px;
+    vertical-align: 2px;
+    margin-left: 8px;
+    font-weight: 600;
+  }
+  .chip.real { color: var(--live); border: 1px solid var(--live); }
+  .chip.fake { color: var(--stub); border: 1px dashed var(--stub); }
+
+  /* ── Callout ──────────────────────────────────────────── */
+  .callout {
+    background: var(--sunk);
+    border-radius: 3px;
+    padding: 20px 24px;
+    margin: 0 0 20px;
+  }
+  .callout h4 {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 0 0 12px;
+    font-weight: 600;
+  }
+  .formula {
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.9;
+    overflow-x: auto;
+    margin: 0 0 14px;
+    white-space: pre;
+  }
+  .callout p:last-child { margin-bottom: 0; }
+
+  /* ── Tables ───────────────────────────────────────────── */
+  .tablewrap { overflow-x: auto; margin-bottom: 18px; }
+  table { border-collapse: collapse; width: 100%; font-size: 14.5px; min-width: 560px; }
+  th, td {
+    text-align: left;
+    padding: 11px 14px 11px 0;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: top;
+  }
+  th {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 600;
+    border-bottom: 1px solid var(--ink);
+  }
+  td.mono, th.mono { font-family: var(--mono); font-size: 13px; font-variant-numeric: tabular-nums; }
+  td .state { font-family: var(--mono); font-size: 12px; font-weight: 600; }
+  td .state.real { color: var(--live); }
+  td .state.fake { color: var(--stub); }
+
+  /* ── Verify block ─────────────────────────────────────── */
+  .verify { display: flex; flex-direction: column; gap: 20px; }
+  .claim {
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    background: var(--surface);
+    padding: 18px 20px;
+  }
+  .claim p { margin: 0 0 12px; font-size: 15px; }
+  pre {
+    font-family: var(--mono);
+    font-size: 12.5px;
+    line-height: 1.65;
+    background: var(--sunk);
+    border-radius: 3px;
+    padding: 12px 14px;
+    overflow-x: auto;
+    margin: 0;
+  }
+  pre code { background: none; padding: 0; font-size: inherit; }
+
+  footer {
+    border-top: 1px solid var(--rule);
+    margin-top: 64px;
+    padding-top: 20px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  a { color: var(--brass); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+  a:focus-visible, .scroller:focus-visible { outline: 2px solid var(--brass-b); outline-offset: 3px; }
+
+  @media (max-width: 620px) {
+    body { padding: 0 18px 64px; }
+    ol.steps > li { grid-template-columns: 28px 1fr; gap: 14px; }
+  }
+</style>
+
+<div class="wrap">
+  <header class="masthead">
+    <p class="eyebrow">Code teardown · oversea-sourcing</p>
+    <h1>What actually happens when a buyer submits a request</h1>
+    <p class="standfirst">Every stage of the OSI request pipeline, traced through the source, with the simulated parts marked. Read it, then confirm or correct my reading.</p>
+    <div class="meta">
+      <span>branch main · 2d95dec</span>
+      <span>AI_CHAT=false</span>
+      <span>ANTHROPIC_MODEL=claude-opus-5</span>
+    </div>
+  </header>
+
+  <div class="verdict">
+    <h2>The one thing to confirm</h2>
+    <p>With <code>AI_CHAT=false</code>, <strong>no AI runs anywhere in this flow</strong> — not in the chat, and not in supplier search either. The pipeline is regex, arithmetic, and two <code>sleep()</code> calls.</p>
+    <p>The “recherche mondiale” that queries internet sources is the <strong>E4 research agent, and it isn’t built yet</strong>. No web-search provider is chosen, no <code>research_runs</code> table exists, and nothing in <code>src/</code> makes an outbound HTTP call. That matches the backlog — E4 is unchecked — but not the impression the PLAN gives.</p>
+  </div>
+</div>
+
+<div class="wide">
+  <figure>
+    <div class="scroller" tabindex="0" role="group" aria-label="Request pipeline diagram, horizontally scrollable">
+      <svg viewBox="0 0 900 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Pipeline: draft to received on request creation, then searching for eight seconds, validating for eight seconds, then report ready. The searching and validating stages are placeholders.">
+        <defs>
+          <pattern id="hatch" width="7" height="7" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">
+            <line x1="0" y1="0" x2="0" y2="7" stroke="var(--stub)" stroke-width="1.4" opacity=".26"/>
+          </pattern>
+          <marker id="arw" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--muted)"/>
+          </marker>
+        </defs>
+
+        <!-- connectors -->
+        <g stroke="var(--muted)" stroke-width="1.4" marker-end="url(#arw)">
+          <line x1="178" y1="152" x2="196" y2="152"/>
+          <line x1="352" y1="152" x2="370" y2="152"/>
+          <line x1="526" y1="152" x2="544" y2="152"/>
+          <line x1="700" y1="152" x2="718" y2="152"/>
+        </g>
+
+        <!-- 1 draft -->
+        <g>
+          <rect x="8" y="122" width="170" height="60" rx="3" fill="color-mix(in srgb, var(--live) 12%, transparent)" stroke="var(--live)" stroke-width="1.5"/>
+          <text x="24" y="148" font-family="var(--mono)" font-size="14" font-weight="600" fill="var(--ink)">draft</text>
+          <text x="24" y="168" font-family="var(--mono)" font-size="11" fill="var(--muted)">insert + id #3000+</text>
+          <text x="24" y="106" font-family="var(--mono)" font-size="10.5" fill="var(--brass)" letter-spacing="1">HERO PROMPT</text>
+        </g>
+
+        <!-- 2 received -->
+        <g>
+          <rect x="196" y="122" width="156" height="60" rx="3" fill="color-mix(in srgb, var(--live) 12%, transparent)" stroke="var(--live)" stroke-width="1.5"/>
+          <text x="212" y="148" font-family="var(--mono)" font-size="14" font-weight="600" fill="var(--ink)">received</text>
+          <text x="212" y="168" font-family="var(--mono)" font-size="11" fill="var(--muted)">criteria parsed</text>
+          <text x="212" y="106" font-family="var(--mono)" font-size="10.5" fill="var(--brass)" letter-spacing="1">REGEX · 0 TOKENS</text>
+        </g>
+
+        <!-- 3 searching -->
+        <g>
+          <rect x="370" y="122" width="156" height="60" rx="3" fill="url(#hatch)" stroke="var(--stub)" stroke-width="1.5" stroke-dasharray="5 3"/>
+          <text x="386" y="148" font-family="var(--mono)" font-size="14" font-weight="600" fill="var(--ink)">searching</text>
+          <text x="386" y="168" font-family="var(--mono)" font-size="11" fill="var(--muted)">score 12 seeded rows</text>
+          <text x="386" y="106" font-family="var(--mono)" font-size="10.5" fill="var(--stub)" letter-spacing="1">PLACEHOLDER</text>
+        </g>
+
+        <!-- 4 validating -->
+        <g>
+          <rect x="544" y="122" width="156" height="60" rx="3" fill="url(#hatch)" stroke="var(--stub)" stroke-width="1.5" stroke-dasharray="5 3"/>
+          <text x="560" y="148" font-family="var(--mono)" font-size="14" font-weight="600" fill="var(--ink)">validating</text>
+          <text x="560" y="168" font-family="var(--mono)" font-size="11" fill="var(--muted)">nothing runs</text>
+          <text x="560" y="106" font-family="var(--mono)" font-size="10.5" fill="var(--stub)" letter-spacing="1">PLACEHOLDER</text>
+        </g>
+
+        <!-- 5 report_ready -->
+        <g>
+          <rect x="718" y="122" width="174" height="60" rx="3" fill="color-mix(in srgb, var(--live) 12%, transparent)" stroke="var(--live)" stroke-width="1.5"/>
+          <text x="734" y="148" font-family="var(--mono)" font-size="14" font-weight="600" fill="var(--ink)">report_ready</text>
+          <text x="734" y="168" font-family="var(--mono)" font-size="11" fill="var(--muted)">completedAt stamped</text>
+          <text x="734" y="106" font-family="var(--mono)" font-size="10.5" fill="var(--brass)" letter-spacing="1">TERMINAL</text>
+        </g>
+
+        <!-- synchronous bracket -->
+        <path d="M 8 68 L 8 58 L 352 58 L 352 68" fill="none" stroke="var(--muted)" stroke-width="1.2"/>
+        <text x="180" y="48" text-anchor="middle" font-family="var(--mono)" font-size="11.5" fill="var(--muted)">synchronous · createRequestFn · instant</text>
+
+        <!-- worker bracket -->
+        <path d="M 370 68 L 370 58 L 892 58 L 892 68" fill="none" stroke="var(--muted)" stroke-width="1.2"/>
+        <text x="631" y="48" text-anchor="middle" font-family="var(--mono)" font-size="11.5" fill="var(--muted)">asynchronous · pg-boss worker</text>
+
+        <!-- sleep bracket -->
+        <path d="M 370 210 L 370 222 L 700 222 L 700 210" fill="none" stroke="var(--stub)" stroke-width="1.2"/>
+        <text x="535" y="242" text-anchor="middle" font-family="var(--mono)" font-size="12" font-weight="600" fill="var(--stub)">sleep(8s) × 2 — the entire duration</text>
+        <text x="535" y="260" text-anchor="middle" font-family="var(--mono)" font-size="11" fill="var(--muted)">no web search · no Claude call · no outbound request</text>
+
+        <!-- event trail -->
+        <text x="8" y="292" font-family="var(--mono)" font-size="11" fill="var(--muted)">every transition writes a request_event row → timeline, activity feed and dashboard stats are pure reads of that table</text>
+      </svg>
+    </div>
+    <figcaption>
+      <span class="key"><span class="swatch real"></span> real logic</span>
+      <span class="key"><span class="swatch fake"></span> placeholder until E4 / E5</span>
+      <span>· total wall clock ≈ 16 s</span>
+    </figcaption>
+  </figure>
+</div>
+
+<div class="wrap">
+  <section>
+    <h2 class="sec"><span class="num">01</span>The six steps</h2>
+    <p class="sec-note">Each step names the file and line so you can check my reading against the source.</p>
+
+    <ol class="steps">
+      <li>
+        <span class="step-n">1</span>
+        <div class="step">
+          <h3>Intake and the auth gate<span class="chip real">built</span></h3>
+          <p class="where">src/components/osi/HeroPrompt.tsx:42, :59, :73</p>
+          <p>Anyone can type a need on <code>/</code> without logging in. Submitting is the gate: the draft is stashed, the visitor goes to <code>/login?redirect=/</code>, and on return the draft is restored and the request is created automatically. No retyping.</p>
+        </div>
+      </li>
+
+      <li>
+        <span class="step-n">2</span>
+        <div class="step">
+          <h3>Creation, all synchronous<span class="chip real">built</span></h3>
+          <p class="where">src/lib/requests-fns.ts:166</p>
+          <ul>
+            <li>Session and <code>activeOrganizationId</code> required, otherwise it returns <code>null</code>.</li>
+            <li>Id from <code>nextval('request_id_seq')</code> — display ids start at #3000.</li>
+            <li>Title is the first non-empty line, cut at 80 characters.</li>
+            <li>Insert as <code>draft</code>, record <code>request.created</code>, then transition to <code>received</code> — which stamps <code>launchedAt</code> and writes <code>status.received</code>.</li>
+          </ul>
+        </div>
+      </li>
+
+      <li>
+        <span class="step-n">3</span>
+        <div class="step">
+          <h3>Criteria parsing<span class="chip real">built</span></h3>
+          <p class="where">src/server/parse-criteria.ts:49</p>
+          <p>Pure regex, in-process, zero tokens: material words, <code>N bar</code>, <code>N m³/h</code>, ISO/CE/ATEX codes, quantity, lead time. Capped at 8 rows; if nothing matches it stores the first 120 characters as <code>other</code> so the loop keeps moving.</p>
+          <p>Worth knowing: these rows are written with <code>source: "ai"</code>. That is a label the UI reads, not a record that a model was called — no model was.</p>
+        </div>
+      </li>
+
+      <li>
+        <span class="step-n">4</span>
+        <div class="step">
+          <h3>Enqueue, failure-tolerant<span class="chip real">built</span></h3>
+          <p class="where">src/lib/requests-fns.ts:222 · src/server/queue.ts:31</p>
+          <p>The pg-boss enqueue sits in a <code>try/catch</code> that logs and swallows. If the queue is down the request still exists in <code>received</code>, and the worker’s sweep picks it up later. This is the right shape — the buyer never loses a submission to an infrastructure blip.</p>
+        </div>
+      </li>
+
+      <li>
+        <span class="step-n stub">5</span>
+        <div class="step">
+          <h3>The pipeline<span class="chip fake">simulated</span></h3>
+          <p class="where">src/worker.ts:36 · STAGE_MS = 8000 at :19</p>
+          <p>Resume-capable: it reads the request’s current status and picks up wherever it rests, so a re-run is safe. <code>received → searching</code>, wait 8 s, <code>searching → validating</code>, wait 8 s, <code>validating → report_ready</code>.</p>
+          <p>During <code>searching</code> it calls the matcher once (skipped if matches already exist). During <code>validating</code>, nothing runs at all — the stage exists to give the UI a fourth step to draw.</p>
+        </div>
+      </li>
+
+      <li>
+        <span class="step-n stub">6</span>
+        <div class="step">
+          <h3>Matching<span class="chip fake">placeholder</span></h3>
+          <p class="where">src/server/matching.ts:22</p>
+          <p>Loads every supplier row — <code>findMany()</code> with no filter, currently 12 seeded companies — scores them, writes the top 5 to <code>match</code>, and stamps the headline score on the request.</p>
+        </div>
+      </li>
+    </ol>
+  </section>
+
+  <section>
+    <h2 class="sec"><span class="num">02</span>The scoring formula</h2>
+    <p class="sec-note">The whole of today’s “compatibility”, verbatim from matching.ts.</p>
+
+    <div class="callout">
+      <h4>scoreSupplier(requestId, supplier)</h4>
+      <div class="formula">compatibility = min(98,
+    62
+  + confidenceScore / 5
+  + (verified ? 6 : 0)
+  − (risk high ? 8 : risk medium ? 3 : 0)
+  + hash(`${requestId}:${supplier.id}`) % 14
+)</div>
+      <p><strong>The criteria are never read.</strong> <code>scoreSupplier</code> takes only the request <em>id</em> and the supplier row — <code>request_criterion</code> is not queried anywhere in this file. The parsed material, pressure and certifications shape the dossier the buyer sees, but they have no influence on who ranks first.</p>
+      <p>The hash term is a deterministic 0–13 jitter, so the same request always ranks the same way on re-runs. It is what makes the Top 5 look considered rather than sorted by confidence.</p>
+    </div>
+
+    <p>The “N fournisseurs analysés” figure on the dossier is the <code>analyzed</code> field of the <code>matches.created</code> event — the size of the supplier table at scoring time. Today it says 12.</p>
+  </section>
+
+  <section>
+    <h2 class="sec"><span class="num">03</span>Crash recovery and the legacy state</h2>
+    <p class="sec-note">The part of the worker that is genuinely production-shaped.</p>
+    <p>On boot and every 60 seconds, <span class="ref">worker.ts:69</span> re-enqueues anything sitting in <code>received</code>, <code>searching</code> or <code>validating</code> that has not been touched for two minutes. A worker crash, a lost job, a container restart mid-pipeline — all self-heal.</p>
+    <p><code>analyzing</code> is deliberately excluded from the sweep. It is the legacy pause state from before the pre-search AI stage was removed on 2026-08-05; those dossiers keep a manual “Lancer la recherche” button and are never advanced automatically. New requests never enter it.</p>
+    <p>The detail page polls rather than subscribing: while <code>isInFlight(status)</code> is true it calls <code>router.invalidate()</code> on an interval — <span class="ref">$id.tsx:74</span>. Progress renders at 10 / 45 / 75 / 100%.</p>
+  </section>
+
+  <section>
+    <h2 class="sec"><span class="num">04</span>Where the docs and the code disagree</h2>
+    <p class="sec-note">The backlog is honest about this; the plan reads more finished than it is.</p>
+
+    <div class="tablewrap">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:44%">The docs say</th>
+            <th style="width:38%">The code does</th>
+            <th class="mono" style="width:18%">State</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>“Recherche mondiale is literal: an AI agent searches the web, extracts candidate suppliers, and enriches the database as a byproduct.” <span class="ref">PLAN.md:27</span></td>
+            <td>Scores 12 seeded rows, then <code>sleep(8s)</code></td>
+            <td><span class="state fake">not built</span></td>
+          </tr>
+          <tr>
+            <td>E4 · “Job: AI research agent — web search per request criteria” <span class="ref">BACKLOG.md:202</span></td>
+            <td>Unchecked in the backlog itself</td>
+            <td><span class="state fake">accurate</span></td>
+          </tr>
+          <tr>
+            <td><code>research_runs</code> table tracking queries and result counts <span class="ref">BACKLOG.md:124</span></td>
+            <td>Table does not exist in schema.ts</td>
+            <td><span class="state fake">missing</span></td>
+          </tr>
+          <tr>
+            <td>“Web search API — 🟢 with E4” <span class="ref">INFRA.md</span></td>
+            <td>Provider still undecided: Tavily / Brave / SerpAPI</td>
+            <td><span class="state fake">open</span></td>
+          </tr>
+          <tr>
+            <td>Suppliers carry provenance <code>ai_researched</code></td>
+            <td>All 12 seeded rows are <code>osi_verified</code> or <code>imported</code></td>
+            <td><span class="state fake">unused</span></td>
+          </tr>
+          <tr>
+            <td>“Simulated stages (~10 s each) until E4/E5 provide real search/matching” <span class="ref">BACKLOG.md:192</span></td>
+            <td>8 s each</td>
+            <td><span class="state real">accurate</span></td>
+          </tr>
+          <tr>
+            <td>“Deterministic heuristic — the E5 seam replaced by the real engine later” <span class="ref">README.md:110</span></td>
+            <td>Exactly that</td>
+            <td><span class="state real">accurate</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>Read together: the <strong>pipeline shape is real and durable</strong> — guarded state machine, event trail, queue, crash recovery, idempotent matching. The two things it orchestrates are stubs. That is a reasonable place to be; it just means the demo’s headline feature is the part that doesn’t exist yet.</p>
+  </section>
+
+  <section>
+    <h2 class="sec"><span class="num">05</span>Confirm or correct me</h2>
+    <p class="sec-note">Four claims this whole page rests on, and how to check each in a few seconds.</p>
+
+    <div class="verify">
+      <div class="claim">
+        <p><strong>1 · Nothing in the codebase queries the internet.</strong> No search provider, no browser automation, no research-run tracking.</p>
+        <pre><code>grep -rniE "tavily|brave|serpapi|web_search|research_run|puppeteer|playwright" src/
+# expected: no matches</code></pre>
+      </div>
+
+      <div class="claim">
+        <p><strong>2 · The Anthropic client has exactly one caller, and it is gated off.</strong></p>
+        <pre><code>grep -rn "getAnthropic" src/
+# expected: client.ts (definition) + chat.ts:69 only</code></pre>
+      </div>
+
+      <div class="claim">
+        <p><strong>3 · The searching and validating stages are two sleeps.</strong></p>
+        <pre><code>grep -n "STAGE_MS\|sleep(" src/worker.ts
+# expected: STAGE_MS = 8_000, two sleep(STAGE_MS) calls</code></pre>
+      </div>
+
+      <div class="claim">
+        <p><strong>4 · Scoring ignores the parsed criteria.</strong></p>
+        <pre><code>grep -n "requestCriterion" src/server/matching.ts
+# expected: no matches</code></pre>
+      </div>
+    </div>
+
+    <p style="margin-top:26px">If all four hold, my reading is right and E4 is the next real piece of work: pick a web-search provider, add <code>research_runs</code>, write the research job, and add dedup so repeat searches enrich the pool instead of duplicating it. If any of them fails, tell me which and I’ll re-trace that path.</p>
+  </section>
+
+  <footer>
+    Traced from working tree at 2d95dec · dev stack verified running on :3010 · 16 Aug 2026
+  </footer>
+</div>
+
+</body></html>

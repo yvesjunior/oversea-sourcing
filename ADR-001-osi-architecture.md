@@ -5,9 +5,9 @@
 | **Status** | ✅ **Accepted and largely built** — consolidated 2026-09-07 |
 | **Consolidates** | the former **ADR-001** (Supplier Provisioning Strategy, accepted 2026-08-26) and **ADR-002** (The transaction dossier & contract centre, accepted 2026-08-29), which this file replaces |
 | **Baseline** | main @ `bcbd99d` · prod deploy #38 (consolidated at `615d7e0` / #30; re-checked against the code 2026-09-13) |
-| **Source brief** | [doc/briefs/portail-entreprise.md](../briefs/portail-entreprise.md) (owner's `.docx`, 2026-08-29) |
-| **Implementation plan** | Phase S and Phase P in [doc/BACKLOG.md](../BACKLOG.md) |
-| **Pretty version** | Claude artifact, diagrams + build state: <https://claude.ai/code/artifact/a537df29-e576-4725-b8de-661efd1d1438> |
+| **Source brief** | [doc/briefs/portail-entreprise.md](doc/briefs/portail-entreprise.md) (owner's `.docx`, 2026-08-29) |
+| **Implementation plan** | Phase S and Phase P in [doc/BACKLOG.md](doc/BACKLOG.md) |
+| **Pretty version** | Claude artifact, diagrams + build state: <https://claude.ai/code/artifact/a537df29-e576-4725-b8de-661efd1d1438> — **the only published page**; its source is [`/osi-decision-record.html`](osi-decision-record.html) at the repo root (edit there, republish to the same URL). The three companion artifacts it absorbed (parcours swimlane, 2026-08-22 architecture review, 2026-08-17 pipeline teardown) are archived verbatim in [doc/archive/](doc/archive/README.md) as of 2026-09-13 |
 
 > **Reading the cross-references.** ~90 code comments and backlog lines cite
 > `ADR-001 §4`, `ADR-001 S6`, `ADR-002 §5`, `ADR-002 conflict #9` and the like.
@@ -389,7 +389,10 @@ the matrix could lock out its own editor.
 # The parcours — 16 steps, and where it actually stops
 
 *(folded in 2026-09-07 from the former "Parcours OSI" artifact, re-checked
-against the code — the original claimed the product stopped at step 4)*
+against the code — the original claimed the product stopped at step 4. Its
+three-lane swimlane, acheteur · OSI · tiers, was redrawn into the published
+record on 2026-09-13 with today's build state; the French original is
+archived at [doc/archive/2026-08-29-parcours-swimlane.html](doc/archive/2026-08-29-parcours-swimlane.html).)*
 
 The owner-validated journey, with **who acts** at each step. The two steps that
 leave the platform are the whole of decision Part II §2 made concrete: a

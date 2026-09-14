@@ -1,0 +1,555 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1"><style>:root{color-scheme:light}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}</style></head><body>
+<title>OSI Platform Architecture</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Source+Sans+3:ital,wght@0,400;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root {
+  --bg: #FAF9F5;
+  --ink: #211D16;
+  --muted: #6B6353;
+  --line: #DDD6C6;
+  --card: #F2EFE6;
+  --gold: #A9852F;
+  --gold-ink: #7A5F1E;
+  --gold-soft: #EDE3C8;
+  --new: #3E6B8A;
+  --new-soft: #DCE7EF;
+  --built: #4E7A54;
+  --built-soft: #DFEADF;
+  --draft: #A8752F;
+  --draft-soft: #F0E4CE;
+  --debt: #A64F2E;
+  --debt-soft: #F1DFD5;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #191510;
+    --ink: #EBE4D5;
+    --muted: #A79C86;
+    --line: #3B342A;
+    --card: #221D16;
+    --gold: #C9A44E;
+    --gold-ink: #D8B96A;
+    --gold-soft: #3A2F18;
+    --new: #7FA8C4;
+    --new-soft: #1E2C38;
+    --built: #7FAA84;
+    --built-soft: #1F2E22;
+    --draft: #C99A55;
+    --draft-soft: #342815;
+    --debt: #C57A55;
+    --debt-soft: #362016;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #191510;
+  --ink: #EBE4D5;
+  --muted: #A79C86;
+  --line: #3B342A;
+  --card: #221D16;
+  --gold: #C9A44E;
+  --gold-ink: #D8B96A;
+  --gold-soft: #3A2F18;
+  --new: #7FA8C4;
+  --new-soft: #1E2C38;
+  --built: #7FAA84;
+  --built-soft: #1F2E22;
+  --draft: #C99A55;
+  --draft-soft: #342815;
+  --debt: #C57A55;
+  --debt-soft: #362016;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+  font-size: 16.5px;
+  line-height: 1.6;
+  margin: 0;
+  padding: 3rem 1.25rem 5rem;
+}
+.page { max-width: 880px; margin: 0 auto; }
+h1, h2, h3 {
+  font-family: "Fraunces", Georgia, serif;
+  font-weight: 600;
+  line-height: 1.15;
+  text-wrap: balance;
+  margin: 0;
+}
+h1 { font-size: 2.6rem; letter-spacing: -0.01em; }
+h2 { font-size: 1.7rem; margin-top: 3.5rem; padding-top: 2.2rem; border-top: 1px solid var(--line); }
+h3 { font-size: 1.15rem; margin-top: 2rem; }
+p { max-width: 68ch; margin: 0.9rem 0 0; }
+.kicker {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--gold-ink);
+  margin-bottom: 0.8rem;
+}
+.lede { font-size: 1.12rem; color: var(--muted); max-width: 62ch; }
+.chip {
+  display: inline-block;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.66rem;
+  letter-spacing: 0.09em;
+  padding: 0.1rem 0.5rem;
+  border-radius: 3px;
+  vertical-align: 0.12em;
+  white-space: nowrap;
+}
+.chip.built { background: var(--built-soft); color: var(--built); }
+.chip.valid { background: var(--new-soft); color: var(--new); }
+.chip.draft { background: var(--draft-soft); color: var(--draft); }
+.chip.debt  { background: var(--debt-soft); color: var(--debt); }
+figure { margin: 2rem 0 0; }
+figure svg { max-width: 100%; height: auto; display: block; }
+figcaption {
+  font-size: 0.86rem;
+  color: var(--muted);
+  margin-top: 0.7rem;
+  max-width: 70ch;
+}
+.scroll { overflow-x: auto; }
+table {
+  border-collapse: collapse;
+  width: 100%;
+  margin-top: 1.2rem;
+  font-size: 0.93rem;
+}
+th {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  text-align: left;
+  font-weight: 500;
+  padding: 0.45rem 0.9rem 0.45rem 0;
+  border-bottom: 1px solid var(--ink);
+}
+td {
+  padding: 0.55rem 0.9rem 0.55rem 0;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+td:first-child, th:first-child { padding-left: 0; }
+code {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.84em;
+  background: var(--card);
+  padding: 0.05em 0.35em;
+  border-radius: 3px;
+}
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.4rem;
+  margin-top: 1.4rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.legend span { display: inline-flex; align-items: center; gap: 0.45rem; }
+.sw { width: 22px; height: 3px; border-radius: 2px; display: inline-block; }
+ul { margin: 0.9rem 0 0; padding-left: 1.2rem; }
+li { margin-top: 0.45rem; max-width: 66ch; }
+li::marker { color: var(--gold); }
+.callout {
+  background: var(--card);
+  border-left: 3px solid var(--gold);
+  padding: 1rem 1.3rem;
+  margin-top: 1.6rem;
+  border-radius: 0 6px 6px 0;
+  max-width: 72ch;
+}
+.callout p { margin-top: 0.3rem; }
+.phases { display: grid; gap: 0.9rem; margin-top: 1.4rem; }
+.phase {
+  display: grid;
+  grid-template-columns: 3.2rem 1fr;
+  gap: 1rem;
+  padding: 0.9rem 1.1rem;
+  background: var(--card);
+  border-radius: 6px;
+  align-items: baseline;
+}
+.phase b { font-family: "Fraunces", Georgia, serif; font-size: 1.3rem; color: var(--gold-ink); }
+.phase p { margin-top: 0.15rem; font-size: 0.95rem; }
+@media (prefers-reduced-motion: no-preference) {
+  h1 { animation: rise 0.5s ease-out; }
+  @keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+}
+</style>
+
+<div class="page">
+<p class="kicker">OSI · Oversea Sourcing Intelligence · architecture review · 2026-08-22</p>
+<h1>OSI Platform Architecture</h1>
+<p class="lede">What runs on production today, the target the validated design points at, and the
+delta between them — for validation before we build.</p>
+<p class="legend">
+  <span><span class="chip built">BUILT</span> live on prod</span>
+  <span><span class="chip valid">VALIDATED</span> designed &amp; decided, to implement</span>
+  <span><span class="chip draft">DRAFT</span> working draft, refine before coding</span>
+  <span><span class="chip debt">DEBT</span> known deviation carried consciously</span>
+</p>
+
+<h2>1 · What runs today</h2>
+<p>A <strong>modular monolith with physical seams</strong>: one codebase, one image, three
+processes (<code>web</code>, <code>worker</code>, one-shot <code>migrate</code>) on a single VM behind a
+Cloudflare Tunnel. Every module sits behind an interface that could become a network
+boundary — extraction is a deploy change, not a refactor.</p>
+
+<figure>
+<svg role="img" aria-label="Current runtime: users reach the web container through a Cloudflare tunnel; web and worker share Postgres and an uploads volume; the worker calls the Claude API with research running inline in the pipeline job." viewBox="0 0 800 330" fill="none" stroke-linecap="round">
+  <defs>
+    <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="currentColor" stroke="none"/>
+    </marker>
+  </defs>
+  <g stroke="currentColor" style="color: inherit">
+    <!-- users -->
+    <circle cx="60" cy="120" r="26"/>
+    <text x="60" y="124" text-anchor="middle" font-size="12" fill="currentColor" stroke="none">Users</text>
+    <!-- cloudflare -->
+    <rect x="130" y="95" width="120" height="50" rx="6"/>
+    <text x="190" y="116" text-anchor="middle" font-size="12" fill="currentColor" stroke="none">Cloudflare</text>
+    <text x="190" y="132" text-anchor="middle" font-size="10.5" fill="currentColor" stroke="none" opacity="0.65">TLS · DDoS</text>
+    <line x1="86" y1="120" x2="126" y2="120" marker-end="url(#ar)"/>
+    <!-- VM boundary -->
+    <rect x="290" y="20" width="330" height="290" rx="10" stroke-dasharray="6 5" opacity="0.55"/>
+    <text x="305" y="42" font-size="10.5" fill="currentColor" stroke="none" opacity="0.65" font-family="IBM Plex Mono, monospace">PROD VM · no public IP</text>
+    <!-- tunnel arrow -->
+    <line x1="250" y1="120" x2="316" y2="120" marker-end="url(#ar)" stroke-dasharray="4 4"/>
+    <text x="283" y="110" text-anchor="middle" font-size="10.5" fill="currentColor" stroke="none" opacity="0.65">tunnel</text>
+    <!-- web -->
+    <rect x="320" y="95" width="130" height="50" rx="6"/>
+    <text x="385" y="116" text-anchor="middle" font-size="12" fill="currentColor" stroke="none">web · Nitro SSR</text>
+    <text x="385" y="132" text-anchor="middle" font-size="10.5" fill="currentColor" stroke="none" opacity="0.65">server fns · auth</text>
+    <!-- postgres -->
+    <rect x="320" y="215" width="130" height="52" rx="6"/>
+    <text x="385" y="237" text-anchor="middle" font-size="12" fill="currentColor" stroke="none">Postgres 16</text>
+    <text x="385" y="253" text-anchor="middle" font-size="10.5" fill="currentColor" stroke="none" opacity="0.65">18 tables · pg-boss</text>
+    <line x1="385" y1="145" x2="385" y2="211" marker-end="url(#ar)"/>
+    <!-- worker -->
+    <rect x="480" y="95" width="120" height="50" rx="6"/>
+    <text x="540" y="116" text-anchor="middle" font-size="12" fill="currentColor" stroke="none">worker</text>
+    <text x="540" y="132" text-anchor="middle" font-size="10.5" fill="currentColor" stroke="none" opacity="0.65">pipeline · sweep 60s</text>
+    <line x1="540" y1="145" x2="455" y2="222" marker-end="url(#ar)"/>
+    <text x="516" y="185" font-size="10.5" fill="currentColor" stroke="none" opacity="0.65">jobs · matches</text>
+    <!-- uploads -->
+    <rect x="480" y="215" width="120" height="52" rx="6"/>
+    <text x="540" y="237" text-anchor="middle" font-size="12" fill="currentColor" stroke="none">uploads vol.</text>
+    <text x="540" y="253" text-anchor="middle" font-size="10.5" fill="currentColor" stroke="none" opacity="0.65">S3-shaped adapter</text>
+  </g>
+  <!-- claude, research inline = debt -->
+  <g stroke="var(--debt)" style="color: var(--debt)">
+    <rect x="660" y="95" width="120" height="50" rx="6"/>
+    <text x="720" y="116" text-anchor="middle" font-size="12" fill="var(--debt)" stroke="none">Claude API</text>
+    <text x="720" y="132" text-anchor="middle" font-size="10.5" fill="var(--debt)" stroke="none" opacity="0.8">+ web_search</text>
+    <line x1="604" y1="120" x2="656" y2="120" marker-end="url(#ar)"/>
+    <text x="630" y="110" text-anchor="middle" font-size="10" fill="var(--debt)" stroke="none">inline ⚠</text>
+  </g>
+</svg>
+<figcaption>The current runtime. The one red edge is the carried deviation: AI research runs
+<em>inline in the pipeline job</em> instead of on its own queue — platform hotspot #1, and
+exactly what the connector refactor dissolves.</figcaption>
+</figure>
+
+<div class="scroll">
+<table>
+<tr><th>Capability</th><th>State</th><th>Note</th></tr>
+<tr><td>Request loop end to end — criteria (typed + attachments) → web research → shared pool → criteria-aware ranking → printable report</td><td><span class="chip built">BUILT</span></td><td>live since 2026-08-16</td></tr>
+<tr><td>Plans &amp; daily quotas as database rows, manager screen, prominent refusal alert</td><td><span class="chip built">BUILT</span></td><td>Free 1/day · Pro 10 · Business 50 · Internal ∞</td></tr>
+<tr><td>Auth: email/password + Google (prod), signup abuse controls, platform roles</td><td><span class="chip built">BUILT</span></td><td>7 real users; demo accounts dev-only</td></tr>
+<tr><td>Supplier pool: platform-global, provenance, dedup on <code>name|COUNTRY</code></td><td><span class="chip built">BUILT</span></td><td>51 suppliers, growing per request</td></tr>
+<tr><td>Facilitation (« Engager »), transactions, notifications, verification workflow</td><td><span class="chip debt">NOT BUILT</span></td><td>the MVP1 gap — unchanged by this review</td></tr>
+</table>
+</div>
+
+<h3>How the components talk — every interaction on one picture</h3>
+<p>The key fact this diagram carries: <strong>core is a layer, not a process</strong>. The same
+<code>src/server/</code> code runs inside web and inside every worker — calls into it are
+in-process function calls. Containers never call each other; <strong>Postgres is the only
+meeting point</strong> (rows + pg-boss queues), which is what makes every container
+independently replaceable and replicable.</p>
+
+<figure>
+<svg role="img" aria-label="Component interactions: the browser reaches web through the Cloudflare tunnel; web's server functions call core in-process; web writes rows and enqueues jobs into Postgres; the pipeline worker and the target research worker poll their queues with SKIP LOCKED and run the same core layer; the research worker calls connectors and the Claude API; Redis holds shared rate-limit counters; both web and workers use the uploads volume." viewBox="0 0 820 640" fill="none" stroke-linecap="round">
+  <defs>
+    <marker id="ar3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="currentColor" stroke="none"/>
+    </marker>
+  </defs>
+  <g stroke="currentColor" style="color: inherit">
+    <!-- browser -->
+    <rect x="20" y="42" width="100" height="46" rx="6"/>
+    <text x="70" y="62" text-anchor="middle" font-size="12" fill="currentColor" stroke="none">Browser</text>
+    <text x="70" y="78" text-anchor="middle" font-size="10" fill="currentColor" stroke="none" opacity="0.65">buyer / staff</text>
+    <!-- cloudflared -->
+    <rect x="170" y="42" width="120" height="46" rx="6"/>
+    <text x="230" y="62" text-anchor="middle" font-size="12" fill="currentColor" stroke="none">cloudflared</text>
+    <text x="230" y="78" text-anchor="middle" font-size="10" fill="currentColor" stroke="none" opacity="0.65">TLS · tunnel</text>
+    <line x1="120" y1="65" x2="166" y2="65" marker-end="url(#ar3)"/>
+    <text x="143" y="56" text-anchor="middle" font-size="9.5" fill="currentColor" stroke="none" opacity="0.7">HTTPS</text>
+    <!-- web container -->
+    <rect x="340" y="16" width="320" height="128" rx="8"/>
+    <text x="356" y="36" font-size="10" fill="currentColor" stroke="none" font-family="IBM Plex Mono, monospace" opacity="0.7">WEB CONTAINER · Nitro (SSR + API)</text>
+    <rect x="356" y="48" width="130" height="46" rx="5"/>
+    <text x="421" y="67" text-anchor="middle" font-size="11" fill="currentColor" stroke="none">server fns · /api</text>
+    <text x="421" y="83" text-anchor="middle" font-size="9.5" fill="currentColor" stroke="none" opacity="0.65">zod · guards</text>
+    <rect x="514" y="48" width="130" height="46" rx="5"/>
+    <text x="579" y="67" text-anchor="middle" font-size="11" fill="currentColor" stroke="none">core · src/server</text>
+    <text x="579" y="83" text-anchor="middle" font-size="9.5" fill="currentColor" stroke="none" opacity="0.65">requests · plan · matching</text>
+    <line x1="486" y1="71" x2="510" y2="71" marker-end="url(#ar3)"/>
+    <text x="498" y="112" text-anchor="middle" font-size="9.5" fill="currentColor" stroke="none" opacity="0.7">in-process call — no network</text>
+    <line x1="290" y1="65" x2="336" y2="65" marker-end="url(#ar3)"/>
+  </g>
+  <!-- redis -->
+  <g stroke="var(--new)" style="color: var(--new)">
+    <rect x="700" y="42" width="104" height="46" rx="6" stroke-dasharray="5 4"/>
+    <text x="752" y="62" text-anchor="middle" font-size="11" fill="var(--new)" stroke="none">Redis</text>
+    <text x="752" y="78" text-anchor="middle" font-size="9.5" fill="var(--new)" stroke="none">cache addon</text>
+    <line x1="664" y1="65" x2="696" y2="65" marker-end="url(#ar3)"/>
+    <text x="683" y="34" text-anchor="middle" font-size="9.5" fill="var(--new)" stroke="none">rate-limit counters</text>
+  </g>
+  <!-- postgres -->
+  <g stroke="currentColor" style="color: inherit">
+    <rect x="250" y="240" width="360" height="118" rx="8"/>
+    <text x="430" y="262" text-anchor="middle" font-size="12" fill="currentColor" stroke="none">Postgres 16 — the only meeting point</text>
+    <rect x="268" y="276" width="150" height="62" rx="5"/>
+    <text x="343" y="298" text-anchor="middle" font-size="10.5" fill="currentColor" stroke="none">tables (state)</text>
+    <text x="343" y="314" text-anchor="middle" font-size="9.5" fill="currentColor" stroke="none" opacity="0.65">request · supplier · match</text>
+    <text x="343" y="328" text-anchor="middle" font-size="9.5" fill="currentColor" stroke="none" opacity="0.65">events = read-models</text>
+    <rect x="436" y="276" width="156" height="62" rx="5"/>
+    <text x="514" y="296" text-anchor="middle" font-size="10.5" fill="currentColor" stroke="none">pg-boss queues</text>
+    <text x="514" y="312" text-anchor="middle" font-size="9.5" fill="currentColor" stroke="none" opacity="0.75">pipeline</text>
+    <text x="514" y="326" text-anchor="middle" font-size="9.5" fill="var(--new)" stroke="none">research (target)</text>
+    <!-- web -> pg -->
+    <line x1="470" y1="144" x2="430" y2="236" marker-end="url(#ar3)"/>
+    <text x="404" y="186" text-anchor="middle" font-size="9.5" fill="currentColor" stroke="none" opacity="0.7">SQL rows · enqueue job</text>
+  </g>
+  <!-- uploads -->
+  <g stroke="currentColor" style="color: inherit">
+    <rect x="40" y="276" width="130" height="62" rx="6"/>
+    <text x="105" y="300" text-anchor="middle" font-size="11" fill="currentColor" stroke="none">uploads volume</text>
+    <text x="105" y="316" text-anchor="middle" font-size="9.5" fill="currentColor" stroke="none" opacity="0.65">S3-shaped adapter</text>
+    <line x1="356" y1="120" x2="140" y2="272" marker-end="url(#ar3)"/>
+    <text x="222" y="186" text-anchor="middle" font-size="9.5" fill="currentColor" stroke="none" opacity="0.7">store / serve files</text>
+  </g>
+  <!-- worker pipeline -->
+  <g stroke="currentColor" style="color: inherit">
+    <rect x="150" y="470" width="220" height="86" rx="8"/>
+    <text x="166" y="490" font-size="10" fill="currentColor" stroke="none" font-family="IBM Plex Mono, monospace" opacity="0.7">WORKER · pipeline</text>
+    <text x="260" y="512" text-anchor="middle" font-size="11" fill="currentColor" stroke="none">orchestration · matching</text>
+    <text x="260" y="528" text-anchor="middle" font-size="9.5" fill="currentColor" stroke="none" opacity="0.65">same core layer, in-process</text>
+    <text x="260" y="543" text-anchor="middle" font-size="9.5" fill="currentColor" stroke="none" opacity="0.65">recovery sweep 60s</text>
+    <line x1="300" y1="466" x2="470" y2="362" marker-end="url(#ar3)"/>
+    <text x="342" y="416" text-anchor="middle" font-size="9.5" fill="currentColor" stroke="none" opacity="0.7">SKIP LOCKED poll · write rows</text>
+  </g>
+  <!-- worker research -->
+  <g stroke="var(--new)" style="color: var(--new)">
+    <rect x="430" y="470" width="220" height="86" rx="8" stroke-dasharray="6 5"/>
+    <text x="446" y="490" font-size="10" fill="var(--new)" stroke="none" font-family="IBM Plex Mono, monospace">WORKER · research (target)</text>
+    <text x="540" y="512" text-anchor="middle" font-size="11" fill="var(--new)" stroke="none">connectors · AI gateway</text>
+    <text x="540" y="528" text-anchor="middle" font-size="9.5" fill="var(--new)" stroke="none">store-first → fallback collect</text>
+    <text x="540" y="543" text-anchor="middle" font-size="9.5" fill="var(--new)" stroke="none">replicas = the scaling knob</text>
+    <line x1="540" y1="466" x2="530" y2="362" marker-end="url(#ar3)"/>
+    <text x="576" y="416" text-anchor="middle" font-size="9.5" fill="var(--new)" stroke="none">poll research queue</text>
+  </g>
+  <!-- claude -->
+  <g stroke="currentColor" style="color: inherit">
+    <rect x="690" y="482" width="114" height="62" rx="6"/>
+    <text x="747" y="506" text-anchor="middle" font-size="11" fill="currentColor" stroke="none">Claude API</text>
+    <text x="747" y="522" text-anchor="middle" font-size="9.5" fill="currentColor" stroke="none" opacity="0.65">+ web_search</text>
+    <line x1="654" y1="513" x2="686" y2="513" marker-end="url(#ar3)" stroke="var(--new)"/>
+    <text x="670" y="474" text-anchor="middle" font-size="9.5" fill="var(--new)" stroke="none">only caller</text>
+  </g>
+</svg>
+<figcaption>Every interaction in the system. No container calls another container — web and the
+workers meet only in Postgres (rows in, jobs out), and all of them run the same core layer
+as in-process function calls. Blue marks the target pieces: the research queue + worker
+(the one new container) and Redis counters (shipped, addon-gated).</figcaption>
+</figure>
+
+<h2>2 · Where we are going — the sourcing engine</h2>
+<p>Everything validated on 2026-08-22, in one picture. Blue is new; the rest exists.
+The core inversion: <strong>AI web search stops being the automatic path</strong> and becomes
+connector #1 among peers, behind one contract.</p>
+
+<figure>
+<svg role="img" aria-label="Target request flow: a request resolves its effective sources from platform-enabled intersected with workspace-activated, runs a per-source coverage check against the pool, fans out only to connectors with thin coverage, the platform core normalizes and dedups into the pool with per-source memberships and bans, and the matcher ranks within source and country scope with tier tie-breaks." viewBox="0 0 800 640" fill="none" stroke-linecap="round">
+  <defs>
+    <marker id="ar2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="currentColor" stroke="none"/>
+    </marker>
+  </defs>
+  <!-- request -->
+  <g stroke="currentColor" style="color: inherit">
+    <rect x="290" y="12" width="220" height="44" rx="6"/>
+    <text x="400" y="31" text-anchor="middle" font-size="12" fill="currentColor" stroke="none">request enters « searching »</text>
+    <text x="400" y="46" text-anchor="middle" font-size="10.5" fill="currentColor" stroke="none" opacity="0.65">criteria · country scope</text>
+  </g>
+  <!-- resolve sources (new) -->
+  <g stroke="var(--new)" style="color: var(--new)">
+    <line x1="400" y1="56" x2="400" y2="82" marker-end="url(#ar2)" stroke="currentColor"/>
+    <rect x="250" y="86" width="300" height="46" rx="6"/>
+    <text x="400" y="105" text-anchor="middle" font-size="12" fill="var(--new)" stroke="none">effective sources</text>
+    <text x="400" y="121" text-anchor="middle" font-size="10.5" fill="var(--new)" stroke="none">platform-enabled ∩ workspace-activated</text>
+    <!-- settings feed -->
+    <rect x="590" y="86" width="190" height="46" rx="6" stroke-dasharray="5 4"/>
+    <text x="685" y="105" text-anchor="middle" font-size="11" fill="var(--new)" stroke="none">Paramètres</text>
+    <text x="685" y="121" text-anchor="middle" font-size="10" fill="var(--new)" stroke="none">activate once — requests</text>
+    <line x1="586" y1="109" x2="554" y2="109" marker-end="url(#ar2)"/>
+  </g>
+  <text x="685" y="146" text-anchor="middle" font-size="10" fill="var(--new)" stroke="none">never specify a source</text>
+  <!-- coverage check (new) -->
+  <g stroke="var(--new)" style="color: var(--new)">
+    <line x1="400" y1="132" x2="400" y2="158" marker-end="url(#ar2)"/>
+    <rect x="250" y="162" width="300" height="46" rx="6"/>
+    <text x="400" y="181" text-anchor="middle" font-size="12" fill="var(--new)" stroke="none">store-first — each source's own store</text>
+    <text x="400" y="197" text-anchor="middle" font-size="10.5" fill="var(--new)" stroke="none">fresh (≤90d) · non-banned · in scope</text>
+    <!-- store answers path -->
+    <path d="M 250 185 H 120 V 452" marker-end="url(#ar2)"/>
+    <text x="112" y="320" text-anchor="middle" font-size="10.5" fill="var(--new)" stroke="none" transform="rotate(-90 112 320)">store answers → no collection · cost ≈ 0</text>
+  </g>
+  <!-- connectors (new) -->
+  <g stroke="var(--new)" style="color: var(--new)">
+    <line x1="400" y1="208" x2="400" y2="234" marker-end="url(#ar2)"/>
+    <text x="400" y="226" text-anchor="middle" font-size="10" fill="var(--new)" stroke="none" dx="98">fallback: too few · match low · confidence low</text>
+    <rect x="180" y="238" width="440" height="86" rx="8" stroke-dasharray="6 5"/>
+    <text x="196" y="256" font-size="10" fill="var(--new)" stroke="none" font-family="IBM Plex Mono, monospace">LIVE COLLECTORS · pull-only · one contract · store-only sources refresh by admin trigger</text>
+    <rect x="196" y="266" width="94" height="44" rx="5"/>
+    <text x="243" y="285" text-anchor="middle" font-size="11" fill="var(--new)" stroke="none">global_web</text>
+    <text x="243" y="300" text-anchor="middle" font-size="9.5" fill="var(--new)" stroke="none">#1 · refactor</text>
+    <rect x="300" y="266" width="94" height="44" rx="5"/>
+    <text x="347" y="285" text-anchor="middle" font-size="11" fill="var(--new)" stroke="none">registry-ca</text>
+    <text x="347" y="300" text-anchor="middle" font-size="9.5" fill="var(--new)" stroke="none">#2</text>
+    <rect x="404" y="266" width="94" height="44" rx="5"/>
+    <text x="451" y="285" text-anchor="middle" font-size="11" fill="var(--new)" stroke="none">alibaba</text>
+    <text x="451" y="300" text-anchor="middle" font-size="9.5" fill="var(--new)" stroke="none">#3 · ToS gate ⚠</text>
+    <rect x="508" y="266" width="94" height="44" rx="5" stroke-dasharray="4 4"/>
+    <text x="555" y="285" text-anchor="middle" font-size="11" fill="var(--new)" stroke="none">registry-us…</text>
+    <text x="555" y="300" text-anchor="middle" font-size="9.5" fill="var(--new)" stroke="none">while going</text>
+    <!-- admin trigger -->
+    <rect x="660" y="252" width="130" height="58" rx="6"/>
+    <text x="725" y="272" text-anchor="middle" font-size="11" fill="var(--new)" stroke="none">/interne/sources</text>
+    <text x="725" y="287" text-anchor="middle" font-size="10" fill="var(--new)" stroke="none">« Mettre à jour »</text>
+    <text x="725" y="301" text-anchor="middle" font-size="10" fill="var(--new)" stroke="none">bans · health</text>
+    <line x1="656" y1="281" x2="626" y2="281" marker-end="url(#ar2)"/>
+  </g>
+  <!-- core -->
+  <g stroke="var(--new)" style="color: var(--new)">
+    <line x1="400" y1="324" x2="400" y2="350" marker-end="url(#ar2)"/>
+    <text x="475" y="342" text-anchor="middle" font-size="10" fill="var(--new)" stroke="none">SupplierCandidate[] — one format</text>
+    <rect x="250" y="354" width="300" height="44" rx="6"/>
+    <text x="400" y="373" text-anchor="middle" font-size="12" fill="var(--new)" stroke="none">platform core</text>
+    <text x="400" y="389" text-anchor="middle" font-size="10.5" fill="var(--new)" stroke="none">normalize → dedup → provenance</text>
+  </g>
+  <!-- pool -->
+  <g stroke="currentColor" style="color: inherit">
+    <line x1="400" y1="398" x2="400" y2="424" marker-end="url(#ar2)"/>
+    <rect x="180" y="428" width="440" height="64" rx="8"/>
+    <text x="400" y="450" text-anchor="middle" font-size="12" fill="currentColor" stroke="none">shared supplier pool — platform-global, the cache</text>
+    <text x="400" y="470" text-anchor="middle" font-size="10.5" fill="currentColor" stroke="none" opacity="0.75">supplier · supplier_source (N memberships, bans) · supplier_partner (★ Recommandé)</text>
+  </g>
+  <!-- match -->
+  <g stroke="currentColor" style="color: inherit">
+    <line x1="400" y1="492" x2="400" y2="518" marker-end="url(#ar2)"/>
+    <rect x="250" y="522" width="300" height="46" rx="6"/>
+    <text x="400" y="541" text-anchor="middle" font-size="12" fill="currentColor" stroke="none">match &amp; rank</text>
+    <text x="400" y="557" text-anchor="middle" font-size="10.5" fill="currentColor" stroke="none" opacity="0.75">source + country hard filters · 5-pt bands · tier ties</text>
+    <line x1="400" y1="568" x2="400" y2="594" marker-end="url(#ar2)"/>
+    <rect x="290" y="598" width="220" height="38" rx="6"/>
+    <text x="400" y="622" text-anchor="middle" font-size="12" fill="currentColor" stroke="none">report — says which path ran</text>
+  </g>
+</svg>
+<figcaption>The validated sourcing engine. Blue elements are new; black ones exist today and keep
+their role. The pool-only edge on the left is the cache paying off: a warm pool answers a
+request without any collection at all.</figcaption>
+</figure>
+
+<h3>The account model on top <span class="chip valid">VALIDATED</span></h3>
+<p>Three populations, two role axes that never mix: <strong>platform staff</strong>
+(<code>user.platform_role</code>: owner · manager · accountant), <strong>individual customers</strong>
+(personal workspace, quota per user), and <strong>enterprise customers</strong> (shared workspace,
+pooled quota, seats). The enterprise owner invites or creates members and grants rights
+via the four existing workspace roles (owner · admin · buyer · viewer); Paramètres carries
+the subscription panel for every account and the user-management view for enterprises.
+Only Q4 — per-seat vs flat pricing — remains open.</p>
+
+<h2>3 · The delta — what actually changes</h2>
+<div class="scroll">
+<table>
+<tr><th>Piece</th><th>Kind</th><th>Status</th></tr>
+<tr><td><code>src/server/sources/</code> — connector contract, registry, <code>global_web</code> refactored in as #1</td><td>new module layer</td><td><span class="chip valid">VALIDATED</span></td></tr>
+<tr><td><code>data_source</code> catalogue + <code>/interne/sources</code> (enable, refresh, bans, health)</td><td>table + screen</td><td><span class="chip valid">VALIDATED</span></td></tr>
+<tr><td><code>supplier_source</code> — N memberships per supplier, per-source + global bans, sticky across re-collection</td><td>satellite table</td><td><span class="chip valid">VALIDATED</span></td></tr>
+<tr><td><code>source_run</code> — audits every collection (trigger: request | admin); absorbs <code>import_run</code></td><td>table</td><td><span class="chip valid">VALIDATED</span></td></tr>
+<tr><td>Coverage check: pool-only / top-up / full research; <code>research_run.fingerprint</code>, 90-day freshness</td><td>pipeline logic</td><td><span class="chip valid">VALIDATED</span></td></tr>
+<tr><td>Request flow across sources — stage ordering, thresholds, failure UX</td><td>pipeline logic</td><td><span class="chip draft">DRAFT</span> — discuss before coding</td></tr>
+<tr><td><code>sourcing_rules</code> — source activation + country origin, per workspace, in Paramètres</td><td>table + settings UI</td><td><span class="chip valid">VALIDATED</span></td></tr>
+<tr><td><code>supplier_partner</code> + <code>/interne/partenaires</code> — ★ Recommandé (paid | granted, requires Vérifié); seam for the supplier-side space</td><td>satellite + screen</td><td><span class="chip valid">VALIDATED</span></td></tr>
+<tr><td>Ranking: 5-point bands, tier breaks ties, zero score points for Recommandé, disclosure line</td><td>matcher logic</td><td><span class="chip valid">VALIDATED</span></td></tr>
+<tr><td>E2 surfaces: <code>requireRole</code> helper, invitations, workspace switcher, team screen, managerial view</td><td>auth + UI</td><td><span class="chip valid">VALIDATED</span></td></tr>
+<tr><td>Paramètres: Abonnement panel (read-only pre-billing) + Utilisateurs view (enterprise)</td><td>settings UI</td><td><span class="chip valid">VALIDATED</span></td></tr>
+</table>
+</div>
+
+<div class="callout">
+<strong>What deliberately does not change.</strong> The modular monolith, single VM, no cloud,
+no CI, compose-based deploys, Postgres as the only stateful service, the AI gateway as the
+sole Claude caller, and the tenancy rule (workspace-scoped everything, platform-global
+supplier pool). The new design lands entirely inside the existing seams — that was the test
+of whether the original architecture was right, and it passed.</div>
+
+<h2>4 · Queueing &amp; intensive load — the recommendation</h2>
+
+<p>OSI is already a queue-based producer/consumer system — <code>web</code> produces jobs,
+<code>worker</code> consumes them, pg-boss inside Postgres is the broker (SKIP LOCKED,
+retries, transactional enqueue). The recommendation is to <strong>keep that foundation and
+add isolation, backpressure, and explicit scaling knobs</strong> — not to adopt RabbitMQ or
+a Redis queue, which would add a second stateful service for throughput we will never need
+(the bottleneck is the Claude API's concurrency, not the queue).</p>
+
+<div class="scroll">
+<table>
+<tr><th>Move</th><th>What it does</th><th>When</th></tr>
+<tr><td><strong>Split the queues</strong> — <code>pipeline</code> (fast: orchestration, matching) and <code>research</code> (slow, expensive: connectors/AI), research partitioned</td><td>A research burst can never starve status transitions; each queue gets its own concurrency</td><td>Phase A (rides with the connector refactor)</td></tr>
+<tr><td><strong>worker-research container</strong> — same image, subscribed to <code>research</code> only; per-queue <code>teamSize</code> matched to Claude limits</td><td>Replicas become the scaling knob for the one hotspot</td><td>Phase A</td></tr>
+<tr><td><strong>Backpressure at the front door</strong> — rate limits on <code>/_serverFn/*</code> + <code>/api/upload</code> (Redis counters shipped 2026-08-22), and a queue-depth guard in <code>createRequestFn</code> (deep backlog → friendly 503, text preserved)</td><td>Producers slow down before consumers melt; the missing piece today</td><td>Phase A add-on</td></tr>
+<tr><td><strong>Store-first cache</strong> (validated) — warm categories answer pool-only</td><td>The single biggest load shedder: hot paths never enqueue research at all</td><td>Phase A core</td></tr>
+<tr><td><strong>Scale ladder</strong> — web replicas → research-worker replicas → pgbouncer → dedicated DB VM</td><td>Each rung is a compose change; no rewrite anywhere</td><td>On signal, in order</td></tr>
+<tr><td><strong>RabbitMQ / BullMQ / Kafka</strong> — only if a second <em>application</em> consumes events, or queue throughput measurably saturates Postgres</td><td>All enqueues go through the one <code>queue.ts</code> seam, so the swap is an adapter, not a refactor</td><td>Parked — needs a signal</td></tr>
+</table>
+</div>
+
+<div class="callout">
+<strong>Why not a broker now:</strong> RabbitMQ is a second database in every operational
+sense (volumes, backups, upgrades, failure modes) on a single self-hosted VM. pg-boss
+gives transactional enqueue for free — a request and its job commit in one transaction,
+which a broker only matches via an outbox pattern (a queue-in-Postgres anyway).
+<code>pg_dump</code> snapshots state and in-flight jobs together. The pattern is in place;
+heavier tech waits for a signal.</div>
+
+<h2>5 · Build order &amp; carried debts</h2>
+<div class="phases">
+<div class="phase"><b>A</b><div><strong>Prove the contract.</strong> Refactor <code>global_web</code> behind the connector interface + the coverage check. Immediate cost savings on every warm request; dissolves the research-inline deviation on the way (research moves to its own invocation path).<p></p></div></div>
+<div class="phase"><b>B</b><div><strong>The enforcement backbone.</strong> <code>requireRole</code> + tenancy helpers (E2), then invitations, switcher, team screen, Paramètres panels. Unlocks Enterprise sales conversations.<p></p></div></div>
+<div class="phase"><b>C</b><div><strong>Collections &amp; commerce.</strong> <code>data_source</code> + <code>supplier_source</code> + bans + <code>source_run</code> + <code>/interne/sources</code>; first registry connector; then <code>supplier_partner</code> + tiers + banded ranking.<p></p></div></div>
+<div class="phase"><b>M</b><div><strong>MVP1 cut, unchanged and still first in line:</strong> facilitation (« Engager », engagement queue) and supplier verification — the sourcing engine feeds them but does not replace them.<p></p></div></div>
+</div>
+
+<h3>Debts we keep carrying <span class="chip debt">DEBT</span></h3>
+<ul>
+<li><strong>The daily-quota race</strong> — check-then-act; needs an advisory lock. The most concrete prod defect; small fix, should ride along with Phase A.</li>
+<li><strong>No rate limit on server functions or uploads</strong> — only <code>/api/auth/*</code> is covered.</li>
+<li><strong>In-memory rate-limit counters</strong> — fine on one web container; Redis when replicated.</li>
+<li><strong>No test suite</strong> — the connector contract is the best place to start one: each connector is independently testable by design.</li>
+<li><code>storage.deleteFile</code> never called; <code>.docx/.xlsx</code> attachments accepted but unread; showcase constants still behind <code>/transactions</code>.</li>
+</ul>
+
+<p style="margin-top:3rem; font-size:0.85rem; color:var(--muted);">Sources: README (architecture, data model, validated designs) · doc/BACKLOG.md (state, epics, debts) · prod at commit <code>d4f93a2</code>.</p>
+</div>
+
+</body></html>

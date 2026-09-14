@@ -68,7 +68,7 @@ Consequences, all first-class rather than afterthoughts:
 #### ADR-001 — supplier provisioning is demand-pull (ACCEPTED 2026-08-26)
 
 > **Status: ✅ DECIDED.**
-> [doc/adr/ADR-001-osi-architecture.md](doc/adr/ADR-001-osi-architecture.md)
+> [ADR-001-osi-architecture.md](ADR-001-osi-architecture.md)
 > is the decision record; **Phase S** in [doc/BACKLOG.md](doc/BACKLOG.md) is
 > the implementation plan. The sections below this one describe the built
 > machinery — still mechanically accurate, but **their roles are redirected
@@ -1248,7 +1248,7 @@ the capability/certification satellite tables exist.
 > a supplier's PDF/PNG/JPG to a quote, the `/documents` list, and a 36-month
 > retention sweep. **P7, P9-P11 remain**: commandes, paiements, messages,
 > rapports — plus the rest of P8 (deal/contract documents, versions). Decision
-> record: [ADR-001 Part II](doc/adr/ADR-001-osi-architecture.md)
+> record: [ADR-001 Part II](ADR-001-osi-architecture.md)
 > (accepted). Plan: **Phase P** in [doc/BACKLOG.md](doc/BACKLOG.md). The
 > owner-validated parcours is drawn step by step in the companion artifact
 > linked from the ADR.
@@ -1790,6 +1790,9 @@ Implementation facts that must not be re-derived differently:
 | `infra/Docker/`               | `web.Dockerfile` (database uses the pgvector image)                            |
 | `scripts/`                    | Everything operational                                                          |
 | `doc/BACKLOG.md`              | **What is done, in progress, and open**                                        |
+| `ADR-001-osi-architecture.md` | **The one decision record** (demand-pull sourcing + the transaction spine)      |
+| `osi-decision-record.html`    | Source of its published twin, *The OSI Decision Record*; edit here, republish to the same URL |
+| `doc/archive/`                | The three companion pages the record absorbed on 2026-09-13, kept verbatim as history |
 
 ---
 

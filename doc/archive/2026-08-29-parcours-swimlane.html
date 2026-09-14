@@ -1,0 +1,476 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1"><style>:root{color-scheme:light}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}</style></head><body>
+<title>Parcours OSI — de la demande à la livraison</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+
+<style>
+  :root {
+    --ground: #111111;
+    --surface: #1a1917;
+    --surface-2: #202020;
+    --sunken: #0c0c0b;
+    --line: #2b2823;
+    --line-strong: #3b362c;
+    --text: #e6e6e6;
+    --muted: #9c958a;
+    --dim: #6e685e;
+    --gold: #d4af37;
+    --gold-2: #c89c18;
+    --ok: #7e9c6c;
+    --warn: #c8912f;
+    --stop: #c0644b;
+    --wash: rgba(212, 175, 55, 0.08);
+    --zebra: rgba(255, 255, 255, 0.012);
+
+    --f-display: "Bricolage Grotesque", "Trebuchet MS", sans-serif;
+    --f-body: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --f-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  }
+
+  :root[data-design="clair"] {
+    --ground: #fafaf9;
+    --surface: #ffffff;
+    --surface-2: #f5f3f0;
+    --sunken: #f0eee9;
+    --line: #e4e0d9;
+    --line-strong: #cdc7bb;
+    --text: #26251f;
+    --muted: #6a655b;
+    --dim: #918b7f;
+    --gold: #a87d1b;
+    --gold-2: #8c6714;
+    --ok: #4f6e40;
+    --warn: #9a6a15;
+    --stop: #9e4229;
+    --wash: rgba(168, 125, 27, 0.07);
+    --zebra: rgba(0, 0, 0, 0.014);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--ground);
+    color: var(--text);
+    font-family: var(--f-body);
+    font-size: 16px;
+    line-height: 1.62;
+    margin: 0;
+    padding: 0 24px 96px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: 980px; margin: 0 auto; }
+  .prose { max-width: 68ch; }
+
+  header.mast {
+    border-bottom: 1px solid var(--line);
+    padding: 52px 0 32px;
+    margin-bottom: 44px;
+  }
+  .topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 20px; flex-wrap: wrap; margin-bottom: 22px;
+  }
+  .eyebrow {
+    font-family: var(--f-mono); font-size: 11px; font-weight: 500;
+    letter-spacing: 0.14em; text-transform: uppercase; color: var(--gold-2); margin: 0;
+  }
+  h1 {
+    font-family: var(--f-display); font-weight: 700;
+    font-size: clamp(2.1rem, 5.4vw, 3.3rem); line-height: 1.04;
+    letter-spacing: -0.022em; text-wrap: balance; margin: 0 0 20px;
+  }
+  h1 .thin { color: var(--muted); font-weight: 600; }
+  .standfirst { font-size: 1.075rem; color: var(--muted); max-width: 62ch; margin: 0 0 28px; }
+  .meta {
+    display: flex; flex-wrap: wrap; gap: 10px 28px;
+    font-family: var(--f-mono); font-size: 12px; color: var(--dim);
+  }
+  .meta b { color: var(--muted); font-weight: 500; }
+
+  .switch {
+    display: inline-flex; align-items: stretch; border: 1px solid var(--line-strong);
+    border-radius: 2px; overflow: hidden; background: var(--surface);
+  }
+  .switch span.sw-lbl {
+    font-family: var(--f-mono); font-size: 10px; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--dim); padding: 0 12px;
+    border-right: 1px solid var(--line); display: flex; align-items: center;
+  }
+  .switch button {
+    font-family: var(--f-mono); font-size: 11px; letter-spacing: 0.06em;
+    text-transform: uppercase; background: none; border: 0; color: var(--muted);
+    padding: 9px 15px; cursor: pointer; transition: color 120ms ease, background 120ms ease;
+  }
+  .switch button:hover { color: var(--text); }
+  .switch button[aria-pressed="true"] { background: var(--wash); color: var(--gold); font-weight: 600; }
+  .switch button:focus-visible { outline: 2px solid var(--gold); outline-offset: -2px; }
+
+  section { margin: 0 0 64px; }
+  h2 {
+    font-family: var(--f-display); font-weight: 700; font-size: 1.55rem;
+    letter-spacing: -0.014em; line-height: 1.18; text-wrap: balance;
+    margin: 0 0 6px; padding-top: 20px; border-top: 1px solid var(--line);
+  }
+  h2 .num {
+    font-family: var(--f-mono); font-size: 0.72rem; font-weight: 500;
+    color: var(--gold-2); letter-spacing: 0.1em; display: block; margin-bottom: 10px;
+  }
+  h3 { font-family: var(--f-display); font-weight: 600; font-size: 1.04rem; margin: 32px 0 8px; }
+  p { margin: 0 0 16px; }
+  strong { color: var(--text); font-weight: 600; }
+  em { color: var(--muted); }
+  code {
+    font-family: var(--f-mono); font-size: 0.855em; background: var(--sunken);
+    border: 1px solid var(--line); border-radius: 2px; padding: 1px 5px; color: var(--gold);
+  }
+
+  figure {
+    margin: 28px 0 32px; background: var(--surface); border: 1px solid var(--line);
+    border-radius: 3px; padding: 24px 24px 16px; overflow-x: auto;
+  }
+  figure svg { display: block; width: 100%; min-width: 720px; height: auto; color: var(--text); }
+  figcaption {
+    font-size: 13.5px; color: var(--muted); margin-top: 14px; padding-top: 14px;
+    border-top: 1px solid var(--line); max-width: 74ch;
+  }
+  figcaption b { color: var(--text); font-weight: 600; }
+
+  .lane { fill: var(--sunken); stroke: var(--line); stroke-width: 1; }
+  .bx { fill: var(--surface-2); stroke: var(--line-strong); stroke-width: 1; }
+  .bx-gold { fill: var(--wash); stroke: var(--gold-2); stroke-width: 1.3; }
+  .bx-out { fill: none; stroke: var(--line-strong); stroke-width: 1; stroke-dasharray: 4 3; }
+  .lbl { font-family: "IBM Plex Sans", sans-serif; font-size: 12px; fill: var(--text); text-anchor: middle; }
+  .lbl-g { fill: var(--gold); font-weight: 600; }
+  .sub { font-family: "IBM Plex Sans", sans-serif; font-size: 10px; fill: var(--muted); text-anchor: middle; }
+  .num-b { font-family: "IBM Plex Mono", monospace; font-size: 11px; font-weight: 600; fill: var(--gold-2); }
+  .tag { font-family: "IBM Plex Mono", monospace; font-size: 10px; letter-spacing: 0.09em; text-transform: uppercase; fill: var(--dim); }
+  .tag-g { fill: var(--gold-2); }
+  .tag-s { fill: var(--stop); }
+  .arr { stroke: var(--line-strong); stroke-width: 1.3; fill: none; }
+  .arr-g { stroke: var(--gold-2); stroke-width: 1.5; fill: none; }
+  .mk { fill: var(--line-strong); }
+  .mk-g { fill: var(--gold-2); }
+  .cut { stroke: var(--stop); stroke-width: 1.4; stroke-dasharray: 6 4; }
+  .capbg { fill: var(--surface); stroke: none; }
+
+  .tw { overflow-x: auto; margin: 22px 0 8px; border: 1px solid var(--line); border-radius: 3px; }
+  table { border-collapse: collapse; width: 100%; min-width: 720px; font-size: 14px; }
+  th {
+    font-family: var(--f-mono); font-size: 10.5px; font-weight: 500; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--dim); text-align: left; padding: 12px 14px;
+    background: var(--sunken); border-bottom: 1px solid var(--line); white-space: nowrap;
+  }
+  td { padding: 12px 14px; border-bottom: 1px solid var(--line); vertical-align: top; line-height: 1.5; }
+  tbody tr:last-child td { border-bottom: 0; }
+  tbody tr:nth-child(even) { background: var(--zebra); }
+  td.n {
+    font-family: var(--f-mono); font-size: 12px; color: var(--gold-2); width: 38px;
+    font-variant-numeric: tabular-nums; font-weight: 600;
+  }
+
+  .chip {
+    display: inline-block; font-family: var(--f-mono); font-size: 10px; font-weight: 500;
+    letter-spacing: 0.07em; text-transform: uppercase; padding: 3px 7px; border-radius: 2px;
+    white-space: nowrap; border: 1px solid currentColor;
+  }
+  .c-ok { color: var(--ok); }
+  .c-new { color: var(--warn); }
+  .c-buyer { color: var(--gold); }
+
+  .call {
+    border: 1px solid var(--line-strong); border-left: 3px solid var(--gold-2);
+    background: var(--surface); border-radius: 3px; padding: 18px 20px; margin: 24px 0; max-width: 74ch;
+  }
+  .call.stop { border-left-color: var(--stop); }
+  .call h4 { font-family: var(--f-display); font-size: 0.97rem; font-weight: 600; margin: 0 0 8px; }
+  .call p:last-child { margin-bottom: 0; }
+
+  ul.plain { padding-left: 20px; margin: 0 0 16px; }
+  ul.plain li { margin-bottom: 9px; }
+  ul.plain li::marker { color: var(--gold-2); }
+
+  footer {
+    border-top: 1px solid var(--line); padding-top: 22px;
+    font-family: var(--f-mono); font-size: 11.5px; color: var(--dim); line-height: 1.8;
+  }
+
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+  @media (max-width: 620px) { body { padding: 0 18px 64px; } .topbar { flex-direction: column; align-items: flex-start; } }
+</style>
+
+<div class="wrap">
+
+  <header class="mast">
+    <div class="topbar">
+      <p class="eyebrow">OSI Solutions · parcours complet</p>
+      <div class="switch" role="group" aria-label="Choisir le design">
+        <span class="sw-lbl">Design</span>
+        <button type="button" id="btn-sombre" aria-pressed="true">Sombre</button>
+        <button type="button" id="btn-clair" aria-pressed="false">Clair</button>
+      </div>
+    </div>
+    <h1>De la demande<br><span class="thin">à la livraison</span></h1>
+    <p class="standfirst">
+      Les 16 étapes du parcours, qui agit à chacune, et ce que la plateforme fait
+      toute seule. À valider étape par étape — chaque numéro ci-dessous est
+      discutable séparément.
+    </p>
+    <div class="meta">
+      <span><b>Suite de</b> ADR-002 (accepté)</span>
+      <span><b>Construit aujourd'hui</b> étapes 1 à 4</span>
+      <span><b>À construire</b> étapes 5 à 16 — Phase P</span>
+    </div>
+  </header>
+
+  <section>
+    <div class="prose">
+      <h2><span class="num">Le parcours en un coup d'œil</span>Trois acteurs, une seule ligne de temps</h2>
+      <p>
+        Le diagramme se lit de haut en bas. Chaque étape est dans la colonne de
+        <strong>celui qui agit</strong> : l'acheteur, OSI, ou un tiers qui n'a
+        pas accès à la plateforme. Les étapes en or sont les <strong>trois
+        moments où l'acheteur décide</strong> — choisir qui solliciter, accepter
+        une offre, signer.
+      </p>
+    </div>
+
+    <figure>
+      <svg viewBox="0 0 900 1282" role="img" aria-label="Parcours en trois colonnes — acheteur, OSI, tiers hors plateforme — de la demande jusqu'à la clôture, en seize étapes.">
+        <defs>
+          <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path class="mk" d="M 0 1 L 9 5 L 0 9 z"></path>
+          </marker>
+          <marker id="g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path class="mk-g" d="M 0 1 L 9 5 L 0 9 z"></path>
+          </marker>
+        </defs>
+
+        <!-- lanes -->
+        <rect class="lane" x="20"  y="52" width="270" height="1192" rx="4"></rect>
+        <rect class="lane" x="310" y="52" width="270" height="1192" rx="4"></rect>
+        <rect class="lane" x="600" y="52" width="280" height="1192" rx="4"></rect>
+        <text class="tag tag-g" x="155" y="40" text-anchor="middle">Acheteur</text>
+        <text class="tag tag-g" x="445" y="40" text-anchor="middle">OSI — personnel &amp; plateforme</text>
+        <text class="tag" x="740" y="40" text-anchor="middle">Tiers — hors plateforme</text>
+
+        <!-- 1 -->
+        <rect class="bx" x="40" y="70" width="230" height="52" rx="3"></rect>
+        <text class="num-b" x="50" y="88">01</text>
+        <text class="lbl" x="155" y="92">Décrit son besoin</text>
+        <text class="sub" x="155" y="108">formulaire · catégorie · specs</text>
+        <!-- 2 -->
+        <rect class="bx" x="330" y="142" width="230" height="52" rx="3"></rect>
+        <text class="num-b" x="340" y="160">02</text>
+        <text class="lbl" x="445" y="164">Recherche fournisseurs</text>
+        <text class="sub" x="445" y="180">pool d'abord, puis web si besoin</text>
+        <!-- 3 -->
+        <rect class="bx" x="330" y="214" width="230" height="52" rx="3"></rect>
+        <text class="num-b" x="340" y="232">03</text>
+        <text class="lbl" x="445" y="236">Vérifie chaque candidat</text>
+        <text class="sub" x="445" y="252">existence · site · sanctions</text>
+        <!-- 4 -->
+        <rect class="bx" x="40" y="286" width="230" height="52" rx="3"></rect>
+        <text class="num-b" x="50" y="304">04</text>
+        <text class="lbl" x="155" y="308">Reçoit le Top-N + rapport</text>
+        <text class="sub" x="155" y="324">classement expliqué, PDF</text>
+
+        <line class="cut" x1="20" y1="356" x2="880" y2="356"></line>
+        <rect class="capbg" x="178" y="361" width="544" height="18"></rect>
+        <text class="tag tag-s" x="450" y="374" text-anchor="middle">Le produit s'arrête ici aujourd'hui — tout ce qui suit est à construire</text>
+
+        <!-- 5 -->
+        <rect class="bx-gold" x="40" y="390" width="230" height="52" rx="3"></rect>
+        <text class="num-b" x="50" y="408">05</text>
+        <text class="lbl lbl-g" x="155" y="412">Choisit qui solliciter</text>
+        <text class="sub" x="155" y="428">parmi son Top-N — décision</text>
+        <!-- 6 -->
+        <rect class="bx" x="330" y="462" width="230" height="52" rx="3"></rect>
+        <text class="num-b" x="340" y="480">06</text>
+        <text class="lbl" x="445" y="484">Envoie les demandes</text>
+        <text class="sub" x="445" y="500">courriel, au nom du client</text>
+        <!-- 7 -->
+        <rect class="bx-out" x="620" y="534" width="240" height="52" rx="3"></rect>
+        <text class="num-b" x="630" y="552">07</text>
+        <text class="lbl" x="740" y="556">Le fournisseur répond</text>
+        <text class="sub" x="740" y="572">prix · MOQ · délai · incoterm</text>
+        <!-- 8 -->
+        <rect class="bx" x="330" y="606" width="230" height="52" rx="3"></rect>
+        <text class="num-b" x="340" y="624">08</text>
+        <text class="lbl" x="445" y="628">Saisit les soumissions</text>
+        <text class="sub" x="445" y="644">une ligne par offre reçue</text>
+        <!-- 9 -->
+        <rect class="bx-gold" x="40" y="678" width="230" height="52" rx="3"></rect>
+        <text class="num-b" x="50" y="696">09</text>
+        <text class="lbl lbl-g" x="155" y="700">Compare et accepte UNE</text>
+        <text class="sub" x="155" y="716">côte à côte — décision</text>
+        <!-- 10 -->
+        <rect class="bx" x="330" y="750" width="230" height="52" rx="3"></rect>
+        <text class="num-b" x="340" y="768">10</text>
+        <text class="lbl" x="445" y="772">Dossier de transaction créé</text>
+        <text class="sub" x="445" y="788">automatique, à l'acceptation</text>
+        <!-- 11 -->
+        <rect class="bx" x="330" y="822" width="230" height="52" rx="3"></rect>
+        <text class="num-b" x="340" y="840">11</text>
+        <text class="lbl" x="445" y="844">Prépare les contrats</text>
+        <text class="sub" x="445" y="860">déduits des parties · préremplis</text>
+        <!-- 12 -->
+        <rect class="bx-gold" x="40" y="894" width="230" height="52" rx="3"></rect>
+        <text class="num-b" x="50" y="912">12</text>
+        <text class="lbl lbl-g" x="155" y="912">Signe dans la plateforme</text>
+        <text class="sub" x="155" y="928">acheteur + OSI — décision</text>
+        <rect class="bx-out" x="620" y="894" width="240" height="52" rx="3"></rect>
+        <text class="lbl" x="740" y="912">Le fournisseur signe hors ligne</text>
+        <text class="sub" x="740" y="928">PDF téléversé par OSI</text>
+        <!-- 13 -->
+        <rect class="bx" x="330" y="966" width="230" height="52" rx="3"></rect>
+        <text class="num-b" x="340" y="984">13</text>
+        <text class="lbl" x="445" y="988">Toutes signatures obtenues</text>
+        <text class="sub" x="445" y="1004">débloque l'étape suivante</text>
+        <!-- 14 -->
+        <rect class="bx" x="330" y="1038" width="230" height="52" rx="3"></rect>
+        <text class="num-b" x="340" y="1056">14</text>
+        <text class="lbl" x="445" y="1060">Suit la commande</text>
+        <text class="sub" x="445" y="1076">production · inspection · transport</text>
+        <!-- 15 -->
+        <rect class="bx-gold" x="40" y="1110" width="230" height="52" rx="3"></rect>
+        <text class="num-b" x="50" y="1128">15</text>
+        <text class="lbl lbl-g" x="155" y="1132">Valide et note</text>
+        <text class="sub" x="155" y="1148">réception + satisfaction — décision</text>
+        <rect class="bx" x="330" y="1182" width="230" height="52" rx="3"></rect>
+        <text class="num-b" x="340" y="1200">16</text>
+        <text class="lbl" x="445" y="1204">Clôture le dossier</text>
+        <text class="sub" x="445" y="1220">jamais avant la validation</text>
+
+        <!-- flow arrows -->
+        <path class="arr" d="M 155 124 L 155 133 L 445 133 L 445 139" marker-end="url(#a)"></path>
+        <path class="arr" d="M 445 196 L 445 211" marker-end="url(#a)"></path>
+        <path class="arr" d="M 445 268 L 445 277 L 155 277 L 155 283" marker-end="url(#a)"></path>
+        <path class="arr-g" d="M 155 340 L 155 387" marker-end="url(#g)"></path>
+        <path class="arr-g" d="M 155 444 L 155 453 L 445 453 L 445 459" marker-end="url(#g)"></path>
+        <path class="arr" d="M 563 488 L 617 545" marker-end="url(#a)"></path>
+        <path class="arr" d="M 617 575 L 563 620" marker-end="url(#a)"></path>
+        <path class="arr-g" d="M 445 660 L 445 669 L 155 669 L 155 675" marker-end="url(#g)"></path>
+        <path class="arr-g" d="M 155 732 L 155 741 L 445 741 L 445 747" marker-end="url(#g)"></path>
+        <path class="arr" d="M 445 804 L 445 819" marker-end="url(#a)"></path>
+        <path class="arr-g" d="M 445 876 L 445 885 L 155 885 L 155 891" marker-end="url(#g)"></path>
+        <path class="arr" d="M 563 848 L 617 891" marker-end="url(#a)"></path>
+        <path class="arr" d="M 617 930 L 563 966" marker-end="url(#a)"></path>
+        <path class="arr-g" d="M 155 948 L 155 957 L 445 957 L 445 963" marker-end="url(#g)"></path>
+        <path class="arr" d="M 445 1020 L 445 1035" marker-end="url(#a)"></path>
+        <path class="arr-g" d="M 445 1092 L 445 1101 L 155 1101 L 155 1107" marker-end="url(#g)"></path>
+        <path class="arr-g" d="M 155 1164 L 155 1173 L 445 1173 L 445 1179" marker-end="url(#g)"></path>
+      </svg>
+      <figcaption>
+        <b>Le fournisseur n'entre jamais dans la plateforme.</b> Les deux blocs en
+        pointillés (07 et la signature) se passent par courriel : OSI envoie, OSI
+        consigne ce qui revient. C'est votre décision du 29 août, et c'est ce qui
+        rend cette version réalisable sans construire un second produit pour les
+        fournisseurs.
+      </figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <h2><span class="num">Le détail</span>Les 16 étapes, une par une</h2>
+    <div class="prose">
+      <p>
+        <span class="chip c-ok">existe</span> fonctionne aujourd'hui en production ·
+        <span class="chip c-new">à construire</span> Phase P ·
+        <span class="chip c-buyer">décision</span> l'acheteur agit
+      </p>
+    </div>
+
+    <div class="tw">
+      <table>
+        <thead>
+          <tr><th></th><th>Étape</th><th>Qui</th><th>Ce qui se passe</th><th style="width:104px">État</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="n">01</td><td><strong>Demande</strong></td><td>Acheteur</td><td>Remplit le formulaire : catégorie, produit, matériau, certifications, quantité, délai. Peut joindre une fiche technique, qui est lue.</td><td><span class="chip c-ok">existe</span></td></tr>
+          <tr><td class="n">02</td><td><strong>Recherche</strong></td><td>Plateforme</td><td>Cherche d'abord dans le pool existant ; ne va sur le web que si la réponse est insuffisante. Un pool chaud ne coûte rien.</td><td><span class="chip c-ok">existe</span></td></tr>
+          <tr><td class="n">03</td><td><strong>Vérification</strong></td><td>Plateforme</td><td>Sur chaque candidat présenté : existence légale, site et domaine, criblage sanctions. Chaque contrôle laisse une preuve datée.</td><td><span class="chip c-ok">existe</span></td></tr>
+          <tr><td class="n">04</td><td><strong>Top-N + rapport</strong></td><td>Acheteur</td><td>Reçoit le classement avec, pour chaque fournisseur, ce qui correspond et ce qui manque. Rapport imprimable.</td><td><span class="chip c-ok">existe</span></td></tr>
+          <tr><td class="n">05</td><td><strong>Sélection</strong></td><td>Acheteur</td><td><strong>Choisit lesquels solliciter</strong> parmi son Top-N. Rien n'est envoyé sans ce geste.</td><td><span class="chip c-buyer">décision</span></td></tr>
+          <tr><td class="n">06</td><td><strong>Sollicitation</strong></td><td>OSI</td><td>Envoie les demandes d'offre par courriel aux fournisseurs choisis.</td><td><span class="chip c-new">à construire</span></td></tr>
+          <tr><td class="n">07</td><td><strong>Réponses</strong></td><td>Fournisseur</td><td>Répond hors plateforme : prix, MOQ, délai, incoterm, conditions.</td><td><span class="chip c-new">à construire</span></td></tr>
+          <tr><td class="n">08</td><td><strong>Soumissions</strong></td><td>OSI</td><td>Saisit chaque offre reçue. <em>Ces données sont aussi ce qui rend le pool meilleur à chaque dossier.</em></td><td><span class="chip c-new">à construire</span></td></tr>
+          <tr><td class="n">09</td><td><strong>Acceptation</strong></td><td>Acheteur</td><td>Compare les offres côte à côte et <strong>en accepte une</strong>. C'est ce geste qui ouvre le dossier.</td><td><span class="chip c-buyer">décision</span></td></tr>
+          <tr><td class="n">10</td><td><strong>Dossier ouvert</strong></td><td>Plateforme</td><td>Le dossier de transaction est créé automatiquement à l'acceptation. Tout le reste s'y rattache.</td><td><span class="chip c-new">à construire</span></td></tr>
+          <tr><td class="n">11</td><td><strong>Contrats</strong></td><td>OSI</td><td>Les contrats requis sont déduits des parties impliquées et préremplis. <strong>V1 : mandat OSI↔client et commande acheteur↔fournisseur.</strong></td><td><span class="chip c-new">à construire</span></td></tr>
+          <tr><td class="n">12</td><td><strong>Signatures</strong></td><td>Acheteur · OSI · tiers</td><td>Acheteur et OSI <strong>signent dans la plateforme</strong>. Le fournisseur signe hors ligne, OSI téléverse le PDF signé. Indicateur 2/4.</td><td><span class="chip c-buyer">décision</span></td></tr>
+          <tr><td class="n">13</td><td><strong>Contrat finalisé</strong></td><td>Plateforme</td><td>Quand toutes les signatures obligatoires sont là, le contrat passe à « signé » et débloque l'étape opérationnelle suivante.</td><td><span class="chip c-new">à construire</span></td></tr>
+          <tr><td class="n">14</td><td><strong>Commande</strong></td><td>OSI</td><td>Suivi : dépôt, production, inspection, transport, douanes, livraison. Les documents (facture, certificat, packing list, B/L) s'accumulent au passage.</td><td><span class="chip c-new">à construire</span></td></tr>
+          <tr><td class="n">15</td><td><strong>Validation</strong></td><td>Acheteur</td><td>Confirme la réception et <strong>note la prestation</strong> (satisfaction + commentaire). C'est aussi la seule mesure honnête de la performance d'un fournisseur : elle se gagne sur une vraie affaire.</td><td><span class="chip c-buyer">décision</span></td></tr>
+          <tr><td class="n">16</td><td><strong>Clôture</strong></td><td>OSI</td><td><strong>Le personnel clôt</strong>, et seulement après la validation de l'acheteur — un dossier ne peut pas être fermé au-dessus d'un client qui ne s'est pas exprimé.</td><td><span class="chip c-new">à construire</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">Ce qu'il faut regarder</span>Trois points restants</h2>
+    <div class="prose">
+      <ul class="plain">
+        <li><strong>Étape 05 — la sélection est-elle au bon endroit ?</strong> Vous avez choisi que l'acheteur pique lui-même dans son Top-N. Cela veut dire qu'aucune sollicitation ne part sans son geste — mais aussi qu'un dossier peut rester bloqué s'il ne choisit pas. Faut-il qu'OSI puisse relancer, ou proposer une sélection par défaut ?</li>
+        <li><strong>Étape 09 — ✅ tranché : pas de répartitions.</strong> Une acceptation, un dossier. Un acheteur qui veut deux fournisseurs fait deux demandes. C'est désormais garanti par la base elle-même (index unique partiel), pas seulement par le code — deux acceptations simultanées ne peuvent pas passer toutes les deux.</li>
+        <li><strong>Étape 12 — le paiement n'est pas dans la boucle.</strong> Le dépôt apparaît à l'étape 14, après signature. Est-ce bien l'ordre : signature d'abord, dépôt ensuite ?</li>
+        <li><strong>Étape 14 — qui met à jour les jalons ?</strong> Le suivi est saisi par OSI. Le fournisseur ne pouvant pas se connecter, chaque avancement de production dépend d'un échange courriel puis d'une saisie. C'est le coût réel de la décision « pas d'accès fournisseur ».</li>
+        <li><strong>Étapes 15-16 — ✅ tranché : deux gestes, deux acteurs.</strong> L'acheteur valide et note, <em>puis</em> OSI clôt. La machine à états interdit d'aller de « livré » à « clos » : il faut passer par la validation. Un dossier ne peut donc pas être fermé au-dessus d'un client silencieux.</li>
+      </ul>
+    </div>
+
+    <div class="call">
+      <h4>Un chiffre à garder en tête</h4>
+      <p>
+        Les étapes 01 à 04 existent et tournent en production. Les onze autres
+        sont à construire. Le module <strong>Contrats</strong>, votre priorité,
+        est l'étape 11-13 — il a besoin des étapes 05 à 10 avant lui, parce
+        qu'un contrat a besoin d'un dossier, et qu'un dossier naît d'une offre
+        acceptée.
+      </p>
+    </div>
+
+    <div class="call stop">
+      <h4>Une réserve, à l'étape 05</h4>
+      <p>
+        Puisque l'acheteur choisit lui-même qui solliciter, la qualité du Top-N
+        n'est plus seulement une question de classement : c'est la liste sur
+        laquelle il engage sa décision. Or aujourd'hui un fournisseur vérifié
+        obtient encore ~41 % de compatibilité <strong>sans correspondre à un
+        seul critère</strong>. Le correctif est conçu et validé ; il devrait
+        passer avant l'étape 05.
+      </p>
+    </div>
+  </section>
+
+  <footer>
+    OSI Solutions · parcours complet, 29 août 2026<br>
+    Suite de ADR-002 (accepté) · plan d'exécution : Phase P dans doc/BACKLOG.md<br>
+    Étapes 01-04 en production · étapes 05-16 à construire
+  </footer>
+
+</div>
+
+<script>
+  (function () {
+    var root = document.documentElement;
+    var bS = document.getElementById("btn-sombre");
+    var bC = document.getElementById("btn-clair");
+    function apply(design) {
+      if (design === "clair") { root.setAttribute("data-design", "clair"); }
+      else { root.removeAttribute("data-design"); design = "sombre"; }
+      bS.setAttribute("aria-pressed", String(design === "sombre"));
+      bC.setAttribute("aria-pressed", String(design === "clair"));
+      try { localStorage.setItem("osi-parcours-design", design); } catch (e) {}
+    }
+    var saved = null;
+    try { saved = localStorage.getItem("osi-parcours-design"); } catch (e) {}
+    apply(saved === "clair" ? "clair" : "sombre");
+    bS.addEventListener("click", function () { apply("sombre"); });
+    bC.addEventListener("click", function () { apply("clair"); });
+  })();
+</script>
+
+</body></html>
