@@ -37,7 +37,14 @@ tracked to delivery** — with the PDF report available throughout.
 
 ### START HERE — handoff, 2026-09-14 (read this first)
 
-**Prod = `52cf854` (deploy #39, migration 0044).** `main` and prod are level.
+**Prod = `8f40d1e` (deploy #40).** `main` and prod are level.
+
+**Deploy #40 verification** — backup `osi-20260914-184919.sql.gz` (31 M) +
+uploads archive taken first. Code-only. On the VM: `git log` at `8f40d1e`,
+`web` / `worker` / `worker-research` all 14 s old, zero `__exportAll` /
+`TypeError` lines in the web log, origin 200; inside the `web` container the
+client bundle carries the bell's mute key and the server bundle
+`getUnreadCountFn` — i.e. the new bell is what is serving, not a stale image.
 
 **Deploy #39 verification** — backup `osi-20260914-183833.sql.gz` (31 M) + its
 uploads archive (85 B, still the empty tar) taken first. Build gate passed
@@ -245,6 +252,7 @@ deploy failed mid-session and prod was rolled back; see #24.
 | 23 | `5b90649` | — | **the platform workspace can no longer be deleted** — the org-plugin's own `POST /organization/delete` bypassed `destroyWorkspace`; guard moved into a `beforeDeleteOrganization` hook |
 | 24 | `95b825a` | — | **filters on all four ops lists** (multi-account + week/month/year/custom period) · **the global supplier directory is staff-only** · the DB cleared for fresh testing. *First attempt (`77d37b0`) took prod down — see the chunk-cycle note* |
 | 25 | `b7481d6` | — | **"linked supplier" widened to four traces** (matched · quoted · dealt · contract party) · **a session opens in your PERSONAL workspace** when you have one · the discovery store cleared for a cold research test |
+| 40 | `8f40d1e` | — | **the bell alerts** — count badge on the icon and in the tab title, 30 s poll of the unread count while the tab is visible, WebAudio chime when it rises, per-browser mute switch in the menu (owner request, 2026-09-14) |
 | 39 | `52cf854` | 0044 | **soumissions need a paid plan** (`plan.quotes_enabled`; free and org_trial refuse, the dossier and the Abonnement panel say why, Abonnements has the switch) · **all documentation at the repo root**, the ADR folded into the README, `doc/` gone · four owner requests recorded for later |
 | 38 | `bcbd99d` | — | **retention windows settled**: a loose document keeps **36 months** after losing its request and quote; an archived workspace keeps **6 years**. The recovery screen shows the customer a date, not a duration |
 | 37 | `e7fff21` | 0043 | **a workspace carrying money is archived, never erased** — refused outright when a contract or deal exists, every route redirects to `/recuperation`, and its owner restores it by signing in. Makes ADR Part II §4's "signature evidence is never FK-cascaded away" true for the first time, without changing a foreign key |
