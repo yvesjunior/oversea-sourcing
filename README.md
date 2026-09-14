@@ -17,10 +17,12 @@ Live at **[osi-solutions.com](https://osi-solutions.com)** · TanStack Start
 > spec sheets) → real web research → shared supplier pool → criteria-aware
 > ranking → printable report, with per-workspace plans and daily quotas — and
 > the first half of facilitation: the buyer solicits quotes, compares the
-> offers, accepts one, and the dossier opens with its required contracts
-> drafted and their text pre-filled (Phase P1-P5, live on prod).
-> **Not built:** commandes and milestones, documents, paiements, messages, and
-> the supplier import pipeline.
+> offers, accepts one, the dossier opens with its required contracts drafted
+> and their text pre-filled, and the parties sign — buyer and OSI in the
+> platform, everyone else by a staff-recorded upload (Phase P1-P6, live on
+> prod). Staff can attach a supplier's paperwork to an offer (P8, first
+> slice). **Not built:** commandes and milestones, paiements, messages,
+> rapports, the stored PDF report, and the supplier import pipeline.
 
 Built with [Lovable](https://lovable.dev)
 ([editor](https://lovable.dev/projects/a2274c53-10c7-432f-8ad5-d1aeff813df3));
@@ -763,11 +765,12 @@ linking to an empty page.
 
 ### Account model — Individual & Enterprise (SaaS)
 
-> **Status: VALIDATED 2026-08-22 — to implement.** Nothing here is built
-> beyond what is explicitly marked as existing. The use cases are the E2/E12
-> implementation checklist in [doc/BACKLOG.md](doc/BACKLOG.md); the decisions
-> at the end of this section are settled (only Q4, enterprise pricing, stays
-> open as a business call).
+> **Status: VALIDATED 2026-08-22 — ✅ BUILT as Phase B (2026-08-23) and the
+> foundation waves of 2026-08-26/27.** Every use case below is live except
+> UC-11 (billing) and the set-password-link variant of UC-4 (delivered through
+> the invitation flow instead). The decisions at the end of this section are
+> settled (only Q4, enterprise pricing, stays open as a business call). The
+> text is kept as the specification the code was built to.
 
 > **Made explicit 2026-08-26 (owner):** `organization.type` now carries the
 > account model in the schema — `internal` (the one staff workspace,
@@ -979,16 +982,16 @@ null until Stripe lands. Nothing in UC-1…UC-10 depends on billing.
 | --- | --- |
 | `organization`, `member` (4 roles), `invitation`, `subscription` tables | ✅ exist |
 | Pooled workspace quota at the choke point | ✅ exists (`checkRequestQuota`) |
-| Workspace switcher + active-organization session state | ⬜ better-auth org plugin feature — wire it |
-| `requireRole(workspaceId, minRole)` helper used by every mutating server fn | ⬜ E2 — the enforcement backbone, build first |
-| Invitation server fns (create/accept/decline/revoke) + team screen | ⬜ E2 |
-| Create-member-with-set-password-link flow | ⬜ needs the email provider (E9 dependency) |
-| Managerial view (members, usage, team requests) | ⬜ new surface, reads existing tables |
-| Paramètres: profile + **Abonnement** panel (plan, usage, upgrade CTA) | ⬜ E11/E12 — read-only version needs no billing |
-| Paramètres: **Utilisateurs** view (enterprise, owner-gated) | ⬜ E2 — the home of invite/create/rights/remove |
-| Per-member ceiling within the pool (`quota_scope`) | ⬜ E12 refinement, small |
-| Enterprise plan row | ⬜ one migration (plans are rows) |
-| Ownership transfer | ⬜ small server fn + confirm UI |
+| Workspace switcher + active-organization session state | ✅ B2 (`WorkspaceSwitcher.tsx`, better-auth `setActive`) |
+| `requireRole(workspaceId, minRole)` helper used by every mutating server fn | ✅ B1 (`requireWorkspaceRole` / `requireMember` in `src/server/workspace-guard.ts`) |
+| Invitation server fns (create/accept/decline/revoke) + team screen | ✅ B3 (org-plugin endpoints + `organizationHooks`, `/invitation/$id`) |
+| Create-member-with-set-password-link flow | ✅ B4 — delivered through the invitation flow (the invitee's signup IS the set-password step); the dedicated passwordless variant is not built |
+| Managerial view (members, usage, team requests) | ✅ B6 — folded into the Utilisateurs panel |
+| Paramètres: profile + **Abonnement** panel (plan, usage, upgrade CTA) | ✅ B5 — read-only, "Contactez-nous" until billing |
+| Paramètres: **Utilisateurs** view (enterprise, owner-gated) | ✅ B5 — hidden on individual workspaces since 2026-08-27 |
+| Per-member ceiling within the pool (`quota_scope`) | ✅ B8 — `plan.quota_scope` (`user` / `workspace`); a per-member ceiling INSIDE a pool is still open |
+| Enterprise plan row | ✅ B8 (+ `org_trial` 2026-08-26) |
+| Ownership transfer | ✅ B7 (`transferOwnershipFn`, atomic) |
 
 **Hard dependency to call out:** UC-3 and UC-4 need an email provider —
 **decided 2026-08-23: SendGrid** (behind a `src/server/mail.ts` adapter like
@@ -1241,7 +1244,10 @@ the capability/certification satellite tables exist.
 > mechanisms — built 2026-08-29) — the schema spine, soumissions, comparison &
 > acceptance, the contract centre, contract templates, and now sending,
 > signing, recording an offline signature and chasing whoever has not answered.
-> **P7-P11 remain**: commandes, documents, paiements, messages, rapports. Decision
+> **P8 has its first slice** (2026-09-12): the `document` table, staff attaching
+> a supplier's PDF/PNG/JPG to a quote, the `/documents` list, and a 36-month
+> retention sweep. **P7, P9-P11 remain**: commandes, paiements, messages,
+> rapports — plus the rest of P8 (deal/contract documents, versions). Decision
 > record: [ADR-001 Part II](doc/adr/ADR-001-osi-architecture.md)
 > (accepted). Plan: **Phase P** in [doc/BACKLOG.md](doc/BACKLOG.md). The
 > owner-validated parcours is drawn step by step in the companion artifact
@@ -1579,11 +1585,21 @@ erDiagram
 | `sourcing_rules`     | ✅ 2026-08-22 — activated sources + country origin per workspace; written by Paramètres → Préférences de sourcing (B5) |
 | `audit_log`          | ✅ 2026-08-27 — the activity journal: dot-namespaced action, actor/org stored as **tombstone ids + name snapshots** (no FKs since 0028 — history survives account deletion and workspace destruction); written only through `src/server/audit.ts`. Two viewers: `/interne/logging` (staff, all workspaces, purge > 3 months owner-only) and Paramètres → Journal (an organisation's owner, server-forced to their org) |
 | `two_factor`         | ✅ 2026-08-27 — better-auth twoFactor plugin storage (TOTP secret + backup codes); enable/disable from Paramètres → Profil, login step at `/2fa` |
+| `supplier_verification` / `sanction_entry` | ✅ 2026-08-26 (S5b) — one evidence row per supplier × check, and the local OFAC SDN copy. `verification_status` is DERIVED from these rows and written only by `src/server/verification.ts` |
+| `translation_memory` | ✅ 2026-08-29 — platform-wide cache of criterion translations (`request_criterion.value_en`); deliberately not workspace-scoped |
+| `platform_permission` / `platform_role` | ✅ 2026-08-28/29 — the Rôles & accès matrix (feature × role) and the owner-created staff roles; the owner is never a row |
+| `plan` / `subscription` | limits as rows (daily, lifetime, seats, `quota_scope`, `audience`, `suppliers_returned`, `model_tier`); one subscription per workspace |
+| `notification` / `notification_pref` | ✅ E9 — in-app inbox (type + params, rendered in the viewer's language) and per-user channel preferences |
+| `organization_profile` | ✅ 2026-08-26 — legal and tax identity of a company workspace |
+| `quote`              | ✅ P1 (0033) — one soumission per supplier asked; `decline_reason` + `sent_at` (0040); **`quote_one_accepted_per_request_uq`** enforces no splitting |
+| `deal` / `deal_event` | ✅ P1 — the dossier de transaction opened by ONE acceptance; amount/currency/incoterm snapshots; two-act closure (`reviewed` before `closed`) |
+| `contract` / `contract_party` / `contract_event` | ✅ P1/P5/P6 — text frozen in `content` at draft time; parties are ROWS with name snapshots; the permanent signature trail (never purged, unlike `audit_log`) |
+| `document`           | ✅ 2026-09-12 (P8 slice 1, 0041) — the typed row over `file` (kind `offer\|other`, hangs from a quote and/or request); `orphaned_at` (0042) drives the 36-month retention sweep |
 
-**Not yet built:** `engagement`, `transaction`, `document`, and
-the supplier satellites (capabilities, certifications, contacts,
+**Not yet built:** `order_milestone` (P7), `payment` (P9), `message_thread`
+(P10), and the supplier satellites (capabilities, certifications, contacts,
 **`supplier_partner`** — the Recommandé tier and the seam for the future
-supplier-side space). `notification` exists since E9 (2026-08-23).
+supplier-side space).
 
 ---
 
@@ -1651,10 +1667,13 @@ unless asked: `./scripts/addons.sh [--remote] <profile>`.
   (`/_serverFn/*`) and `/api/upload` have no limit of their own: the plan quota
   bounds how many requests a workspace may make per day, not how fast, so a
   Business workspace can fire all 50 at once
-- ⚠️ **The daily quota races.** It is check-then-act: two requests arriving in the
-  same instant both read the count, both pass, and both insert — reproduced at
-  2 rows against a limit of 1. Fix is an advisory lock on the workspace id around
-  check-and-insert
+- ✅ **The daily quota no longer races** (fixed 2026-08-22, A5): check and
+  insert run under `pg_advisory_xact_lock` on the workspace id in
+  `createRequestFn`, so two simultaneous creates serialize instead of both
+  passing (it had reproduced at 2 rows against a limit of 1)
+- ✅ **Sign-ins and failed sign-ins are audited** (2026-09-12) — `auth.signed_in`
+  on every session creation (social and 2FA paths included), `auth.sign_in_failed`
+  with the attempted address
 - ✅ Email verification ENFORCED at login (2026-08-28) · ✅ 2FA opt-in per user (2026-08-27)
 - ⬜ Error tracking
 

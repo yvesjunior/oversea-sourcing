@@ -4,7 +4,7 @@
 |---|---|
 | **Status** | ✅ **Accepted and largely built** — consolidated 2026-09-07 |
 | **Consolidates** | the former **ADR-001** (Supplier Provisioning Strategy, accepted 2026-08-26) and **ADR-002** (The transaction dossier & contract centre, accepted 2026-08-29), which this file replaces |
-| **Baseline** | main @ `615d7e0` · prod deploy #30 |
+| **Baseline** | main @ `bcbd99d` · prod deploy #38 (consolidated at `615d7e0` / #30; re-checked against the code 2026-09-13) |
 | **Source brief** | [doc/briefs/portail-entreprise.md](../briefs/portail-entreprise.md) (owner's `.docx`, 2026-08-29) |
 | **Implementation plan** | Phase S and Phase P in [doc/BACKLOG.md](../BACKLOG.md) |
 | **Pretty version** | Claude artifact, diagrams + build state: <https://claude.ai/code/artifact/a537df29-e576-4725-b8de-661efd1d1438> |
@@ -206,9 +206,17 @@ buyer finds the supplier a French request discovered.
 
 ### §6 · The deal loop feeds the graph — the moat
 
-Response time (`requested_at → responded_at`), MOQ, lead time, price and the
-buyer's satisfaction score are exactly the outcomes nobody can scrape. They
-arrive as a by-product of Part II, not as a separate project.
+Response time, MOQ, lead time, price and the buyer's satisfaction score are
+exactly the outcomes nobody can scrape. They arrive as a by-product of Part II,
+not as a separate project.
+
+Two fields protect that data at the source (2026-09-12, migration 0040):
+response time is measured from **`sent_at`** — when staff actually emailed the
+supplier — and falls back to `requested_at` only when nobody stamped it, so
+OSI's own lag is not published as a slow supplier; and `decline_reason`
+separates `no_response` (the strongest negative signal the platform owns) from
+`supplier_declined` and `lost` (the buyer picked someone else, which says
+nothing about the supplier).
 
 ---
 
@@ -308,6 +316,13 @@ Signature evidence therefore lives on the contract's own rows
 `audit_log` keeps recording the *operational* actions around it. **Two trails,
 two retention rules, on purpose.**
 
+"Never FK-cascaded away" became true against workspace deletion only on
+2026-09-12 (migration 0043): a workspace that carries a **contract or a deal is
+archived, never erased** — `organization.archived_at`, every route redirects to
+`/recuperation`, the owner restores it by signing in, and the archive is kept
+six years (`ARCHIVE_RETENTION_YEARS`; nothing purges it yet). A workspace with
+no financial trace is still destroyed outright. No foreign key changed.
+
 ### §5 · Required contracts are derived from the parties
 
 A deal with a carrier needs a carrier agreement; one with a customs broker needs
@@ -325,12 +340,24 @@ language, not the reader's — a contract is a record of what the parties saw.
 Numbering is `OSI-2026-0000`, per-year sequential and platform-global
 (`contract_number_seq`).
 
-### §6 · Documents: one typed table *(not built — P8)*
+### §6 · Documents: one typed table *(first slice built 2026-09-12 — P8)*
 
-A single `document` row — kind, the deal and/or contract it hangs from, a
-`file_id`, an issuer, a version — absorbing the open E7 item (the stored PDF
-report). Until it exists, the countersigned-contract upload writes a `file` row
-directly, owned by the **buyer's** workspace.
+A single `document` row — kind, what it hangs from, a `file_id`, an issuer, a
+version — absorbing the open E7 item (the stored PDF report).
+
+**What exists** (migrations 0041–0042): the `document` table over `file`, kind
+`offer | other`, hanging from a **quote and/or request** (both SET NULL, so a
+document outlives its source); staff attach a supplier's PDF/PNG/JPG to an
+offer through `/api/quote-document`; `/documents` lists them naming and
+linking both sources; and an orphan is purged **36 months** after losing both
+references — the first time `storage.deleteFile` has ever run on a user file.
+**Ownership follows the paperwork, not the uploader**: staff upload, the rows
+belong to the buyer's workspace.
+
+**Still open:** documents hanging from a deal or a contract (the
+countersigned-contract upload still writes a `file` row directly), the fuller
+kind vocabulary (facture, douane, B/L… — each lands with the phase that
+produces it), versions, and the stored PDF report.
 
 ### §7 · Money is tracked, never moved
 
@@ -418,10 +445,19 @@ pull request.
 | **Derived, not stored**: trust tiers, contract filters, expiry, the N/M indicator | Part I §4, Part II §8 |
 | **The platform workspace holds no customer data** and cannot be deleted | owner, 2026-08-29 |
 | **Registries never enter matching** | Part I §2 |
+| **A workspace carrying a contract or a deal is archived, never erased** — six-year retention | owner, 2026-09-12 · Part II §4 |
 
-# Where the build actually stands (2026-09-07, prod deploy #30)
+# Where the build actually stands (re-checked 2026-09-13, prod deploy #38)
 
 **Built and live:**
+
+- **Since the 2026-09-07 consolidation (deploys #31–#38):** the audit trail
+  covers the commercial spine and sign-ins; quotes record *why* they were
+  declined and *whose clock* the response time is on (Part I §6); a recorded
+  price can be corrected while `received`, and a declined or unanswered
+  supplier can be re-asked; **P8 slice 1** — the `document` table, quote
+  paperwork, `/documents`, 36-month retention (Part II §6); a workspace
+  carrying money is **archived, never erased** (Part II §4).
 
 - Part I: the demand-pull flow end to end — taxonomy (S1), structured intake
   (S2), store-first coverage, `global_web` discovery, the discovery/verification
@@ -440,16 +476,18 @@ pull request.
 | **S3 — category-aware retrieval.** `request.category_id` participates in neither retrieval nor matching; the big-store prefilter is still a name-only `ILIKE` (`scope.ts`). Largely defused by §2 (registries never enter matching), but the capability is absent. | Part I |
 | **S4 — lazy per-request enrichment.** No scrape/enrich stage exists; descriptions come straight from the discovery findings. | Part I |
 | **Checks ④ ⑤** — export record (dormant by §1) and certifications. | Part I §4 |
-| **P7 commandes** (`order_milestone`) · **P8 documents** · **P9 paiements** · **P10 messages** · **P11 rapports** | Part II |
+| **P7 commandes** (`order_milestone`) · **P8 documents beyond slice 1** (deal/contract documents, kinds, versions, the stored PDF report) · **P9 paiements** · **P10 messages** · **P11 rapports** | Part II |
 | **The deal lifecycle past `contracting`.** The columns and the guarded ladder exist; `transitionDeal` has one caller. Steps 14-16 of the parcours have no surface. | Part II §8 |
 
 # Open questions
 
-1. **Document retention policy.** None exists, and `storage.deleteFile` is never
-   called on user files — deleting a request drops its `file` rows and leaves
-   the bytes. Needs an answer **before P8** puts legal documents in there.
-   Related: the owner has deferred the remote-vs-local storage backend to an
-   env-var switch, to be discussed.
+1. ~~**Document retention policy.**~~ **Answered** (owner, 2026-09-12/13):
+   a document orphaned from its request and quote is kept **36 months**, then
+   row, `file` row and bytes go; an archived workspace is kept **six years**.
+   **What remains open:** destroying a workspace with **no** contract or deal
+   still cascades its `document` and `file` rows away without passing through
+   the sweep, so those bytes linger on the volume. And the remote-vs-local
+   storage backend is still deferred to an env-var switch, to be discussed.
 2. **Is the deal layer a plan dimension?** Plans gate `requests_per_day` and
    `suppliers_returned` only, so a Free-trial workspace can currently reach
    contracts. Affects E12.
@@ -461,3 +499,8 @@ pull request.
    the first facilitated deals?
 6. **May OSI nudge a buyer** who never picks suppliers, and is
    signature-before-deposit the right order?
+7. **Keep or remove "Marquer comme envoyée" on a quote?** (raised 2026-09-12.)
+   The buyer notification on a recorded offer already exists and is
+   untouched; the button is the *outbound* stamp (`sent_at`) that lets the
+   response time measure the supplier's lag rather than OSI's (Part I §6).
+   Removing it puts OSI's own lag back into the moat's headline number.

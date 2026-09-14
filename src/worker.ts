@@ -32,8 +32,9 @@ import { sweepDocumentRetention } from "@/server/retention";
 
 const STAGE_MS = 8_000;
 const SWEEP_INTERVAL_MS = 60_000;
-/** How often the retention policy is applied. Six-hourly against a six-month
- *  window: the cadence decides latency, never outcome. */
+/** How often the retention policy is applied. Six-hourly against a 36-month
+ *  window (DOCUMENT_RETENTION_MONTHS): the cadence decides latency, never
+ *  outcome. */
 const RETENTION_INTERVAL_MS = 6 * 60 * 60 * 1000;
 /** A request untouched this long in an in-flight state is considered stranded. */
 const STRANDED_AFTER_MS = 2 * 60_000;
@@ -238,7 +239,7 @@ async function main() {
 
     // Document retention, on the same worker and for the same reason as the
     // sweep above: exactly one of these must run. Six-hourly against a
-    // six-month window — the cadence decides how soon an expired document
+    // 36-month window — the cadence decides how soon an expired document
     // goes, never whether it does.
     const retention = () =>
       void sweepDocumentRetention().catch((error) => console.error("retention failed:", error));

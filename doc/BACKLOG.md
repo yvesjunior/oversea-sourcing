@@ -18,10 +18,10 @@
 | **E3** Request core loop | Pipeline, criteria, attachments, dossier | ✅ done |
 | **E4** Supplier data | **Web research**, dedup, directory, sources admin | 🟡 **ADR-001 pivot (2026-08-26) → Phase S**; directory is staff-only and buyers see what they are LINKED to (2026-08-29); import/merge open |
 | **E5** Matching & scoring | Criteria-aware v1 + breakdown | 🟡 the "32 criteria" + comparison view open |
-| **E6** Facilitation | ~~Engagements~~ → **soumissions → dossier de transaction → contrats** | 🟡 **P1-P5 LIVE on prod (2026-08-29)** per [ADR-001 Part II](adr/ADR-001-osi-architecture.md); **P6 signatures is next**; old task list RETIRED |
+| **E6** Facilitation | ~~Engagements~~ → **soumissions → dossier de transaction → contrats** | 🟡 **P1-P6 LIVE on prod** (P1-P5 2026-08-29, P6 signatures deploy #26) per [ADR-001 Part II](adr/ADR-001-osi-architecture.md); **P7 commandes is next**; old task list RETIRED |
 | **E7** Reports | Printable report + PDF export | 🟡 the `document` table exists since 2026-09-12 (P8 slice 1) — the stored PDF report itself is still open |
 | **E8** Transactions | Milestones, tracking, paiements | 🔵 **folded into Phase P** by ADR-002 (the `deal` spine); standalone sketch retired |
-| **E9** Notifications | In-app + email | 🟡 bell, emitters, **prefs (2026-08-26)** live; E6 templates gated |
+| **E9** Notifications | In-app + email | 🟡 bell, emitters, **prefs (2026-08-26)** live; Phase P types (`quote_received`, `contract_to_sign`, `contract_signed`) + staff alert on `quotes.requested` (2026-09-07) live; the web bell still loads once, no poll |
 | **E10** Admin surfaces | Verification, imports, ops queue | 🟡 **verification LIVE (S5b/S5c, 2026-08-26)**; imports/ops queue placeholders |
 | **R** Custom staff roles | Roles as data + the matrix | ✅ **BUILT 2026-08-29** (migration 0039) — create/delete roles, dynamic matrix, `requests.all` |
 | **E11** Settings | Profile, sourcing rules | 🟡 Paramètres + notification prefs live; **password / 2FA / theme / rename (2026-08-27)** live; buyer Abonnement self-service waits for billing |
@@ -366,7 +366,7 @@ database; add `prod` ONLY on the VM. Migrations must run INSIDE the container:
 the host it reports success and changes nothing.
 
 **Quality gates before any commit:** `npx tsc --noEmit`, `npx eslint src/`,
-`npm test` (132 tests). Then the prod-preset build check at the top of this
+`npm test` (355 tests as of 2026-09-13). Then the prod-preset build check at the top of this
 handoff. Markdown is NOT prettier-formatted in this repo — do not reformat the
 docs, it buries the diff.
 
@@ -408,8 +408,13 @@ before diagnosing anything. That took ~4 minutes today.
    **Still unanswered by the owner:** who updates milestones — is every
    production update an email to OSI then a manual entry? That is the real
    cost of "no supplier access".
-2. **P8 · documents** — typed `document` rows, versioned, attached to a deal
-   and/or contract. **No longer blocked:** the uploads volume has been in the
+2. **P8 · documents — slice 1 SHIPPED (deploy #35, migration 0041), the rest
+   open.** Built: the `document` table (kind `offer | other`), staff attaching
+   a supplier's PDF/PNG/JPG to a quote, the `/documents` list naming and
+   linking both the request and the quote, and the 36-month retention sweep
+   (0042). Still open: documents hanging from a deal or a contract, the
+   fuller kind vocabulary (facture, douane, B/L…), versions, and E7's stored
+   PDF report. **No longer blocked:** the uploads volume has been in the
    backup since 2026-08-29.
    **Owner, 2026-08-29:** *"document will be saved in remote backend or local
    storage depending on env var, we will discuss our options later."* The seam
@@ -1644,7 +1649,7 @@ writing any code.
 ./scripts/deploy.sh                 # ship main to the VM
 ```
 
-Quality gates are `npm test` (vitest, 27 unit tests),
+Quality gates are `npm test` (vitest, 355 unit tests as of 2026-09-13),
 `npx tsc --noEmit` and `npx eslint src/` — all clean as of this commit.
 
 ### A research pass that never searched — ✅ FIXED 2026-09-07
@@ -1958,10 +1963,14 @@ only hid the rows from the person they were about. Scope is unchanged and still
 forced server-side: staff with `logging` read everything, anyone else must be
 the workspace OWNER and sees only their own rows.
 
-**Still not audited: authentication.** There is no sign-in, sign-out,
-failed-login or 2FA event in the trail. Raised 2026-09-12 and not built — it is
-a real behaviour change (every login writes a row, and the journal purges at
-three months), so it needs a decision rather than a guess.
+**Authentication IS audited since deploy #34 (2026-09-12).** `auth.signed_in`
+is written from the session-creation hook — the one thing every successful
+path produces exactly once, social sign-in and the 2FA second step included —
+with the IP and user agent; `auth.sign_in_failed` is written from the root
+after-hook with the attempted address, deliberately including addresses that
+have no account (see `src/server/auth.ts`). **Still not audited:** sign-out,
+and 2FA enable/disable. Every login now writes a row and the journal purges at
+three months, which was the behaviour change the owner accepted.
 
 ### The quote table: two fields that exist to protect the moat
 
@@ -2005,12 +2014,14 @@ number ADR Part I §6 calls unscrapable.
   `recordQuoteFn` until it is stamped — the wrong trade against a workflow that
   really happens in email.
 
-**Still open on this table** (raised 2026-09-12, not taken): `expired` is an
-unreachable status and `valid_until` a column nobody writes; a recorded offer
-cannot be CORRECTED (`received → received` is not a legal transition, so a typo
-in a price is permanent); a declined supplier can never be re-asked
-(`onConflictDoNothing` silently drops the ask and the buyer sees "0
-approached"); and a buyer cannot decline an offer, only accept a different one.
+**Of the four gaps raised on this table 2026-09-12, two are closed and two are
+open.** ✅ A recorded offer CAN be corrected (deploy #35, `offerEntryMode` in
+`src/lib/deal-status.ts` — a correction is deliberately NOT a transition, and
+the form is frozen once the quote leaves `received`). ✅ A declined or
+never-answering supplier CAN be re-asked (deploy #36 — see "Re-asking a
+supplier" below). ❗ Still open: `expired` is an unreachable status and
+`valid_until` a column nobody writes; and a buyer cannot decline an offer, only
+accept a different one.
 
 ### P8 · Documents — what slice 1 does, and the question it makes urgent
 
@@ -3620,13 +3631,18 @@ in the browser before committing; deploy only when the owner asks.
       milestones — is every production update an email to OSI then a manual
       entry? That is the real cost of "no supplier access".
 
-- [ ] **P8 · Documents.**
-      *Depends on: P7.* Typed `document` rows (facture · certificat · douane ·
-      inspection · packing list · B/L · contrat signé · annexe), versioned,
-      attached to a deal and/or contract, bytes behind `storage.ts`. Absorbs
-      E7's open "server-rendered PDF stored as a documents row".
-      **BLOCKED until the uploads volume is backed up — see the gaps below.
-      Do not ship legal documents into a volume no backup covers.**
+- [ ] **P8 · Documents — 🟡 slice 1 BUILT 2026-09-12 (deploy #35, migration
+      0041; retention 0042 in #36).** What exists: the `document` table over
+      `file` (kind `offer | other`, hangs from a quote and/or request, both
+      SET NULL), `/api/quote-document` (staff, PDF/PNG/JPEG, 5 × 10 MB), the
+      `/documents` list, and the 36-month orphan sweep. See "P8 · Documents —
+      what slice 1 does" above for the decisions.
+      **Still to build:** documents attached to a deal and/or contract, the
+      fuller kind vocabulary (facture · certificat · douane · inspection ·
+      packing list · B/L · contrat signé · annexe — each lands with the phase
+      that produces it), versions, and E7's "server-rendered PDF stored as a
+      documents row". ~~BLOCKED until the uploads volume is backed up~~ — the
+      volume has been in `backup.sh` since 2026-08-29.
 
 - [ ] **P9 · Paiements.** *Depends on: P7.* Ledger view — dépôts, soldes,
       factures, frais OSI, état. **Track-only, staff-entered, no PSP** (README
@@ -3748,8 +3764,9 @@ feeds C3/C4 value (Recommandé requires Vérifié)
       built-ins + the SendGrid adapter: `sendOnSignUp` verification with
       auto sign-in, resend button in Paramètres → Profil, reset via
       `/mot-de-passe-oublie` → email link → `/reinitialiser?token=`.
-      **Enforcement deliberately OFF** (`requireEmailVerification`) — prod
-      has real unverified users; flipping it on is a product decision.
+      ~~Enforcement deliberately OFF~~ → **ENFORCED at login since
+      2026-08-28** (owner decision; `requireEmailVerification` +
+      `sendOnSignIn`, dev opts out via `REQUIRE_EMAIL_VERIFICATION=false`).
       No-enumeration on the forgot form. Verified end to end in dev
       (MAIL_SILENT logs). **To send real mail in an env:** SENDGRID_API_KEY
       set, MAIL_SILENT absent, MAIL_FROM verified in SendGrid
@@ -3760,8 +3777,8 @@ feeds C3/C4 value (Recommandé requires Vérifié)
       login/signup → the draft comes BACK IN THE FORM and the buyer presses
       the button (no retyping, but no automatic spend either — owner
       2026-08-29; drafts expire after 1 h)
-- [ ] User profile: name, locale (persist language server-side, sync with the existing toggle)
-- [ ] `platform_role` on users; guard helper `requireStaff()`
+- [x] User profile: name, locale (persist language server-side, sync with the existing toggle) — B5, 2026-08-23; password, 2FA and theme joined 2026-08-27
+- [x] `platform_role` on users; guard helper — built as `effectivePlatformRole` + `effectiveHasPermission` (server, `src/server/workspace-guard.ts`) and `requirePlatformFeature` (routes, `src/lib/auth-guard.ts`); staff powers exist only inside the internal workspace
 - [x] **Signup abuse controls** (2026-08-16) — before this, 12 consecutive POSTs
       to `/api/auth/sign-up/email` from one IP all returned 200, and every account
       creates a workspace that can spend API budget. Now: per-IP rate limits
@@ -3781,11 +3798,11 @@ feeds C3/C4 value (Recommandé requires Vérifié)
 > and decisions are the specification for the tasks below and the Enterprise
 > items in E12 (only Q4, enterprise pricing, remains open).
 
-- [ ] Workspace CRUD (create at signup, rename)
-- [ ] Memberships + role checks: `requireRole(workspace, 'buyer')` helpers
-- [ ] Tenancy scoping utility — every query filtered by workspace_id (make the safe path the easy path)
-- [ ] Invitations: send (email), accept (join flow), revoke
-- [ ] Team management UI in Paramètres (list, invite, change role, remove)
+- [x] Workspace CRUD — create at signup (user-create hook, individual or enterprise), rename (`renameWorkspaceFn`, 2026-08-27), destroy/archive (`destroyWorkspace`, 2026-08-27 / 2026-09-12)
+- [x] Memberships + role checks — B1: `requireMember` / `requireWorkspaceRole` in `src/server/workspace-guard.ts`, membership re-read per call
+- [x] Tenancy scoping — every server fn reads the workspace from the session through `requireWorkspaceRole`; the only fn taking an organizationId from input is the staff-gated `assignPlanFn` (audited 2026-08-23, B2)
+- [x] Invitations: send (email via SendGrid adapter), accept (`/invitation/$id`), revoke — B3, 2026-08-23
+- [x] Team management UI in Paramètres → Utilisateurs (list, invite, change role, remove, transfer ownership) — B5/B7, 2026-08-23
 - [x] **Audit log — BUILT 2026-08-27** (see ②i in Resume here: audit_log
       table + emitter + journal on /interne/utilisateurs, per org / per
       user)
@@ -3803,7 +3820,7 @@ feeds C3/C4 value (Recommandé requires Vérifié)
 - [x] Wire demandes list + detail pages to real data (drop mock) — `request` table (migration 0001), workspace-scoped queries; detail criteria/top-5/chat remain showcase until E3/E5
 - [x] **Personal dashboard** (Accueil): real session user greeting, stats + "Vos dossiers
       récents" scoped to the logged-in user, per-role workspace visibility
-- [ ] Activity feed: recent events across _my_ requests/engagements (from engagement_events + status changes)
+- [x] Activity feed — **Activités récentes** on the dashboard (deploy #27, 2026-08-29): merged from `request_event` + `deal_event` + `contract_event` via `getRecentActivityFn`, no fourth store
 - [x] **Structured request form as primary intake** — ✅ **BUILT 2026-08-26
       as Phase S task S2** (see the Phase S entry for the implementation
       facts). Original scoping below (owner decision
@@ -3968,7 +3985,7 @@ feeds C3/C4 value (Recommandé requires Vérifié)
 - [ ] **Define the 32 compatibility criteria** (product workshop — weights per category)
 - [x] **Matching v1 — criteria-aware** (2026-08-16). v0 never read the criteria at all (confidence + verification + risk + a hash jitter), so a supplier that genuinely matched could rank below one that did not. v1 scores each criterion against the supplier's own text: `10 base + 55×coverage + 20×confidence/100 + verification(12/5/0/−25) − risk(0/4/10)`, required criteria weighted ×2, ties broken deterministically. `sourcing_rules` still unused (E11)
 - [x] Compatibility score: weighted per-criterion, **breakdown persisted in `match.score_breakdown` jsonb** — which criteria matched, which were unverifiable, how each modifier landed
-- [ ] **Numeric criteria are scored as `unverifiable`, not as misses** — pressure/flow/quantity/lead_time cannot be checked against a one-line supplier description, so they are excluded from the denominator rather than penalising every supplier equally. They become checkable once `supplier_capabilities` / `supplier_certifications` exist
+- [x] **Numeric criteria are scored as `unverifiable`, not as misses** (`UNVERIFIABLE_CATEGORIES` in `src/server/matching.ts`) — pressure/flow/quantity/lead_time cannot be checked against a one-line supplier description, so they are excluded from the denominator rather than penalising every supplier equally. They become checkable once `supplier_capabilities` / `supplier_certifications` exist
 - [ ] Confidence score: provenance + profile completeness + verification
 - [ ] Risk level: country risk + data flags (v1 heuristic)
 - [x] Top-5 persistence in `match` + ranking; "N fournisseurs analysés" is real (matches.created event)
@@ -4003,6 +4020,12 @@ feeds C3/C4 value (Recommandé requires Vérifié)
 
 ### E8 — Transactions (tracking only)
 
+> **⚠️ SUPERSEDED 2026-08-29 by ADR-001 Part II.** There is no standalone
+> `transaction`: the `deal` opened by an accepted quote IS the dossier, and
+> milestones, documents and payments hang from it as **P7 · commandes**,
+> **P8 · documents** and **P9 · paiements** in Phase P above. The tasks below
+> are kept only to show what was replaced; do not build them.
+
 - [ ] Create transaction from a `connected` engagement (ops action)
 - [ ] Milestones CRUD — manual updates by ops, manufacturing progress %
 - [ ] Buyer timeline UI wiring (page exists) + linked documents
@@ -4023,9 +4046,12 @@ feeds C3/C4 value (Recommandé requires Vérifié)
       on mount + on open; no realtime until the product needs it
 - [x] Email sender + FR/EN templates — verification & reset (E1),
       invitations (B3), **report-ready** (2026-08-23: in-app + email from the
-      worker on the report_ready transition). Engagement-update templates
-      wait for gated E6. First emitters wired: `report_ready` (worker) and
-      `invitation_accepted` (afterAcceptInvitation hook → inviter)
+      worker on the report_ready transition). Phase P emitters live since
+      2026-08-29: `quote_received` (buyer), `contract_to_sign` and
+      `contract_signed`; **staff alert on `quotes.requested`** (2026-09-07,
+      `notifyStaff` keyed on the `deals` permission, one mail per action).
+      Six registered types, all labelled in bell AND prefs panel
+      (`notification-types.test.ts` enforces it)
 
 ### E10 — Admin backoffice (`/admin`, staff-gated)
 
@@ -4035,15 +4061,15 @@ feeds C3/C4 value (Recommandé requires Vérifié)
       screen: people are managed user-centric; Abonnements only edits what
       plans grant), 24h + lifetime usage (the Free-trial counter), signup
       date. Gated by the new `users` platform feature (owner + manager)
-- [ ] Layout + `requireStaff` guard
-- [ ] Facilitation queue (E6 surface)
+- [x] Layout + staff guard — every `/interne/*` route calls `requirePlatformFeature(session, key)` in `beforeLoad`; the INTERNE nav block greys ungranted entries; server fns re-check with `effectiveHasPermission`
+- [ ] ~~Facilitation queue (E6 surface)~~ — SUPERSEDED: `/interne/facilitation` was deleted 2026-09-12 (deploy #32); the ops queue is `/soumissions` (Vue globale) + the pending-dossiers block on `/contrats`
 - [x] **Verification workflow — BUILT 2026-08-26 (ADR-001 S5b/S5c)**:
       evidence-derived tiers + the `/interne/verification` review screen
       (battery evidence, sanctions alerts, Vérifier/Retirer via
       `human_review` rows). Supplier search/edit + merge duplicates still
       pending
-- [ ] Import runs: trigger, monitor, error report
-- [ ] Ops dashboard: counts (open engagements, pending verifications, active requests)
+- [x] ~~Import runs: trigger, monitor, error report~~ — delivered as `/interne/sources` (C1, 2026-08-24): "Mettre à jour" trigger, `source_run` health column, error surfaced on the tab; the Imports nav entry itself was removed 2026-08-26
+- [ ] Ops dashboard: counts (pending quotes, pending verifications, active requests)
 - [ ] **`supplier_partner` table + `/interne/partenaires`** (validated
       2026-08-22, README → visibility tiers) — grant/renew/suspend Recommandé
       (`paid` or `granted`, time-boxed, `granted_by` trail); requires Vérifié;
@@ -4073,9 +4099,10 @@ feeds C3/C4 value (Recommandé requires Vérifié)
       afterwards had no subscription, fell through to the env fallback, and got an
       **unlimited** daily quota. Now assigned in better-auth's user-create hook, so
       it covers social sign-up too
-- [ ] **Free-tier integrity** — signup creates a personal workspace, so one person
+- [x] **Free-tier integrity** — signup creates a personal workspace, so one person
       with several emails gets several free allowances. Rate limits and
-      disposable-domain blocks slow this; only **email verification** fixes it
+      disposable-domain blocks slow this; **email verification enforced at
+      login (2026-08-28)** closes it — a trial now costs a real inbox
 - [x] **Google sign-in — live on prod** (2026-08-17), verified by a real signup
       that arrived with `email_verified = true`, a provisioned workspace and the
       Free plan. **Production only**: the credentials are deliberately absent in
@@ -4091,18 +4118,18 @@ feeds C3/C4 value (Recommandé requires Vérifié)
       until moved to `internal` by hand. Either auto-move workspaces to
       `internal` when a platform role is granted, or exempt employees in
       `checkRequestQuota`
-- [ ] **Subscription flow for buyers** (requested 2026-08-20) — a "Plan de
-      subscription" surface where a workspace can see its current plan and
-      upgrade/downgrade. Today plans are assigned only by staff from
-      `/interne/plans`; buyers have no self-service view. Depends on the billing
-      provider for paid upgrades, but a read-only "your plan & usage" panel can
-      ship before payments
-- [ ] **Enterprise plan** (requested 2026-08-20) — a tier above Business,
-      possibly with a managerial view: several members in one workspace, an
-      an owner who sees the team's requests and usage. First plan whose value
-      is *seats + oversight* rather than just higher limits — depends on E2
-      (invitations + team UI), which is why it doesn't exist yet
-- [ ] **Per-user quota on the Free plan** (requested 2026-08-20) — today the
+- [ ] **Subscription flow for buyers** (requested 2026-08-20) — 🟡 the
+      read-only half shipped as Paramètres → **Abonnement** (B5, 2026-08-23:
+      plan, limits, usage bars, "Contactez-nous" CTA). Self-service
+      upgrade/downgrade waits for the billing provider
+- [x] **Enterprise plan** (requested 2026-08-20) — the `enterprise` row (B8,
+      100/day · 20 suppliers · custom seats · pooled) plus `org_trial`
+      (2026-08-26) for self-serve organisation signups; the managerial view is
+      the Utilisateurs panel (B6). Pricing per seat vs flat stays the open Q4
+- [x] **Per-user quota on the Free plan** (requested 2026-08-20) — B8:
+      `plan.quota_scope` (`user` | `workspace`); individual plans count
+      `request.created_by`, organisation plans pool the workspace. Original
+      reasoning kept below. — today the
       quota counts `request` rows per *workspace*. That is the right unit for
       paid team plans, but on Free it should bind per *user* so that limits
       follow the person. Mostly equivalent today (signup = personal workspace,
@@ -4116,25 +4143,25 @@ feeds C3/C4 value (Recommandé requires Vérifié)
 ### E11 — Settings
 
 - [x] Profile + language (server-persisted) — B5, 2026-08-23
-- [ ] **Abonnement panel** — active workspace's plan, limits, live usage vs
+- [x] **Abonnement panel** — B5, 2026-08-23: active workspace's plan, limits, live usage vs
       quota, upgrade CTA ("Contactez-nous" until billing; self-service after
       Stripe). Buyer-facing read-only mirror of `/interne/plans` (README →
       account model UC-9)
-- [ ] **Utilisateurs view** (enterprise, owner/admin-gated) — members + roles,
-      invite/create, change rights, remove, pending invitations (README →
+- [x] **Utilisateurs view** (enterprise, owner-gated; hidden on individual workspaces since 2026-08-27) — B5/B6, 2026-08-23: members + roles,
+      invite, change rights, remove, transfer ownership, pending invitations (README →
       account model UC-10; the surface for the E2 flows)
-- [ ] **Sourcing preferences UI** (`sourcing_rules`, validated 2026-08-22) —
+- [x] **Sourcing preferences UI** (`sourcing_rules`, B5 2026-08-23; discovery sources only since S5a 2026-08-26) —
       per-workspace: **activate** available data sources once (requests never
       specify a source afterwards — effective set = platform-enabled ∩
       workspace-activated) and supplier country origin (global / country list
       / local). Editable by workspace owner/admin; consumed by the pipeline
       (which connectors run) and the matcher (hard filter, not a down-score)
       — E4/E5
-- [ ] Notification preferences
+- [x] Notification preferences — Paramètres → Notifications, 2026-08-26 (`notification_pref`, gates only `notify.ts`; transactional mail never silenceable)
 
 ### Cross-cutting (throughout)
 
-- [ ] Audit log on all mutations of money/status/membership
+- [x] Audit log on all mutations of money/status/membership — the journal (2026-08-27) covers account/workspace/member/plan/source actions; the commercial spine (quotes, deals, contracts, signatures) joined in deploy #33 (2026-09-12); sign-ins in #34
 - [ ] Error monitoring hook (server logs first)
 - [ ] Postgres backup cron on the VM (`pg_dump` → dated dumps)
 - [ ] Security pass before exposing beyond LAN (rate limits, headers, TLS/reverse-proxy)
@@ -4162,4 +4189,4 @@ every mandatory party, and the commande is tracked to delivery.
 - External data sources & licensing for imports (E4)
 - ~~Web-search provider for the research agent~~ — **decided 2026-08-16: none needed.** Claude's server-side `web_search` tool runs the search inside the existing API call, so there is no second vendor, key or bill. It is called only from `src/server/ai/research.ts`, so a Tavily/Brave adapter can replace it without touching domain code (INFRA principle 4)
 - ~~Email provider choice~~ — **decided 2026-08-23: SendGrid** (see B9)
-- When to put a reverse proxy + TLS in front of prod (before first external user)
+- ~~When to put a reverse proxy + TLS in front of prod~~ — **done: Cloudflare Tunnel** (`cloudflared` → traefik on the VM, shared infra) terminates TLS on osi-solutions.com; the app container is never internet-exposed (README §6)
