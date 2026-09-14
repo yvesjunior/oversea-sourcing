@@ -24,7 +24,7 @@ if [ ! -f .env ]; then
 # MINIO_ROOT_PASSWORD=
 # MEILI_MASTER_KEY=
 
-# Database (arrives with E0 — see doc/BACKLOG.md)
+# Database (arrives with E0 — see BACKLOG.md)
 # DATABASE_URL=
 
 # AI (arrives with E3)

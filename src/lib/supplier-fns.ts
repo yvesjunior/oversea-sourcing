@@ -1,5 +1,5 @@
 // Supplier directory server functions (E4 seam). The supplier dataset is
-// PLATFORM-GLOBAL by design (doc/BACKLOG.md tenancy rule) — one pool, enriched
+// PLATFORM-GLOBAL by design (BACKLOG.md tenancy rule) — one pool, enriched
 // by every request; per-request ranking lives in `match`.
 //
 // WHO SEES WHAT (owner, 2026-08-29). The whole pool is an OSI-internal view:

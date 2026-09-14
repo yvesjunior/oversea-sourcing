@@ -446,7 +446,7 @@ export const auth = betterAuth({
     user: {
       create: {
         // Every new user gets a personal workspace — solo users are isolated
-        // by construction (doc/BACKLOG.md).
+        // by construction (BACKLOG.md).
         after: async (newUser) => {
           // Q1 (decided 2026-08-22): people who sign up THROUGH an invitation
           // are joining an enterprise — they get no personal workspace. A

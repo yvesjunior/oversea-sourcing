@@ -325,7 +325,7 @@
       </p>
       <p style="margin-top:12px">
         Three companion pages were merged in on 13 September 2026 and archived verbatim under
-        <code>doc/archive/</code>: the French parcours swimlane (its lanes are redrawn below with
+        <code>archive/</code>: the French parcours swimlane (its lanes are redrawn below with
         today's build state), the 2026-08-22 architecture review (its overload table joins
         Part 0), and the 2026-08-17 pipeline teardown — a record of what the code <em>was</em>
         before E4 and E5, kept as history and contributing nothing current.
@@ -1330,8 +1330,12 @@
         be discussed.
       </li>
       <li>
-        <strong>Is the deal layer a plan dimension?</strong> Plans gate requests per day and
-        suppliers returned only, so a free-trial workspace can currently reach contracts.
+        <s><strong>Is the deal layer a plan dimension?</strong></s> <strong>Answered yes</strong>
+        (owner, 2026-09-14): asking for quotes needs a paid plan — Pro for an individual
+        account, Business or Enterprise for an organisation. The plan row carries the flag, the
+        trial tiers say no, and the refusal happens at the one place a solicitation is created.
+        A trial workspace can still file requests and read its report; it cannot ask OSI to
+        approach anyone, and contracts and deals follow from an accepted quote.
       </li>
       <li>
         <strong>Who updates production milestones?</strong> Every update is an email and then a
@@ -1361,11 +1365,11 @@
   <footer>
     Consolidated 7 September 2026 · replaces ADR-001 (supplier provisioning, accepted 2026-08-26)
     and ADR-002 (transaction dossier, accepted 2026-08-29)<br>
-    In the repository: README.md (§1 Part I · §2b Part II) · doc/briefs/portail-entreprise.md ·
-    Phase S and Phase P in doc/BACKLOG.md<br>
+    In the repository: README.md (§1 Part I · §2b Part II) · BRIEF-portail-entreprise.md ·
+    Phase S and Phase P in BACKLOG.md<br>
     Both original records remain in git history at 8dd740d<br>
     Re-checked against main @ bcbd99d (deploy #38) on 13 September 2026 · three companion
-    pages merged in the same day and archived in doc/archive/
+    pages merged in the same day and archived in archive/
   </footer>
 
 </div>

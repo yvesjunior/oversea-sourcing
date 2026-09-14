@@ -20,6 +20,9 @@ export type PlanView = {
   quotaScope: "workspace" | "user";
   suppliersReturned: number;
   modelTier: ModelTier;
+  /** May workspaces on this plan ask for soumissions (owner 2026-09-14: paid
+   *  plans only). */
+  quotesEnabled: boolean;
   /** Workspaces currently on this plan. */
   workspaces: number;
   updatedAt: string;
@@ -77,6 +80,7 @@ export const getPlanAdminFn = createServerFn({ method: "GET" }).handler(
           quotaScope: schema.plan.quotaScope,
           suppliersReturned: schema.plan.suppliersReturned,
           modelTier: schema.plan.modelTier,
+          quotesEnabled: schema.plan.quotesEnabled,
           updatedAt: schema.plan.updatedAt,
           updatedByName: schema.user.name,
         })
@@ -139,6 +143,7 @@ export const updatePlanFn = createServerFn({ method: "POST" })
       quotaScope: z.enum(["workspace", "user"]),
       suppliersReturned: z.number().int().min(1).max(20),
       modelTier: z.enum(MODEL_TIERS),
+      quotesEnabled: z.boolean(),
     }),
   )
   .handler(async ({ data }): Promise<{ ok: boolean }> => {
@@ -159,6 +164,7 @@ export const updatePlanFn = createServerFn({ method: "POST" })
         quotaScope: data.quotaScope,
         suppliersReturned: data.suppliersReturned,
         modelTier: data.modelTier,
+        quotesEnabled: data.quotesEnabled,
         // Cheap stand-in for an audit log: "who dropped the free tier to 0"
         // must have an answer.
         updatedBy: session.user.id,
@@ -178,6 +184,7 @@ export const updatePlanFn = createServerFn({ method: "POST" })
         quotaScope: data.quotaScope,
         suppliersReturned: data.suppliersReturned,
         modelTier: data.modelTier,
+        quotesEnabled: data.quotesEnabled,
       },
     });
     return { ok: true };

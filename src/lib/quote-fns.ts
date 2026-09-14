@@ -126,7 +126,10 @@ function toView(
  */
 export type RequestQuotesResult =
   | { ok: true; created: number; reopened: number; skipped: number }
-  | { ok: false; reason: "forbidden" | "not_found" | "already_decided" };
+  | { ok: false; reason: "forbidden" | "not_found" | "already_decided" }
+  /** The workspace's plan does not include soumissions (owner 2026-09-14:
+   *  paid plans only). `planName` so the screen can say which plan refused. */
+  | { ok: false; reason: "plan_required"; planName: string };
 
 /**
  * The buyer asks OSI to approach the suppliers they picked from their Top-N.
@@ -173,6 +176,17 @@ export const requestQuotesFn = createServerFn({ method: "POST" })
       ),
     });
     if (!request) return { ok: false, reason: "not_found" };
+
+    // Soumissions are a PAID feature (owner 2026-09-14): Pro for an
+    // individual account, Business or Enterprise for an organisation; the
+    // trial plans only allow requests. The plan row decides
+    // (`plan.quotes_enabled`), so the owner moves the line from Abonnements.
+    // Checked here — the one place a solicitation is created — and BEFORE any
+    // row is touched, so a refusal leaves nothing half-done. This closes the
+    // ADR's open question 2: the deal layer is a plan dimension.
+    const { resolvePlan } = await import("@/server/plan");
+    const plan = await resolvePlan(caller.workspaceId);
+    if (!plan.quotesEnabled) return { ok: false, reason: "plan_required", planName: plan.name };
 
     // Only suppliers this request actually presented. Anything else is
     // either a mistake or someone probing the endpoint.

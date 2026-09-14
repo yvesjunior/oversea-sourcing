@@ -3,7 +3,7 @@
 # Restore an OSI Postgres dump (made by ./scripts/backup.sh).
 # DESTRUCTIVE: replaces the target database content. Asks for confirmation.
 #
-# GUARDED: requires the `database` service (ships with E0 — doc/BACKLOG.md).
+# GUARDED: requires the `database` service (ships with E0 — BACKLOG.md).
 #
 # Usage:
 #   ./scripts/restore.sh backups/osi-YYYYmmdd-HHMMSS.sql.gz --local    # into local DB
@@ -28,7 +28,7 @@ read -r -p "Type 'restore' to confirm: " answer
 
 if [ "${TARGET}" = "--local" ]; then
   docker compose -f docker-compose.prod.yml config --services | grep -qx database \
-    || { echo "✗ No 'database' service yet — ships with E0 (doc/BACKLOG.md)."; exit 1; }
+    || { echo "✗ No 'database' service yet — ships with E0 (BACKLOG.md)."; exit 1; }
   echo "▶ Restoring into local ${POSTGRES_DB}…"
   gunzip -c "${DUMP}" | docker compose -f docker-compose.prod.yml exec -T database \
     psql -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" --set ON_ERROR_STOP=1 --quiet

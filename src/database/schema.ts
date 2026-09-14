@@ -15,7 +15,7 @@ import {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Identity & tenancy — better-auth core tables + organization plugin.
-// "organization" IS the OSI workspace (see doc/BACKLOG.md). Members carry the
+// "organization" IS the OSI workspace (see BACKLOG.md). Members carry the
 // workspace role (buyer companies): owner | buyer | viewer — "admin" stays
 // schema-valid but unused (owner/admin merged 2026-08-23; owner manages
 // account AND team).
@@ -164,7 +164,7 @@ export const member = pgTable("member", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
-// ── Requests (demandes) — the core loop (doc/BACKLOG.md E3) ─────────────────
+// ── Requests (demandes) — the core loop (BACKLOG.md E3) ─────────────────
 
 /** Display ids for requests ("#3000", "#3001", …) — seed uses 2536-2541, so no collision. */
 export const requestIdSeq = pgSequence("request_id_seq", { startWith: "3000" });
@@ -344,7 +344,7 @@ export const requestEvent = pgTable(
 );
 
 // ── Suppliers & matching (E4/E5 data layer, pulled forward) ─────────────────
-// Suppliers are PLATFORM-GLOBAL by design (doc/BACKLOG.md tenancy rule): the
+// Suppliers are PLATFORM-GLOBAL by design (BACKLOG.md tenancy rule): the
 // dataset is OSI's shared asset. Matches tie a supplier to one request.
 
 export const SUPPLIER_PROVENANCES = ["imported", "ai_researched", "osi_verified"] as const;
@@ -810,6 +810,22 @@ export const plan = pgTable(
     suppliersReturned: integer("suppliers_returned").notNull().default(5),
     /** Overrides ANTHROPIC_MODEL. Drives both quality and cost per request. */
     modelTier: text("model_tier").$type<ModelTier>().notNull().default("cheap"),
+    /**
+     * May a workspace on this plan ask OSI to solicit quotes? (owner,
+     * 2026-09-14: "to ask a quote, a buyer should have a paid subscription —
+     * Pro for an individual account, Business or Enterprise for an
+     * organisation; a free plan only allows requests".)
+     *
+     * This is the answer to the ADR's open question 2 — the deal layer IS a
+     * plan dimension. A plan row, like every other limit: the trial tiers
+     * (`free`, `org_trial`) say false, the paid and internal tiers say true,
+     * and the owner can move the line from Abonnements without a deploy.
+     * Default false so a plan someone forgets to configure withholds the paid
+     * feature rather than giving it away. Enforced in `requestQuotesFn`, the
+     * only place a solicitation is created; the dossier and the Abonnement
+     * panel explain the refusal and point at the plan change.
+     */
+    quotesEnabled: boolean("quotes_enabled").notNull().default(false),
     /** Display order on the manager screen. */
     position: integer("position").notNull().default(0),
     /** Who last changed the limits — the cheap stand-in for an audit log. */

@@ -309,6 +309,13 @@
       "when": 1789265587965,
       "tag": "0043_pretty_shotgun",
       "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1789390377954,
+      "tag": "0044_harsh_gideon",
+      "breakpoints": true
     }
   ]
 }

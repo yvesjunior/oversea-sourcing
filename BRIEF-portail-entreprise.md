@@ -5,7 +5,7 @@
 > Transcription fidèle du document, conservée ici parce que le `.docx` ne vit
 > nulle part ailleurs que sur le poste du propriétaire. **Ceci est la demande,
 > pas la décision** — les décisions sont dans
-> [ADR-002](../adr/ADR-002-transaction-and-contract-centre.md).
+> [ADR-001 Part II, in the README](README.md#adr-001-part-ii).
 
 ## 1. Objectif du portail
 

@@ -169,7 +169,11 @@ function DemandeDetail() {
         data: { requestId: demande.id, supplierIds: picked },
       });
       if (!result.ok) {
-        setAskOutcome(t(`soumissions.askRefusal_${result.reason}`));
+        setAskOutcome(
+          result.reason === "plan_required"
+            ? t("soumissions.askRefusal_plan_required", { plan: result.planName })
+            : t(`soumissions.askRefusal_${result.reason}`),
+        );
         return;
       }
       const parts: string[] = [];
@@ -482,7 +486,24 @@ function DemandeDetail() {
 
               {/* P2 — the buyer picks who OSI approaches. Hidden for a viewer
                   seat and on a foreign dossier (canEdit covers both). */}
-              {demande.canEdit && (
+              {demande.canEdit && demande.quotesPlanRequired && (
+                /* Soumissions are a paid feature (owner 2026-09-14). The plan
+                   refuses before the buyer picks anyone, and the way out is
+                   named: change the plan. The server fn refuses too — this
+                   only spares the buyer a dead click. */
+                <div className="mt-4 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 rounded-lg border border-gold/40 bg-gold-soft px-4 py-3">
+                  <p className="min-w-0 text-xs text-foreground">
+                    {t("soumissions.planRequired", { plan: demande.planName })}
+                  </p>
+                  <Link
+                    to="/parametres"
+                    className="inline-flex h-8 shrink-0 items-center rounded-md bg-primary px-3 text-xs font-semibold text-primary-foreground hover:opacity-90"
+                  >
+                    {t("soumissions.planRequiredCta")}
+                  </Link>
+                </div>
+              )}
+              {demande.canEdit && !demande.quotesPlanRequired && (
                 <div className="mt-4 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 rounded-lg border border-border bg-secondary/40 px-4 py-3">
                   <p className="min-w-0 text-xs text-muted-foreground">
                     {askOutcome ?? t("soumissions.askHint")}
@@ -513,7 +534,7 @@ function DemandeDetail() {
                           : "bg-secondary text-muted-foreground",
                       )}
                     >
-                      {demande.canEdit ? (
+                      {demande.canEdit && !demande.quotesPlanRequired ? (
                         <input
                           type="checkbox"
                           aria-label={m.supplier.name}

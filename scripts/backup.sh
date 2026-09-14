@@ -3,7 +3,7 @@
 # Dump the OSI Postgres database AND the uploads volume to ./backups/.
 # Remote (prod VM) by default; --local for the local stack.
 #
-# GUARDED: the `database` service ships with epic E0 (doc/BACKLOG.md). Until it
+# GUARDED: the `database` service ships with epic E0 (BACKLOG.md). Until it
 # exists in docker-compose.prod.yml, this script exits with a clear message.
 #
 # Two artifacts per run, because Postgres is only half the state (fixed
@@ -34,7 +34,7 @@ has_db_service() {
 }
 
 if [ "${1:-}" = "--local" ]; then
-  has_db_service || { echo "✗ No 'database' service in docker-compose.prod.yml yet — it ships with E0 (doc/BACKLOG.md)."; exit 1; }
+  has_db_service || { echo "✗ No 'database' service in docker-compose.prod.yml yet — it ships with E0 (BACKLOG.md)."; exit 1; }
   mkdir -p backups
   echo "▶ Dumping local ${POSTGRES_DB} → ${OUT}"
   docker compose -f docker-compose.prod.yml exec -T database \

@@ -72,7 +72,7 @@ if (dangerous.length > 0) {
       "  Two chunks import each other and one calls the helper before the other's body runs.\n" +
       "  It is a CHUNKING outcome, not a bug in a specific file: change what the entry\n" +
       "  graph looks like (add or remove an import in a route) and re-check. See\n" +
-      "  doc/BACKLOG.md → 'The prod bundle has a latent chunk cycle'.",
+      "  BACKLOG.md → 'The prod bundle has a latent chunk cycle'.",
   );
   process.exit(1);
 }

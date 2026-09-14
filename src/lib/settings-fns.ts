@@ -24,6 +24,8 @@ export type SettingsData = {
     maxMembers: number;
     quotaScope: "workspace" | "user";
     suppliersReturned: number;
+    /** Soumissions included in this plan (owner 2026-09-14: paid plans only). */
+    quotesEnabled: boolean;
     usedToday: number;
     usedTotal: number;
     seatsUsed: number;
@@ -157,6 +159,7 @@ export const getSettingsFn = createServerFn({ method: "GET" }).handler(
         maxMembers: plan.maxMembers,
         quotaScope: plan.quotaScope,
         suppliersReturned: plan.suppliersReturned,
+        quotesEnabled: plan.quotesEnabled,
         usedToday: quota.used,
         usedTotal: quota.usedTotal,
         seatsUsed: seatRow[0]?.value ?? 0,

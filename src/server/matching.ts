@@ -9,7 +9,7 @@
 //
 // What we can honestly check today: the supplier's own text (name, descriptor,
 // description — the description comes from the research agent reading their
-// site). The capability/certification satellite tables from doc/BACKLOG.md do
+// site). The capability/certification satellite tables from BACKLOG.md do
 // not exist yet, so numeric criteria like "16 bar" are NOT checkable from a
 // one-line description. Those are recorded as `unverifiable` and left OUT of
 // the denominator rather than scored as misses — otherwise every supplier is

@@ -2,7 +2,7 @@
 
 > **What is done, in progress, and still open.** Everything else — what the
 > product is, how a request flows, the data model, architecture, infrastructure
-> and configuration — lives in [the README](../README.md), which is the single
+> and configuration — lives in [the README](README.md), which is the single
 > reference for the project.
 >
 > Living document. **Updated in the same commit as every prod push.**
@@ -14,11 +14,11 @@
 | **E0** Dev foundations | Postgres, Drizzle, pg-boss, seed | ✅ done |
 | **E1** Auth & users | better-auth, signup, guards, verification, reset, **2FA (2026-08-27)**, **verification ENFORCED (2026-08-28)** | ✅ done |
 | **E2** Workspaces & tenancy | Roles, invitations, team UI | ✅ Phase B (2026-08-23) + audit journal (2026-08-27); invites are organisation-only; **the platform workspace holds no customer data and cannot be deleted (2026-08-29)** |
-| **E12** Plans & quotas | Full ladder, seats, trial cap, Abonnements | 🟡 billing provider open |
+| **E12** Plans & quotas | Full ladder, seats, trial cap, Abonnements | 🟡 **soumissions gated by plan (2026-09-14, migration 0044)**; billing provider open |
 | **E3** Request core loop | Pipeline, criteria, attachments, dossier | ✅ done |
 | **E4** Supplier data | **Web research**, dedup, directory, sources admin | 🟡 **ADR-001 pivot (2026-08-26) → Phase S**; directory is staff-only and buyers see what they are LINKED to (2026-08-29); import/merge open |
 | **E5** Matching & scoring | Criteria-aware v1 + breakdown | 🟡 the "32 criteria" + comparison view open |
-| **E6** Facilitation | ~~Engagements~~ → **soumissions → dossier de transaction → contrats** | 🟡 **P1-P6 LIVE on prod** (P1-P5 2026-08-29, P6 signatures deploy #26) per [ADR-001 Part II](../README.md#adr-001-part-ii); **P7 commandes is next**; old task list RETIRED |
+| **E6** Facilitation | ~~Engagements~~ → **soumissions → dossier de transaction → contrats** | 🟡 **P1-P6 LIVE on prod** (P1-P5 2026-08-29, P6 signatures deploy #26) per [ADR-001 Part II](README.md#adr-001-part-ii); **P7 commandes is next**; old task list RETIRED |
 | **E7** Reports | Printable report + PDF export | 🟡 the `document` table exists since 2026-09-12 (P8 slice 1) — the stored PDF report itself is still open |
 | **E8** Transactions | Milestones, tracking, paiements | 🔵 **folded into Phase P** by ADR-002 (the `deal` spine); standalone sketch retired |
 | **E9** Notifications | In-app + email | 🟡 bell, emitters, **prefs (2026-08-26)** live; Phase P types (`quote_received`, `contract_to_sign`, `contract_signed`) + staff alert on `quotes.requested` (2026-09-07) live; the web bell still loads once, no poll |
@@ -33,9 +33,50 @@ real need, gets a real Top-N, **OSI solicits quotes, the buyer accepts one, the
 required contracts are signed by every mandatory party, and the commande is
 tracked to delivery** — with the PDF report available throughout.
 
-## Resume here (last session: 2026-09-12 — audit, quotes, documents)
+## Resume here (last session: 2026-09-13/14 — docs consolidation, the soumissions plan gate)
 
-### START HERE — handoff, 2026-09-12 (read this first)
+### START HERE — handoff, 2026-09-14 (read this first)
+
+**Prod = `bcbd99d` (deploy #38).** `main` is ahead by docs-only commits
+(`95a64f9`, `63625dd`, `524ad99`, the root move) and by **the soumissions plan
+gate**, which carries **migration 0044** — the next deploy applies it. Nothing
+else is waiting.
+
+**What the docs became.** One document: the README holds the decision record
+(§1 Part I, §2b Part II, the parcours, the standing constraints, §9 the open
+questions). The separate ADR file is gone; `ADR-001 §N` / `ADR-002 §N` anchors
+in code comments still mean those README parts. Everything documentation sits
+at the **repo root** — `README.md`, `BACKLOG.md`, `BRIEF-portail-entreprise.md`,
+`osi-decision-record.html` (source of the one published page) — plus
+`archive/` with three superseded pages kept verbatim. There is no `doc/` folder
+any more; the memory notes were updated to match.
+
+**Soumissions are a paid feature (owner, 2026-09-14)** — see README *Plans &
+quotas* and the E12 entry below. `plan.quotes_enabled`; `free` and `org_trial`
+refuse; `requestQuotesFn` returns `plan_required`; the dossier and the
+Abonnement panel say why and point at the plan change; Abonnements has the
+switch. Dev-verified in the browser as Camille (Atelier Boréal, `org_trial`).
+
+**Owner requests recorded 2026-09-14, none started** — each has an entry in
+the epic it belongs to, marked *(recorded 2026-09-14)*:
+
+- **Vendeur / rabatteur programme** — independent representatives who bring
+  buyers to the platform and take a commission on the deals of the companies
+  they brought; a *representative code* on the account gives OSI visibility of
+  which customers each one manages. → new section **Growth** below.
+- **Promotion / onboarding video** explaining to a buyer how to use the
+  platform. → **Growth**.
+- **Static data source with AI extraction** — staff upload any data file as a
+  source, and the AI does the analysis to extract supplier records. → **E4**.
+  *Design decisions still needed before code — see the entry.*
+- **A customs-agent / freight-forwarder staff role** owning the logistics half
+  of a dossier; the logistics steps are to be analysed and the features decided
+  later. → **E10** and **P7**.
+
+**Still waiting on the owner:** the "Marquer comme envoyée" question from the
+2026-09-12 handoff below (README §9, question 7).
+
+### Previous handoff — 2026-09-12
 
 **Prod = `bcbd99d` (deploy #38).** `main` and prod are level.
 
@@ -114,7 +155,7 @@ when convenient — there is nothing waiting that a user would see.
 Rollback point for the whole day: tag `deploy-11-baseline`.
 
 **There is now exactly ONE ADR** (consolidated 2026-09-07, owner's
-instruction): [the decision record in README §1](../README.md#adr-001-part-i).
+instruction): [the decision record in README §1](README.md#adr-001-part-i).
 It merges the former ADR-001 (supplier provisioning) as **Part I** and ADR-002
 (the transaction dossier) as **Part II**, keeps only what is built or still
 live, and preserves the section anchors — so the ~90 code comments citing
@@ -124,7 +165,7 @@ document that took those decisions, and rewriting them would falsify the record.
 The two original files are in git history at `8dd740d`.
 
 **Before writing any code, in this order:**
-1. **[The decision record](../README.md#adr-001-part-i)** (accepted) — Part II is the
+1. **[The decision record](README.md#adr-001-part-i)** (accepted) — Part II is the
    transaction dossier and contract centre, which is most of what shipped on
    2026-08-29. The owner-validated 16-step parcours is the artifact linked
    from it.
@@ -949,7 +990,7 @@ minutes before: `backups/osi-20260827-111706.sql.gz` (30M). Rollback =
 `git checkout adr-001-baseline` + rebuild on the VM + restore if needed.
 
 **Strategy (ADR-001, ACCEPTED then AMENDED — the governing document):**
-[the decision record in README §1](../README.md#adr-001-part-i)
+[the decision record in README §1](README.md#adr-001-part-i)
 (pretty version with diagrams: the Claude artifact linked inside it).
 Supplier provisioning pivoted to the **demand-pull supplier graph**;
 registries became **verification infrastructure** (never matched, never
@@ -1065,7 +1106,7 @@ CA; QC records carry activities and clear the bar honestly).
 
 **⚡ ADR-001 ACCEPTED 2026-08-26 — supplier provisioning pivoted to the
 demand-pull supplier graph.** Full decision record:
-[the decision record in README §1](../README.md#adr-001-part-i).
+[the decision record in README §1](README.md#adr-001-part-i).
 It SUPERSEDES the enrichment decision gate (resolved below) and the
 availability-driven connector roadmap; registries become **verification
 infrastructure** (never matched, never workspace-selectable, stores kept as
@@ -3063,7 +3104,7 @@ suppliers only.
 ### Phase S — ADR-001: the demand-pull supplier graph (ACCEPTED 2026-08-26)
 
 **The supplier-provisioning strategy pivoted** — decision record in
-[the decision record in README §1](../README.md#adr-001-part-i)
+[the decision record in README §1](README.md#adr-001-part-i)
 (diagrammed artifact linked from there). Principles: **demand-pull** (nothing
 is spent on a supplier until a request needs them) and **the deal loop is
 the data-acquisition engine** (facilitation outcomes are the unscrapable
@@ -3221,9 +3262,9 @@ derived from edges, never set by hand.
 
 ### Phase P — the transaction dossier & contract centre (ADR-002, proposed 2026-08-29)
 
-**The portal brief** ([doc/briefs/portail-entreprise.md](briefs/portail-entreprise.md))
+**The portal brief** ([BRIEF-portail-entreprise.md](BRIEF-portail-entreprise.md))
 brings its own process and it is NOT the one this backlog held. Decision record:
-[ADR-001 Part II](../README.md#adr-001-part-ii) — **✅ ACCEPTED by the
+[ADR-001 Part II](README.md#adr-001-part-ii) — **✅ ACCEPTED by the
 owner 2026-08-29**, with four decisions taken at acceptance:
 
 - **The BUYER picks** which of their Top-N are asked for a quote; OSI does the
@@ -3327,7 +3368,7 @@ through the platform (2026-08-29). Parties are ROWS, never users.
 Each one is written to be executed **cold**, by a session with no memory of
 this one. Before starting any of them, read: this Phase P header, the
 "Contracts a next session must NOT re-derive differently" section above, and
-[ADR-001 Part II](../README.md#adr-001-part-ii). The parcours the
+[ADR-001 Part II](README.md#adr-001-part-ii). The parcours the
 owner validated is the 16-step diagram in the artifact linked from the ADR.
 
 **House rules that apply to every task below** (they are not repeated each
@@ -3673,7 +3714,7 @@ in the browser before committing; deploy only when the owner asks.
 - ✅ **G1 — e-sign vendor: NOT BOUGHT** (owner 2026-08-29). Buyer and OSI sign
       in-platform; external parties are manual upload. No recurring bill.
       **The intended successor is not a vendor either** (owner, same day): a
-      **private signing link** — [ADR-001](../README.md#adr-001-part-ii)
+      **private signing link** — [ADR-001](README.md#adr-001-part-ii)
       Part II §3 — emailed to a party with
       no account, added behind `src/server/esign.ts` as a `link` provider when
       the external path deserves more than email. **Optional and additive:**
@@ -3850,6 +3891,21 @@ feeds C3/C4 value (Recommandé requires Vérifié)
 - [ ] CSV/JSON import pipeline v1 — now an `import`-type **connector**; its
       audit rows are `source_run` (which absorbed the planned `import_runs`).
       Seed script stands in for now
+- [ ] **Static data source with AI extraction** *(recorded 2026-09-14, owner:
+      "permettre de charger des sources de données, l'AI se chargera de
+      l'analyse pour extraire les données")*. Staff upload a file on
+      `/interne/sources`; the AI reads it and produces `SourceCandidate` rows;
+      the core persists them into that source's store like any connector.
+      The file-fed seam already exists (`registry-qc`: `PUT /api/source-upload`,
+      `SearchBrief.fileKey`, `meta.requiresFile`) and so does prose→rows
+      extraction (`extractPhase` in `src/server/ai/research.ts`, cheap model,
+      zod output). **Decide before coding:** one generic `import` source row or
+      one row per upload (affects store wipe/ban granularity); which formats
+      (CSV/XLSX/PDF — `.docx/.xlsx` are refused elsewhere because nothing reads
+      them); the role — *discovery* (enters matching; must carry a description
+      to clear the product gate) or *verification*; the cost ceiling per file
+      (a 10k-row sheet through the cheap model is real money); and the
+      confidence to stamp (AI-extracted rows sit under the 70-point ceiling).
 - [x] **Job: AI research agent** (2026-08-16) — real web search per request, results persisted as `ai_researched` suppliers, `research_run` rows for the audit trail. Runs in the `searching` stage behind `AI_RESEARCH` (default **on**). Gateway: `src/server/ai/research.ts`; orchestration + persistence: `src/server/research.ts`
 - [x] **Attachment reading** (2026-08-16) — buyer uploads are opened, not just stored: text/CSV decoded directly, PDF and images read by the model. Criteria parsed out of them with the same intake regexes, and the content feeds the search brief (`src/server/attachments.ts`)
 - [x] Dedup / entity resolution v1 — normalized `name|COUNTRY` key on `supplier.dedup_key` with a **unique index**, so a repeat search cannot re-add a known company (`src/lib/supplier-key.ts`). **Merge tool in admin still pending**
@@ -3999,7 +4055,7 @@ feeds C3/C4 value (Recommandé requires Vérifié)
 
 > **⚠️ SUPERSEDED 2026-08-29 — the gate is discharged and the design below is
 > RETIRED.** The owner's portal brief brought its own process; the decision
-> record is [ADR-001 Part II](../README.md#adr-001-part-ii) and the
+> record is [ADR-001 Part II](README.md#adr-001-part-ii) and the
 > plan is **Phase P** above. There is no `engagement` entity, no "Engager"
 > button, no ops queue, no "connected" state — a **soumission (quote)** is the
 > unit of facilitation, and accepting one opens the `deal`. The unchecked
@@ -4070,6 +4126,15 @@ feeds C3/C4 value (Recommandé requires Vérifié)
       pending
 - [x] ~~Import runs: trigger, monitor, error report~~ — delivered as `/interne/sources` (C1, 2026-08-24): "Mettre à jour" trigger, `source_run` health column, error surfaced on the tab; the Imports nav entry itself was removed 2026-08-26
 - [ ] Ops dashboard: counts (pending quotes, pending verifications, active requests)
+- [ ] **Customs-agent / freight-forwarder staff role** *(recorded 2026-09-14,
+      owner: "ajouter un employé agent des douanes / transitaire, qui gère la
+      partie logistique")*. Phase R makes this cheap to *create* — a row in
+      `platform_role` from Rôles & accès, with `deals` and later the P7
+      milestone keys granted — but the role has nothing to drive until **P7
+      commandes** exists. The logistics steps (dépôt · production · inspection
+      · transport · douanes · livraison) are to be analysed and the features
+      decided later; whatever lands must answer README §9 question 3 (who
+      updates milestones). Update the docs when that analysis happens.
 - [ ] **`supplier_partner` table + `/interne/partenaires`** (validated
       2026-08-22, README → visibility tiers) — grant/renew/suspend Recommandé
       (`paid` or `granted`, time-boxed, `granted_by` trail); requires Vérifié;
@@ -4092,6 +4157,15 @@ feeds C3/C4 value (Recommandé requires Vérifié)
 - [x] **Manager screen** `/interne/plans` — edit limits with validation and a live
       cost estimate (requests/day is a cost commitment; a form that hides the money
       is a footgun), assign plans to workspaces, `updated_by` trail
+- [x] **Soumissions are a paid feature** (owner, 2026-09-14; migration 0044,
+      `plan.quotes_enabled`): Pro for an individual account, Business or
+      Enterprise for an organisation; `free` and `org_trial` only allow
+      requests. Enforced in `requestQuotesFn` (`plan_required`, before any
+      row is touched); the dossier replaces the checkboxes with the reason and
+      a "Changer de forfait" link; Paramètres → Abonnement states it; the
+      Abonnements screen has the switch per plan. Env fallback (no
+      subscription) says true, like every other fallback. Answers the
+      record's open question 2 — the deal layer IS a plan dimension.
 - [ ] **Billing provider** (Stripe or equivalent) — plans work without it; the
       provider columns stay null until it lands
 - [x] **New workspaces land on Free** (2026-08-17) — the seeding migration only
@@ -4158,6 +4232,24 @@ feeds C3/C4 value (Recommandé requires Vérifié)
       (which connectors run) and the matcher (hard filter, not a down-score)
       — E4/E5
 - [x] Notification preferences — Paramètres → Notifications, 2026-08-26 (`notification_pref`, gates only `notify.ts`; transactional mail never silenceable)
+
+### Growth — acquisition & onboarding *(new 2026-09-14; nothing built)*
+
+- [ ] **Vendeur / rabatteur programme** *(recorded 2026-09-14, owner: "option
+      vendeur, possibilité de rabatteur de buyers vers notre plateforme,
+      employés indépendants qui prennent une commission des deals des
+      entreprises qu'ils auront envoyées; on pourra ajouter un code
+      représentant")*. Shape to design: a `representative` entity (independent,
+      not staff — no platform powers), a **representative code** captured at
+      signup and stored on the workspace, a commission rule computed from the
+      `deal` (amount snapshot already exists; the payout itself is track-only
+      like every other money here), and a staff view of which customers each
+      representative brought. Touches signup, `organization`, E12 and P9.
+      **Not started; task to be specified later with the owner.**
+- [ ] **Promotion / onboarding video** for buyers — how to use the platform.
+      *(recorded 2026-09-14, "to be done later".)* Where it lives (landing
+      hero, `/demandes` empty state, both) is a product call; nothing in code
+      until the video exists.
 
 ### Cross-cutting (throughout)
 

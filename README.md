@@ -13,7 +13,7 @@ Live at **[osi-solutions.com](https://osi-solutions.com)** · TanStack Start
 > how to run it, and why it is built this way — **including the decision record**
 > (the former `ADR-001` file, folded in on 2026-09-13: Part I is in §1, Part II,
 > the parcours and the standing constraints in §2b, the open questions in §9).
-> **[`doc/BACKLOG.md`](doc/BACKLOG.md) is the companion** — current state, what is
+> **[`BACKLOG.md`](BACKLOG.md) is the companion** — current state, what is
 > done, and what is left to reach MVP1.
 >
 > **Working today:** the full request loop — criteria (typed *and* from attached
@@ -79,13 +79,13 @@ Consequences, all first-class rather than afterthoughts:
 > **The anchors are preserved:** code comments and backlog lines citing
 > `ADR-001 §N` / `S1`–`S6` mean this part; `ADR-002 §N` means Part II in §2b.
 > Baseline: main @ `bcbd99d`, prod deploy #38. Source brief:
-> [doc/briefs/portail-entreprise.md](doc/briefs/portail-entreprise.md).
-> Implementation plan: Phase S and Phase P in [doc/BACKLOG.md](doc/BACKLOG.md).
+> [BRIEF-portail-entreprise.md](BRIEF-portail-entreprise.md).
+> Implementation plan: Phase S and Phase P in [BACKLOG.md](BACKLOG.md).
 > **Published twin:** *The OSI Decision Record*,
 > <https://claude.ai/code/artifact/a537df29-e576-4725-b8de-661efd1d1438> — its
 > source is [`osi-decision-record.html`](osi-decision-record.html) at the repo
 > root; edit there, republish to the same URL. The three companion pages it
-> absorbed are kept verbatim in [doc/archive/](doc/archive/README.md).
+> absorbed are kept verbatim in [archive/](archive/README.md).
 >
 > **Weighting note, still true:** OSI is pre-launch — testers only, no
 > customers. No funnel to protect, no data to migrate, no backward
@@ -633,6 +633,19 @@ gets is an `UPDATE` from `/interne/plans`, live on the next request, no deploy.
 | Quota scope | per user | per user | pooled | pooled | pooled |
 | Suppliers returned | 5 | 10 | 20 | 20 | 10 |
 | Model tier | `cheap` | `best` | `best` | `best` | `cheap` |
+| **Soumissions** (ask suppliers for quotes) | ❌ requests only | ✅ | ✅ | ✅ | ✅ |
+
+**Soumissions are a paid feature** (owner, 2026-09-14: *"to ask a quote, a
+buyer should have a paid subscription — Pro for an individual account,
+Business or Enterprise for an organisation; a free plan only allows
+requests"*). `plan.quotes_enabled` (migration 0044) says which plans include
+them — `free` and `org_trial` do not, the paid and internal tiers do — and
+the owner moves that line from Abonnements like every other limit.
+`requestQuotesFn`, the one place a solicitation is created, refuses with
+`plan_required` before touching a row; the dossier shows the reason and a
+"Changer de forfait" link instead of the checkboxes, and Paramètres →
+Abonnement states whether the plan includes soumissions. This answers the
+record's open question 2: the deal layer *is* a plan dimension.
 
 `0` means unlimited so the internal plan needs no special case, and an accidental
 `0` reads as "no cap" rather than silently locking every buyer out. A workspace
@@ -886,7 +899,7 @@ the roles (`owner | buyer | viewer`; `admin` schema-valid but unused), the `invi
 already exists in the schema (better-auth organization plugin — never wired to
 any UI), and plans/quotas already attach to the workspace, not the user. What
 is missing is the surface: invitation flows, a team screen, role enforcement
-helpers, and the managerial view. That is exactly backlog **E2** ([doc/BACKLOG.md](doc/BACKLOG.md)), plus the
+helpers, and the managerial view. That is exactly backlog **E2** ([BACKLOG.md](BACKLOG.md)), plus the
 Enterprise items added to **E12** on 2026-08-20.
 
 #### Who is who — the three populations
@@ -1339,7 +1352,7 @@ the capability/certification satellite tables exist.
 > retention sweep. **P7, P9-P11 remain**: commandes, paiements, messages,
 > rapports — plus the rest of P8 (deal/contract documents, versions). Decision
 > record: Part II below (cited elsewhere as `ADR-002 §N`). Plan: **Phase P** in
-> [doc/BACKLOG.md](doc/BACKLOG.md). The owner-validated parcours is drawn as a
+> [BACKLOG.md](BACKLOG.md). The owner-validated parcours is drawn as a
 > three-lane swimlane in the published twin (see §1).
 
 The request loop ends at `report_ready`. Everything after it — the half that
@@ -1545,7 +1558,7 @@ the matrix could lock out its own editor.
 against the code — the original claimed the product stopped at step 4. Its
 three-lane swimlane, acheteur · OSI · tiers, is redrawn in the published twin
 with today's build state; the French original is archived at
-[doc/archive/2026-08-29-parcours-swimlane.html](doc/archive/2026-08-29-parcours-swimlane.html).)*
+[archive/2026-08-29-parcours-swimlane.html](archive/2026-08-29-parcours-swimlane.html).)*
 
 The owner-validated journey, with **who acts** at each step. The two steps that
 leave the platform are the whole of §2 made concrete: a supplier is reached by
@@ -1639,7 +1652,7 @@ Remote scripts default to `DEPLOY_HOST=yves@192.168.2.56`,
 `DEPLOY_PATH=/home/yves/workspace/apps/oversea-sourcing`, `WEB_PORT=3010`,
 `BRANCH=main` — override per run: `BRANCH=hotfix/x ./scripts/deploy.sh`.
 
-> **Every prod push updates [`doc/BACKLOG.md`](doc/BACKLOG.md) and this README in
+> **Every prod push updates [`BACKLOG.md`](BACKLOG.md) and this README in
 > the same commit.** With no CI and no staging, these files are the only durable
 > record of why prod looks the way it does. Check off what shipped, record the
 > decision, name the deviation.
@@ -1791,7 +1804,7 @@ Browser ──HTTPS──▶ web
   harmless by construction. That guard skips a request holding a
   `running`-or-`succeeded` run only: since 2026-09-07 a pass in which every
   source failed is recorded `failed`, so it stays re-runnable instead of being
-  sealed by its own failure (doc/BACKLOG.md, "A research pass that never
+  sealed by its own failure (BACKLOG.md, "A research pass that never
   searched").
 - **The dashboards read, never compute**: every state change writes a
   `request_event` row; timelines, stats and the report are pure read-models.
@@ -2083,9 +2096,9 @@ Implementation facts that must not be re-derived differently:
 | `src/data/osi.ts`             | Remaining showcase data (transactions only — analytics is now DB-backed)        |
 | `infra/Docker/`               | `web.Dockerfile` (database uses the pgvector image)                            |
 | `scripts/`                    | Everything operational                                                          |
-| `doc/BACKLOG.md`              | **What is done, in progress, and open**                                        |
+| `BACKLOG.md`              | **What is done, in progress, and open**                                        |
 | `osi-decision-record.html`    | Source of the published twin of the decision record (§1 Part I, §2b Part II); edit here, republish to the same URL |
-| `doc/archive/`                | The three companion pages the record absorbed on 2026-09-13, kept verbatim as history |
+| `archive/`                | The three companion pages the record absorbed on 2026-09-13, kept verbatim as history |
 
 ---
 
@@ -2102,9 +2115,12 @@ backlog cites them that way), then the smaller product items.
    still cascades its `document` and `file` rows away without passing through
    the sweep, so those bytes linger on the volume. And the remote-vs-local
    storage backend is still deferred to an env-var switch, to be discussed.
-2. **Is the deal layer a plan dimension?** Plans gate `requests_per_day` and
-   `suppliers_returned` only, so a Free-trial workspace can currently reach
-   contracts. Affects E12.
+2. ~~**Is the deal layer a plan dimension?**~~ **Answered yes** (owner,
+   2026-09-14): soumissions need a paid plan — `plan.quotes_enabled`, false
+   on `free` and `org_trial`, enforced in `requestQuotesFn` (see *Plans &
+   quotas*). A trial workspace can still file requests and read its report;
+   it cannot ask OSI to approach anyone. Contracts and deals follow from an
+   accepted quote, so they are gated by the same line.
 3. **Who updates production milestones?** Every update is an email then a manual
    entry — the real cost of "no supplier access". **Blocks P7.**
 4. **Per-request enrichment budget** — dollars or candidates, per plan tier?

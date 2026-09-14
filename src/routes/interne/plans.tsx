@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { requirePlatformFeature } from "@/lib/auth-guard";
 import {
@@ -42,6 +43,8 @@ function PlanCard({ plan, onSaved }: { plan: PlanView; onSaved: () => void }) {
   const [quotaScope, setQuotaScope] = useState<"workspace" | "user">(plan.quotaScope);
   const [suppliersReturned, setSuppliersReturned] = useState(plan.suppliersReturned);
   const [modelTier, setModelTier] = useState<ModelTier>(plan.modelTier);
+  // Soumissions are a paid feature (owner 2026-09-14) — the plan row decides.
+  const [quotesEnabled, setQuotesEnabled] = useState(plan.quotesEnabled);
   const [saving, setSaving] = useState(false);
 
   const dirty =
@@ -50,7 +53,8 @@ function PlanCard({ plan, onSaved }: { plan: PlanView; onSaved: () => void }) {
     maxMembers !== plan.maxMembers ||
     quotaScope !== plan.quotaScope ||
     suppliersReturned !== plan.suppliersReturned ||
-    modelTier !== plan.modelTier;
+    modelTier !== plan.modelTier ||
+    quotesEnabled !== plan.quotesEnabled;
 
   const dailyCost = requestsPerDay * COST_PER_REQUEST[modelTier];
 
@@ -66,6 +70,7 @@ function PlanCard({ plan, onSaved }: { plan: PlanView; onSaved: () => void }) {
           quotaScope,
           suppliersReturned,
           modelTier,
+          quotesEnabled,
         },
       });
       onSaved();
@@ -175,6 +180,17 @@ function PlanCard({ plan, onSaved }: { plan: PlanView; onSaved: () => void }) {
               </option>
             ))}
           </select>
+        </div>
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
+          <Label htmlFor={`quotes-${plan.id}`} className="text-xs text-muted-foreground">
+            {t("plans.quotesEnabled")}
+          </Label>
+          <Switch
+            id={`quotes-${plan.id}`}
+            checked={quotesEnabled}
+            onCheckedChange={setQuotesEnabled}
+            aria-label={t("plans.quotesEnabled")}
+          />
         </div>
       </div>
 

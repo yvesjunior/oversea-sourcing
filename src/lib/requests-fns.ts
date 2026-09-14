@@ -213,6 +213,13 @@ export type RequestDetail = RequestSummary & {
   /** Whether THIS caller may act on the above. Computed server-side so the
    *  button is never offered to someone the fn would refuse. */
   canRerunResearch: boolean;
+  /** Soumissions are a paid feature (owner 2026-09-14). True when the OWNING
+   *  workspace's plan does not include them, so the dossier explains the
+   *  refusal before the buyer picks anyone, instead of after. False on a
+   *  foreign dossier (staff cannot solicit for a buyer anyway). */
+  quotesPlanRequired: boolean;
+  /** The owning workspace's plan name, for the refusal text. */
+  planName: string;
 };
 
 /** Outcome of a create attempt. A refusal is data, not an exception: the UI has
@@ -567,6 +574,13 @@ export const getRequestDetailFn = createServerFn({ method: "GET" })
         : await effectiveHasPermission(session, "requests.all");
     }
 
+    // Soumissions gate (owner 2026-09-14): the owning workspace's plan says
+    // whether quotes may be asked. Resolved for the OWNING workspace, not the
+    // caller's — a staff member reading a foreign dossier from the internal
+    // plan must not see the buyer's plan as unlimited.
+    const { resolvePlan } = await import("@/server/plan");
+    const ownerPlan = await resolvePlan(row.organizationId);
+
     // Live name while the account exists; the snapshot survives deletion.
     const creator = row.createdBy
       ? await db.query.user.findFirst({
@@ -634,6 +648,8 @@ export const getRequestDetailFn = createServerFn({ method: "GET" })
       canEdit: isOwn,
       researchFailed,
       canRerunResearch,
+      quotesPlanRequired: isOwn && !ownerPlan.quotesEnabled,
+      planName: ownerPlan.name,
     };
   });
 
@@ -691,7 +707,7 @@ export type RerunResearchResult =
  * Only failed. A pass that searched and honestly found nobody is an answer —
  * re-running it buys the same answer for the same money. A pass that never
  * ran is not an answer, and before 2026-09-07 the request was stuck with it
- * forever (see doc/BACKLOG.md, "A research pass that never searched").
+ * forever (see BACKLOG.md, "A research pass that never searched").
  *
  * Sends the request back to `searching` FIRST, then enqueues research. That
  * order matters: the research worker hands back to the pipeline queue when it

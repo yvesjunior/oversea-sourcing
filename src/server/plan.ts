@@ -28,6 +28,9 @@ export type EffectivePlan = {
   quotaScope: "workspace" | "user";
   suppliersReturned: number;
   modelTier: ModelTier;
+  /** May this workspace ask OSI to solicit quotes (owner 2026-09-14: paid
+   *  plans only — Pro, Business, Enterprise — and the internal plan). */
+  quotesEnabled: boolean;
   /** False when the workspace has no subscription and we used env defaults. */
   fromSubscription: boolean;
 };
@@ -47,6 +50,9 @@ function envFallback(): EffectivePlan {
       : RESEARCH_MODEL.id.includes("sonnet")
         ? "balanced"
         : "best") as ModelTier,
+    // No subscription = env defaults = unlimited everything (dev with an
+    // empty plan table). Consistent with the other fallbacks above.
+    quotesEnabled: true,
     fromSubscription: false,
   };
 }
@@ -62,6 +68,7 @@ export async function resolvePlan(organizationId: string): Promise<EffectivePlan
       quotaScope: schema.plan.quotaScope,
       suppliersReturned: schema.plan.suppliersReturned,
       modelTier: schema.plan.modelTier,
+      quotesEnabled: schema.plan.quotesEnabled,
       status: schema.subscription.status,
     })
     .from(schema.subscription)
@@ -85,6 +92,7 @@ export async function resolvePlan(organizationId: string): Promise<EffectivePlan
       quotaScope: free.quotaScope,
       suppliersReturned: free.suppliersReturned,
       modelTier: free.modelTier,
+      quotesEnabled: free.quotesEnabled,
       fromSubscription: true,
     };
   }
@@ -98,6 +106,7 @@ export async function resolvePlan(organizationId: string): Promise<EffectivePlan
     quotaScope: found.quotaScope,
     suppliersReturned: found.suppliersReturned,
     modelTier: found.modelTier,
+    quotesEnabled: found.quotesEnabled,
     fromSubscription: true,
   };
 }

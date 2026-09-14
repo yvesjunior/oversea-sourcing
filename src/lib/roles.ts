@@ -1,5 +1,5 @@
 // One dashboard for everyone — features are added/removed by role
-// (decided 2026-08-04, doc/BACKLOG.md).
+// (decided 2026-08-04, BACKLOG.md).
 //
 // Since 2026-08-28 (owner request) staff access is DATA: the
 // `platform_permission` table says what MANAGER and ACCOUNTANT may do,

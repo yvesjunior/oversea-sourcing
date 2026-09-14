@@ -733,6 +733,11 @@ function AbonnementPanel({ data }: { data: NonNullable<SettingsData> }) {
         <p className="text-xs text-muted-foreground">
           {t("settings.suppliersPerReport", { count: sub.suppliersReturned })}
         </p>
+        {/* Soumissions are a paid feature (owner 2026-09-14): say so here,
+            where the plan change is one click away, not only on the dossier. */}
+        <p className="text-xs text-muted-foreground">
+          {sub.quotesEnabled ? t("settings.quotesIncluded") : t("settings.quotesNotIncluded")}
+        </p>
       </div>
 
       {/* Self-service upgrade arrives with billing; until then the CTA is human. */}

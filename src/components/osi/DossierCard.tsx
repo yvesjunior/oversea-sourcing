@@ -15,7 +15,7 @@ export function DossierCard({ demande }: { demande: RequestSummary }) {
   // Cheap to prevent, and the standard React answer for timestamps: allow the
   // text to differ on this one element. A label a few seconds stale is
   // invisible; React discarding the server HTML is not. (Prophylactic — this
-  // has not been observed in the wild, see doc/BACKLOG.md 2026-08-29.)
+  // has not been observed in the wild, see BACKLOG.md 2026-08-29.)
   const maj = formatDistanceToNow(new Date(demande.updatedAt), {
     addSuffix: true,
     locale: i18n.language === "fr" ? fr : enUS,
