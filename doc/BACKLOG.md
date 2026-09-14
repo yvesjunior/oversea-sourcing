@@ -201,7 +201,7 @@ deploy failed mid-session and prod was rolled back; see #24.
 | 24 | `95b825a` | — | **filters on all four ops lists** (multi-account + week/month/year/custom period) · **the global supplier directory is staff-only** · the DB cleared for fresh testing. *First attempt (`77d37b0`) took prod down — see the chunk-cycle note* |
 | 25 | `b7481d6` | — | **"linked supplier" widened to four traces** (matched · quoted · dealt · contract party) · **a session opens in your PERSONAL workspace** when you have one · the discovery store cleared for a cold research test |
 | 37 | `e7fff21` | 0043 | **a workspace carrying money is archived, never erased** — refused outright when a contract or deal exists, every route redirects to `/recuperation`, and its owner restores it by signing in. Makes ADR Part II §4's "signature evidence is never FK-cascaded away" true for the first time, without changing a foreign key |
-| 36 | `9edf1ac` | 0042 | **document retention — six months after a document loses its request and quote**, then the row, the `file` row and the bytes go; the first time `storage.deleteFile` has ever run on a user file · **asking a supplier again actually asks them again** (`declined`/`expired` reopen; the screen says created / reopened / skipped instead of "0 approached") |
+| 36 | `9edf1ac` | 0042 | **document retention** — then six months after a document loses its request and quote, **raised to 36 months on 2026-09-13**, then the row, the `file` row and the bytes go; the first time `storage.deleteFile` has ever run on a user file · **asking a supplier again actually asks them again** (`declined`/`expired` reopen; the screen says created / reopened / skipped instead of "0 approached") |
 | 35 | `380f5a5` | 0041 | **P8 first slice — Documents is live**: staff read the buyer's need beside the offer form, attach the supplier's PDF/PNG/JPG to the quote, and it lists on `/documents` naming AND linking both the request and the quote · **a mistyped price can be corrected** |
 | 34 | `c14a011` | 0040 | **quotes record WHY they were declined** (`supplier_declined` / `no_response` / `lost`) and **whose clock the response time is on** (`sent_at`, stamped by staff) · **sign-ins and failed sign-ins are audited** |
 | 33 | `b642a5b` | — | **the audit trail covers the commercial spine** (13 new actions, rows attributed to the account) · the **journal is for every user**, not only organisations · **a missing i18n key is now loud in dev** and guarded by a registry test · `quote.accepted` labelled — a buyer accepting an offer had been reading the raw code on their own dossier |
@@ -438,10 +438,10 @@ before diagnosing anything. That took ~4 minutes today.
 6. **`matchCount` means two different things** — platform-wide on the staff
    directory, caller-scoped on the linked list. Deliberate, but the field
    comment in `SupplierView` still describes only the first.
-7. ~~**No document retention policy**~~ — **answered 2026-09-12**: six months
-   after a document loses its request and quote, then the row, the `file` row
-   and the bytes go (`ec6c063`, migration 0042, deploy #36).
-   `storage.deleteFile` is finally called. Account deletion is still open.
+7. ~~**No document retention policy**~~ — **answered**: **36 months** after a
+   document loses its request and quote (6 on 2026-09-12, raised 2026-09-13),
+   then the row, the `file` row and the bytes go. `storage.deleteFile` is
+   finally called. Account deletion answered too — see the archive rule.
 
 #### 5 · Gaps and open questions a next session must not lose
 
@@ -478,8 +478,9 @@ before diagnosing anything. That took ~4 minutes today.
   tarred from inside the `web` container. This was P8's blocker and P6's:
   a countersigned contract living only in a volume no backup covers is not a
   record. **P8 is unblocked.**
-- ✅ **Document retention answered 2026-09-12: six months after the document
-  loses its request and quote**, then the row, the `file` row and the bytes go
+- ✅ **Document retention answered: 36 months after the document loses its
+  request and quote** (6 on 2026-09-12, raised 2026-09-13), then the row, the
+  `file` row and the bytes go
   (`ec6c063`, migration 0042, deploy #36 — see "Document retention" below). `storage.deleteFile` is finally called on user files.
   ❗ **Account deletion is still unanswered**: destroying a workspace cascades
   documents away without passing through the sweep, so those bytes linger.
@@ -2046,15 +2047,17 @@ paperwork through `/api/quote-document`, and it appears on `/documents`.
   request or quote it arrived against; the name snapshots are what stay
   readable, and the labels say "supprimée" rather than collapsing.
 
-**✅ The retention question is answered** (owner, 2026-09-12): six months after
-a document loses everything it hung from. Built in `ec6c063`, migration 0042 —
+**✅ The retention question is answered** (owner): **36 months** after a
+document loses everything it hung from. Built in `ec6c063`, migration 0042 —
 see "Document retention" below. Account deletion remains a separate, open
 question.
 
-### Document retention — six months, and the first bytes ever deleted
+### Document retention — 36 months, and the first bytes ever deleted
 
-Owner, 2026-09-12: *"lets keep documents 6 months after request deletion."*
-Built in `ec6c063`, shipped in deploy #36 (migration 0042).
+Owner: *"lets keep documents 6 months after request deletion"* (2026-09-12),
+**raised to 36 months on 2026-09-13**. Built in `ec6c063`, shipped in deploy
+#36 (migration 0042); the constant changed in `DOCUMENT_RETENTION_MONTHS`, no
+schema change.
 
 **Why a new column was needed.** `document.request_id` and `quote_id` are SET
 NULL — that is what lets a document survive its source — so a row knows it is
@@ -2062,8 +2065,8 @@ orphaned but not WHEN. `orphaned_at` is that stamp, and the sweep is two acts:
 
 - **MARK** a document whose request AND quote are both gone, the first time we
   notice.
-- **PURGE** an orphan past six months: document row, `file` row, and **the
-  bytes**.
+- **PURGE** an orphan past `DOCUMENT_RETENTION_MONTHS`: document row, `file`
+  row, and **the bytes**.
 
 **The bytes are the point.** `storage.deleteFile` existed and had NEVER been
 called on a user file anywhere in this codebase, so every deletion grew the
@@ -2072,15 +2075,15 @@ then rows — a file row without its bytes is a broken download, while bytes
 without a row are invisible and the next pass retries them.
 
 Runs on the **pipeline worker** beside the stranded-request sweep, for the same
-reason (exactly one of these may run), six-hourly against a six-month window so
-the cadence decides latency and never outcome.
+reason (exactly one of these may run), six-hourly against a three-year window
+so the cadence decides latency and never outcome.
 
 The rule is pure in `src/lib/retention.ts` and tested, including two behaviours
 pinned deliberately: a missing day at month end rolls forward (31 August minus
-six months finds no 31 February), and the cutoff drifts by an hour across DST
-because `setMonth` works in local time. **Do not "fix" the second** with the
+36 months can land on a day the target month lacks), and the cutoff drifts by
+an hour across DST because `setMonth` works in local time. **Do not "fix" the second** with the
 civil-date machinery in `period.ts` — that exists because a DAY boundary decides
-which week a row belongs to, and an hour inside six months decides nothing.
+which week a row belongs to, and an hour inside three years decides nothing.
 
 **❗ Still open: account deletion is a different policy.** Destroying a
 workspace cascades `document` away without passing through this sweep, so those
@@ -2140,11 +2143,11 @@ A **deal counts as financial** because a deal IS the money: it snapshots the
 accepted amount, currency and incoterm. `payment` joins the check the day P9
 creates that table.
 
-**Two retention numbers, same digit, different units — do not conflate them:**
+**Two retention windows, and they are deliberately different lengths:**
 
 | Constant | Value | What it is |
 |---|---|---|
-| `DOCUMENT_RETENTION_MONTHS` | 6 months | a **reversal window** for a document whose request is gone |
+| `DOCUMENT_RETENTION_MONTHS` | **36 months** | a **reversal window** for a document whose request is gone |
 | `ARCHIVE_RETENTION_YEARS` | 6 years | a **books-and-records** obligation; OSI is a party to the mandate |
 
 **Nothing purges archives, and nothing should yet.** That code would sit
@@ -3647,10 +3650,11 @@ in the browser before committing; deploy only when the owner asks.
 - ✅ **The `osi-uploads` volume is backed up** (2026-08-29) — a second
       artifact per run, `osi-files-<stamp>.tar.gz`. Fixed as part of P6, since
       the countersigned PDF is exactly the record the warning was about.
-- ✅ **Document retention answered** (owner, 2026-09-12): six months after a
-      document loses its request and quote. `storage.deleteFile` is finally
-      called on user files — see "Document retention". Brief §7 satisfied for
-      request deletion; **account deletion is still open**.
+- ✅ **Document retention answered** (owner): **36 months** after a document
+      loses its request and quote. `storage.deleteFile` is finally called on
+      user files — see "Document retention". Brief §7 satisfied for request
+      deletion, and **account deletion is answered too**: a workspace carrying
+      a contract or a deal is archived, never erased, and kept six years.
 - ✅ **G1 — e-sign vendor: NOT BOUGHT** (owner 2026-08-29). Buyer and OSI sign
       in-platform; external parties are manual upload. No recurring bill.
       **The intended successor is not a vendor either** (owner, same day): a

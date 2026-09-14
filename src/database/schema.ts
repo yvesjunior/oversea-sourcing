@@ -1325,7 +1325,7 @@ export const document = pgTable(
      * document survive its source; the cost is that the row cannot say WHEN it
      * was orphaned, and a retention rule needs that date. The sweep stamps it
      * the first time it sees a document with both references gone, then purges
-     * six months later (DOCUMENT_RETENTION_MONTHS, owner 2026-09-12).
+     * DOCUMENT_RETENTION_MONTHS later (36 months — owner, 2026-09-13).
      *
      * Null is the normal state: a document still attached to something.
      */
