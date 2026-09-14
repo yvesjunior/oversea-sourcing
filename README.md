@@ -10,8 +10,11 @@ Live at **[osi-solutions.com](https://osi-solutions.com)** · TanStack Start
 (Vite · React 19 · Nitro SSR) · Postgres 16 · bilingual **FR / EN**.
 
 > This README is the single reference for the project: what it is, how it works,
-> how to run it, and why it is built this way. **[`doc/BACKLOG.md`](doc/BACKLOG.md)
-> is the companion** — current state, what is done, and what is left to reach MVP1.
+> how to run it, and why it is built this way — **including the decision record**
+> (the former `ADR-001` file, folded in on 2026-09-13: Part I is in §1, Part II,
+> the parcours and the standing constraints in §2b, the open questions in §9).
+> **[`doc/BACKLOG.md`](doc/BACKLOG.md) is the companion** — current state, what is
+> done, and what is left to reach MVP1.
 >
 > **Working today:** the full request loop — criteria (typed *and* from attached
 > spec sheets) → real web research → shared supplier pool → criteria-aware
@@ -65,94 +68,181 @@ Consequences, all first-class rather than afterthoughts:
 - **Dedup / entity resolution** is a core subsystem — a unique index on a
   normalized `name|COUNTRY` key, so a repeat search cannot re-add a known company
 
-#### ADR-001 — supplier provisioning is demand-pull (ACCEPTED 2026-08-26)
+<a id="adr-001-part-i"></a>
+#### ADR-001 Part I — the demand-pull supplier graph (accepted 2026-08-26)
 
-> **Status: ✅ DECIDED.**
-> [ADR-001-osi-architecture.md](ADR-001-osi-architecture.md)
-> is the decision record; **Phase S** in [doc/BACKLOG.md](doc/BACKLOG.md) is
-> the implementation plan. The sections below this one describe the built
-> machinery — still mechanically accurate, but **their roles are redirected
-> where they conflict with the ADR**.
+> **The decision record.** This and §2b together are **ADR-001**, accepted
+> and largely built. It consolidates the former ADR-001 (supplier
+> provisioning, 2026-08-26) and ADR-002 (the transaction dossier and contract
+> centre, 2026-08-29); both originals are in git history at `8dd740d`, and the
+> single-file version lived at `ADR-001-osi-architecture.md` until 2026-09-13.
+> **The anchors are preserved:** code comments and backlog lines citing
+> `ADR-001 §N` / `S1`–`S6` mean this part; `ADR-002 §N` means Part II in §2b.
+> Baseline: main @ `bcbd99d`, prod deploy #38. Source brief:
+> [doc/briefs/portail-entreprise.md](doc/briefs/portail-entreprise.md).
+> Implementation plan: Phase S and Phase P in [doc/BACKLOG.md](doc/BACKLOG.md).
+> **Published twin:** *The OSI Decision Record*,
+> <https://claude.ai/code/artifact/a537df29-e576-4725-b8de-661efd1d1438> — its
+> source is [`osi-decision-record.html`](osi-decision-record.html) at the repo
+> root; edit there, republish to the same URL. The three companion pages it
+> absorbed are kept verbatim in [doc/archive/](doc/archive/README.md).
+>
+> **Weighting note, still true:** OSI is pre-launch — testers only, no
+> customers. No funnel to protect, no data to migrate, no backward
+> compatibility to honour. Cost shape weighs *more*: pre-revenue is exactly
+> when spend must be demand-justified.
 
-The strategy in one paragraph: **the demand-pull supplier graph.** Nothing
-is spent on a supplier until a real request needs them (spend attaches to
-*presented candidates*, never to collected records), and the facilitation
-loop is the data-acquisition engine — deal outcomes (response time, MOQ,
-lead time, quotes) are the unscrapable data that compounds per deal. The
-supplier graph = the `supplier` table as node + dated, sourced, queryable
-edges (capabilities→category, shipments, registry snapshots, certifications,
-verification evidence, deal outcomes); the lifecycle
-`lead → profiled → verified → engaged → partner` is *derived* from a node's
-edges, never set by hand. Plain Postgres — "graph" is the shape, not the
-engine.
+Two operating principles:
 
-Key redirections versus the sections below:
+1. **Demand-pull, not supply-push** — nothing is spent on a supplier until a
+   real request needs them; spend attaches to *presented candidates*, never to
+   collected records.
+2. **The deal loop is the data-acquisition engine** — every facilitation
+   produces capability, pricing and responsiveness data that cannot be scraped.
+   That is the moat; everything scraped is bootstrap.
 
-- **Source roles** (new axis, orthogonal to dynamic/static) — ✅ **BUILT
-  2026-08-26 (migration 0018, `data_source.role`)**: *discovery* sources
-  (`global_web`; customs and marketplaces later) stay workspace-selectable
-  in Préférences de sourcing. **Registries are *verification*
-  infrastructure** — never fed into matching (`resolveScope` filters to
-  discovery), never in workspace settings (the Paramètres list + the save
-  fn both scope to discovery); buyers meet them only as evidence lines on
-  a supplier's profile ("Existence vérifiée — Registre du Québec, actif,
-  consulté 2026-08"). Registry records therefore never need enrichment.
-  `/interne/sources` shows each source's role; a verification source's
-  "enabled" switch means "verification backend active", not buyer exposure.
-- **Registry stores are kept** as local verification lookup tables,
-  refreshed by scheduled full pull **~every 6 months per source** (staff
-  upload for the file-fed QC/JP); evidence records the snapshot date;
-  finalists get a live registry-API confirm where one exists. Registry
-  coverage grows on demand — a new country's registry is added when
-  discovery starts surfacing candidates there.
-- **Discovery grows demand-first over genuinely FREE sources only** —
-  **owner constraint (2026-08-26): no paid subscription to any data
-  provider, ever; do not align any design with one.** Customs/BoL data —
-  the ADR's original discovery backbone — is **closed for the US routes**
-  (the 2026-08-26 investigation found every US access path paid), but the
-  category stays open: **owner doctrine 2026-08-28 — bills-of-lading data
-  joins the SEARCH category wherever a genuinely free route exists (free
-  bulk or free API), in any jurisdiction.** `global_web` is and stays the
-  DEFAULT search source, carrying discovery including the China corridor;
-  new connectors are added only when a genuinely free, licensed source
-  exists for a corridor buyers need. The availability-driven registry
-  roadmap (Companies House → SIRENE → BRREG) stays retired. Since
-  2026-08-28 `/interne/sources` presents the catalogue as the two
-  categories — **Recherche** (search — feeds matching) and
-  **Vérification** (registries — never matched).
-- **Enrichment is lazy**: the ~3×N candidates a live request surfaces get a
-  site-scrape + evidence-cited capability profile; keyword-scoped batches
-  are the staff-aimed secondary; store-sized enrichment batches do not
-  exist in this design.
-- **Verification battery (= the E10 spec)** — ✅ **v1 BUILT 2026-08-26
-  (S5b, migration 0020)**: every supplier presented on a Top-N gets the
-  free checks — legal existence (offline lookup in the verification-role
-  stores, evidence carries the registry name + snapshot date), digital
-  identity (site alive, MX, RDAP domain age), OFAC SDN sanctions screening
-  (local list, ≤7 days old; a hit derives `rejected`, −25, for staff
-  review) — each writing one `supplier_verification` evidence row. The
-  trust tier is DERIVED (`src/lib/verification.ts`: 0 unverified →
-  1 existence verified → 2 capability evidenced → 3 Vérifié OSI via
-  human_review) and projected onto `verification_status`
-  (3→verified · 1-2→pending), whose ONLY writer is
-  `src/server/verification.ts`. Runs async on the research queue right
-  after promotion. The **E10 staff review surface is live too
-  (`/interne/verification`, same day)**: battery evidence per supplier,
-  sanctions alerts first, "Vérifier (Vérifié OSI)" writes the
-  `human_review` row (→ verified, +12, the ✓ badge), "Retirer" deletes it.
-  export_record is dormant (no-paid-data constraint) and certification
-  joins when a free cert-registry route is added.
-- **Intake goes form-first** — ✅ **BUILT 2026-08-26 (S1+S2, migration
-  0019)**: the hero is now a structured form — product* and category*
-  (required; the category select runs over the in-house taxonomy in
-  `src/lib/taxonomy.ts`, 78 nodes with FR/EN labels + HS mappings, and
-  auto-suggests from the typed text), plus quantity, material,
-  certifications, lead time and a details textarea. Typed fields become
-  criteria rows verbatim (source `user`; product and certifications
-  required); details still pass the regex parser for extra specs;
-  `request.category_id` stores the taxonomy node — the coverage/cache key.
-  The auth-gate draft preserves the whole form as JSON. The plain-language
-  hero remains a launch-time design task.
+The flow, as built:
+
+```
+REQUEST (structured form → taxonomy node)
+  → RETRIEVE from the supplier graph (store-first coverage check)
+  → coverage insufficient?
+      DISCOVER via global_web (Claude + web_search) — free sources only
+  → VERIFY each presented candidate (battery, §4)
+  → PRESENT Top-N (trust tier + evidence)
+  → FACILITATE (Part II, §2b)
+  → outcomes (response time · MOQ · lead time · price · satisfaction)
+    feed the graph back  ← S6, the moat
+```
+
+**Supplier graph** = the `supplier` table as node plus dated, sourced edges:
+source records, verification evidence, quotes, deals. Plain Postgres — "graph"
+is the shape, not the engine. The lifecycle `lead → profiled → verified →
+engaged` is **derived** from which edges a node has, never set by hand. The
+sections after this one (*Data sources*, *Supplier cache*, *Visibility tiers*)
+describe the built machinery; where they predate the record, their roles are
+redirected by it.
+
+##### ADR-001 §1 · No paid data providers, ever
+
+**Owner, 2026-08-26 — a hard constraint on every future design.** No paid
+subscription to any data provider, now or later; no design may align with one.
+
+The customs/BoL investigation (§9) found no free route, so **customs data is
+closed for the US routes**: the `export_record` check is dormant, and tier-2
+capability evidence must come from certifications and the deal loop instead.
+The category itself stays open — **owner doctrine 2026-08-28: bills-of-lading
+data joins the search category wherever a genuinely free route exists (free
+bulk or free API), in any jurisdiction.** New connectors are added only for
+genuinely free licensed sources; `global_web` is and stays the default search
+source, China corridor included. The availability-driven registry roadmap
+(Companies House → SIRENE → BRREG) is retired.
+
+##### ADR-001 §2 · Sources have a ROLE: discovery or verification
+
+An axis orthogonal to dynamic/static, and the decision that makes registries pay
+for themselves without enrichment. ✅ **Built 2026-08-26** (S5a, migration
+0018, `data_source.role`).
+
+- **Discovery** sources (today: `global_web` alone) are workspace-selectable in
+  Préférences de sourcing and are the **only** sources that enter matching.
+- **Verification** sources (**all registries**) are platform infrastructure:
+  never in workspace settings, never fed into matching. Buyers meet them only as
+  evidence lines on a supplier profile — *"Existence vérifiée — Registre du
+  Québec, actif, consulté 2026-08"*. On `/interne/sources` the catalogue is
+  presented as the two categories, **Recherche** and **Vérification**, and a
+  verification source's "enabled" switch means "verification backend active",
+  not buyer exposure.
+
+Enforced in `src/server/sources/scope.ts`, which resolves only
+`role = 'discovery'` sources; the Paramètres list and its save fn scope to
+discovery too. A supplier known **only** through a verification record is
+invisible to matching until a discovery source or the deal loop evidences it.
+
+Registry stores are kept as local lookup tables, refreshed by full pull roughly
+**every six months per source**, with staff upload for the file-fed ones (QC,
+JP); evidence records the snapshot date, and finalists get a live registry-API
+confirm where one exists. Coverage expands on demand: when discovery surfaces
+candidates from an uncovered country, that triggers adding its registry. Where
+no registry route exists (China), tiering falls back to facilitation-time
+documents.
+
+##### ADR-001 §3 · Enrichment is lazy, and store-sized batches do not exist
+
+Nothing is enriched ahead of demand. The ~$12k store-scale enrichment gate that
+sank the old strategy dissolves because registry records never need enrichment —
+they are verification evidence, not candidates. The design is lazy per-request
+enrichment of the ~3×N candidates a live request surfaces (S4), with
+keyword-scoped batches as the staff-aimed secondary.
+
+**No enrichment stage exists in the code today** — S4 was deferred on
+2026-08-28 (design review with the owner): `global_web` returns candidates
+*with* descriptions, so the thin-candidate population it exists for is
+near-empty, and its cost would dwarf research itself. Revive triggers are in
+the backlog's Phase S entry.
+
+##### ADR-001 §4 · The verification battery, and the derived trust tier
+
+Six checks were specified, each writing one `supplier_verification` evidence
+row (type, source, result, URL, checked_at). ✅ **v1 built 2026-08-26** (S5b,
+migration 0020). **Three run automatically today** (`AUTO_CHECKS` in
+`src/lib/verification.ts`), on the research queue right after Top-N promotion;
+the rest are dormant or manual, and honestly so:
+
+| # | Check | State |
+|---|---|---|
+| ① | **Legal existence** — offline lookup in the verification-role stores; evidence carries the registry name + snapshot date | ✅ automated (TTL 180 d) |
+| ② | **Digital identity** — site alive, MX, RDAP domain age, name coherence | ✅ automated (TTL 30 d) |
+| ③ | **Sanctions** — OFAC SDN local list ≤ 7 days old (EU/UN later); a hit derives `rejected`, −25, and **blocks presentation** pending staff review | ✅ automated (TTL 7 d) |
+| ④ | **Export track record** — customs/BoL | ⛔ dormant — no free route (§1) |
+| ⑤ | **Certifications** — free cert-registry routes | ❌ not built |
+| ⑥ | **Human review** — a staff decision from `/interne/verification` ("Vérifier (Vérifié OSI)" writes the row, "Retirer" deletes it) | ✅ staff action (TTL 5 y) |
+
+**The tier is DERIVED from evidence rows, never set** (`deriveTier`):
+0 unverified → 1 existence verified (the floor for a Top-N) → 2 capability
+evidenced → 3 Vérifié OSI. A sanctions hit dominates everything: the candidate
+is flagged, not tiered. `supplier.verification_status` is a projection of the
+tier (3 → verified · 1-2 → pending · hit → rejected), and its **only writer is
+`src/server/verification.ts`**.
+
+**AI-found suppliers are capped at confidence 70** (`AI_CONFIDENCE_CEILING`), so
+a confident-sounding model can never outrank an OSI-verified company.
+
+##### ADR-001 §5 · Intake is structured, and the pool is bilingual
+
+The structured request form is the primary intake — ✅ **built 2026-08-26**
+(S1+S2, migration 0019): product* and category* (required), quantity,
+material, certifications, lead time, a details textarea, attachments. Typed
+fields become criteria rows verbatim with `source: "user"` — nothing guessed;
+the details text still passes the regex parser for extra specs;
+`request.category_id` stores the taxonomy node, the coverage/cache key. The
+auth-gate draft preserves the whole form as JSON. The plain-language hero
+remains a launch-time design task.
+
+The taxonomy (`src/lib/taxonomy.ts`, 78 nodes, FR/EN labels) is one canonical
+in-house tree mapped behind the scenes to HS headings — **a typed module, not a
+table**, because it is code-adjacent data that evolves by commit. Node ids are
+stable and are persisted on requests. *(This closes the old open question "HS,
+NAICS or in-house?" — in-house, mapped.)*
+
+**Search runs English-first and the pool stores both languages.** Most of the
+manufacturing web is in English; criteria carry a `value_en` and suppliers a
+`description_en`, so a French request reaches English text and a later English
+buyer finds the supplier a French request discovered. The mechanics are in §2.
+
+##### ADR-001 §6 · The deal loop feeds the graph — the moat
+
+Response time, MOQ, lead time, price and the buyer's satisfaction score are
+exactly the outcomes nobody can scrape. They arrive as a by-product of Part II,
+not as a separate project.
+
+Two fields protect that data at the source (2026-09-12, migration 0040):
+response time is measured from **`sent_at`** — when staff actually emailed the
+supplier — and falls back to `requested_at` only when nobody stamped it, so
+OSI's own lag is not published as a slow supplier; and `decline_reason`
+separates `no_response` (the strongest negative signal the platform owns) from
+`supplier_declined` and `lost` (the buyer picked someone else, which says
+nothing about the supplier).
 
 #### Data sources & sourcing preferences
 
@@ -1248,10 +1338,9 @@ the capability/certification satellite tables exist.
 > a supplier's PDF/PNG/JPG to a quote, the `/documents` list, and a 36-month
 > retention sweep. **P7, P9-P11 remain**: commandes, paiements, messages,
 > rapports — plus the rest of P8 (deal/contract documents, versions). Decision
-> record: [ADR-001 Part II](ADR-001-osi-architecture.md)
-> (accepted). Plan: **Phase P** in [doc/BACKLOG.md](doc/BACKLOG.md). The
-> owner-validated parcours is drawn step by step in the companion artifact
-> linked from the ADR.
+> record: Part II below (cited elsewhere as `ADR-002 §N`). Plan: **Phase P** in
+> [doc/BACKLOG.md](doc/BACKLOG.md). The owner-validated parcours is drawn as a
+> three-lane swimlane in the published twin (see §1).
 
 The request loop ends at `report_ready`. Everything after it — the half that
 makes OSI a facilitator rather than a search engine — is Phase P.
@@ -1262,68 +1351,265 @@ demande → Top-N → the BUYER picks who to solicit → OSI sends → soumissio
   → signatures → commande → the buyer validates → STAFF close
 ```
 
-**A quote is the unit of facilitation.** There is deliberately no entity
-between a match and a quote: an "engagement" with no offer in it is a status
-with no content. That is why the old E6 design was retired rather than
-extended.
+<a id="adr-001-part-ii"></a>
+### ADR-001 Part II — the transaction dossier and the contract centre (accepted 2026-08-29)
 
-### The rules that hold it together
+OSI used to stop at `report_ready`. The owner's brief asks for the rest of the
+cycle and states the intent plainly: *"donner l'impression qu'OSI orchestre la
+transaction complète, et non seulement la recherche de fournisseurs."* Each rule
+below is enforced by the schema or a pure function, not by convention — a
+future change that breaks one should fail, not drift.
 
-Each of these is enforced by the schema or a pure function, not by convention —
-a future change that breaks one should fail, not drift.
+#### ADR-002 §1 · One dossier, three entities
 
-- **External parties are ROWS, never users.** A supplier, carrier, customs
-  broker or inspector has no account (owner, 2026-08-29). Every reference to
-  one is nullable and paired with a **name snapshot**, the same tombstone rule
-  `audit_log` uses: the record must stay readable when the referenced row is
-  gone. This is what keeps v1 from becoming two products.
-- **No splitting.** One accepted offer, one dossier. A buyer wanting two
-  suppliers makes two requests. Enforced by the partial unique index
-  `quote_one_accepted_per_request_uq` — an application check would let two
-  simultaneous acceptances both through.
-- **Closure is two acts by two actors.** The buyer confirms reception and
-  **rates the deal**; only then may staff close it. `delivered → closed` is an
-  illegal transition — it must pass through `reviewed`. The satisfaction score
-  is also the first supplier-performance signal that cannot be scraped
-  (ADR-001 S6): it is earned on a real deal or not at all.
-- **A contract's status is a function of its party rows**
-  (`statusFromSignatures` in `src/lib/deal-status.ts`), so the stored status
-  and the `2/4` indicator cannot disagree. The indicator counts **mandatory**
-  signatures only.
-- **Expiry and the list filters are derived at read time** — never stored
-  columns, never a cron. Same trick as the Recommandé tier.
-- **`contract_event` is not `audit_log`.** The journal is purged at three
-  months by owner rule; signature evidence has to outlive that, so it lives
-  beside the contract, permanently, with tombstone actor ids.
-- **Money is an integer plus a currency, never converted** (`amount_cents` +
-  `currency`) — there is no rate source, so multi-currency totals would be a
-  lie.
-- **A contract's TEXT is frozen at draft time, not derived at read time**
-  (`contract.content`, P5). This is the one place a stored copy is right:
-  everything else derived on read is a fact about the present, while a
-  contract records what the parties were shown. Editing
-  `src/lib/contract-templates.ts` must never rewrite a signed document, so
-  the template version travels with the text and re-drafting is refused once
-  a contract leaves `draft`.
-- **A contract is written in ONE language — the request's, not the reader's.**
-  A timeline event re-reads in whatever locale you use; an instrument does
-  not. The fiche says which language the document is in, in the language you
-  are reading the app in.
-- **A term nobody recorded renders as `[à compléter]`**, never as a plausible
-  default — the same honesty rule that makes an unmatched numeric criterion
-  `unverifiable` rather than a miss.
+```
+request → match (Top-N)
+        → quote      (soumission — one per supplier asked)
+        → deal       (dossier de transaction — opened by ONE acceptance)
+            ├── contract ×N   (parties · signatures)
+            ├── document ×N   (typed · hangs from a quote today)   [first slice]
+            ├── order_milestone ×N   (production → livraison)      [not built]
+            ├── payment ×N    (tracked, never moved)               [not built]
+            └── message_thread                                     [not built]
+```
 
-### Signatures: two mechanisms, chosen by who the party IS
+**A quote is the unit of facilitation.** Asking supplier X creates a `quote` in
+`requested`; what comes back moves it to `received` with price, lead time, MOQ
+and terms; the buyer compares and accepts **one**, and that acceptance is the
+single event that creates the `deal`.
 
-| Party | How | Evidence recorded |
+There is deliberately **no entity between the match and the quote**. An
+engagement with no offer in it is a status with no content — which is why the
+old E6 design was retired rather than extended.
+
+**The buyer picks who is approached** (owner, 2026-08-29) — they select from
+their Top-N and ask OSI to solicit. Nothing is ever solicited automatically.
+
+**No splitting** (*"pas de répartitions"*): one accepted offer, one dossier; a
+buyer wanting two suppliers makes two requests. Enforced by the partial unique
+index `quote_one_accepted_per_request_uq`, not by an application check — two
+acceptances arriving together would both pass the latter.
+
+Two repairs since (2026-09-12): a recorded price can be **corrected** while the
+quote is still `received` (a correction is not a transition —
+`offerEntryMode`), and a supplier who declined or never answered can be
+**asked again**, with that round's clocks reset. An answer already held is never
+thrown away.
+
+#### ADR-002 §2 · External parties are RECORDS, never users
+
+**Owner, 2026-08-29:** suppliers have no platform access for now; staff handle
+the interaction with them. This is what keeps v1 from becoming two products.
+
+So `contract_party` (and `quote.supplier_id`) is a **row describing a party**,
+not a membership: it points at a `supplier` or an `organization` when we have
+one, and otherwise carries a bare name + email. Same tombstone pattern as
+`audit_log` — nullable references plus a name snapshot, so the record stays
+readable forever regardless of what happens to the row it referenced.
+
+Consequences, all first-class:
+
+- **No party accounts, no guest sessions, no supplier login.** The `member`
+  model and every tenancy guard stay exactly as they are.
+- The portal has **exactly two audiences**: the buyer (own workspace) and OSI
+  staff (internal workspace, via `effectivePlatformRole`).
+- **Every external interaction is staff-mediated and outbound**: OSI sends, OSI
+  records what came back. A quote is *entered by staff*; an external signature
+  is *recorded by staff*.
+
+#### ADR-002 §3 · Two signature mechanisms, split by who the party IS
+
+| Party | Mechanism | Evidence |
 |---|---|---|
-| Buyer · OSI (they have accounts) | **signed in the platform** | user id + name snapshot, timestamp, IP, user agent |
-| Supplier · carrier · broker · inspector | **manual upload** by staff | signatory name/email, date, the PDF (`signed_file_id`), who recorded it |
+| **Buyer · OSI** (they hold accounts) | **signed in the platform** — no vendor, no email round trip | user id + name snapshot, when, IP, user agent |
+| **Supplier · carrier · broker · inspector** (no account) | **manual upload** — staff send it, receive it signed, upload the countersigned PDF (`signed_file_id`, optional) | who signed as stated, when, the document, and which staff member recorded it |
 
-No e-signature vendor is bought (owner, 2026-08-29). `src/server/esign.ts`
-remains the vendor seam for the **external path only**; a vendor would replace
-`manual` there and touch nothing else. The in-platform half never needed one —
-the signatory is authenticated, which is the stronger evidence of the two.
+The mechanism follows the party's **role**, not a setting and not
+`contract_party.user_id` (which is null at draft time). Both paths write the
+same `contract_party` row and the same `contract_event` trail, so the N/M
+indicator and the "all mandatory signatures in" transition do not care which
+produced a signature.
+
+The in-platform signature is the **stronger** of the two by construction — an
+authenticated session, not a claim in an email — and it covers the two parties
+that matter most.
+
+**No e-signature vendor** (owner, 2026-08-29). `src/server/esign.ts` is the
+seam for the external path only; its one provider is `manual`, and a vendor
+would replace it there and touch nothing else. The **intended successor is a
+private signing link** — our own capability URL, emailed to a party with no
+account (the `/invitation/$id` pattern already does this) — kept for later,
+**optional and additive**: some counterparties will always return a signed PDF
+by post, and a link that replaced upload would strand them. Still not a vendor,
+so no recurring bill appears.
+
+#### ADR-002 §4 · Signature evidence is permanent; `audit_log` is not
+
+`audit_log` is **purged at `AUDIT_RETENTION_MONTHS = 3`**. Signature evidence
+must be immutable. These cannot be the same store.
+
+Signature evidence therefore lives on the contract's own rows
+(`contract_party`, `contract_event`) — never purged, never FK-cascaded away,
+with tombstone actor ids. `audit_log` keeps recording the *operational* actions
+around it. **Two trails, two retention rules, on purpose.**
+
+"Never FK-cascaded away" became true against workspace deletion only on
+2026-09-12 (migration 0043): a workspace that carries a **contract or a deal is
+archived, never erased** — `organization.archived_at`, every route redirects to
+`/recuperation`, the owner restores it by signing in, and the archive is kept
+six years (`ARCHIVE_RETENTION_YEARS`; nothing purges it yet). A workspace with
+no financial trace is still destroyed outright. No foreign key changed.
+
+#### ADR-002 §5 · Required contracts are derived from the parties
+
+A deal with a carrier needs a carrier agreement; one with a customs broker needs
+a brokerage mandate. That mapping is a **pure function of which parties the deal
+has** (`src/lib/contract-types.ts`, a typed module like the taxonomy). Staff can
+add a contract the mapping did not predict; staff cannot *silently miss* one it
+requires — the gap surfaces on the dossier.
+
+**v1 ships the two unavoidable types** — mandat OSI↔client and the
+buyer↔supplier order. Transporteur, courtier, inspection, NDA and annexes follow
+once the machinery is proven.
+
+**A contract's TEXT is frozen at draft time, not derived at read time**
+(`contract.content`, P5). This is the one place a stored copy is right:
+everything else derived on read is a fact about the present, while a contract
+records what the parties were shown. Editing `src/lib/contract-templates.ts`
+must never rewrite a signed document, so the template version travels with the
+text and re-drafting is refused once a contract leaves `draft`. **It is written
+in ONE language — the request's, not the reader's**; the fiche says which. **A
+term nobody recorded renders as `[à compléter]`**, never as a plausible default —
+the same honesty rule that makes an unmatched numeric criterion `unverifiable`
+rather than a miss. Numbering is `OSI-2026-0000`, per-year sequential and
+platform-global (`contract_number_seq`).
+
+#### ADR-002 §6 · Documents: one typed table *(first slice built 2026-09-12 — P8)*
+
+A single `document` row — kind, what it hangs from, a `file_id`, an issuer, a
+version — absorbing the open E7 item (the stored PDF report).
+
+**What exists** (migrations 0041–0042): the `document` table over `file`, kind
+`offer | other`, hanging from a **quote and/or request** (both SET NULL, so a
+document outlives its source); staff attach a supplier's PDF/PNG/JPG to an
+offer through `/api/quote-document`; `/documents` lists them naming and
+linking both sources; and an orphan is purged **36 months** after losing both
+references — the first time `storage.deleteFile` has ever run on a user file.
+**Ownership follows the paperwork, not the uploader**: staff upload, the rows
+belong to the buyer's workspace.
+
+**Still open:** documents hanging from a deal or a contract (the
+countersigned-contract upload still writes a `file` row directly), the fuller
+kind vocabulary (facture, douane, B/L… — each lands with the phase that
+produces it), versions, and the stored PDF report.
+
+#### ADR-002 §7 · Money is tracked, never moved
+
+Payments are track-only: no PSP, no escrow. `payment` rows will be staff-entered
+records of things that happened elsewhere *(not built — P9)*. **Money is an
+integer plus a currency, never converted** (`amount_cents` + `currency`) — there
+is no rate source, so multi-currency totals would be a lie.
+
+#### ADR-002 §8 · Status machines and derived views
+
+Every entity gets guarded transitions in `src/lib/*-status.ts` — **an illegal
+transition throws** rather than writing a state the machine forbids — and every
+change writes an event row. Timelines and dashboards stay **pure read-models**.
+
+**Closure is two acts by two actors.** The buyer confirms reception and **rates
+the deal**; only then may staff close it. `delivered → closed` is an illegal
+transition — it must pass through `reviewed`. The satisfaction score is also
+the first supplier-performance signal that cannot be scraped (§6 of Part I):
+it is earned on a real deal or not at all.
+
+**A contract's status is a function of its party rows**
+(`statusFromSignatures` in `src/lib/deal-status.ts`), so the stored status and
+the `2/4` indicator cannot disagree; the indicator counts **mandatory**
+signatures only. The contract filters (Tous · Actifs · À signer · En attente ·
+Complétés · Expirés) are **derived views, never columns**; `Expirés` is computed
+at read time from the échéance — no cron. Same trick as the Recommandé tier.
+
+#### ADR-002 §9 · Staff powers are data, including who may sign
+
+`contracts.sign` is a permission key in the `platform_permission` matrix,
+owner-assigned per role from **Rôles & accès**. Custom staff roles beyond
+`manager`/`accountant` are built (Phase R): roles are rows, the matrix is
+dynamic.
+
+**The owner is never a row, and role granting stays owner-only, forever** — or
+the matrix could lock out its own editor.
+
+### The parcours — 16 steps, and where it actually stops
+
+*(folded in 2026-09-07 from the former "Parcours OSI" artifact, re-checked
+against the code — the original claimed the product stopped at step 4. Its
+three-lane swimlane, acheteur · OSI · tiers, is redrawn in the published twin
+with today's build state; the French original is archived at
+[doc/archive/2026-08-29-parcours-swimlane.html](doc/archive/2026-08-29-parcours-swimlane.html).)*
+
+The owner-validated journey, with **who acts** at each step. The two steps that
+leave the platform are the whole of §2 made concrete: a supplier is reached by
+email and answers by email, and nothing else about them touches the product.
+
+| # | Step | Who acts | State |
+|---|---|---|---|
+| 01 | Describes the need | Buyer | ✅ built |
+| 02 | Search — pool first, web only if thin | Platform | ✅ built |
+| 03 | Verification of each candidate | Platform | ✅ built (3 of 6 checks) |
+| 04 | Top-N + printable report | Buyer receives | ✅ built |
+| 05 | **Picks who to solicit** | Buyer — *decision* | ✅ built |
+| 06 | Sends the quote requests | OSI staff | ⚠️ the ask is recorded and staff are alerted; **the email goes out by hand** |
+| 07 | Answers with price, MOQ, lead time | **Supplier — off platform** | by design; no account exists |
+| 08 | Records each offer | OSI staff | ✅ built |
+| 09 | **Compares and accepts ONE** | Buyer — *decision* | ✅ built |
+| 10 | Dossier opens automatically | Platform | ✅ built |
+| 11 | Required contracts drafted | OSI staff | ✅ built |
+| 12 | **Signs** | Buyer + OSI in-platform; **supplier off platform** | ✅ built |
+| 13 | All mandatory signatures in | Platform | ✅ built |
+| 14 | Tracks the order to delivery | OSI staff | ❌ **not built** |
+| 15 | **Validates reception and rates** | Buyer — *decision* | ❌ **not built** |
+| 16 | Closes the dossier | OSI staff | ❌ **not built** |
+
+**Where it actually stops, precisely.** The `deal` table already carries
+`satisfaction`, `reviewed_at`, `reviewed_by`, `review_comment`, `closed_at` and
+`closed_by`, and `DEAL_TRANSITIONS` enforces the full ladder
+`open → contracting → in_production → shipping → delivered → reviewed →
+closed`. But **`transitionDeal` has exactly one caller**: sending a contract
+moves the dossier `open → contracting` (`signature-fns.ts`). Nothing moves it
+after that. So a dossier today opens, advances one step when its first contract
+goes out, and then cannot progress — not because the machine is missing, but
+because no surface drives it. That is the honest shape of steps 14-16, and it
+is why P7 (commandes) is the next real piece of work rather than a late polish.
+
+**Specified in this record but NOT built** (re-checked 2026-09-13):
+
+| What | Where |
+|---|---|
+| **S3 — category-aware retrieval.** `request.category_id` participates in neither retrieval nor matching; the big-store prefilter is still a name-only `ILIKE` (`scope.ts`). Largely defused by Part I §2, but the capability is absent. | Part I |
+| **S4 — lazy per-request enrichment.** Deferred; no scrape/enrich stage exists. | Part I §3 |
+| **Checks ④ ⑤** — export record (dormant by §1) and certifications. | Part I §4 |
+| **P7 commandes** (`order_milestone`) · **P8 documents beyond slice 1** · **P9 paiements** · **P10 messages** · **P11 rapports** | Part II |
+| **The deal lifecycle past `contracting`** — steps 14-16 have no surface. | Part II §8 |
+
+<a id="standing-constraints"></a>
+### Standing constraints
+
+The rules that bind every future design. Breaking one needs the owner, not a
+pull request.
+
+| Constraint | Source |
+|---|---|
+| **No paid data-provider subscription, ever** | owner, 2026-08-26 · Part I §1 |
+| **No e-signature vendor** (gate G1) | owner, 2026-08-29 · Part II §3 |
+| **No cloud provider** — prod is a local VM behind Cloudflare Tunnel, at every scale stage | owner, 2026-08-04 |
+| **Suppliers have no platform access**; staff mediate every external interaction (gate G2) | owner, 2026-08-29 · Part II §2 |
+| **Money is tracked, never moved** | Part II §7 |
+| **One accepted offer per request** — no splitting | owner, 2026-08-29 · Part II §1 |
+| **Nothing is solicited without the buyer's explicit selection** | owner, 2026-08-29 · Part II §1 |
+| **Derived, not stored**: trust tiers, contract filters, expiry, the N/M indicator | Part I §4, Part II §8 |
+| **The platform workspace holds no customer data** and cannot be deleted | owner, 2026-08-29 · §1 |
+| **Registries never enter matching** | Part I §2 |
+| **A workspace carrying a contract or a deal is archived, never erased** — six-year retention | owner, 2026-09-12 · Part II §4 |
 
 ---
 
@@ -1524,6 +1810,14 @@ Browser ──HTTPS──▶ web
   full architecture runs locally, so every topology change is rehearsed before
   it reaches the VM. Only ingress (cloudflared + traefik, shared VM infra,
   not OSI's) has no dev counterpart — localhost needs no tunnel
+
+**No broker, deliberately.** pg-boss gives transactional enqueue for free — a
+request and its job commit together — which RabbitMQ would only match through
+an outbox pattern, i.e. a queue in Postgres anyway. `pg_dump` snapshots state
+and in-flight jobs together. All enqueues go through the one `queue.ts` seam,
+so swapping it later is an adapter, not a refactor. The bottleneck is the
+Claude API's concurrency, never the queue. A broker returns to the table only
+if a second *application* consumes events or Postgres measurably saturates.
 
 ### Module map and extraction seams
 
@@ -1790,15 +2084,52 @@ Implementation facts that must not be re-derived differently:
 | `infra/Docker/`               | `web.Dockerfile` (database uses the pgvector image)                            |
 | `scripts/`                    | Everything operational                                                          |
 | `doc/BACKLOG.md`              | **What is done, in progress, and open**                                        |
-| `ADR-001-osi-architecture.md` | **The one decision record** (demand-pull sourcing + the transaction spine)      |
-| `osi-decision-record.html`    | Source of its published twin, *The OSI Decision Record*; edit here, republish to the same URL |
+| `osi-decision-record.html`    | Source of the published twin of the decision record (§1 Part I, §2b Part II); edit here, republish to the same URL |
 | `doc/archive/`                | The three companion pages the record absorbed on 2026-09-13, kept verbatim as history |
 
 ---
 
+<a id="open-questions"></a>
 ## 9 · Open decisions
 
+The record's open questions first (numbered as the ADR numbered them, since the
+backlog cites them that way), then the smaller product items.
+
+1. ~~**Document retention policy.**~~ **Answered** (owner, 2026-09-12/13):
+   a document orphaned from its request and quote is kept **36 months**, then
+   row, `file` row and bytes go; an archived workspace is kept **six years**.
+   **What remains open:** destroying a workspace with **no** contract or deal
+   still cascades its `document` and `file` rows away without passing through
+   the sweep, so those bytes linger on the volume. And the remote-vs-local
+   storage backend is still deferred to an env-var switch, to be discussed.
+2. **Is the deal layer a plan dimension?** Plans gate `requests_per_day` and
+   `suppliers_returned` only, so a Free-trial workspace can currently reach
+   contracts. Affects E12.
+3. **Who updates production milestones?** Every update is an email then a manual
+   entry — the real cost of "no supplier access". **Blocks P7.**
+4. **Per-request enrichment budget** — dollars or candidates, per plan tier?
+   Moot until S4 exists, but it is the first question S4 raises.
+5. **Supplier-claim flow timing** — with the supplier-side space (G2), or after
+   the first facilitated deals?
+6. **May OSI nudge a buyer** who never picks suppliers, and is
+   signature-before-deposit the right order?
+7. **Keep or remove "Marquer comme envoyée" on a quote?** (raised 2026-09-12.)
+   The buyer notification on a recorded offer already exists and is
+   untouched; the button is the *outbound* stamp (`sent_at`) that lets the
+   response time measure the supplier's lag rather than OSI's (Part I §6).
+   Removing it puts OSI's own lag back into the moat's headline number.
+
+Smaller items:
+
 - **External supplier data sources & licensing** for the import pipeline
+- **The concrete "32 compatibility criteria"** — needs a product workshop; the
+  weighted v1 scorer stands in
+- **Escrow / payment provider** (Phase 4)
+- **`src/web/`** — the frontend lives at `src/`; moving it risks breaking Lovable
+  editor sync, so it is deferred
+
+The investigations that closed the data-source questions follow, kept so nobody
+re-investigates.
 
 ### Autonomous-pull registry candidates (verified 2026-08-25 — not built)
 
@@ -1951,10 +2282,3 @@ the federal lookup API wired into the E10 verification workflow
 (supplier → BN/corp-number match → existence + active status), plus
 optionally the OGL bulk CSV as a store-only import source. A
 discovery-grade registry connector is not achievable on today's terms.
-- **The concrete "32 compatibility criteria"** — needs a product workshop; the
-  weighted v1 scorer stands in
-- ~~Email provider~~ — **decided 2026-08-23: SendGrid** (adapter-wrapped;
-  unblocks email verification E1, invitations B3/B4, notifications E9)
-- **Escrow / payment provider** (Phase 4)
-- **`src/web/`** — the frontend lives at `src/`; moving it risks breaking Lovable
-  editor sync, so it is deferred

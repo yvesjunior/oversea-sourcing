@@ -4,7 +4,7 @@ Three Claude artifacts that accompanied the OSI decision record, saved here
 verbatim on 2026-09-13 before the published copies were removed. **Each one is
 a dated snapshot and describes a state the code has left behind** — read them
 as history, never as a description of the running system. The current record
-is [`../../ADR-001-osi-architecture.md`](../../ADR-001-osi-architecture.md)
+is the decision record in [`README.md`](../../README.md#adr-001-part-i)
 and its published twin, *The OSI Decision Record*.
 
 | File | Was | Dated | What the decision record took from it |
