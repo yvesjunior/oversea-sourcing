@@ -21,7 +21,7 @@
 | **E6** Facilitation | ~~Engagements~~ → **soumissions → dossier de transaction → contrats** | 🟡 **P1-P6 LIVE on prod** (P1-P5 2026-08-29, P6 signatures deploy #26) per [ADR-001 Part II](README.md#adr-001-part-ii); **P7 commandes is next**; old task list RETIRED |
 | **E7** Reports | Printable report + PDF export | 🟡 the `document` table exists since 2026-09-12 (P8 slice 1) — the stored PDF report itself is still open |
 | **E8** Transactions | Milestones, tracking, paiements | 🔵 **folded into Phase P** by ADR-002 (the `deal` spine); standalone sketch retired |
-| **E9** Notifications | In-app + email | 🟡 bell, emitters, **prefs (2026-08-26)** live; Phase P types (`quote_received`, `contract_to_sign`, `contract_signed`) + staff alert on `quotes.requested` (2026-09-07) live; the web bell still loads once, no poll |
+| **E9** Notifications | In-app + email | 🟡 bell, emitters, **prefs (2026-08-26)** live; Phase P types (`quote_received`, `contract_to_sign`, `contract_signed`) + staff alert on `quotes.requested` (2026-09-07) live; **the bell alerts (2026-09-14)** — count badge, 30 s poll, chime, per-browser mute |
 | **E10** Admin surfaces | Verification, imports, ops queue | 🟡 **verification LIVE (S5b/S5c, 2026-08-26)**; imports/ops queue placeholders |
 | **R** Custom staff roles | Roles as data + the matrix | ✅ **BUILT 2026-08-29** (migration 0039) — create/delete roles, dynamic matrix, `requests.all` |
 | **E11** Settings | Profile, sourcing rules | 🟡 Paramètres + notification prefs live; **password / 2FA / theme / rename (2026-08-27)** live; buyer Abonnement self-service waits for billing |
@@ -1938,11 +1938,19 @@ notification types, so Paramètres → Notifications rendered the RAW KEY for
 bell label and a prefs-panel label in FR and EN — so the next type added cannot
 ship unlabelled.
 
-**Still true, and worth knowing:** `NotificationBell` loads once on mount
-(`useEffect(load, [])`) with no polling. In-app is a mailbox, not an alert;
-email is what actually reaches someone. That is fine while the mobile app is
-the ringing plan, but the web bell will need a poll or SSE when the remaining
-web features land.
+~~**Still true, and worth knowing:** `NotificationBell` loads once on mount
+with no polling.~~ **Changed 2026-09-14** (owner: *"notification should add
+icon with pin to alert the user on the platform … a ringtone to alert"*): the
+bell now carries a **count badge** (and the count as a tab-title prefix),
+**polls the unread count every 30 s** while the tab is visible and on return
+to the foreground (`getUnreadCountFn`, one indexed count — the twenty rows
+still load only when the menu opens), and **chimes** when the count rises
+between two polls — two WebAudio sine notes, no asset, no CSP entry. A
+**mute switch** at the bottom of the menu is remembered per browser
+(`localStorage` `osi-notif-sound`, default on). Two limits are the browser's:
+no sound before the visitor's first interaction with the page (autoplay
+policy), and a hidden tab may throttle the timer. SSE stays the upgrade for
+when open tabs number in the hundreds.
 
 ### A missing i18n key is the quietest bug here — two guards now stand on it
 
@@ -4107,6 +4115,11 @@ feeds C3/C4 value (Recommandé requires Vérifié)
       only when unread > 0 (hardcoded dot removed), dropdown lists latest 20,
       click marks read + navigates the link, "Tout marquer comme lu". Fetch
       on mount + on open; no realtime until the product needs it
+- [x] **Bell alerts** (2026-09-14, owner request) — count badge on the icon
+      ("9+" past nine) and in the tab title; 30 s poll of the unread count
+      while visible + refetch on return to the tab (`getUnreadCountFn`);
+      WebAudio chime when the count rises; per-browser mute in the menu.
+      Details in "Staff get told when a buyer asks for quotes" above
 - [x] Email sender + FR/EN templates — verification & reset (E1),
       invitations (B3), **report-ready** (2026-08-23: in-app + email from the
       worker on the report_ready transition). Phase P emitters live since

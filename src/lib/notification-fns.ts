@@ -64,6 +64,32 @@ export const getNotificationsFn = createServerFn({ method: "GET" }).handler(
   },
 );
 
+/**
+ * The unread count and nothing else (owner, 2026-09-14: the bell should
+ * alert — a pinned count and a ringtone). The bell polls this every 30 s
+ * while the tab is visible, so it has to stay ONE indexed count
+ * (`notification_user_idx` covers user_id + read_at); the twenty rows come
+ * down only when the menu opens, as before.
+ */
+export const getUnreadCountFn = createServerFn({ method: "GET" }).handler(
+  async (): Promise<{ unread: number }> => {
+    const session = await requireSession();
+    if (!session) return { unread: 0 };
+    const [{ db }, { and, count, eq, isNull }, schema] = await Promise.all([
+      import("@/database"),
+      import("drizzle-orm"),
+      import("@/database/schema"),
+    ]);
+    const [row] = await db
+      .select({ value: count() })
+      .from(schema.notification)
+      .where(
+        and(eq(schema.notification.userId, session.user.id), isNull(schema.notification.readAt)),
+      );
+    return { unread: row?.value ?? 0 };
+  },
+);
+
 /** Mark one (id) or all (no id) of the caller's notifications read. */
 export const markNotificationsReadFn = createServerFn({ method: "POST" })
   .inputValidator(z.object({ id: z.string().optional() }))
