@@ -124,7 +124,8 @@
       "quote_received": "Quote received (a supplier answered your request)",
       "contract_to_sign": "Contract to sign (a contract is waiting for your signature)",
       "contract_signed": "Contract signed (every signature is in)",
-      "quotes_requested": "Quotes to send out (a customer picked their suppliers) — OSI staff"
+      "quotes_requested": "Quotes to send out (a customer picked their suppliers) — OSI staff",
+      "mail_backlog": "Outbound mail failing (messages are waiting to be sent) — OSI staff"
     },
     "tabOrganisation": "Organisation",
     "orgInfoTitle": "Organisation information",
@@ -759,7 +760,8 @@
     "quote_received": "Quote received from {{supplier}}",
     "contract_to_sign": "A contract awaits your signature",
     "contract_signed": "Contract fully signed",
-    "quotes_requested": "{{count}} supplier(s) to solicit — request #{{id}}"
+    "quotes_requested": "{{count}} supplier(s) to solicit — request #{{id}}",
+    "mail_backlog": "Outbound mail is failing — {{count}} message(s) waiting to be sent"
   },
   "verificationAdmin": {
     "title": "Supplier verification",

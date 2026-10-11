@@ -124,7 +124,8 @@
       "quote_received": "Soumission reçue (un fournisseur a répondu à votre demande)",
       "contract_to_sign": "Contrat à signer (un contrat attend votre signature)",
       "contract_signed": "Contrat signé (toutes les signatures sont réunies)",
-      "quotes_requested": "Soumissions à envoyer (un client a choisi ses fournisseurs) — équipe OSI"
+      "quotes_requested": "Soumissions à envoyer (un client a choisi ses fournisseurs) — équipe OSI",
+      "mail_backlog": "Envoi d'e-mails en échec (des messages attendent) — équipe OSI"
     },
     "tabOrganisation": "Organisation",
     "orgInfoTitle": "Informations de l’organisation",
@@ -759,7 +760,8 @@
     "quote_received": "Soumission reçue de {{supplier}}",
     "contract_to_sign": "Un contrat attend votre signature",
     "contract_signed": "Contrat entièrement signé",
-    "quotes_requested": "{{count}} fournisseur(s) à solliciter — demande #{{id}}"
+    "quotes_requested": "{{count}} fournisseur(s) à solliciter — demande #{{id}}",
+    "mail_backlog": "L'envoi d'e-mails est en échec — {{count}} message(s) en attente"
   },
   "verificationAdmin": {
     "title": "Vérification des fournisseurs",

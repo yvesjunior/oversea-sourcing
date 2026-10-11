@@ -719,6 +719,46 @@ export const notificationPref = pgTable(
   (table) => [uniqueIndex("notification_pref_user_uq").on(table.userId)],
 );
 
+/**
+ * Mail outbox (2026-10-11) — every email that could NOT be handed to the
+ * provider, kept so it can be sent later instead of vanishing.
+ *
+ * Written the day SendGrid started refusing with "Maximum credits exceeded".
+ * The adapter had always RETURNED its failures and four of its five callers
+ * threw the result away, so a buyer's "your report is ready" mail — and, far
+ * worse, password resets and signature invitations — disappeared with nothing
+ * but a stdout line. The provider outage was not the bug; losing the mail was.
+ *
+ * Deliberately NOT a pg-boss queue. These rows outlive a provider outage that
+ * can last days, a human has to look at them, and the natural question is
+ * "what is waiting and why" — a table answers that and a job queue does not.
+ * `status` is stored rather than derived (contrast the expiry rule) because
+ * it is the outcome of an irreversible side effect: whether this message was
+ * actually handed over is a fact about the past, not a view of the present.
+ */
+export const MAIL_OUTBOX_STATUSES = ["pending", "sent", "abandoned"] as const;
+export type MailOutboxStatus = (typeof MAIL_OUTBOX_STATUSES)[number];
+
+export const mailOutbox = pgTable(
+  "mail_outbox",
+  {
+    id: text("id").primaryKey(),
+    recipient: text("recipient").notNull(),
+    subject: text("subject").notNull(),
+    html: text("html").notNull(),
+    body: text("body"),
+    /** pending = retry it · sent = handed over · abandoned = never retry
+     *  (a permanent refusal, or too many attempts). */
+    status: text("status").$type<MailOutboxStatus>().notNull().default("pending"),
+    attempts: integer("attempts").notNull().default(0),
+    lastError: text("last_error"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    lastAttemptAt: timestamp("last_attempt_at"),
+    sentAt: timestamp("sent_at"),
+  },
+  (table) => [index("mail_outbox_status_idx").on(table.status, table.createdAt)],
+);
+
 /** Organisation profile (owner, 2026-08-26) — the company's legal & tax
  *  identity, shown in Paramètres for non-individual workspaces: the
  *  workspace owner edits, other members read. Feeds invoicing/facilitation

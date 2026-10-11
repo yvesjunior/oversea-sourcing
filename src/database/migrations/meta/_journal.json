@@ -316,6 +316,13 @@
       "when": 1789390377954,
       "tag": "0044_harsh_gideon",
       "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "7",
+      "when": 1791762038052,
+      "tag": "0045_chubby_boomerang",
+      "breakpoints": true
     }
   ]
 }

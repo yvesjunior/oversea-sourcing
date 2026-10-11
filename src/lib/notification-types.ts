@@ -30,6 +30,11 @@ export const NOTIFICATION_TYPES = [
   { type: "contract_to_sign", hasEmail: true },
   /** Every mandatory signature is in — the contract is complete (P6). */
   { type: "contract_signed", hasEmail: true },
+  /** STAFF-facing (2026-10-11): outbound mail is failing and messages are
+   *  piling up in `mail_outbox`. Necessarily in-app ONLY — emailing someone
+   *  to tell them email is broken is the one notification guaranteed not to
+   *  arrive, and it would queue behind the very backlog it describes. */
+  { type: "mail_backlog", hasEmail: false },
 ] as const;
 
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number]["type"];

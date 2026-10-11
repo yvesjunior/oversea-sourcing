@@ -36,6 +36,15 @@ const SWEEP_INTERVAL_MS = 60_000;
  *  window (DOCUMENT_RETENTION_MONTHS): the cadence decides latency, never
  *  outcome. */
 const RETENTION_INTERVAL_MS = 6 * 60 * 60 * 1000;
+/** How often the mail outbox is retried (2026-10-11). Five minutes is a
+ *  compromise: fast enough that a blip costs a buyer minutes, slow enough
+ *  that a provider outage lasting days does not hammer the API — the per-row
+ *  backoff in mail.ts does the real rationing. */
+const MAIL_FLUSH_INTERVAL_MS = 5 * 60_000;
+/** At most one "mail is backing up" alert per staff member per hour. The
+ *  outage lasts as long as it lasts; saying so every five minutes would
+ *  train people to ignore the bell. */
+const MAIL_ALERT_EVERY_MS = 60 * 60_000;
 /** A request untouched this long in an in-flight state is considered stranded. */
 const STRANDED_AFTER_MS = 2 * 60_000;
 
@@ -187,6 +196,44 @@ async function sweepStranded(enqueue: Enqueue): Promise<void> {
   }
 }
 
+/**
+ * Retry whatever the mail provider refused, and tell staff when a backlog is
+ * building (2026-10-11, the SendGrid "Maximum credits exceeded" outage).
+ *
+ * The alert is in-app only and rate-limited in memory. In memory is the right
+ * place: the question it answers is "has THIS worker already complained
+ * recently", and a restart genuinely should re-announce a still-broken
+ * mailer rather than inherit a promise of silence from a dead process.
+ */
+function makeMailFlusher(): () => Promise<void> {
+  let lastAlertAt = 0;
+  return async () => {
+    const { countPendingMail, flushMailOutbox } = await import("@/server/mail");
+    const outcome = await flushMailOutbox();
+    const pending = await countPendingMail();
+    if (outcome.tried > 0 || pending > 0) {
+      console.log(
+        `mail: flush tried=${outcome.tried} sent=${outcome.sent} kept=${outcome.kept} abandoned=${outcome.abandoned} — ${pending} still pending`,
+      );
+    }
+    // Nothing got through AND mail is piling up: the provider is down, not
+    // one bad address. `outcome.sent > 0` deliberately suppresses the alarm —
+    // a mailer that is delivering is not an outage, however long the queue.
+    if (pending > 0 && outcome.sent === 0 && Date.now() - lastAlertAt > MAIL_ALERT_EVERY_MS) {
+      lastAlertAt = Date.now();
+      const { notifyStaff } = await import("@/server/notify");
+      await notifyStaff("logging", {
+        type: "mail_backlog",
+        params: { count: pending },
+        link: "/admin/journal",
+      });
+      console.error(
+        `mail: OUTBOUND MAIL IS FAILING — ${pending} message(s) waiting, last error logged above`,
+      );
+    }
+  };
+}
+
 async function main() {
   const boss = new PgBoss(process.env["DATABASE_URL"] ?? "postgres://osi:osi@localhost:5432/osi");
   boss.on("error", (error) => console.error("pg-boss error:", error));
@@ -231,6 +278,7 @@ async function main() {
   // Only the pipeline worker sweeps — two sweepers would double-enqueue.
   let sweepTimer: ReturnType<typeof setInterval> | null = null;
   let retentionTimer: ReturnType<typeof setInterval> | null = null;
+  let mailTimer: ReturnType<typeof setInterval> | null = null;
   if (SERVED_QUEUES.includes("pipeline")) {
     await sweepStranded(enqueue).catch((error) => console.error("sweep failed:", error));
     sweepTimer = setInterval(() => {
@@ -245,6 +293,14 @@ async function main() {
       void sweepDocumentRetention().catch((error) => console.error("retention failed:", error));
     retention();
     retentionTimer = setInterval(retention, RETENTION_INTERVAL_MS);
+
+    // The mail outbox, on this worker for the same reason: exactly one
+    // flusher, or two processes race to re-send the same message.
+    const flushMail = makeMailFlusher();
+    const mail = () =>
+      void flushMail().catch((error) => console.error("mail flush failed:", error));
+    mail();
+    mailTimer = setInterval(mail, MAIL_FLUSH_INTERVAL_MS);
   }
 
   console.log(
@@ -256,6 +312,7 @@ async function main() {
     console.log(`worker: ${signal} received, stopping…`);
     if (sweepTimer) clearInterval(sweepTimer);
     if (retentionTimer) clearInterval(retentionTimer);
+    if (mailTimer) clearInterval(mailTimer);
     await boss.stop();
     process.exit(0);
   };

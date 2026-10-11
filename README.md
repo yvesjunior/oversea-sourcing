@@ -755,6 +755,26 @@ facts a future session must not re-derive differently:
   today); otherwise real send via SendGrid v3 (plain fetch — no SDK, the
   adapter is the vendor seam). Failures return `{ok:false}`, never throw:
   a bounced email must not break a signup.
+- **A refused message is KEPT, not dropped** (2026-10-11). Returning
+  `{ok:false}` was only half a policy: four of the adapter's five callers
+  discarded the result, so when SendGrid began answering every send with
+  401 *"Maximum credits exceeded"* the mail simply ceased to exist — a buyer
+  waited 90 minutes for a report and was never told it was ready, and
+  password resets went the same way. Anything that might still succeed now
+  lands in **`mail_outbox`** and the worker retries it every 5 minutes with
+  exponential backoff (5 min → 6 h cap), giving up after 7 days.
+  - The retry RULES are pure and live apart from the adapter
+    (`src/lib/mail-retry.ts`, 14 tests): the adapter owns the provider and
+    the table, the rules own the decisions.
+  - **401 is retryable**, which looks wrong and is the whole point — it reads
+    as "bad credentials" but is also what SendGrid returns for an exhausted
+    account, and that clears when somebody pays. 400/403 are permanent and
+    abandoned immediately, so an unverified sender cannot burn the allowance.
+  - One flusher only, on the pipeline worker, for the same reason as the
+    stranded sweep. When mail is piling up and nothing is getting through,
+    staff get an in-app `mail_backlog` alert — **in-app only**, since
+    emailing someone to say email is broken would queue behind the very
+    backlog it describes.
 - **Verified end to end in dev** (2026-08-23): signup → logged verification
   email → link → `email_verified = true` + auto sign-in; forgot → logged
   reset email → link → new password → fresh login with it returned 200.

@@ -1768,12 +1768,14 @@ qualifying.
 `partialCount`. Nothing renders it — checked — so the new enum value reaches
 no `t()` call and cannot become the fifth missing-i18n-key bug.
 
-### Two things deploy #41 uncovered — ❗ BOTH OPEN (2026-10-11)
+### Two things deploy #41 uncovered (2026-10-11)
 
 Neither was caused by the matcher fix; both were found while verifying it.
 
-**1 · Outbound mail is DOWN — SendGrid is out of credits.** The moment
-request 3026 finally reached `report_ready`, the notification failed:
+**1 · Outbound mail is DOWN — SendGrid is out of credits.**
+❗ **the account is still refusing** · ✅ **the mail is no longer lost.**
+The moment request 3026 finally reached `report_ready`, the notification
+failed:
 
 ```
 mail: SendGrid refused (401) — {"errors":[{"message":"Maximum credits exceeded"}]}
@@ -1790,6 +1792,32 @@ a credential fault: 401 with that body is SendGrid's out-of-credits
 answer, not a bad key. Decide whether to pay, switch provider, or accept
 in-app-only notification — and until then **assume no transactional email
 is being delivered**, including password resets and signature invitations.
+
+**What was verified, and what it means.** The key is fine: it carries
+`mail.send`, and the account endpoints 403 only because it is a restricted
+key. Probed with a deliberately invalid payload, SendGrid answers **401
+before it validates anything**, which is account standing, not the request.
+This is not a code fault and no code change can lift it. Worth knowing:
+**SendGrid retired its free tier in May 2025** — what exists now is a 60-day
+trial capped at 100/day, and sending stops dead when the trial ends. A
+trial-cap breach resets at midnight UTC; an ended trial does not. Lifting it
+needs somebody to sign in and pay, or the adapter pointed at another
+provider — which is a one-file change by construction.
+
+**The defect underneath it is fixed.** The outage was not the bug; losing
+the mail was. `sendMail` returned `{ok:false}` and four of its five callers
+threw the result away. Failed messages now land in `mail_outbox` and the
+worker retries them — see README → Mail delivery modes. **When the account
+is restored, the backlog drains on its own**, no resend step. Verified end
+to end against a real Postgres and a stub reproducing SendGrid's exact 401
+body: refused → kept pending · immediate flush → skipped by backoff · due
+and still down → attempt 2, still pending · a 403 → abandoned at once, never
+retried · credits restored → sent, queue empty · a healthy send → no row at
+all. Plus 14 unit tests on the rules (`src/lib/mail-retry.ts`).
+
+**Still open here:** nothing retroactive. The messages lost before this
+shipped — 3026's `report_ready` among them — were never recorded and cannot
+be recovered. Henrik has an unread in-app notification and no email.
 
 **2 · Nine suppliers passed the gate; the buyer sees five.** The fix
 restored all nine PVC paste resin makers to eligibility, and `TOP_N` —
