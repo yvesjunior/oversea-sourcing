@@ -246,6 +246,83 @@ describe("the product criterion decides, not any criterion", () => {
   });
 });
 
+// ── A grade code ranks, it does not gate (prod 3026, 2026-10-11) ────────────
+// The buyer asked for "PVC Paste Resin PSH25". The agent found nine PVC paste
+// resin makers including Kaneka, who actually make that grade and write it
+// "PSH-25". Every one was rejected: the hyphen split the grade in two, and a
+// missing digit-token disqualified outright. The empty Top-N then crashed the
+// insert and the request crash-looped in `searching` for 90 minutes.
+
+describe("a grade code ranks the Top-N, it does not empty it", () => {
+  const product: CriterionRow[] = [
+    makeCriterion({
+      id: "pvc",
+      category: "other",
+      label: "Besoin",
+      value: "PVC Paste Resin PSH25",
+      required: true,
+      isPrimary: true,
+    }),
+  ];
+
+  const kaneka = makeSupplier({
+    name: "Kaneka Corporation",
+    description:
+      "Manufacturer of KaneVinyl Paste PSH-25, micro suspension type paste-forming PVC resin",
+  });
+  const hanwha = makeSupplier({
+    name: "Hanwha Solutions Corporation",
+    description: "Manufacturer of PVC paste resin",
+  });
+
+  it("the exact grade matches across a hyphen (PSH-25 answers PSH25)", () => {
+    expect(outcome(kaneka, product[0]!)).toBe("matched");
+  });
+
+  it("a maker of the product without that grade is an ALTERNATIVE, not a miss", () => {
+    const breakdown = scoreSupplier(hanwha, product);
+    expect(breakdown.criteria[0]?.outcome).toBe("partial");
+    expect(breakdown.partialCount).toBe(1);
+    // The whole point: it reaches the buyer instead of being discarded.
+    expect(isRelevant(breakdown)).toBe(true);
+  });
+
+  it("the exact grade outranks the alternative", () => {
+    expect(scoreSupplier(kaneka, product).total).toBeGreaterThan(
+      scoreSupplier(hanwha, product).total,
+    );
+  });
+
+  it("a supplier of something else entirely is still excluded", () => {
+    const unrelated = makeSupplier({
+      name: "Pompes Générales",
+      description: "Fabricant de pompes centrifuges, certifié ISO 9001",
+    });
+    const breakdown = scoreSupplier(unrelated, product);
+    expect(breakdown.criteria[0]?.outcome).toBe("missed");
+    expect(isRelevant(breakdown)).toBe(false);
+  });
+
+  it("a lone standards prefix can NEVER qualify this way (the 2026-08-22 defect)", () => {
+    // "ISO 8573-1" carries exactly one word, "iso". Partial credit needs two,
+    // precisely so a certification cannot ride in on its prefix.
+    const certified = makeSupplier({ description: "Fabricant certifié ISO 9001" });
+    const asPrimary = makeCriterion({
+      category: "certification",
+      value: "ISO 8573-1",
+      isPrimary: true,
+    });
+    expect(outcome(certified, asPrimary)).toBe("missed");
+  });
+
+  it("only the PRIMARY row may go partial — a spec row stays strict", () => {
+    const supplier = makeSupplier({ description: "Vannes en acier inoxydable 304" });
+    const spec = makeCriterion({ category: "material", value: "acier inoxydable 316L" });
+    expect(outcome(supplier, spec)).toBe("missed");
+    expect(outcome(supplier, { ...spec, isPrimary: true })).toBe("partial");
+  });
+});
+
 // ── The pool answers in either language (2026-08-29) ────────────────────────
 // Descriptions are written in the language of the request that discovered the
 // company. Without the English text beside it, a pool built by French buyers

@@ -1339,6 +1339,38 @@ the capability/certification satellite tables exist.
 > "ISO 9001" excluded all five ISO-9001-certified pool suppliers (heat
 > exchangers, bearings, pumps) and returned five belt manufacturers.
 
+> ✅ **A GRADE CODE RANKS THE TOP-N, IT DOES NOT EMPTY IT** (owner
+> 2026-10-11, after prod request 3026). The digit-token rule above — every
+> numeric token must be present — is right for a certification and wrong for a
+> product grade. A buyer asking for "PVC Paste Resin PSH25" was handed nothing
+> at all, even though the research agent had just found nine PVC paste resin
+> makers including **Kaneka, who make that exact grade**: they write it
+> "PSH-25", the hyphen split it into two tokens, and the gate rejected every
+> candidate.
+>
+> Two things changed, and a third did not:
+>
+> - **The haystack is normalised, the needle is not.** `haystackTokens` adds
+>   the separator-collapsed form of every run in a supplier's text, so
+>   "PSH-25" also answers to `psh25`. The criterion stays exactly as the buyer
+>   wrote it — widening both sides would inflate the ratio denominator and
+>   require a supplier to carry both `8573` and `85731`, trading a false
+>   positive for a false negative. It also keeps `criteriaSearchTokens`, the
+>   C2b SQL prefilter, in step with the scorer: same vocabulary, same side.
+> - **A missing grade is a `partial`, not a miss — on the PRIMARY row only.**
+>   The supplier makes the product but does not quote that grade, so they are
+>   an alternative: eligible, and scored at `PARTIAL_CREDIT` (half) so an
+>   exact grade always outranks them. Guarded by a minimum of two non-numeric
+>   words, which is precisely why a certification can never qualify this way:
+>   "ISO 8573-1" carries one word, "iso". Spec rows (material, certification)
+>   stay strict.
+> - **The gate itself did not move.** A supplier evidencing nothing the buyer
+>   asked for is still excluded.
+>
+> *Replayed on the real request:* nine eligible, Kaneka first at 75 % on an
+> exact match, the other eight at 48 % as alternatives. Before: zero, and a
+> crash (see the backlog entry).
+
 ---
 
 ## 2b · From the report to a delivered order (Phase P)

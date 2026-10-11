@@ -21,7 +21,7 @@ import { db } from "@/database";
 import * as schema from "@/database/schema";
 // Tokenization lives in the shared lib (C2b): the SQL prefilter in
 // sources/scope.ts must use the exact same vocabulary as this scorer.
-import { tokens } from "@/lib/match-tokens";
+import { haystackTokens, tokens } from "@/lib/match-tokens";
 import { recordEvent } from "@/server/requests";
 import { SUPPLIERS_RETURNED } from "@/server/sourcing-config";
 import { eligibleCandidates, resolveScope, type MatchCandidate } from "@/server/sources/scope";
@@ -37,6 +37,10 @@ const VERIFICATION_POINTS = { verified: 12, pending: 5, unverified: 0, rejected:
 const RISK_PENALTY = { low: 0, medium: 4, high: 10 } as const;
 /** A required criterion counts double — missing one is a real disqualifier. */
 const REQUIRED_MULTIPLIER = 2;
+/** What a PARTIAL match earns: the supplier makes the product but does not
+ *  quote the exact grade the buyer named. Half, so an exact grade always
+ *  outranks an alternative without excluding the alternative. */
+const PARTIAL_CREDIT = 0.5;
 
 /** Categories whose values are numeric specs. A supplier's marketing text will
  *  not state "16 bar", so absence proves nothing — see the header note. */
@@ -47,8 +51,10 @@ export type CriterionScore = {
   value: string;
   category: string;
   required: boolean;
-  /** matched | missed | unverifiable — unverifiable never counts against. */
-  outcome: "matched" | "missed" | "unverifiable";
+  /** matched | partial | missed | unverifiable. `partial` exists only on the
+   *  PRIMARY row: the product words match but a grade code does not. Never
+   *  counts against; earns PARTIAL_CREDIT rather than full. */
+  outcome: "matched" | "partial" | "missed" | "unverifiable";
 };
 
 export type ScoreBreakdown = {
@@ -64,6 +70,8 @@ export type ScoreBreakdown = {
   checkableCount: number;
   /** How many of those the supplier's own text actually evidences. */
   matchedCount: number;
+  /** Primary rows matched on the product words but not the grade code. */
+  partialCount: number;
   /** Did the PRODUCT criterion match? null when the request has no checkable
    *  primary row (legacy free-text intake, or a numeric-only product). */
   primaryMatched: boolean | null;
@@ -103,25 +111,50 @@ function searchableText(supplier: Scoreable): string {
     .join(" ");
 }
 
+/** full = everything the criterion asks for · partial = the product words but
+ *  not the grade code (primary row only) · none = not evidenced. */
+type MatchStrength = "full" | "partial" | "none";
+
 /**
- * Does the supplier's text evidence this criterion?
+ * How well does the supplier's text evidence this criterion?
  *
  * Ratio rather than exact substring: "acier inoxydable 316L" should match a
  * description saying "échangeurs à plaques en acier inoxydable 316L", and a
  * certification list "ISO 9001, ATEX" should match on either.
  */
-function matchesValue(supplierTokens: Set<string>, value: string): boolean {
+function matchStrength(
+  supplierTokens: Set<string>,
+  value: string,
+  /** Only the PRIMARY row may come back `partial` — see below. */
+  allowPartial: boolean,
+): MatchStrength {
   const wanted = tokens(value);
-  if (wanted.length === 0) return false;
+  if (wanted.length === 0) return "none";
   // Tokens carrying a digit are the discriminating half of a spec: "ISO 9001"
   // and "ISO 8573" differ only in the number, and a ratio that ignores it
   // matches the wrong certification (A8 field evidence, 2026-08-22: a
   // compressor request store-hit off valve suppliers through the shared
   // "iso"). Every numeric token must hit; the 0.5 ratio covers the words.
   const strong = wanted.filter((token) => /\d/.test(token));
-  if (strong.some((token) => !supplierTokens.has(token))) return false;
+  const missingStrong = strong.some((token) => !supplierTokens.has(token));
   const hits = wanted.filter((token) => supplierTokens.has(token)).length;
-  return hits / wanted.length >= 0.5;
+  if (!missingStrong) return hits / wanted.length >= 0.5 ? "full" : "none";
+  if (!allowPartial) return "none";
+
+  // ── The grade code is a preference, not a disqualifier (owner 2026-10-11) ──
+  // A buyer asking for "PVC Paste Resin PSH25" wants that grade, and will also
+  // look at the nine other houses that make PVC paste resin. Returning only
+  // the one exact maker — or, before this, returning NOTHING — is not what a
+  // sourcing agent does.
+  //
+  // The guard that keeps this from reopening the 2026-08-22 defect: the words
+  // AROUND the code must carry signal of their own, and there must be at least
+  // two of them. "ISO 8573-1" has exactly one word, "iso", which is why a
+  // certification can never qualify this way; "PVC paste resin" has three.
+  const words = wanted.filter((token) => !/\d/.test(token));
+  if (words.length < 2) return "none";
+  const wordHits = words.filter((token) => supplierTokens.has(token)).length;
+  return wordHits / words.length >= 0.5 ? "partial" : "none";
 }
 
 /**
@@ -138,13 +171,17 @@ function matchesValue(supplierTokens: Set<string>, value: string): boolean {
  * two ways, so this widens reach without loosening what counts as a match:
  * the tokens still have to be there.
  */
-function criterionMatches(supplierTokens: Set<string>, criterion: CriterionRow): boolean {
-  if (matchesValue(supplierTokens, criterion.value)) return true;
-  return criterion.valueEn ? matchesValue(supplierTokens, criterion.valueEn) : false;
+function criterionStrength(supplierTokens: Set<string>, criterion: CriterionRow): MatchStrength {
+  const native = matchStrength(supplierTokens, criterion.value, criterion.isPrimary);
+  if (native === "full" || !criterion.valueEn) return native;
+  const english = matchStrength(supplierTokens, criterion.valueEn, criterion.isPrimary);
+  // Best of the two forms: either is the buyer's own requirement said twice.
+  if (english === "full") return "full";
+  return native === "partial" || english === "partial" ? "partial" : "none";
 }
 
 export function scoreSupplier(supplier: Scoreable, criteria: CriterionRow[]): ScoreBreakdown {
-  const supplierTokens = new Set(tokens(searchableText(supplier)));
+  const supplierTokens = new Set(haystackTokens(searchableText(supplier)));
 
   const scored: CriterionScore[] = criteria.map((criterion) => {
     const shared = {
@@ -156,19 +193,26 @@ export function scoreSupplier(supplier: Scoreable, criteria: CriterionRow[]): Sc
     if (UNVERIFIABLE_CATEGORIES.has(criterion.category)) {
       return { ...shared, outcome: "unverifiable" as const };
     }
+    const strength = criterionStrength(supplierTokens, criterion);
     return {
       ...shared,
-      outcome: criterionMatches(supplierTokens, criterion)
-        ? ("matched" as const)
-        : ("missed" as const),
+      outcome:
+        strength === "full"
+          ? ("matched" as const)
+          : strength === "partial"
+            ? ("partial" as const)
+            : ("missed" as const),
     };
   });
 
   const weighed = scored.filter((c) => c.outcome !== "unverifiable");
   const totalWeight = weighed.reduce((sum, c) => sum + (c.required ? REQUIRED_MULTIPLIER : 1), 0);
-  const earned = weighed
-    .filter((c) => c.outcome === "matched")
-    .reduce((sum, c) => sum + (c.required ? REQUIRED_MULTIPLIER : 1), 0);
+  const earned = weighed.reduce((sum, c) => {
+    const weight = c.required ? REQUIRED_MULTIPLIER : 1;
+    if (c.outcome === "matched") return sum + weight;
+    if (c.outcome === "partial") return sum + weight * PARTIAL_CREDIT;
+    return sum;
+  }, 0);
 
   // Nothing checkable (no criteria, or all numeric): fall back to the midpoint
   // rather than zero, so an unscoreable request still ranks on the other signals.
@@ -176,13 +220,16 @@ export function scoreSupplier(supplier: Scoreable, criteria: CriterionRow[]): Sc
 
   const criteriaPoints = Math.round(CRITERIA_WEIGHT * coverage);
   const matchedCount = weighed.filter((c) => c.outcome === "matched").length;
+  const partialCount = weighed.filter((c) => c.outcome === "partial").length;
   // The product row, when the request has one and it is checkable at all.
   const primary = criteria.findIndex((c) => c.isPrimary);
   const primaryOutcome = primary >= 0 ? scored[primary]?.outcome : undefined;
+  // A partial primary IS relevant — it is an alternative to the exact grade,
+  // and it scores lower rather than being excluded.
   const primaryMatched =
     primaryOutcome === undefined || primaryOutcome === "unverifiable"
       ? null
-      : primaryOutcome === "matched";
+      : primaryOutcome === "matched" || primaryOutcome === "partial";
   const confidencePoints = Math.round((supplier.confidenceScore / 100) * CONFIDENCE_WEIGHT);
   const verificationPoints = VERIFICATION_POINTS[supplier.verificationStatus] ?? 0;
   const riskPenalty = RISK_PENALTY[supplier.riskLevel] ?? 0;
@@ -202,6 +249,7 @@ export function scoreSupplier(supplier: Scoreable, criteria: CriterionRow[]): Sc
     total,
     checkableCount: weighed.length,
     matchedCount,
+    partialCount,
     primaryMatched,
   };
 }
@@ -357,19 +405,26 @@ export async function createMatchesForRequest(
   const placed = ranked.filter((entry) => supplierIds.has(entry.candidate.dedupKey));
 
   await db.delete(schema.match).where(eq(schema.match.requestId, requestId));
-  await db.insert(schema.match).values(
-    placed.map((entry, index) => ({
-      id: `${requestId}-match-${supplierIds.get(entry.candidate.dedupKey)!}`,
-      requestId,
-      supplierId: supplierIds.get(entry.candidate.dedupKey)!,
-      rank: index + 1,
-      compatibilityScore: entry.breakdown.total,
-      confidenceScore: entry.candidate.confidenceScore,
-      riskLevel: entry.candidate.riskLevel,
-      status: "presented" as const,
-      scoreBreakdown: entry.breakdown,
-    })),
-  );
+  // An empty Top-N is a legitimate outcome, not an error: the gate presents
+  // fewer than N rather than padding, and it may present none. Drizzle throws
+  // on an empty VALUES, which is how prod request 3026 crash-looped in
+  // `searching` for 90 minutes (2026-10-11) — the sweep re-adopted it every
+  // 60 s and the same insert threw every time. Writing no rows is the answer.
+  if (placed.length > 0) {
+    await db.insert(schema.match).values(
+      placed.map((entry, index) => ({
+        id: `${requestId}-match-${supplierIds.get(entry.candidate.dedupKey)!}`,
+        requestId,
+        supplierId: supplierIds.get(entry.candidate.dedupKey)!,
+        rank: index + 1,
+        compatibilityScore: entry.breakdown.total,
+        confidenceScore: entry.candidate.confidenceScore,
+        riskLevel: entry.candidate.riskLevel,
+        status: "presented" as const,
+        scoreBreakdown: entry.breakdown,
+      })),
+    );
+  }
 
   const top = placed[0];
   await db

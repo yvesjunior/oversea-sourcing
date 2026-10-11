@@ -17,7 +17,7 @@
 | **E12** Plans & quotas | Full ladder, seats, trial cap, Abonnements | 🟡 **soumissions gated by plan (2026-09-14, migration 0044)**; billing provider open |
 | **E3** Request core loop | Pipeline, criteria, attachments, dossier | ✅ done |
 | **E4** Supplier data | **Web research**, dedup, directory, sources admin | 🟡 **ADR-001 pivot (2026-08-26) → Phase S**; directory is staff-only and buyers see what they are LINKED to (2026-08-29); import/merge open |
-| **E5** Matching & scoring | Criteria-aware v1 + breakdown | 🟡 the "32 criteria" + comparison view open |
+| **E5** Matching & scoring | Criteria-aware v1 + breakdown | 🟡 **a grade code now ranks rather than gates (2026-10-11, prod 3026)**; the "32 criteria" + comparison view open |
 | **E6** Facilitation | ~~Engagements~~ → **soumissions → dossier de transaction → contrats** | 🟡 **P1-P6 LIVE on prod** (P1-P5 2026-08-29, P6 signatures deploy #26) per [ADR-001 Part II](README.md#adr-001-part-ii); **P7 commandes is next**; old task list RETIRED |
 | **E7** Reports | Printable report + PDF export | 🟡 the `document` table exists since 2026-09-12 (P8 slice 1) — the stored PDF report itself is still open |
 | **E8** Transactions | Milestones, tracking, paiements | 🔵 **folded into Phase P** by ADR-002 (the `deal` spine); standalone sketch retired |
@@ -1707,6 +1707,65 @@ writing any code.
 
 Quality gates are `npm test` (vitest, 355 unit tests as of 2026-09-13),
 `npx tsc --noEmit` and `npx eslint src/` — all clean as of this commit.
+
+### An empty Top-N crashed the worker — ✅ FIXED 2026-10-11 (prod 3026)
+
+**A buyer's request sat on "Recherche mondiale" for 90 minutes** while the
+worker crash-looped behind it. Reported by the owner; nothing in the product
+said anything was wrong.
+
+**What actually happened.** The research pass was a complete success: three
+queries, 23 seconds, nine PVC paste resin manufacturers stored. The pipeline
+then picked the request up to rank them and threw:
+
+```
+pipeline: job … FAILED — Error: values() must be called with at least one value
+    at createMatchesForRequest (/app/src/server/matching.ts:360:33)
+```
+
+and went on throwing it every 60 s, because the stranded-request sweep is
+designed to re-adopt exactly this state. Each retry was free — `already_ran`
+skips research — so no money burned, but the dossier never moved.
+
+**Two defects, one visible.**
+
+1. **The crash.** `createMatchesForRequest` guards `candidates.length === 0`
+   and then inserts `placed` without checking that anything survived the
+   relevance gate. The gate is *designed* to empty the set — "presents fewer
+   than N rather than padding" — and Drizzle throws on an empty `VALUES`. The
+   guard now skips the insert; `matches.created {count: 0}` is still recorded
+   and the request completes honestly.
+2. **Why the set emptied**, which is the one that mattered to the buyer. The
+   primary criterion was "PVC Paste Resin PSH25". Every digit-bearing token
+   must be present (the 2026-08-22 rule that stops "ISO 9001" satisfying
+   "ISO 8573-1"), `psh25` is one such token, and **Kaneka — who actually make
+   that grade — write it "PSH-25"**. The hyphen split it into `psh` + `25`,
+   so the exact manufacturer was discovered and then discarded, along with
+   eight other genuine PVC paste resin houses.
+
+**The fix** (owner's call, 2026-10-11: give the buyer all nine with the exact
+maker on top). See README → §2 Scoring for the rules. In short: supplier text
+is tokenized with separators collapsed as well as split (`haystackTokens`),
+the criterion is not; and on the **primary row only**, a missing grade code
+yields `partial` — eligible, at half credit — provided at least two
+non-numeric words match, which is what keeps a lone "iso" from ever
+qualifying.
+
+**Verified three ways**, because unit tests cannot reach an empty SQL insert:
+
+- 6 new tests in `matching.test.ts` (367 total), including the 2026-08-22
+  regression re-asserted with the primary flag set.
+- **The real pipeline in dev:** a request whose pool could not match it went
+  `searching → matches.created {count:0, analyzed:16} → validating →
+  report_ready` with no exception, where before it crash-looped.
+- **The real request replayed** against the patched scorer: 9 of 9 eligible,
+  Kaneka first at 75 % (`matched`), the other eight at 48 % (`partial`).
+  An ordinary request re-matched to the identical Top-5 at identical scores,
+  so the normal path did not move.
+
+**Worth knowing:** `score_breakdown` now carries `partial` as an outcome and a
+`partialCount`. Nothing renders it — checked — so the new enum value reaches
+no `t()` call and cannot become the fifth missing-i18n-key bug.
 
 ### A research pass that never searched — ✅ FIXED 2026-09-07
 
