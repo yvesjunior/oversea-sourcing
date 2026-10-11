@@ -2010,7 +2010,14 @@ unless asked: `./scripts/addons.sh [--remote] <profile>`.
   honeypot field, disposable-domain and plus-addressing blocks
   ([`src/lib/signup-guard.ts`](src/lib/signup-guard.ts)). Real client IP resolved
   from `cf-connecting-ip` behind the tunnel
-- ✅ Nightly `pg_dump`; restore drills via `scripts/restore.sh`
+- ❗ **Backups are MANUAL.** `./scripts/backup.sh` dumps the database and the
+  uploads to `./backups/` on the operator's laptop, and it only runs when
+  someone runs it — in practice, just before a deploy. **There is no
+  schedule**: verified on the VM 2026-10-11, `crontab -l` is empty for
+  `yves`, no `/etc/cron.d` entry and no systemd timer mentions osi. This
+  line claimed a nightly `pg_dump` for weeks and no such job ever existed;
+  the exposure is every hour of writes since the last manual run. Restore
+  drills via `scripts/restore.sh` (itself never yet rehearsed on prod data)
 - ✅ **Rate-limit counters live in Redis** (2026-08-22) — `redis` is a
   first-class service in both stacks (`REDIS_URL` defaults to it in compose);
   counters are shared across replicas (`src/server/kv.ts`, **fail-open**;

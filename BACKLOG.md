@@ -252,7 +252,7 @@ deploy failed mid-session and prod was rolled back; see #24.
 | 23 | `5b90649` | — | **the platform workspace can no longer be deleted** — the org-plugin's own `POST /organization/delete` bypassed `destroyWorkspace`; guard moved into a `beforeDeleteOrganization` hook |
 | 24 | `95b825a` | — | **filters on all four ops lists** (multi-account + week/month/year/custom period) · **the global supplier directory is staff-only** · the DB cleared for fresh testing. *First attempt (`77d37b0`) took prod down — see the chunk-cycle note* |
 | 25 | `b7481d6` | — | **"linked supplier" widened to four traces** (matched · quoted · dealt · contract party) · **a session opens in your PERSONAL workspace** when you have one · the discovery store cleared for a cold research test |
-| — | *(uncommitted)* | — | **quotes expire** — one month by default, staff set the date when recording; expiry derived at read time; an expired offer cannot be accepted, and the buyer re-asks the supplier from the dossier · **the bell's badge is red** |
+| 41 | `73ab858` | — | **a grade code ranks the Top-N instead of emptying it** — prod request 3026 crash-looped in `searching` for 90 min; `haystackTokens` collapses separators on the supplier side, a missing grade is a half-credit `partial` on the primary row only, and an empty Top-N no longer throws. On deploy the sweep re-adopted 3026 and it ranked **Kaneka first at 75 % (`matched`)**, four alternatives at 48 % (`partial`) · **quotes expire** — one month by default, staff set the date when recording, expiry derived at read time, an expired offer cannot be accepted and the buyer re-asks from the dossier · **the bell's badge is red** · README's nightly-`pg_dump` claim corrected: backups are manual |
 | 40 | `8f40d1e` | — | **the bell alerts** — count badge on the icon and in the tab title, 30 s poll of the unread count while the tab is visible, WebAudio chime when it rises, per-browser mute switch in the menu (owner request, 2026-09-14) |
 | 39 | `52cf854` | 0044 | **soumissions need a paid plan** (`plan.quotes_enabled`; free and org_trial refuse, the dossier and the Abonnement panel say why, Abonnements has the switch) · **all documentation at the repo root**, the ADR folded into the README, `doc/` gone · four owner requests recorded for later |
 | 38 | `bcbd99d` | — | **retention windows settled**: a loose document keeps **36 months** after losing its request and quote; an archived workspace keeps **6 years**. The recovery screen shows the customer a date, not a duration |
@@ -1767,6 +1767,40 @@ qualifying.
 **Worth knowing:** `score_breakdown` now carries `partial` as an outcome and a
 `partialCount`. Nothing renders it — checked — so the new enum value reaches
 no `t()` call and cannot become the fifth missing-i18n-key bug.
+
+### Two things deploy #41 uncovered — ❗ BOTH OPEN (2026-10-11)
+
+Neither was caused by the matcher fix; both were found while verifying it.
+
+**1 · Outbound mail is DOWN — SendGrid is out of credits.** The moment
+request 3026 finally reached `report_ready`, the notification failed:
+
+```
+mail: SendGrid refused (401) — {"errors":[{"message":"Maximum credits exceeded"}]}
+```
+
+The buyer waited 90 minutes and then was never told the report was ready.
+The in-app bell did show it — which is exactly the redundancy the bell was
+built for — but email is the channel that reaches someone who is not
+looking at the tab. **Scope is unmeasured:** the app containers had just
+restarted, so their logs begin at the restart and the one refusal above is
+the only mail attempt they have seen. Every earlier attempt is gone with
+the previous containers. The free tier's quota is the suspected cause, not
+a credential fault: 401 with that body is SendGrid's out-of-credits
+answer, not a bad key. Decide whether to pay, switch provider, or accept
+in-app-only notification — and until then **assume no transactional email
+is being delivered**, including password resets and signature invitations.
+
+**2 · Nine suppliers passed the gate; the buyer sees five.** The fix
+restored all nine PVC paste resin makers to eligibility, and `TOP_N` —
+`SUPPLIERS_RETURNED`, default 5, overridable per plan via
+`plan.suppliers_returned` — then presented the top five. That is the
+designed behaviour, and worth stating plainly because it is not what
+"give them nine" sounds like: the fix changed nine candidates from
+*discarded* to *ranked*, and the plan decides how many of those a buyer
+actually receives. Raising the number is a plan setting, not a code
+change. Open question: whether the dossier should say "5 of 9 shown"
+rather than leaving the buyer to assume five is all there was.
 
 ### A research pass that never searched — ✅ FIXED 2026-09-07
 
