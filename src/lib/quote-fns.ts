@@ -12,6 +12,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { QUOTE_DECLINE_REASONS, type QuoteDeclineReason } from "@/database/schema";
 import { z } from "zod";
+import { isQuoteExpired } from "@/lib/deal-status";
 import type { QuoteStatus } from "@/database/schema";
 
 export type QuoteView = {
@@ -42,6 +43,13 @@ export type QuoteView = {
   sentAt: string | null;
   /** Why the offer is out of the running. Only set when status is `declined`. */
   declineReason: QuoteDeclineReason | null;
+  /** Until when the offer stands (owner 2026-09-14: one month by default,
+   *  staff may set another date). Null on rows recorded before the rule. */
+  validUntil: string | null;
+  /** DERIVED at read time: a received offer whose `validUntil` has passed.
+   *  The buyer may ask that supplier again from the same request; nobody may
+   *  accept or correct it. */
+  expired: boolean;
   /** Hours between the ask and the answer; null until they answer. The
    *  supplier-responsiveness signal, computed rather than stored. */
   responseHours: number | null;
@@ -102,6 +110,8 @@ function toView(
     requestedAt: quote.requestedAt.toISOString(),
     sentAt: quote.sentAt ? quote.sentAt.toISOString() : null,
     declineReason: quote.declineReason ?? null,
+    validUntil: quote.validUntil ? quote.validUntil.toISOString() : null,
+    expired: isQuoteExpired(quote),
     respondedAt: responded ? responded.toISOString() : null,
     // Measured from when OSI actually SENT the request, not from when the
     // buyer asked for it — the gap between those two is ours, not the
@@ -227,9 +237,14 @@ export const requestQuotesFn = createServerFn({ method: "POST" })
     }
 
     const fresh = matches.filter((m) => !bySupplier.has(m.supplierId));
-    const reopenable = existing.filter((q) => q.status === "declined" || q.status === "expired");
-    // requested / received: already in flight or already answered. Skipped,
-    // and COUNTED, because "nothing happened" needs a reason on screen.
+    // Reopenable: declined, expired, or RECEIVED but past its validity (owner
+    // 2026-09-14) — an offer that ran out is not an answer we still hold.
+    // Still requested, or received and still valid: skipped, and COUNTED,
+    // because "nothing happened" needs a reason on screen.
+    const now = new Date();
+    const reopenable = existing.filter(
+      (q) => q.status === "declined" || q.status === "expired" || isQuoteExpired(q, now),
+    );
     const skipped = existing.length - reopenable.length;
 
     const inserted =
@@ -253,14 +268,25 @@ export const requestQuotesFn = createServerFn({ method: "POST" })
 
     const { transitionQuote } = await import("@/server/deals");
     for (const quote of reopenable) {
+      // An offer that expired on the clock is still `received` in the row;
+      // write the expiry first so the machine's path (received → expired →
+      // requested) is what the history shows, rather than a jump it forbids.
+      let from = quote.status;
+      if (from === "received") {
+        await transitionQuote(quote.id, "received", "expired");
+        from = "expired";
+      }
       // A fresh solicitation, so the clocks start again: the previous
-      // decline reason, send stamp and answer belong to the round that
-      // ended, and leaving them would make the new response time nonsense.
-      await transitionQuote(quote.id, quote.status, "requested", {
+      // decline reason, send stamp, answer and validity belong to the round
+      // that ended, and leaving them would make the new response time
+      // nonsense. The old figures stay on the row as a starting point for
+      // whoever keys in the new offer.
+      await transitionQuote(quote.id, from, "requested", {
         declineReason: null,
         sentAt: null,
         sentBy: null,
         respondedAt: null,
+        validUntil: null,
         requestedAt: new Date(),
         requestedBy: caller.userId,
       });
@@ -495,6 +521,9 @@ export const recordQuoteFn = createServerFn({ method: "POST" })
       incoterm: z.string().trim().max(20).nullable().optional(),
       paymentTerms: z.string().trim().max(200).nullable().optional(),
       notes: z.string().trim().max(2000).nullable().optional(),
+      /** Until when the offer stands — ISO timestamp. Absent or null = one
+       *  calendar month from the answer (owner 2026-09-14). */
+      validUntil: z.string().datetime({ offset: true }).nullable().optional(),
     }),
   )
   .handler(async ({ data }): Promise<{ ok: boolean; reason?: string }> => {
@@ -518,9 +547,18 @@ export const recordQuoteFn = createServerFn({ method: "POST" })
     const quote = await db.query.quote.findFirst({ where: eq(schema.quote.id, data.quoteId) });
     if (!quote) return { ok: false, reason: "not_found" };
 
-    const { offerEntryMode } = await import("@/lib/deal-status");
-    const mode = offerEntryMode(quote.status);
+    const { offerEntryMode, effectiveQuoteStatus, defaultQuoteValidUntil } =
+      await import("@/lib/deal-status");
+    // The EFFECTIVE status: an offer past its validity is frozen like a
+    // declined one — the buyer asks again, staff record the new answer.
+    const mode = offerEntryMode(effectiveQuoteStatus(quote));
     if (mode === null) return { ok: false, reason: "frozen" };
+
+    // A validity date in the past is not an offer anyone can accept.
+    const explicitValidUntil = data.validUntil ? new Date(data.validUntil) : null;
+    if (explicitValidUntil && explicitValidUntil.getTime() <= Date.now()) {
+      return { ok: false, reason: "validity_past" };
+    }
 
     // A CORRECTION IS NOT A TRANSITION. Driving the state machine for both is
     // what made a mistyped price permanent: the second call was
@@ -537,6 +575,7 @@ export const recordQuoteFn = createServerFn({ method: "POST" })
         incoterm: quote.incoterm,
         paymentTerms: quote.paymentTerms,
         notes: quote.notes,
+        validUntil: quote.validUntil,
       };
       const after = {
         amountCents: data.amountCents ?? null,
@@ -547,10 +586,17 @@ export const recordQuoteFn = createServerFn({ method: "POST" })
         incoterm: data.incoterm ?? null,
         paymentTerms: data.paymentTerms ?? null,
         notes: data.notes ?? null,
+        // A correction may extend (or shorten) the validity; left blank it
+        // keeps what the row already holds rather than resetting the default.
+        validUntil: explicitValidUntil ?? quote.validUntil,
       };
       for (const [key, value] of Object.entries(after)) {
         const was = before[key as keyof typeof before];
-        if (was !== value) changed[key] = { from: was, to: value };
+        const same =
+          was instanceof Date && value instanceof Date
+            ? was.getTime() === value.getTime()
+            : was === value;
+        if (!same) changed[key] = { from: was, to: value };
       }
       if (Object.keys(changed).length === 0) return { ok: true };
 
@@ -591,6 +637,9 @@ export const recordQuoteFn = createServerFn({ method: "POST" })
         notes: data.notes ?? null,
         // Only stamp the answer time once — a correction is not a new answer.
         respondedAt: quote.respondedAt ?? new Date(),
+        // Validity (owner 2026-09-14): what staff typed, else one month from
+        // the answer. Always written, so every recorded offer carries a date.
+        validUntil: explicitValidUntil ?? defaultQuoteValidUntil(quote.respondedAt ?? new Date()),
         recordedBy: session.user.id,
       });
     } catch (error) {
@@ -775,7 +824,10 @@ export const acceptQuoteFn = createServerFn({ method: "POST" })
       data,
     }): Promise<
       | { ok: true; dealId: string }
-      | { ok: false; reason: "forbidden" | "not_found" | "not_received" | "already_accepted" }
+      | {
+          ok: false;
+          reason: "forbidden" | "not_found" | "not_received" | "expired" | "already_accepted";
+        }
     > => {
       const [{ requireWorkspaceRole }, { getRequest }, { db }, { and, eq, ne }, schema] =
         await Promise.all([
@@ -798,6 +850,9 @@ export const acceptQuoteFn = createServerFn({ method: "POST" })
       if (!quote) return { ok: false, reason: "not_found" };
       // You cannot accept an offer that never arrived.
       if (quote.status !== "received") return { ok: false, reason: "not_received" };
+      // Nor one whose validity has run out (owner 2026-09-14): ask the supplier
+      // again from the request instead — the price may no longer stand.
+      if (isQuoteExpired(quote)) return { ok: false, reason: "expired" };
 
       const request = await db.query.request.findFirst({
         where: eq(schema.request.id, quote.requestId),

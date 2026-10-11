@@ -883,7 +883,14 @@
         Two repairs since (2026-09-12): a recorded price can be <strong>corrected</strong> while
         the quote is still <code>received</code> — a correction is not a transition — and a
         supplier who declined or never answered can be <strong>asked again</strong>, with that
-        round's clocks reset. An answer already held is never thrown away.
+        round's clocks reset. An answer already held is never thrown away — until it expires.
+      </p>
+      <p>
+        <strong>An offer is valid for one month by default</strong> (owner, 2026-09-14). Staff
+        may set another date when they record it; the date is stored because the supplier
+        stated it, and whether it has <em>expired</em> is derived at read time — the same rule
+        contracts follow. An expired offer cannot be accepted or corrected; the buyer asks that
+        supplier again from the request, and the row's history shows when the validity ran out.
       </p>
     </div>
   </section>

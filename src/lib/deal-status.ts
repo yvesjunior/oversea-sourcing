@@ -11,7 +11,9 @@ import type { ContractStatus, DealStatus, QuoteStatus } from "@/database/schema"
 // received  → staff keyed in what came back
 // accepted  → the buyer chose THIS one; the deal opens
 // declined  → the supplier said no, or the buyer chose another
-// expired   → the offer's validity ran out
+// expired   → the offer's validity ran out (owner 2026-09-14: one month by
+//             default, staff may set another date when they record the offer;
+//             an expired offer can be asked for again from the same request)
 
 export const QUOTE_TRANSITIONS: Record<QuoteStatus, readonly QuoteStatus[]> = {
   requested: ["received", "declined", "expired"],
@@ -59,6 +61,50 @@ export function offerEntryMode(status: QuoteStatus): "record" | "correct" | null
 /** A quote can only be compared once it holds an answer. */
 export function isComparable(status: QuoteStatus): boolean {
   return status === "received" || status === "accepted";
+}
+
+// ── Validity ────────────────────────────────────────────────────────────────
+// Owner, 2026-09-14: "a quote is valid for 1 month by default (if not set);
+// when staff respond to a quote they can specify the time a quote is valid,
+// so if a quote expires the buyer can request the quote again."
+//
+// `valid_until` is STORED — it is a fact the supplier stated (or the default
+// staff accepted) at the moment the offer was recorded. Whether the offer has
+// EXPIRED is DERIVED at read time from that date, never a cron and never a
+// stored flag — the same rule contracts follow below. The `expired` status is
+// written only at the moment something acts on the expiry (the buyer asks
+// again), so the row's history says when that happened.
+
+/** Default validity when staff record an offer without a date: one calendar
+ *  month from the answer. A month, not 30 days, because that is how the
+ *  supplier's email will have put it. */
+export function defaultQuoteValidUntil(respondedAt: Date): Date {
+  const until = new Date(respondedAt);
+  until.setMonth(until.getMonth() + 1);
+  return until;
+}
+
+/** Has this offer's validity run out? Only a RECEIVED offer can expire on the
+ *  clock: a request still awaiting an answer has no validity yet, and an
+ *  accepted one is a deal. A stored `expired` status is expired by
+ *  definition. */
+export function isQuoteExpired(
+  quote: { status: QuoteStatus; validUntil: Date | null },
+  now: Date = new Date(),
+): boolean {
+  if (quote.status === "expired") return true;
+  if (quote.status !== "received") return false;
+  return quote.validUntil !== null && quote.validUntil.getTime() < now.getTime();
+}
+
+/** The status a reader should act on: `expired` once the validity has run
+ *  out, whatever the row still says. Feed THIS to offerEntryMode and
+ *  isComparable, not the raw column. */
+export function effectiveQuoteStatus(
+  quote: { status: QuoteStatus; validUntil: Date | null },
+  now: Date = new Date(),
+): QuoteStatus {
+  return isQuoteExpired(quote, now) ? "expired" : quote.status;
 }
 
 // ── Dossier de transaction ──────────────────────────────────────────────────

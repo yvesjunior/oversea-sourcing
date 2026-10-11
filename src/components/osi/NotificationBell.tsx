@@ -4,8 +4,10 @@
 //
 // Three things it does that it did not before:
 //
-//   1. A pinned COUNT on the icon instead of a dot, and the same count as a
-//      prefix on the tab title — a backgrounded tab still shows it.
+//   1. A pinned COUNT on the icon instead of a dot — RED, because the gold
+//      accent is everywhere else and an alert must be the one thing that is
+//      not — and the same count as a prefix on the tab title, so a
+//      backgrounded tab still shows it.
 //   2. It POLLS the unread count every 30 s while the tab is visible, and
 //      refetches the moment the tab comes back to the foreground. Until now
 //      it loaded once on mount, so a buyer learnt of a notification only by
@@ -202,7 +204,10 @@ export function NotificationBell() {
         {data.unread > 0 && (
           <span
             aria-hidden="true"
-            className="absolute -right-2 -top-2 grid h-4 min-w-4 place-items-center rounded-full bg-gold px-1 text-[10px] font-semibold leading-none text-gold-foreground tabular-nums shadow-gold"
+            // Red, not gold (owner 2026-09-14: "should be red to attract
+            // attention") — the accent is everywhere on this page; an alert
+            // has to be the one thing that is not.
+            className="absolute -right-2 -top-2 grid h-4 min-w-4 place-items-center rounded-full bg-destructive px-1 text-[10px] font-semibold leading-none text-destructive-foreground tabular-nums"
           >
             {badge}
           </span>

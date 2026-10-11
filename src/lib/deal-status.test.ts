@@ -10,6 +10,9 @@ import {
   awaitsBuyerReview,
   awaitsStaffClosure,
   offerEntryMode,
+  defaultQuoteValidUntil,
+  isQuoteExpired,
+  effectiveQuoteStatus,
 } from "@/lib/deal-status";
 
 const party = (required: boolean, signatureStatus: string) => ({ required, signatureStatus });
@@ -29,6 +32,44 @@ describe("quote transitions", () => {
     // request. The DB enforces one accepted quote per request too.
     expect(canTransitionQuote("accepted", "declined")).toBe(false);
     expect(canTransitionQuote("accepted", "received")).toBe(false);
+  });
+});
+
+describe("quote validity — one month by default, expiry derived at read time", () => {
+  const day = (iso: string) => new Date(iso);
+
+  it("defaults to one calendar month after the answer", () => {
+    expect(defaultQuoteValidUntil(day("2026-09-14T15:00:00Z")).toISOString()).toBe(
+      "2026-10-14T15:00:00.000Z",
+    );
+  });
+
+  it("a received offer past its date is expired; before it, it is not", () => {
+    const quote = { status: "received" as const, validUntil: day("2026-10-14T00:00:00Z") };
+    expect(isQuoteExpired(quote, day("2026-10-13T23:00:00Z"))).toBe(false);
+    expect(isQuoteExpired(quote, day("2026-10-14T00:00:01Z"))).toBe(true);
+    expect(effectiveQuoteStatus(quote, day("2026-10-15T00:00:00Z"))).toBe("expired");
+  });
+
+  it("only a RECEIVED offer expires on the clock", () => {
+    const past = day("2000-01-01T00:00:00Z");
+    expect(isQuoteExpired({ status: "requested", validUntil: past })).toBe(false);
+    expect(isQuoteExpired({ status: "accepted", validUntil: past })).toBe(false);
+    expect(isQuoteExpired({ status: "declined", validUntil: past })).toBe(false);
+  });
+
+  it("a received offer with no date never expires — rows from before 2026-09-14", () => {
+    expect(isQuoteExpired({ status: "received", validUntil: null })).toBe(false);
+  });
+
+  it("a stored `expired` status is expired regardless of the date", () => {
+    expect(isQuoteExpired({ status: "expired", validUntil: null })).toBe(true);
+  });
+
+  it("an expired offer can be asked for again, and cannot be corrected", () => {
+    expect(canTransitionQuote("received", "expired")).toBe(true);
+    expect(canTransitionQuote("expired", "requested")).toBe(true);
+    expect(offerEntryMode("expired")).toBeNull();
   });
 });
 

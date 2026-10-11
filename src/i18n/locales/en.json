@@ -980,6 +980,11 @@
     "refusal_not_found": "That offer no longer exists.",
     "refusal_not_received": "That offer has not arrived yet.",
     "refusal_already_accepted": "An offer has already been accepted for this request. For a second supplier, create a new request.",
+    "validUntil": "Valid until",
+    "validUntilHint": "One month by default — change it if the supplier stated another period.",
+    "validUntilOn": "Valid until {{date}}",
+    "expiredOn": "Expired on {{date}} — the buyer can ask this supplier again from the request.",
+    "refusal_expired": "This offer has expired. Ask this supplier for a new quote from your request.",
     "markSent": "Mark as sent",
     "declineReasonLabel": "Reason for declining",
     "declineReason": {

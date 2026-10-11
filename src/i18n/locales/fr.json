@@ -980,6 +980,11 @@
     "refusal_not_found": "Cette offre est introuvable.",
     "refusal_not_received": "Cette offre n'est pas encore arrivée.",
     "refusal_already_accepted": "Une offre a déjà été acceptée pour cette demande. Pour un second fournisseur, créez une nouvelle demande.",
+    "validUntil": "Valide jusqu’au",
+    "validUntilHint": "Un mois par défaut — modifiez si le fournisseur a indiqué une autre durée.",
+    "validUntilOn": "Valide jusqu’au {{date}}",
+    "expiredOn": "Expirée le {{date}} — le client peut redemander une soumission depuis sa demande.",
+    "refusal_expired": "Cette offre a expiré. Redemandez une soumission à ce fournisseur depuis votre demande.",
     "markSent": "Marquer comme envoyée",
     "declineReasonLabel": "Motif du refus",
     "declineReason": {

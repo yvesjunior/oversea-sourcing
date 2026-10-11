@@ -1439,7 +1439,21 @@ Two repairs since (2026-09-12): a recorded price can be **corrected** while the
 quote is still `received` (a correction is not a transition —
 `offerEntryMode`), and a supplier who declined or never answered can be
 **asked again**, with that round's clocks reset. An answer already held is never
-thrown away.
+thrown away — **until it expires.**
+
+**An offer is valid for one month by default** (owner, 2026-09-14: *"a quote is
+valid for 1 month by default if not set; when staff respond they can specify
+the time a quote is valid; if a quote expires the buyer can request the quote
+again from the request he has made"*). `quote.valid_until` is **stored** when
+staff record the offer — what they typed, else one calendar month from the
+answer (`defaultQuoteValidUntil`) — because it is a fact the supplier stated.
+Whether it has **expired is derived at read time** (`isQuoteExpired`, no cron,
+no stored flag, the contract-expiry rule). An expired offer cannot be accepted
+or corrected; on `/soumissions` it reads *Expirée le …* with what the buyer can
+do about it; and on the dossier the buyer ticks that supplier again — the row
+walks `received → expired → requested` so its history says when the validity
+ran out, and the clocks reset for the new round. Offers recorded before this
+rule have no date and never expire.
 
 #### ADR-002 §2 · External parties are RECORDS, never users
 

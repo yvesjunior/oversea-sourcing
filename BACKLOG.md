@@ -252,6 +252,7 @@ deploy failed mid-session and prod was rolled back; see #24.
 | 23 | `5b90649` | — | **the platform workspace can no longer be deleted** — the org-plugin's own `POST /organization/delete` bypassed `destroyWorkspace`; guard moved into a `beforeDeleteOrganization` hook |
 | 24 | `95b825a` | — | **filters on all four ops lists** (multi-account + week/month/year/custom period) · **the global supplier directory is staff-only** · the DB cleared for fresh testing. *First attempt (`77d37b0`) took prod down — see the chunk-cycle note* |
 | 25 | `b7481d6` | — | **"linked supplier" widened to four traces** (matched · quoted · dealt · contract party) · **a session opens in your PERSONAL workspace** when you have one · the discovery store cleared for a cold research test |
+| — | *(uncommitted)* | — | **quotes expire** — one month by default, staff set the date when recording; expiry derived at read time; an expired offer cannot be accepted, and the buyer re-asks the supplier from the dossier · **the bell's badge is red** |
 | 40 | `8f40d1e` | — | **the bell alerts** — count badge on the icon and in the tab title, 30 s poll of the unread count while the tab is visible, WebAudio chime when it rises, per-browser mute switch in the menu (owner request, 2026-09-14) |
 | 39 | `52cf854` | 0044 | **soumissions need a paid plan** (`plan.quotes_enabled`; free and org_trial refuse, the dossier and the Abonnement panel say why, Abonnements has the switch) · **all documentation at the repo root**, the ADR folded into the README, `doc/` gone · four owner requests recorded for later |
 | 38 | `bcbd99d` | — | **retention windows settled**: a loose document keeps **36 months** after losing its request and quote; an archived workspace keeps **6 years**. The recovery screen shows the customer a date, not a duration |
@@ -2137,14 +2138,14 @@ number ADR Part I §6 calls unscrapable.
   `recordQuoteFn` until it is stamped — the wrong trade against a workflow that
   really happens in email.
 
-**Of the four gaps raised on this table 2026-09-12, two are closed and two are
+**Of the four gaps raised on this table 2026-09-12, three are closed and one is
 open.** ✅ A recorded offer CAN be corrected (deploy #35, `offerEntryMode` in
 `src/lib/deal-status.ts` — a correction is deliberately NOT a transition, and
 the form is frozen once the quote leaves `received`). ✅ A declined or
 never-answering supplier CAN be re-asked (deploy #36 — see "Re-asking a
-supplier" below). ❗ Still open: `expired` is an unreachable status and
-`valid_until` a column nobody writes; and a buyer cannot decline an offer, only
-accept a different one.
+supplier" below). ✅ **`valid_until` is written and `expired` is reachable
+(2026-09-14)** — see "An offer is valid for one month" below. ❗ Still open: a
+buyer cannot decline an offer, only accept a different one.
 
 ### P8 · Documents — what slice 1 does, and the question it makes urgent
 
@@ -2222,6 +2223,37 @@ which week a row belongs to, and an hour inside three years decides nothing.
 workspace cascades `document` away without passing through this sweep, so those
 bytes still linger. "Six months after the request is deleted" does not answer
 "what happens when the customer leaves", and that needs its own decision.
+
+### An offer is valid for one month — and then the buyer may ask again (2026-09-14)
+
+Owner: *"a quote is valid for 1 month by default (if not set); when staff
+respond to a quote they can specify the time a quote is valid, so if a quote
+expires the buyer can request the quote again from the request he has made."*
+This revises the 2026-09-12 rule that a `received` offer is never reopenable:
+it still is not, **while it stands**.
+
+- **Stored: `quote.valid_until`**, written by `recordQuoteFn` — the date staff
+  typed in the offer form ("Valide jusqu'au", prefilled with one month from
+  today so the default is a choice they see), else `defaultQuoteValidUntil`,
+  one calendar month from the answer. A date in the past is refused
+  (`validity_past`). A correction may change it; left blank it keeps the row's.
+- **Derived: expiry.** `isQuoteExpired` / `effectiveQuoteStatus` in
+  `src/lib/deal-status.ts` (6 tests) — a `received` offer past its date reads
+  as `expired`, at read time, no cron, no stored flag. `QuoteView.expired`
+  carries it to the screen. Rows recorded before the rule have no date and
+  never expire.
+- **Consequences:** `acceptQuoteFn` refuses an expired offer (`expired`);
+  the offer form is closed for it (`offerEntryMode(effectiveQuoteStatus)`);
+  `/soumissions` shows *Valide jusqu'au …* on a live offer and *Expirée le …*
+  with the way out on a dead one; and `requestQuotesFn` treats a
+  received-but-expired quote as reopenable — it writes `received → expired`
+  first so the machine's path is what the history shows, then `expired →
+  requested` with the clocks and the validity reset. The old figures stay on
+  the row as the starting point for the next answer.
+- **Not done:** no reminder before expiry, and no notification to the buyer
+  when an offer expires — the expiry is visible when they look. The dossier's
+  Top-N does not show per-supplier quote status; the buyer sees expiry on
+  `/soumissions` and re-asks from the dossier.
 
 ### Re-asking a supplier — what `declined` and `expired` now allow
 

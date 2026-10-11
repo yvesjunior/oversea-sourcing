@@ -26,6 +26,8 @@ import { EmployeeTabs } from "@/components/osi/EmployeeTabs";
 import { accountOptions } from "@/components/osi/AccountFilter";
 import { applyListFilters, ListFiltersBar, useListFilters } from "@/components/osi/ListFilters";
 import { offerEntryMode } from "@/lib/deal-status";
+import type { QuoteStatus } from "@/database/schema";
+import { formatInstant } from "@/lib/instant";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/soumissions")({
@@ -52,8 +54,29 @@ const STATUS_STYLE: Record<string, string> = {
   received: "border-gold/50 bg-gold-soft text-gold",
   accepted: "border-success/50 text-success",
   declined: "border-border text-muted-foreground line-through",
-  expired: "border-border text-muted-foreground",
+  expired: "border-destructive/40 text-destructive",
 };
+
+/** What one row IS to a reader today: `expired` once the validity ran out,
+ *  whatever the column says (derived server-side, `quote.expired`). */
+function shownStatus(quote: QuoteView): QuoteStatus {
+  return quote.expired ? "expired" : quote.status;
+}
+
+/** yyyy-mm-dd for a date input, in the browser's zone — a validity is a day. */
+function dateInputValue(iso: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+/** The default staff see in the field: one calendar month from today. */
+function defaultValidityInput(): string {
+  const d = new Date();
+  d.setMonth(d.getMonth() + 1);
+  return dateInputValue(d.toISOString());
+}
 
 function money(cents: number | null, currency: string | null, lang: string): string {
   if (cents === null) return "—";
@@ -79,6 +102,11 @@ function RecordForm({ quote, onDone }: { quote: QuoteView; onDone: () => void })
   );
   const [moq, setMoq] = useState(quote.moq ?? "");
   const [incoterm, setIncoterm] = useState(quote.incoterm ?? "");
+  // Validity (owner 2026-09-14): one month by default, editable. Shown
+  // prefilled rather than left blank so the default is a choice staff SEE.
+  const [validUntil, setValidUntil] = useState(
+    quote.validUntil ? dateInputValue(quote.validUntil) : defaultValidityInput(),
+  );
   const [notes, setNotes] = useState(quote.notes ?? "");
   const [declineReason, setDeclineReason] = useState<StaffDeclineReason>("no_response");
   const [saving, setSaving] = useState(false);
@@ -123,6 +151,9 @@ function RecordForm({ quote, onDone }: { quote: QuoteView; onDone: () => void })
           moq: moq.trim() || null,
           incoterm: incoterm.trim() || null,
           notes: notes.trim() || null,
+          // End of the chosen day, in this browser's zone: "valid until the
+          // 14th" means the 14th counts.
+          validUntil: validUntil ? new Date(`${validUntil}T23:59:59`).toISOString() : null,
         },
       });
       onDone();
@@ -197,6 +228,23 @@ function RecordForm({ quote, onDone }: { quote: QuoteView; onDone: () => void })
             onChange={(e) => setIncoterm(e.target.value)}
             className="h-9"
           />
+        </div>
+      </div>
+      <div className="mt-3 grid gap-3 sm:grid-cols-[220px_minmax(0,1fr)]">
+        <div>
+          <label className={label} htmlFor={`vu-${quote.id}`}>
+            {t("soumissions.validUntil")}
+          </label>
+          <Input
+            id={`vu-${quote.id}`}
+            type="date"
+            value={validUntil}
+            onChange={(e) => setValidUntil(e.target.value)}
+            className="h-9"
+          />
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            {t("soumissions.validUntilHint")}
+          </p>
         </div>
       </div>
       <div className="mt-3">
@@ -461,7 +509,7 @@ function QuoteList({
                 </details>
               )}
 
-              {list.filter((q) => q.status === "received").length > 1 && canAccept && (
+              {list.filter((q) => shownStatus(q) === "received").length > 1 && canAccept && (
                 <p className="mt-2 text-xs text-muted-foreground">{t("soumissions.compareHint")}</p>
               )}
               {refusal && (
@@ -497,6 +545,27 @@ function QuoteList({
                               }${quote.incoterm ? ` · ${quote.incoterm}` : ""}`
                             : t("soumissions.awaiting")}
                         </span>
+                        {/* Until when the offer stands — and, once it has run
+                            out, what the buyer can do about it. */}
+                        {quote.status === "received" && quote.validUntil && (
+                          <span
+                            className={cn(
+                              "block text-[11px]",
+                              quote.expired ? "text-destructive" : "text-muted-foreground",
+                            )}
+                          >
+                            {t(
+                              quote.expired ? "soumissions.expiredOn" : "soumissions.validUntilOn",
+                              {
+                                date: formatInstant(quote.validUntil, i18n.language, {
+                                  day: "numeric",
+                                  month: "short",
+                                  year: "numeric",
+                                }),
+                              },
+                            )}
+                          </span>
+                        )}
                       </div>
                       <div className="flex items-center gap-3">
                         {/* WHY it is out of the running, not just that it is —
@@ -526,12 +595,12 @@ function QuoteList({
                         <span
                           className={cn(
                             "rounded-full border px-2.5 py-0.5 text-[11px] font-semibold",
-                            STATUS_STYLE[quote.status],
+                            STATUS_STYLE[shownStatus(quote)],
                           )}
                         >
-                          {t(`soumissions.${quote.status}`)}
+                          {t(`soumissions.${shownStatus(quote)}`)}
                         </span>
-                        {canAccept && quote.status === "received" && (
+                        {canAccept && shownStatus(quote) === "received" && (
                           <Button
                             variant="gold"
                             size="sm"
@@ -560,14 +629,14 @@ function QuoteList({
                             only way in and it only appeared before the answer
                             was recorded. Frozen once accepted or declined —
                             offerEntryMode returns null and the button is gone. */}
-                        {canRecord && offerEntryMode(quote.status) !== null && (
+                        {canRecord && offerEntryMode(shownStatus(quote)) !== null && (
                           <Button
                             variant="outline"
                             size="sm"
                             onClick={() => setOpenForm(openForm === quote.id ? null : quote.id)}
                           >
                             {t(
-                              offerEntryMode(quote.status) === "correct"
+                              offerEntryMode(shownStatus(quote)) === "correct"
                                 ? "soumissions.correct"
                                 : "soumissions.record",
                             )}
