@@ -252,6 +252,7 @@ deploy failed mid-session and prod was rolled back; see #24.
 | 23 | `5b90649` | — | **the platform workspace can no longer be deleted** — the org-plugin's own `POST /organization/delete` bypassed `destroyWorkspace`; guard moved into a `beforeDeleteOrganization` hook |
 | 24 | `95b825a` | — | **filters on all four ops lists** (multi-account + week/month/year/custom period) · **the global supplier directory is staff-only** · the DB cleared for fresh testing. *First attempt (`77d37b0`) took prod down — see the chunk-cycle note* |
 | 25 | `b7481d6` | — | **"linked supplier" widened to four traces** (matched · quoted · dealt · contract party) · **a session opens in your PERSONAL workspace** when you have one · the discovery store cleared for a cold research test |
+| 42 | `f387358` | 0045 | **mail is alive again, and can no longer be lost** — SendGrid's trial had ended (401 "Maximum credits exceeded", unfixable in code), so sending moved to **Resend free**, chosen by which key is set so the cutover was one line in `.env`. A refused message now lands in `mail_outbox` and the worker retries it instead of dropping it on the floor. Also **raised Happy Eyeballs' per-address timeout to 2 s** — Node's 250 ms default is shorter than this VM's connect time to every Cloudflare-fronted host, which would have made Resend fail no matter how DNS was set up, and is very likely the real cause of the 2026-08-17 Google sign-in hang |
 | 41 | `73ab858` | — | **a grade code ranks the Top-N instead of emptying it** — prod request 3026 crash-looped in `searching` for 90 min; `haystackTokens` collapses separators on the supplier side, a missing grade is a half-credit `partial` on the primary row only, and an empty Top-N no longer throws. On deploy the sweep re-adopted 3026 and it ranked **Kaneka first at 75 % (`matched`)**, four alternatives at 48 % (`partial`) · **quotes expire** — one month by default, staff set the date when recording, expiry derived at read time, an expired offer cannot be accepted and the buyer re-asks from the dossier · **the bell's badge is red** · README's nightly-`pg_dump` claim corrected: backups are manual |
 | 40 | `8f40d1e` | — | **the bell alerts** — count badge on the icon and in the tab title, 30 s poll of the unread count while the tab is visible, WebAudio chime when it rises, per-browser mute switch in the menu (owner request, 2026-09-14) |
 | 39 | `52cf854` | 0044 | **soumissions need a paid plan** (`plan.quotes_enabled`; free and org_trial refuse, the dossier and the Abonnement panel say why, Abonnements has the switch) · **all documentation at the repo root**, the ADR folded into the README, `doc/` gone · four owner requests recorded for later |
@@ -1773,7 +1774,10 @@ no `t()` call and cannot become the fifth missing-i18n-key bug.
 Neither was caused by the matcher fix; both were found while verifying it.
 
 **1 · Outbound mail is DOWN — SendGrid is out of credits.**
-❗ **the account is still refusing** · ✅ **the mail is no longer lost.**
+✅ **RESOLVED 2026-10-13 (deploy #42)** — moved to Resend; verified from prod
+with an incomplete payload, which returned `422 Missing to field`, i.e. it got
+past auth and domain verification and only rejected the payload. The paragraphs
+below are kept as the record of the diagnosis.
 The moment request 3026 finally reached `report_ready`, the notification
 failed:
 
