@@ -70,6 +70,13 @@ export const auth = betterAuth({
     // the same whether the account exists or not (no enumeration), and
     // /forget-password… — request-password-reset is rate limited below.
     sendResetPassword: async ({ user, url }) => {
+      // Staff asked for this link to hand over by phone (2026-10-13) — take
+      // it and send nothing. Account recovery must not depend on the mailer
+      // being alive; email was the ONLY way back into an account until the
+      // SendGrid outage proved what that costs.
+      const { takeResetCapture } = await import("@/server/reset-capture");
+      if (takeResetCapture(user.email, url)) return;
+
       const { sendMail } = await import("@/server/mail");
       const fr = (user as { locale?: string }).locale !== "en";
       await sendMail({

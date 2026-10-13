@@ -805,6 +805,31 @@ facts a future session must not re-derive differently:
 - **Verified end to end in dev** (2026-08-23): signup → logged verification
   email → link → `email_verified = true` + auto sign-in; forgot → logged
   reset email → link → new password → fresh login with it returned 200.
+- **Email is no longer a single point of failure for ACCESS** (2026-10-13).
+  The SendGrid outage exposed it: verification is enforced at login, and a
+  password reset arrives only by email, so a person who cannot receive our
+  mail could neither get in nor get back in — and retrying a dead mailer does
+  nothing for someone locked out today. Two staff actions on
+  `/interne/utilisateurs` (`src/lib/account-recovery-fns.ts`, gated on the
+  `users` permission, both audited):
+  - **Mark verified** — for an address confirmed some other way. This does
+    not weaken the 2026-08-28 rule that a trial costs a real inbox; a human
+    is still vouching, instead of a link that cannot arrive.
+  - **Issue a reset link** — a REAL better-auth reset link with its usual
+    one-hour expiry, handed over by phone rather than emailed. Not a bypass:
+    staff never see or set a password, the person still chooses their own.
+    Issuing one is effectively account takeover, so every issuance is in the
+    journal with who, for whom and when.
+  - It takes a typed ADDRESS rather than acting on the table, because that
+    table lists staff only and the people who get locked out are customers.
+  - **How the link is obtained** (`src/server/reset-capture.ts`): we ask
+    better-auth for a normal reset and intercept the URL in our own
+    `sendResetPassword` callback — a documented seam — rather than minting
+    tokens ourselves, which would be a second implementation of a format
+    better-auth owns. The capture **waits** for the callback instead of
+    reading once, because better-auth does not promise to await it; reading
+    once would work or not on an internal detail, and would fail by telling
+    staff "no link" while a customer waits.
 
 #### 2FA, password change & personal theme (2026-08-27)
 

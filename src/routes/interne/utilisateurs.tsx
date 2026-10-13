@@ -4,7 +4,7 @@
 
 import { useEffect, useState } from "react";
 import { createFileRoute, useRouter } from "@tanstack/react-router";
-import { Plus, Trash2 } from "lucide-react";
+import { Check, KeyRound, Plus, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,6 +21,7 @@ import {
   type StaffRole,
 } from "@/lib/permission-fns";
 import { getPlatformUsersFn, setPlatformRoleFn, type PlatformUserView } from "@/lib/user-admin-fns";
+import { issuePasswordResetLinkFn, markEmailVerifiedFn } from "@/lib/account-recovery-fns";
 import { formatDay } from "@/lib/instant";
 
 export const Route = createFileRoute("/interne/utilisateurs")({
@@ -122,6 +123,141 @@ function GrantRolePanel({ onChanged, roles }: { onChanged: () => void; roles: St
           <span className="text-xs text-destructive">{t("usersAdmin.grantFailed")}</span>
         )}
       </div>
+    </section>
+  );
+}
+
+/**
+ * Account recovery WITHOUT email (2026-10-13).
+ *
+ * The SendGrid outage showed that email was a single point of failure for
+ * access itself: a person who cannot receive mail can neither verify a new
+ * address nor reset a password, and no amount of retrying fixes that for
+ * someone locked out today. These are the manual paths — the same shape as
+ * the invitation's copyable link, which has always worked this way.
+ *
+ * It takes a typed ADDRESS rather than acting on the table above, because
+ * that table lists staff only: the people who actually get locked out are
+ * customers, and they are never in it.
+ */
+function AccountRecoveryPanel() {
+  const { t } = useTranslation();
+  const [email, setEmail] = useState("");
+  const [busy, setBusy] = useState<"verify" | "reset" | null>(null);
+  const [link, setLink] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [status, setStatus] = useState<
+    "idle" | "verified" | "already" | "not_found" | "no_link" | "failed"
+  >("idle");
+
+  const reset = () => {
+    setStatus("idle");
+    setLink(null);
+    setCopied(false);
+  };
+
+  const verify = async () => {
+    setBusy("verify");
+    reset();
+    try {
+      const result = await markEmailVerifiedFn({ data: { email } });
+      if (!result.ok) {
+        setStatus(result.error === "not_found" ? "not_found" : "failed");
+        return;
+      }
+      setStatus(result.alreadyVerified ? "already" : "verified");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const issue = async () => {
+    setBusy("reset");
+    reset();
+    try {
+      const result = await issuePasswordResetLinkFn({ data: { email } });
+      if (!result.ok) {
+        setStatus(
+          result.error === "not_found"
+            ? "not_found"
+            : result.error === "no_link"
+              ? "no_link"
+              : "failed",
+        );
+        return;
+      }
+      setLink(result.link ?? null);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const copy = async () => {
+    if (!link) return;
+    await navigator.clipboard.writeText(link);
+    setCopied(true);
+  };
+
+  const valid = email.includes("@");
+
+  return (
+    <section className="card-surface p-6">
+      <p className="text-sm font-semibold">{t("usersAdmin.recoveryTitle")}</p>
+      <p className="mt-1 text-xs text-muted-foreground">{t("usersAdmin.recoveryHint")}</p>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <Input
+          type="email"
+          value={email}
+          onChange={(e) => {
+            setEmail(e.target.value);
+            reset();
+          }}
+          placeholder="personne@entreprise.com"
+          className="h-9 max-w-xs"
+        />
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={busy !== null || !valid}
+          onClick={() => void verify()}
+        >
+          <Check className="mr-1 size-3.5" />
+          {t("usersAdmin.recoveryVerify")}
+        </Button>
+        <Button size="sm" disabled={busy !== null || !valid} onClick={() => void issue()}>
+          <KeyRound className="mr-1 size-3.5" />
+          {t("usersAdmin.recoveryIssue")}
+        </Button>
+        {status === "verified" && (
+          <span className="text-xs text-emerald-600">{t("usersAdmin.recoveryVerified")}</span>
+        )}
+        {status === "already" && (
+          <span className="text-xs text-muted-foreground">{t("usersAdmin.recoveryAlready")}</span>
+        )}
+        {status === "not_found" && (
+          <span className="text-xs text-destructive">{t("usersAdmin.grantNotFound")}</span>
+        )}
+        {status === "no_link" && (
+          <span className="text-xs text-destructive">{t("usersAdmin.recoveryNoLink")}</span>
+        )}
+        {status === "failed" && (
+          <span className="text-xs text-destructive">{t("usersAdmin.grantFailed")}</span>
+        )}
+      </div>
+      {link && (
+        <div className="mt-3 rounded-md border border-dashed border-gold/40 bg-secondary/40 p-3">
+          <p className="text-xs font-medium">{t("usersAdmin.recoveryLinkReady")}</p>
+          <p className="mt-1 break-all font-mono text-[11px] text-muted-foreground">{link}</p>
+          <div className="mt-2 flex items-center gap-2">
+            <Button size="sm" variant="outline" onClick={() => void copy()}>
+              {copied ? t("settings.copied") : t("settings.copyLink")}
+            </Button>
+            <span className="text-[11px] text-muted-foreground">
+              {t("usersAdmin.recoveryLinkWarning")}
+            </span>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
@@ -334,6 +470,7 @@ function Utilisateurs() {
         )}
         <TabsContent value="equipe" className="mt-3 space-y-6">
           {isPlatformOwner && <GrantRolePanel onChanged={refresh} roles={roles} />}
+          <AccountRecoveryPanel />
 
           <section className="card-surface p-6">
             <div className="overflow-x-auto">

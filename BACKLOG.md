@@ -1823,6 +1823,18 @@ all. Plus 14 unit tests on the rules (`src/lib/mail-retry.ts`).
 shipped — 3026's `report_ready` among them — were never recorded and cannot
 be recovered. Henrik has an unread in-app notification and no email.
 
+**1b · Email was a single point of failure for ACCESS — ✅ FIXED
+2026-10-13.** Separate from losing mail, and worse: verification is enforced
+at login and a password reset arrives only by email, so anyone who could not
+receive our mail could neither get in nor get back in. The outbox does not
+help someone locked out *today*. Staff can now **mark an address verified**
+and **issue a real one-hour reset link** to hand over by phone, from
+`/interne/utilisateurs` — both gated on `users`, both audited, neither
+weakening the rule they rescue (a human vouches instead of a link; the person
+still chooses their own password). The link is captured from our own
+`sendResetPassword` callback rather than minted, and the capture *waits* for
+that callback, since better-auth does not promise to await it.
+
 **2 · Nine suppliers passed the gate; the buyer sees five.** The fix
 restored all nine PVC paste resin makers to eligibility, and `TOP_N` —
 `SUPPLIERS_RETURNED`, default 5, overridable per plan via

@@ -185,7 +185,16 @@
     "roleConfirm": "Change {{name}}'s platform role to \"{{role}}\"?",
     "revokeOption": "— Revoke (customer)",
     "tabTeam": "Team",
-    "tabAccess": "Roles & access"
+    "tabAccess": "Roles & access",
+    "recoveryTitle": "Account recovery (no email needed)",
+    "recoveryHint": "For someone who cannot receive our mail. Mark an address verified once you have confirmed the person some other way, or issue a password-reset link to read out by phone. Works for customers too — they are not listed in the table above.",
+    "recoveryVerify": "Mark verified",
+    "recoveryIssue": "Issue reset link",
+    "recoveryVerified": "Address marked verified — they can sign in now.",
+    "recoveryAlready": "That address was already verified.",
+    "recoveryNoLink": "No reset link: that account has no password (Google sign-in only).",
+    "recoveryLinkReady": "One-hour reset link — hand it over directly, do not email it.",
+    "recoveryLinkWarning": "Anyone holding this link can set the password. It expires in 1 hour."
   },
   "sourceNames": {
     "global_web": "Global Web",
@@ -895,7 +904,9 @@
     "document.uploaded": "Document uploaded",
     "document.retention_swept": "Document retention applied",
     "workspace.archived": "Workspace archived",
-    "workspace.restored": "Workspace restored"
+    "workspace.restored": "Workspace restored",
+    "user.email_verified_by_staff": "Email marked verified by staff",
+    "user.reset_link_issued": "Password-reset link issued by staff"
   },
   "twofa": {
     "title": "Two-step verification",

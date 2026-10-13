@@ -185,7 +185,16 @@
     "roleConfirm": "Changer le rôle plateforme de {{name}} en « {{role}} » ?",
     "revokeOption": "— Retirer (client)",
     "tabTeam": "Équipe",
-    "tabAccess": "Rôles & accès"
+    "tabAccess": "Rôles & accès",
+    "recoveryTitle": "Récupération de compte (sans e-mail)",
+    "recoveryHint": "Pour une personne qui ne reçoit pas nos e-mails. Marquez une adresse comme vérifiée après avoir confirmé la personne par un autre moyen, ou générez un lien de réinitialisation à dicter par téléphone. Fonctionne aussi pour les clients — ils ne figurent pas dans le tableau ci-dessus.",
+    "recoveryVerify": "Marquer vérifiée",
+    "recoveryIssue": "Générer un lien",
+    "recoveryVerified": "Adresse marquée vérifiée — la connexion est possible.",
+    "recoveryAlready": "Cette adresse était déjà vérifiée.",
+    "recoveryNoLink": "Pas de lien : ce compte n'a pas de mot de passe (connexion Google uniquement).",
+    "recoveryLinkReady": "Lien de réinitialisation valable 1 heure — à remettre en main propre, pas par e-mail.",
+    "recoveryLinkWarning": "Quiconque détient ce lien peut définir le mot de passe. Il expire dans 1 heure."
   },
   "sourceNames": {
     "global_web": "Web mondial",
@@ -895,7 +904,9 @@
     "document.uploaded": "Document téléversé",
     "document.retention_swept": "Rétention des documents appliquée",
     "workspace.archived": "Espace archivé",
-    "workspace.restored": "Espace restauré"
+    "workspace.restored": "Espace restauré",
+    "user.email_verified_by_staff": "Adresse marquée vérifiée par l'équipe",
+    "user.reset_link_issued": "Lien de réinitialisation généré par l'équipe"
   },
   "twofa": {
     "title": "Vérification en deux étapes",
