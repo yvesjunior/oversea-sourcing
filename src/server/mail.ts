@@ -1,14 +1,22 @@
-// Email adapter (B3/B9, 2026-08-23) — SendGrid behind the house vendor rule:
-// nothing else imports or knows about SendGrid; swapping providers rewrites
-// this file and nothing else. Plain fetch on the v3 API — the adapter IS the
-// seam, an SDK would just be a second wrapper.
+// Email adapter (B3/B9, 2026-08-23) — the house vendor rule: nothing else
+// imports or knows which provider sends the mail, so swapping one rewrites
+// this file and nothing else. Plain fetch, no SDK — the adapter IS the seam,
+// an SDK would just be a second wrapper.
 //
-// Behavior by configuration:
-//   SENDGRID_API_KEY unset  → sends are logged to stdout (fresh dev clones)
-//   MAIL_SILENT=true        → same, even with a key (flow tests without
-//                             sending real mail from the dev machine)
-//   key present             → real send; the sender (MAIL_FROM) must be
-//                             verified in SendGrid or the API refuses.
+// TWO providers live here as of 2026-10-13, chosen by which key is set:
+//
+//   RESEND_API_KEY    → Resend   (POST /emails, 200 + {id} on success)
+//   SENDGRID_API_KEY  → SendGrid (POST /v3/mail/send, 202 on success)
+//   neither           → logged to stdout (fresh dev clones)
+//   MAIL_SILENT=true  → logged even with a key (flow tests without sending)
+//
+// Resend wins when both are present. That is deliberate and it is what makes
+// the cutover safe: this file ships with SendGrid still wired, behaves
+// EXACTLY as before until somebody puts a Resend key in .env, and switches
+// the moment they do — no flag day, no coordinated deploy, and reverting is
+// deleting one line. The owner ruled out a paid plan (2026-10-13) and
+// SendGrid has had no free tier since May 2025, so Resend is where this is
+// going; SendGrid stays until the new domain is verified and proven.
 //
 // Failures are returned, not thrown: an invitation whose email bounces is
 // still a valid invitation (the copyable link covers delivery).
@@ -25,10 +33,23 @@
 import type { MailOutboxStatus } from "@/database/schema";
 import { dueAt, hasAgedOut, isRetryableStatus } from "@/lib/mail-retry";
 
-/** Overridable so the outbox can be exercised against a stub that actually
- *  returns 202 — the one path a unit test cannot reach and the one that, if
- *  wrong, would re-send every message forever. Unset everywhere but tests. */
+// Endpoints are overridable so the outbox can be exercised against a stub
+// that actually SUCCEEDS — the one path a unit test cannot reach and the one
+// that, if wrong, re-sends every message forever. Unset outside tests.
 const SENDGRID_URL = process.env["SENDGRID_API_URL"] ?? "https://api.sendgrid.com/v3/mail/send";
+const RESEND_URL = process.env["RESEND_API_URL"] ?? "https://api.resend.com/emails";
+
+type Provider = { name: "resend" | "sendgrid"; key: string; url: string };
+
+/** Which provider this process will use, or null to log instead of send. */
+function provider(): Provider | null {
+  if (process.env["MAIL_SILENT"] === "true") return null;
+  const resend = process.env["RESEND_API_KEY"];
+  if (resend) return { name: "resend", key: resend, url: RESEND_URL };
+  const sendgrid = process.env["SENDGRID_API_KEY"];
+  if (sendgrid) return { name: "sendgrid", key: sendgrid, url: SENDGRID_URL };
+  return null;
+}
 
 /** How many pending messages one flush will try. */
 const FLUSH_BATCH = 25;
@@ -50,35 +71,57 @@ export type MailResult = {
 
 type Attempt = { ok: true } | { ok: false; error: string; retryable: boolean };
 
-/** One delivery attempt. The only function in the codebase that talks to the
- *  provider — everything else goes through sendMail or the outbox. */
-async function deliver(input: MailInput, apiKey: string): Promise<Attempt> {
+/**
+ * One delivery attempt — the only code in the codebase that talks to a mail
+ * provider.
+ *
+ * `idempotencyKey` is passed to Resend so a retry of a message that actually
+ * WAS delivered (we sent it, the response was lost) does not arrive twice.
+ * Resend expires these after 24 h, and our backoff can exceed that, so it
+ * narrows the window rather than closing it — the right trade, since the
+ * alternative to a rare duplicate is a lost password reset. SendGrid's v3
+ * send endpoint has no equivalent.
+ */
+async function deliver(input: MailInput, via: Provider, idempotencyKey?: string): Promise<Attempt> {
   const from = process.env["MAIL_FROM"] ?? "no-reply@osi-solutions.com";
   const fromName = process.env["MAIL_FROM_NAME"] ?? "OSI";
+  const resend = via.name === "resend";
   try {
-    const response = await fetch(SENDGRID_URL, {
+    const response = await fetch(via.url, {
       method: "POST",
       headers: {
-        authorization: `Bearer ${apiKey}`,
+        authorization: `Bearer ${via.key}`,
         "content-type": "application/json",
+        ...(resend && idempotencyKey ? { "idempotency-key": idempotencyKey } : {}),
       },
-      body: JSON.stringify({
-        personalizations: [{ to: [{ email: input.to }] }],
-        from: { email: from, name: fromName },
-        subject: input.subject,
-        content: [
-          // text/plain first — SendGrid requires ascending specificity.
-          ...(input.text ? [{ type: "text/plain", value: input.text }] : []),
-          { type: "text/html", value: input.html },
-        ],
-      }),
+      body: JSON.stringify(
+        resend
+          ? {
+              from: `${fromName} <${from}>`,
+              to: [input.to],
+              subject: input.subject,
+              html: input.html,
+              ...(input.text ? { text: input.text } : {}),
+            }
+          : {
+              personalizations: [{ to: [{ email: input.to }] }],
+              from: { email: from, name: fromName },
+              subject: input.subject,
+              content: [
+                // text/plain first — SendGrid requires ascending specificity.
+                ...(input.text ? [{ type: "text/plain", value: input.text }] : []),
+                { type: "text/html", value: input.html },
+              ],
+            },
+      ),
     });
-    if (response.status === 202) return { ok: true };
+    // Resend answers 200 with the message id; SendGrid answers 202 with no body.
+    if (response.status === (resend ? 200 : 202)) return { ok: true };
     const body = await response.text().catch(() => "");
-    console.error(`mail: SendGrid refused (${response.status}) — ${body.slice(0, 300)}`);
+    console.error(`mail: ${via.name} refused (${response.status}) — ${body.slice(0, 300)}`);
     return {
       ok: false,
-      error: `sendgrid_${response.status}: ${body.slice(0, 200)}`,
+      error: `${via.name}_${response.status}: ${body.slice(0, 200)}`,
       retryable: isRetryableStatus(response.status),
     };
   } catch (error) {
@@ -89,11 +132,18 @@ async function deliver(input: MailInput, apiKey: string): Promise<Attempt> {
 
 /** Keep a message the provider would not take. Never throws: the outbox is a
  *  safety net, and a safety net that can break the caller is worse than none. */
-async function remember(input: MailInput, attempt: Attempt & { ok: false }): Promise<boolean> {
+async function remember(
+  input: MailInput,
+  attempt: Attempt & { ok: false },
+  idempotencyKey: string,
+): Promise<boolean> {
   try {
     const [{ db }, schema] = await Promise.all([import("@/database"), import("@/database/schema")]);
     await db.insert(schema.mailOutbox).values({
-      id: crypto.randomUUID(),
+      // The row IS the idempotency key — the failed first attempt already
+      // carried it, so every retry repeats that same key rather than minting
+      // a new one and risking a second copy of a message that did land.
+      id: idempotencyKey,
       recipient: input.to,
       subject: input.subject,
       html: input.html,
@@ -115,19 +165,23 @@ async function remember(input: MailInput, attempt: Attempt & { ok: false }): Pro
 }
 
 export async function sendMail(input: MailInput): Promise<MailResult> {
-  const apiKey = process.env["SENDGRID_API_KEY"];
+  const via = provider();
 
-  if (!apiKey || process.env["MAIL_SILENT"] === "true") {
-    const why = !apiKey ? "no_key" : "silent";
+  if (!via) {
+    const why = process.env["MAIL_SILENT"] === "true" ? "silent" : "no_key";
     console.log(
       `mail (${why}): to=${input.to} subject="${input.subject}"\n${input.text ?? input.html}`,
     );
-    return { ok: true, skipped: why as "no_key" | "silent" };
+    return { ok: true, skipped: why };
   }
 
-  const attempt = await deliver(input, apiKey);
+  // A fresh send has no outbox row yet, so its idempotency key is minted here
+  // and travels with the message into the outbox — the retry then carries the
+  // SAME key as the attempt that may already have landed.
+  const idempotencyKey = crypto.randomUUID();
+  const attempt = await deliver(input, via, idempotencyKey);
   if (attempt.ok) return { ok: true };
-  const queued = await remember(input, attempt);
+  const queued = await remember(input, attempt, idempotencyKey);
   return { ok: false, error: attempt.error, queued };
 }
 
@@ -143,8 +197,8 @@ export type FlushOutcome = { tried: number; sent: number; kept: number; abandone
  */
 export async function flushMailOutbox(limit = FLUSH_BATCH): Promise<FlushOutcome> {
   const outcome: FlushOutcome = { tried: 0, sent: 0, kept: 0, abandoned: 0 };
-  const apiKey = process.env["SENDGRID_API_KEY"];
-  if (!apiKey || process.env["MAIL_SILENT"] === "true") return outcome;
+  const via = provider();
+  if (!via) return outcome;
 
   const [{ db }, schema, { and, asc, eq }] = await Promise.all([
     import("@/database"),
@@ -179,7 +233,11 @@ export async function flushMailOutbox(limit = FLUSH_BATCH): Promise<FlushOutcome
         html: row.html,
         ...(row.body ? { text: row.body } : {}),
       },
-      apiKey,
+      via,
+      // The row's OWN id is the idempotency key: stable across every retry,
+      // which is exactly what makes a duplicate impossible inside Resend's
+      // 24 h window.
+      row.id,
     );
     if (attempt.ok) {
       await db
