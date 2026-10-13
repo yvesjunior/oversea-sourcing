@@ -1848,7 +1848,7 @@ change, not a refactor.
 |---|---|---|
 | Entry | `http://localhost:3010` directly | Cloudflare Tunnel → **cloudflared → traefik** (shared VM infra, ~10 apps — not OSI services) |
 | Image target | `deps` + source bind-mount, hot reload (`tsx watch`, Vite) | `runtime` (built), `restart: unless-stopped` |
-| DNS | normal | `--dns-result-order=ipv4first` on web + both workers (the VM has no IPv6 route) |
+| DNS | normal | `--dns-result-order=ipv4first` **+ `--network-family-autoselection-attempt-timeout=2000`** on web + both workers (no IPv6 route; Node's 250 ms Happy-Eyeballs default is shorter than this VM's connect time to Cloudflare) |
 | Volumes | `osi-dev-*` | `osi-*` |
 | Everything else | identical — services, queues, env defaults | identical |
 
@@ -2049,6 +2049,25 @@ unless asked: `./scripts/addons.sh [--remote] <profile>`.
 > token exchange timed out inside better-auth with no user-visible error. It
 > applies to `web` **and** `worker`, since the worker's Claude and web-search
 > calls are exposed to the same hang. Remove it if the VM ever gets real IPv6.
+>
+> **And they raise Happy Eyeballs' per-address timeout to 2 s**
+> (`--network-family-autoselection-attempt-timeout=2000`, added 2026-10-13
+> while wiring Resend). Node's default is **250 ms**, and this VM needs
+> **~450–1600 ms** to complete a TCP connect to Cloudflare-fronted hosts — so
+> every attempt was abandoned before it finished. The symptom is maximally
+> misleading: `fetch` fails with `ETIMEDOUT` in ~270 ms while a plain
+> `net.connect()` to the very same IP succeeds in ~450 ms, so the host looks
+> both reachable and unreachable depending on how you ask.
+>
+> Measured from the `worker` container: `api.resend.com`, `api.anthropic.com`
+> and `1.1.1.1` all failed, `api.sendgrid.com` succeeded. That split is why it
+> hid for months — SendGrid is on AWS and answers inside 250 ms, so the one
+> outbound call anybody tested was the one that worked. With the timeout
+> raised, all four succeed.
+>
+> This is very likely the REAL cause of the 2026-08-17 Google sign-in hang
+> that `ipv4first` was added to treat; `accounts.google.com` is behind the
+> same kind of latency. Keep both flags.
 
 ### Security baseline
 

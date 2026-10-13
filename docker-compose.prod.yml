@@ -21,7 +21,16 @@ services:
       # which surfaced as Google sign-in "failing silently" (the server-to-server
       # token exchange timing out with ETIMEDOUT inside better-auth). Preferring
       # A records removes the dead path. Drop this if the VM ever gets real IPv6.
-      - NODE_OPTIONS=--dns-result-order=ipv4first
+      # ALSO raise Happy Eyeballs' per-address timeout (2026-10-13). Node's
+      # default is 250 ms, and this VM needs ~450-1600 ms to complete a
+      # TCP connect to Cloudflare-fronted hosts — so every attempt was
+      # abandoned before it finished and surfaced as ETIMEDOUT, even
+      # though a plain net.connect to the same IP succeeds. api.resend.com,
+      # api.anthropic.com and 1.1.1.1 all failed; api.sendgrid.com (AWS,
+      # faster to answer) did not, which is why this hid for so long. It is
+      # very likely the real cause of the 2026-08-17 Google sign-in hang
+      # that ipv4first was added to treat.
+      - NODE_OPTIONS=--dns-result-order=ipv4first --network-family-autoselection-attempt-timeout=2000
       - PORT=3000
       # First-class Redis (2026-08-22): distributed rate-limit counters. web
       # has no hard dependency on it — kv.ts fails open, sessions stay in
@@ -57,7 +66,16 @@ services:
       # which surfaced as Google sign-in "failing silently" (the server-to-server
       # token exchange timing out with ETIMEDOUT inside better-auth). Preferring
       # A records removes the dead path. Drop this if the VM ever gets real IPv6.
-      - NODE_OPTIONS=--dns-result-order=ipv4first
+      # ALSO raise Happy Eyeballs' per-address timeout (2026-10-13). Node's
+      # default is 250 ms, and this VM needs ~450-1600 ms to complete a
+      # TCP connect to Cloudflare-fronted hosts — so every attempt was
+      # abandoned before it finished and surfaced as ETIMEDOUT, even
+      # though a plain net.connect to the same IP succeeds. api.resend.com,
+      # api.anthropic.com and 1.1.1.1 all failed; api.sendgrid.com (AWS,
+      # faster to answer) did not, which is why this hid for so long. It is
+      # very likely the real cause of the 2026-08-17 Google sign-in hang
+      # that ipv4first was added to treat.
+      - NODE_OPTIONS=--dns-result-order=ipv4first --network-family-autoselection-attempt-timeout=2000
       # Full architecture (2026-08-22): this worker owns the pipeline queue
       # (orchestration, matching, sweep); worker-research owns collection.
       - WORKER_QUEUES=${WORKER_QUEUES:-pipeline}
@@ -85,7 +103,16 @@ services:
       - .env
     environment:
       - NODE_ENV=production
-      - NODE_OPTIONS=--dns-result-order=ipv4first
+      # ALSO raise Happy Eyeballs' per-address timeout (2026-10-13). Node's
+      # default is 250 ms, and this VM needs ~450-1600 ms to complete a
+      # TCP connect to Cloudflare-fronted hosts — so every attempt was
+      # abandoned before it finished and surfaced as ETIMEDOUT, even
+      # though a plain net.connect to the same IP succeeds. api.resend.com,
+      # api.anthropic.com and 1.1.1.1 all failed; api.sendgrid.com (AWS,
+      # faster to answer) did not, which is why this hid for so long. It is
+      # very likely the real cause of the 2026-08-17 Google sign-in hang
+      # that ipv4first was added to treat.
+      - NODE_OPTIONS=--dns-result-order=ipv4first --network-family-autoselection-attempt-timeout=2000
       - WORKER_QUEUES=research
     volumes:
       - osi-uploads:/data/uploads
