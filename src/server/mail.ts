@@ -3,20 +3,16 @@
 // this file and nothing else. Plain fetch, no SDK — the adapter IS the seam,
 // an SDK would just be a second wrapper.
 //
-// TWO providers live here as of 2026-10-13, chosen by which key is set:
-//
-//   RESEND_API_KEY    → Resend   (POST /emails, 200 + {id} on success)
-//   SENDGRID_API_KEY  → SendGrid (POST /v3/mail/send, 202 on success)
-//   neither           → logged to stdout (fresh dev clones)
+//   RESEND_API_KEY    → Resend (POST /emails, success is 200 + {id})
+//   unset             → logged to stdout (fresh dev clones)
 //   MAIL_SILENT=true  → logged even with a key (flow tests without sending)
 //
-// Resend wins when both are present. That is deliberate and it is what makes
-// the cutover safe: this file ships with SendGrid still wired, behaves
-// EXACTLY as before until somebody puts a Resend key in .env, and switches
-// the moment they do — no flag day, no coordinated deploy, and reverting is
-// deleting one line. The owner ruled out a paid plan (2026-10-13) and
-// SendGrid has had no free tier since May 2025, so Resend is where this is
-// going; SendGrid stays until the new domain is verified and proven.
+// SendGrid was the provider from 2026-08-23 until 2026-10-13. It is gone, not
+// kept as a fallback: it has had no free tier since May 2025, the trial ended,
+// and the owner ruled out paying — so the "fallback" was a branch that could
+// only ever fail. The dual-provider dispatch existed to make the cutover
+// safe, and once Resend was proven in prod it was just a second contract to
+// keep in step (202 vs 200, different error vocabularies) for no benefit.
 //
 // Failures are returned, not thrown: an invitation whose email bounces is
 // still a valid invitation (the copyable link covers delivery).
@@ -33,22 +29,18 @@
 import type { MailOutboxStatus } from "@/database/schema";
 import { dueAt, hasAgedOut, isRetryableStatus } from "@/lib/mail-retry";
 
-// Endpoints are overridable so the outbox can be exercised against a stub
-// that actually SUCCEEDS — the one path a unit test cannot reach and the one
-// that, if wrong, re-sends every message forever. Unset outside tests.
-const SENDGRID_URL = process.env["SENDGRID_API_URL"] ?? "https://api.sendgrid.com/v3/mail/send";
+// Overridable so the outbox can be exercised against a stub that actually
+// SUCCEEDS — the one path a unit test cannot reach and the one that, if
+// wrong, re-sends every message forever. Unset outside tests.
 const RESEND_URL = process.env["RESEND_API_URL"] ?? "https://api.resend.com/emails";
 
-type Provider = { name: "resend" | "sendgrid"; key: string; url: string };
+type Provider = { key: string };
 
-/** Which provider this process will use, or null to log instead of send. */
+/** The configured provider, or null to log instead of send. */
 function provider(): Provider | null {
   if (process.env["MAIL_SILENT"] === "true") return null;
-  const resend = process.env["RESEND_API_KEY"];
-  if (resend) return { name: "resend", key: resend, url: RESEND_URL };
-  const sendgrid = process.env["SENDGRID_API_KEY"];
-  if (sendgrid) return { name: "sendgrid", key: sendgrid, url: SENDGRID_URL };
-  return null;
+  const key = process.env["RESEND_API_KEY"];
+  return key ? { key } : null;
 }
 
 /** How many pending messages one flush will try. */
@@ -85,43 +77,29 @@ type Attempt = { ok: true } | { ok: false; error: string; retryable: boolean };
 async function deliver(input: MailInput, via: Provider, idempotencyKey?: string): Promise<Attempt> {
   const from = process.env["MAIL_FROM"] ?? "no-reply@osi-solutions.com";
   const fromName = process.env["MAIL_FROM_NAME"] ?? "OSI";
-  const resend = via.name === "resend";
   try {
-    const response = await fetch(via.url, {
+    const response = await fetch(RESEND_URL, {
       method: "POST",
       headers: {
         authorization: `Bearer ${via.key}`,
         "content-type": "application/json",
-        ...(resend && idempotencyKey ? { "idempotency-key": idempotencyKey } : {}),
+        ...(idempotencyKey ? { "idempotency-key": idempotencyKey } : {}),
       },
-      body: JSON.stringify(
-        resend
-          ? {
-              from: `${fromName} <${from}>`,
-              to: [input.to],
-              subject: input.subject,
-              html: input.html,
-              ...(input.text ? { text: input.text } : {}),
-            }
-          : {
-              personalizations: [{ to: [{ email: input.to }] }],
-              from: { email: from, name: fromName },
-              subject: input.subject,
-              content: [
-                // text/plain first — SendGrid requires ascending specificity.
-                ...(input.text ? [{ type: "text/plain", value: input.text }] : []),
-                { type: "text/html", value: input.html },
-              ],
-            },
-      ),
+      body: JSON.stringify({
+        from: `${fromName} <${from}>`,
+        to: [input.to],
+        subject: input.subject,
+        html: input.html,
+        ...(input.text ? { text: input.text } : {}),
+      }),
     });
-    // Resend answers 200 with the message id; SendGrid answers 202 with no body.
-    if (response.status === (resend ? 200 : 202)) return { ok: true };
+    // Resend answers 200 with the message id.
+    if (response.status === 200) return { ok: true };
     const body = await response.text().catch(() => "");
-    console.error(`mail: ${via.name} refused (${response.status}) — ${body.slice(0, 300)}`);
+    console.error(`mail: resend refused (${response.status}) — ${body.slice(0, 300)}`);
     return {
       ok: false,
-      error: `${via.name}_${response.status}: ${body.slice(0, 200)}`,
+      error: `resend_${response.status}: ${body.slice(0, 200)}`,
       retryable: isRetryableStatus(response.status),
     };
   } catch (error) {

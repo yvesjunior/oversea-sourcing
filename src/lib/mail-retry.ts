@@ -17,15 +17,21 @@ export const GIVE_UP_AFTER_MS = 7 * 24 * 60 * 60_000;
 /**
  * Whether a refusal is worth repeating.
  *
- * 401 is the one that matters. It reads like "bad credentials", which sounds
- * permanent, and SendGrid also returns it for "Maximum credits exceeded" — an
- * account out of allowance or past its trial. That clears the moment somebody
- * pays, so it MUST be retryable. Calling it permanent is precisely how the
- * October outage would have destroyed the mail a second time.
+ * A used-up allowance is **429** on Resend (`daily_quota_exceeded`, reset at
+ * midnight UTC) — plainly retryable, and the reason this rule exists.
  *
- * 403 and 4xx validation failures are NOT retried: an unverified sender or a
- * malformed payload fails identically forever, and retrying it just burns the
- * allowance that the real messages need.
+ * **401 stays retryable too**, which looks wrong: on Resend it means a
+ * missing or restricted key, not a quota. Keeping it retryable is a choice
+ * about which way to fail. A held message costs nothing and is delivered the
+ * moment somebody fixes the key; an abandoned one is gone, and the message
+ * most likely to hit a broken key is a password reset. (It was also, until
+ * 2026-10-13, how SendGrid reported an exhausted account — "Maximum credits
+ * exceeded" behind an auth status, which is what made the outage so
+ * confusing.)
+ *
+ * 403 and 4xx validation failures are NOT retried: an unverified domain, a
+ * sender outside it, or a malformed payload fails identically forever, and
+ * retrying only burns the daily allowance the real messages need.
  */
 export function isRetryableStatus(status: number): boolean {
   if (status === 401 || status === 429) return true;

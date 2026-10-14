@@ -12,13 +12,14 @@ import {
 } from "@/lib/mail-retry";
 
 describe("a refusal is only repeated when repeating could help", () => {
-  it("retries 401 — SendGrid's out-of-credits answer wears an auth status", () => {
-    // The whole point. Reading 401 as "bad key, give up" would have thrown
-    // away every message the outage touched.
+  it("retries 401 — a broken key is fixable, and the message should survive it", () => {
+    // Deliberate: on Resend a 401 is a missing or restricted key, not a
+    // quota. Holding the message costs nothing and it goes out when the key
+    // is fixed; abandoning it loses a password reset for good.
     expect(isRetryableStatus(401)).toBe(true);
   });
 
-  it("retries rate limiting and provider faults", () => {
+  it("retries 429 — an exhausted daily quota, which resets at midnight UTC", () => {
     expect(isRetryableStatus(429)).toBe(true);
     expect(isRetryableStatus(500)).toBe(true);
     expect(isRetryableStatus(503)).toBe(true);
@@ -26,7 +27,7 @@ describe("a refusal is only repeated when repeating could help", () => {
 
   it("does not retry a refusal that will fail identically forever", () => {
     expect(isRetryableStatus(400)).toBe(false); // malformed payload
-    expect(isRetryableStatus(403)).toBe(false); // sender not verified
+    expect(isRetryableStatus(403)).toBe(false); // unverified domain / sender outside it
     expect(isRetryableStatus(413)).toBe(false); // too large
   });
 });

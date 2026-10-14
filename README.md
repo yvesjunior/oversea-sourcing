@@ -755,53 +755,35 @@ facts a future session must not re-derive differently:
   otherwise a real send (plain fetch — no SDK, the adapter is the vendor
   seam). Failures return `{ok:false}`, never throw: a bounced email must not
   break a signup.
-- **Two providers, chosen by which key is set** (2026-10-13). `RESEND_API_KEY`
-  → Resend (`POST /emails`, success is **200** + `{id}`); else
-  `SENDGRID_API_KEY` → SendGrid (`POST /v3/mail/send`, success is **202**).
-  Resend wins when both are present, and that is what makes the cutover safe:
-  the code ships with SendGrid still wired, behaves exactly as before, and
-  switches the moment a Resend key appears in `.env` — no flag day, no
-  coordinated deploy, and reverting is deleting one line.
-  - **Why Resend** (owner, 2026-10-13: no paid plan). SendGrid has had no
-    free tier since May 2025 and OSI's trial ended, which is what took prod
-    mail down. Of the free options, Brevo gives more volume (300/day vs 100)
-    but stamps *"Sent with Brevo"* on every message — unacceptable on a quote
-    solicitation to a supplier. OSI's busiest day ever was **4 emails**, so
-    the lower cap is irrelevant and the branding is not.
-  - **Resend requires a verified domain** — it sends only from a domain you
-    own. Verify it in Cloudflare BEFORE setting the key: an unverified domain
-    answers **403**, which is permanent, so the outbox abandons rather than
-    retrying.
-  - **A used-up quota reads differently per provider**, which is why the rule
-    lives in `isRetryableStatus` and not in a vendor branch: Resend says
-    **429** `daily_quota_exceeded`, SendGrid says **401** *"Maximum credits
-    exceeded"*. Both are retryable; 403 and 400 are not.
-  - **Retries carry an idempotency key** (Resend only — SendGrid's send
-    endpoint has none). The `mail_outbox` row's own id IS the key, minted
-    before the first attempt, so a retry of a message that actually landed
-    cannot deliver it twice. Resend expires keys after 24 h and our backoff
-    can exceed that, so this narrows the window rather than closing it — the
-    right trade, since the alternative to a rare duplicate is a lost reset.
-- **A refused message is KEPT, not dropped** (2026-10-11). Returning
-  `{ok:false}` was only half a policy: four of the adapter's five callers
-  discarded the result, so when SendGrid began answering every send with
-  401 *"Maximum credits exceeded"* the mail simply ceased to exist — a buyer
-  waited 90 minutes for a report and was never told it was ready, and
-  password resets went the same way. Anything that might still succeed now
-  lands in **`mail_outbox`** and the worker retries it every 5 minutes with
-  exponential backoff (5 min → 6 h cap), giving up after 7 days.
-  - The retry RULES are pure and live apart from the adapter
-    (`src/lib/mail-retry.ts`, 14 tests): the adapter owns the provider and
-    the table, the rules own the decisions.
-  - **401 is retryable**, which looks wrong and is the whole point — it reads
-    as "bad credentials" but is also what SendGrid returns for an exhausted
-    account, and that clears when somebody pays. 400/403 are permanent and
-    abandoned immediately, so an unverified sender cannot burn the allowance.
-  - One flusher only, on the pipeline worker, for the same reason as the
-    stranded sweep. When mail is piling up and nothing is getting through,
-    staff get an in-app `mail_backlog` alert — **in-app only**, since
-    emailing someone to say email is broken would queue behind the very
-    backlog it describes.
+- **Resend is the only provider** (2026-10-13). `RESEND_API_KEY` → `POST
+  /emails`, success is **200** + `{id}`. SendGrid was the provider from
+  2026-08-23 and has been **removed, not kept as a fallback**: no free tier
+  since May 2025, the trial ended, and the account answered every send with
+  401 *"Maximum credits exceeded"* — an account state no code change lifts, so
+  a fallback to it could only ever fail. The dual-provider dispatch existed to
+  make the cutover safe; once Resend was proven in prod it was just a second
+  contract to keep in step (202 vs 200, different error vocabularies) for no
+  benefit.
+  - **Why Resend** (owner, 2026-10-13: no paid plan). Of the free options,
+    Brevo gives more volume (300/day vs 100) but stamps *"Sent with Brevo"* on
+    every message — unacceptable on a quote solicitation to a supplier. OSI's
+    busiest day ever was **4 emails**, so the lower cap is irrelevant and the
+    branding is not. The 100/day is shared across every domain in the account
+    (`osi-solutions.com` and `prestigelocations.ca` both live there).
+  - **A verified domain is required** — Resend sends only from a domain you
+    own, so `MAIL_FROM` must be on it. An unverified domain, or a sender
+    outside it, answers **403**, which is permanent: the outbox abandons it
+    rather than retrying. Verify before setting the key.
+  - **A used-up allowance is 429** (`daily_quota_exceeded`, reset at midnight
+    UTC) — retryable. **401 is retryable too**, deliberately: on Resend it
+    means a missing or restricted key, and a held message is delivered when
+    somebody fixes the key, whereas an abandoned one is gone — and the message
+    most likely to meet a broken key is a password reset.
+  - **Retries carry an idempotency key.** The `mail_outbox` row's own id IS
+    the key, minted before the first attempt, so a retry of a message that
+    actually landed cannot deliver it twice. Resend expires keys after 24 h
+    and our backoff can exceed that, so this narrows the window rather than
+    closing it — the right trade against a lost reset.
 - **Verified end to end in dev** (2026-08-23): signup → logged verification
   email → link → `email_verified = true` + auto sign-in; forgot → logged
   reset email → link → new password → fresh login with it returned 200.
