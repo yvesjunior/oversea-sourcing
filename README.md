@@ -1530,6 +1530,30 @@ Consequences, all first-class:
   records what came back. A quote is *entered by staff*; an external signature
   is *recorded by staff*.
 
+> ⛔ **SUPERSEDED 2026-10-21 — suppliers DO get accounts.** Owner: *« les
+> fournisseurs sont contactés par email pour les inviter à créer un compte et à
+> répondre à la demande de quotation. »* The invitation email now carries a
+> registration link; the supplier creates an account and answers in a supplier
+> portal. That reverses the rule above, and the V6 architecture document builds
+> on it (`Candidate → Invited → Active → Transaction Supplier → Validated`).
+>
+> Nothing has been built yet, and the consequences are not small:
+>
+> - **A third audience.** The two-audience guarantee above is void; every
+>   tenancy guard was written on it.
+> - **Strict partitioning becomes a requirement, not a nicety.** V6 is explicit:
+>   a supplier must never see competitors' prices, rankings or identities, nor
+>   internal notes, OSI revenue or the partner revenue share.
+> - **§3 below is in question.** Its split — accounts sign in the platform,
+>   everyone else uploads a countersigned PDF — was derived from suppliers
+>   having no account. An authenticated supplier could sign in the platform.
+> - **`contract_party` keeps its shape regardless.** Carriers, brokers and
+>   inspectors are still records; only the supplier gains a login.
+>
+> Still undecided: whether the invitation link lets a supplier answer *without*
+> an account (V6's `Invited` state) with the account coming later, or whether
+> the account is required for the first answer. Drawn as account-first.
+
 #### ADR-002 §3 · Two signature mechanisms, split by who the party IS
 
 | Party | Mechanism | Evidence |
@@ -1723,6 +1747,63 @@ pull request.
 | **The platform workspace holds no customer data** and cannot be deleted | owner, 2026-08-29 · §1 |
 | **Registries never enter matching** | Part I §2 |
 | **A workspace carrying a contract or a deal is archived, never erased** — six-year retention | owner, 2026-09-12 · Part II §4 |
+
+---
+
+## 2c · The V6 architecture document (2026-10-21)
+
+A strategy document arrived — *OSI — Architecture stratégique et fonctionnelle,
+Yves & Zack*, dated 16 October, addressed to Yves for the product and Zack for
+the legal review. It is **larger than what Parts I and II describe**, and some
+of it contradicts them. This section records what the owner has confirmed
+since; the document itself is the reference for the rest.
+
+It marks its own items `CONFIRMÉ` / `RECOMMANDÉ` / `À VALIDER` / `JURIDIQUE`.
+That is a *decision* axis and says nothing about what exists — which is why the
+diagram below carries both.
+
+**📐 [The parcours, drawn](https://claude.ai/artifact/Bn6QLTgjbCf61ks2ghQm5N)** —
+20 steps in four lanes, with what is decided and what is built shown
+separately. Also committed as `OSI-Parcours-V6.pdf`.
+
+### What changes versus the built product
+
+- **Twenty steps, not sixteen.** Twelve from the need to the order, then eight
+  for execution (Transaction Room, contracts, settlement, production,
+  inspection, transport/customs, reception, closure).
+- **Two scorers, not one.** `matching.ts` today produces one ranking and sends
+  it straight to the buyer. V6 splits it: **KPI #1** (supplier fit) yields an
+  *internal* shortlist worth an RFQ; partners then enrich the five best offers;
+  **KPI #2** (transaction fit) re-ranks on landed cost, FX, inspection, duties
+  and risk. Only then does the buyer see anything.
+- **A fourth surface, the Partner Hub**, with `PartnerCase` / `PartnerEnrichment`
+  and a generic adapter — `createCase()`, `requestDocument()`, `getStatus()`,
+  `redirectUrl()`, `receiveWebhook()`.
+- **Suppliers get accounts** — see the superseded note on Part II §2.
+
+### Owner decisions taken on 2026-10-21
+
+| Decision | Consequence |
+|---|---|
+| **Suppliers are invited by email to create an account and answer the RFQ** | Reverses Part II §2. A third audience, and strict partitioning becomes mandatory. |
+| **The RFQ window closes on 5 offers received OR a configurable delay (72 h default)** | Nothing of the sort exists: no window, no deadline, no reminder, no setting. `SUPPLIERS_RETURNED` already defaults to 5. |
+| **The Decision Pack = the supplier quote + partner enrichments, ordered by KPI #2** | It has no content of its own — it is a read-model over `Offer`, `PartnerEnrichment` and `KPIResult`. What it must store is which versions were shown, in what order, and when. |
+| **Partners are Globex, escrow.com, transport, inspection, customs** | escrow.com is a *separate* party from Globex, so the money path splits: who holds the funds is no longer a single answer. |
+
+### Open, and load-bearing
+
+- **Does the invitation let a supplier answer without an account?** V6's
+  `Invited` state suggests a secure link first, the account later. Drawn
+  account-first, on the owner's wording.
+- **Does the delay run from the RFQ being sent, or from the first offer?**
+- **escrow.com versus Globex.** They do different jobs — Globex is a Montreal
+  currency-exchange and international-payments firm; escrow.com holds funds
+  until the buyer accepts. The open question is whether escrow.com can pay a
+  third party (OSI's fee) out of the same transaction, because the whole
+  financial architecture in V6 §8 depends on it.
+- **Which partners are mandatory** before a Decision Pack can exist. Until that
+  is fixed, step 08 has no exit condition.
+- **Nothing here changes the standing constraint** on paid data providers.
 
 ---
 

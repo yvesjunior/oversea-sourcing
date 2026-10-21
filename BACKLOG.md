@@ -24,6 +24,7 @@
 | **E9** Notifications | In-app + email | 🟡 bell, emitters, **prefs (2026-08-26)** live; Phase P types (`quote_received`, `contract_to_sign`, `contract_signed`) + staff alert on `quotes.requested` (2026-09-07) live; **the bell alerts (2026-09-14)** — count badge, 30 s poll, chime, per-browser mute |
 | **E10** Admin surfaces | Verification, imports, ops queue | 🟡 **verification LIVE (S5b/S5c, 2026-08-26)**; imports/ops queue placeholders |
 | **R** Custom staff roles | Roles as data + the matrix | ✅ **BUILT 2026-08-29** (migration 0039) — create/delete roles, dynamic matrix, `requests.all` |
+| **E13** V6 architecture | Supplier portal · KPI #2 · Partner Hub · Decision Pack | 🔵 **NEW 2026-10-21** — scope opened by the V6 document; nothing built, see below |
 | **E11** Settings | Profile, sourcing rules | 🟡 Paramètres + notification prefs live; **password / 2FA / theme / rename (2026-08-27)** live; buyer Abonnement self-service waits for billing |
 
 **MVP1 = E0–E7 + E10.** Definition of done **restated 2026-08-29 by ADR-002**
@@ -1770,6 +1771,54 @@ qualifying.
 **Worth knowing:** `score_breakdown` now carries `partial` as an outcome and a
 `partialCount`. Nothing renders it — checked — so the new enum value reaches
 no `t()` call and cannot become the fifth missing-i18n-key bug.
+
+### E13 · What the V6 document opens — 🔵 NOTHING BUILT (2026-10-21)
+
+The *Architecture stratégique et fonctionnelle V6* describes a bigger product
+than Parts I and II. Full analysis in [README §2c](README.md); the parcours is
+drawn in `OSI-Parcours-V6.pdf`. What matters here is the distance to it.
+
+**Of V6's twelve "étapes confirmées", five are fully in production.** Four are
+partial, three do not exist. Verified against the code, not assumed:
+
+| Step | V6 says | Today |
+|---|---|---|
+| 02 | the AI clarifies, reformulates, asks what is missing | `parse-criteria.ts` — deterministic regex, *"zero tokens, no AI stage"* |
+| 03 | cahier des charges + `KPIProfile v1` | no entity at all |
+| 04 | the buyer validates the spec | no state between `draft` and `received` |
+| 06 | KPI #1 yields an internal shortlist | one scorer, and its Top-N goes straight to the buyer |
+| 07 | suppliers register and answer in a portal | staff email them; answers are typed in by staff |
+| 08 | partners enrich the five best offers | no `PartnerCase`, no `PartnerEnrichment` |
+| 09 | KPI #2 re-ranks on landed cost and risk | does not exist |
+| 10 | Decision Pack | `demandes/$id.rapport.tsx` shows need, criteria, method, results — no landed cost, no partner data, no trust score, and **no ranking explanation: `score_breakdown` is computed and stored but rendered by no route** |
+
+**The decisions taken on 2026-10-21**, each with what it costs us:
+
+- **Suppliers get accounts.** Reverses Part II §2 and its two-audience
+  guarantee, which every tenancy guard was written against. Partitioning
+  becomes mandatory: a supplier must never see competitors' prices, rankings
+  or identities, nor internal notes or OSI revenue.
+- **The RFQ window closes on 5 offers or a configurable delay (72 h).**
+  Nothing exists: no window, no deadline, no reminder, no setting. The one
+  piece already in place is `SUPPLIERS_RETURNED`, which defaults to 5.
+- **The Decision Pack is a read-model** over `Offer` + `PartnerEnrichment`
+  ordered by `KPIResult` — not a document to author. It should store which
+  versions were shown, in what order and when, which is what replaying a past
+  decision needs.
+- **escrow.com is a partner distinct from Globex**, so the money path has two
+  candidates and "who holds the funds" stops being one answer.
+
+**Blocked on a decision, not on code:**
+
+- Does the invitation let a supplier answer *without* an account first?
+- Does the 72 h run from the RFQ being sent, or from the first offer?
+- Can escrow.com pay a third party (OSI's fee) from the same transaction? The
+  whole financial architecture of V6 §8 rests on it.
+- Which partners are mandatory before a Decision Pack exists? Until that is
+  fixed, step 08 has no exit condition.
+
+**Unchanged:** the standing constraint on paid data providers, and everything
+in Parts I and II that V6 does not contradict.
 
 ### Two things deploy #41 uncovered (2026-10-11)
 
