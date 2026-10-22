@@ -1811,6 +1811,12 @@ partial, three do not exist. Verified against the code, not assumed:
   pack; the automatic path is designed in now and turned on later. So build a
   mode resolved like the other sourcing knobs, not an `if` in the pipeline.
   Three pieces of work, none of which exists:
+  - a **platform settings store and an internal Paramètres page** — the owner
+    wants the mode set from OSI's own Paramètres (2026-10-22) and there is
+    nowhere to put it: of 40 tables the only config stores are
+    `sourcing_rules` (per workspace) and `plan` (per plan), and no internal
+    settings page exists. Build it once and the knobs still stuck in env vars
+    — `SUPPLIERS_RETURNED`, the 72 h window — get a home too;
   - a **queue of packs awaiting release** — owner, visible age, so none sits
     on a desk unaccounted for;
   - **stored release provenance** — when, and whether a person or the system

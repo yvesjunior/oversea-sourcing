@@ -1807,10 +1807,17 @@ Owner, 2026-10-22: staff validate and send the pack **by default**, and the
 automatic path is built for from the start rather than retrofitted. Three
 things follow, and they are design constraints rather than preferences:
 
-- **The gate is configuration, not control flow.** Releasing has a mode —
-  manual or automatic — resolved where the rest of the sourcing knobs are
-  resolved, so turning it on is a setting and not a deploy. The same shape as
-  `SUPPLIERS_RETURNED` and the plan overrides already in place.
+- **The gate is configuration, not control flow** — and it lives in the
+  platform's own Paramètres (owner, 2026-10-22), so turning it on is a setting
+  and not a deploy. **That home does not exist yet.** Checked: of the 40
+  tables, the only configuration stores are `sourcing_rules`, which is
+  per-workspace (`sourcing_rules_org_uq` on `organization_id`), and `plan`,
+  which is per-plan. `/parametres` is the buyer's page and carries no
+  `requirePlatformFeature`; the seven internal pages are clients, finance,
+  logging, plans, sources, utilisateurs and verification. A platform-level
+  setting therefore needs a store and an internal surface, neither of which is
+  built — and both would serve the knobs still living in env vars, such as
+  `SUPPLIERS_RETURNED` and the 72 h window.
 - **Who released it is STORED, never derived.** Handing a pack to a buyer is
   an irreversible side effect, like a sent email: the row records when, and
   whether a person or the system did it. That is the distinction the derived
@@ -1824,6 +1831,13 @@ things follow, and they are design constraints rather than preferences:
 Until the switch flips, the manual path still needs its surface: a queue of
 packs awaiting release, with an owner and a visible age, so none sits on a
 desk unaccounted for.
+
+**One question the scope raises.** A single platform-wide switch says every
+client is reviewed the same way. In practice the first dossier for a new buyer
+and the fortieth for a familiar one do not carry the same risk, and the same
+is true per category. Whether the mode is one global value or a default that a
+client or a category can override is worth deciding before the table is
+designed — widening it afterwards is a migration, narrowing it is not.
 
 ### Open, and load-bearing
 
