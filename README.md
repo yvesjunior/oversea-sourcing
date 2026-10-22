@@ -1797,9 +1797,33 @@ separately. Also committed as `OSI-Parcours-V6.pdf`.
 |---|---|
 | **Suppliers are invited by email to create an account and answer the RFQ** | Reverses Part II §2. A third audience, and strict partitioning becomes mandatory. |
 | **The RFQ window closes on 5 offers received OR a configurable delay (72 h default)** | Nothing of the sort exists: no window, no deadline, no reminder, no setting. `SUPPLIERS_RETURNED` already defaults to 5. |
-| **Staff validate the pack and send it — it never leaves automatically** (2026-10-22) | When the window closes and KPI #2 has run, the pack waits for a human. That is an ops surface nobody has built: a queue, an owner, and a delay the buyer feels. It also makes OSI answerable for what it sends, which is the point. |
+| **Release is a POLICY whose default is manual** (2026-10-22) | Staff validate and send the pack today; automatic release is built for from the start and switched on later. So it is a mode, not a hardcoded step — see the note below. |
 | **The Decision Pack = the supplier quote + partner enrichments, ordered by KPI #2** | It has no content of its own — it is a read-model over `Offer`, `PartnerEnrichment` and `KPIResult`. What it must store is which versions were shown, in what order, and when. |
 | **Partners are Globex, escrow.com, transport, inspection, customs** | escrow.com is a *separate* party from Globex, so the money path splits: who holds the funds is no longer a single answer. |
+
+### Releasing the Decision Pack is a switch, not a step
+
+Owner, 2026-10-22: staff validate and send the pack **by default**, and the
+automatic path is built for from the start rather than retrofitted. Three
+things follow, and they are design constraints rather than preferences:
+
+- **The gate is configuration, not control flow.** Releasing has a mode —
+  manual or automatic — resolved where the rest of the sourcing knobs are
+  resolved, so turning it on is a setting and not a deploy. The same shape as
+  `SUPPLIERS_RETURNED` and the plan overrides already in place.
+- **Who released it is STORED, never derived.** Handing a pack to a buyer is
+  an irreversible side effect, like a sent email: the row records when, and
+  whether a person or the system did it. That is the distinction the derived
+  rule does not cover, and it is what makes the audit answerable later.
+- **Automatic must be defensible before it is switched on.** OSI vouches for
+  what it sends. The honest precondition is evidence that manual review
+  stopped changing anything — which is only knowable if the manual decisions
+  are recorded in the first place, including when staff *corrected* a pack
+  rather than just approving it.
+
+Until the switch flips, the manual path still needs its surface: a queue of
+packs awaiting release, with an owner and a visible age, so none sits on a
+desk unaccounted for.
 
 ### Open, and load-bearing
 
