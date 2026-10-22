@@ -1812,8 +1812,9 @@ partial, three do not exist. Verified against the code, not assumed:
   mode resolved like the other sourcing knobs, not an `if` in the pipeline.
   Three pieces of work, none of which exists:
   - a **platform settings store and an internal Paramètres page** — the owner
-    wants the mode set from OSI's own Paramètres (2026-10-22) and there is
-    nowhere to put it: of 40 tables the only config stores are
+    wants the mode set from OSI's own Paramètres (2026-10-22), as **one global
+    value applying to every client, with no per-client or per-category
+    override**, and there is nowhere to put it: of 40 tables the only config stores are
     `sourcing_rules` (per workspace) and `plan` (per plan), and no internal
     settings page exists. Build it once and the knobs still stuck in env vars
     — `SUPPLIERS_RETURNED`, the 72 h window — get a home too;

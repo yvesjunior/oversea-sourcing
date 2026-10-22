@@ -1832,12 +1832,16 @@ Until the switch flips, the manual path still needs its surface: a queue of
 packs awaiting release, with an owner and a visible age, so none sits on a
 desk unaccounted for.
 
-**One question the scope raises.** A single platform-wide switch says every
-client is reviewed the same way. In practice the first dossier for a new buyer
-and the fortieth for a familiar one do not carry the same risk, and the same
-is true per category. Whether the mode is one global value or a default that a
-client or a category can override is worth deciding before the table is
-designed — widening it afterwards is a migration, narrowing it is not.
+**Scope: one value for everyone** (owner, 2026-10-22). No per-client and no
+per-category override — the mode is a single platform-wide setting, and every
+dossier is released the same way. This keeps the first version honest: a
+switch nobody can special-case is a switch whose behaviour can be stated in
+one sentence to a customer.
+
+The trade was named and accepted: the first dossier for a new buyer and the
+fortieth for a familiar one will be reviewed identically. If that ever needs
+to differ, widening a global value into a default-plus-override is a
+migration — the shape `sourcing_rules` already uses — not a redesign.
 
 ### Open, and load-bearing
 
