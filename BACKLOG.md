@@ -1836,7 +1836,13 @@ partial, three do not exist. Verified against the code, not assumed:
   registration from an invitation, and a response-rate measure — if
   suppliers do not register, the 5-offer window closes short and
   `no_response` stops meaning what the schema says it means.
-- Does the 72 h run from the RFQ being sent, or from the first offer?
+- ~~Does the 72 h run from the RFQ being sent, or from the first offer?~~
+  **Decided 2026-10-22: from `quote.sent_at`.** Not `requested_at`, which
+  would spend the supplier's window before anyone wrote to them — the same
+  reasoning that put `sent_at` in the schema on 2026-09-12. Leaves two
+  details: what the window does when `sent_at` is null (it is nullable), and
+  whether the clock is per supplier or per request, which only matters while
+  RFQs go out by hand at different times.
 - Can escrow.com pay a third party (OSI's fee) from the same transaction? The
   whole financial architecture of V6 §8 rests on it.
 - Which partners are mandatory before a Decision Pack exists? Until that is

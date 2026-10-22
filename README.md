@@ -1843,13 +1843,39 @@ fortieth for a familiar one will be reviewed identically. If that ever needs
 to differ, widening a global value into a default-plus-override is a
 migration — the shape `sourcing_rules` already uses — not a redesign.
 
+### The window is per request or per supplier — still to settle
+
+`sent_at` lives on `quote`, one row per supplier asked, so "72 h from the RFQ
+being sent" has two readings and they behave differently when the RFQs do not
+all leave together:
+
+- **Per supplier** — each gets a full 72 h from their own send. Fair to a
+  supplier added late, but the request cannot close until the last window
+  expires, so staggered sends stretch the buyer's wait.
+- **Per request** — one clock, started when the batch goes out. Predictable
+  for the buyer, and a supplier contacted a day later gets less than 72 h.
+
+Automating the invitations makes them converge, since the batch would leave at
+once. Until then they differ, and the five-offer condition hides it: the
+question only bites when fewer than five answer.
+
 ### Open, and load-bearing
 
 - ~~Does the invitation let a supplier answer without an account?~~
   **Decided 2026-10-22: the account comes first.** Carries an obligation —
   measure the response rate from the first dossiers, since the five-offer
   window and the moat both rest on it.
-- **Does the delay run from the RFQ being sent, or from the first offer?**
+- ~~Does the delay run from the RFQ being sent, or from the first offer?~~
+  **Decided 2026-10-22: from the RFQ being sent — `quote.sent_at`, not
+  `requested_at`.** The field already exists and was added on 2026-09-12 for
+  the same reason: counting from `requested_at` folds OSI's own lag into the
+  supplier's clock, and *"a slow afternoon at OSI's end was being recorded as
+  a slow supplier"*. A window started at `requested_at` would do worse — it
+  would spend the supplier's time before anyone had written to them.
+  Two things follow. `sent_at` is **nullable**, so the window needs a rule for
+  an RFQ nobody marked sent; and its doc comment calls it *"a human act, by
+  email, outside the platform"*, which stops being true once invitations are
+  automated.
 - **escrow.com versus Globex.** They do different jobs — Globex is a Montreal
   currency-exchange and international-payments firm; escrow.com holds funds
   until the buyer accepts. The open question is whether escrow.com can pay a
