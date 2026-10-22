@@ -1790,7 +1790,7 @@ partial, three do not exist. Verified against the code, not assumed:
 | 07 | suppliers register and answer in a portal | staff email them; answers are typed in by staff |
 | 08 | partners enrich the five best offers | no `PartnerCase`, no `PartnerEnrichment` |
 | 09 | KPI #2 re-ranks on landed cost and risk | does not exist |
-| 10 | Decision Pack | `demandes/$id.rapport.tsx` shows need, criteria, method, results — no landed cost, no partner data, no trust score, and **no ranking explanation: `score_breakdown` is computed and stored but rendered by no route** |
+| 10 | the pack is **validated and sent by a staff member** (owner, 2026-10-22) — never automatic | `demandes/$id.rapport.tsx` shows need, criteria, method, results — no landed cost, no partner data, no trust score, and **no ranking explanation: `score_breakdown` is computed and stored but rendered by no route** |
 
 **The decisions taken on 2026-10-21**, each with what it costs us:
 
@@ -1807,6 +1807,13 @@ partial, three do not exist. Verified against the code, not assumed:
   decision needs.
 - **escrow.com is a partner distinct from Globex**, so the money path has two
   candidates and "who holds the funds" stops being one answer.
+- **The pack is released by a human.** When the window closes and KPI #2 has
+  run, the Decision Pack sits until a staff member validates and sends it.
+  That needs a surface nobody has built — a queue of packs awaiting release,
+  with an owner and a visible age — and it puts a human delay between the
+  supplier's last offer and the buyer seeing anything. Worth measuring
+  alongside the response rate: a 72 h window followed by two days on a desk
+  is a five-day wait from the buyer's side.
 
 **Blocked on a decision, not on code:**
 

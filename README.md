@@ -1797,6 +1797,7 @@ separately. Also committed as `OSI-Parcours-V6.pdf`.
 |---|---|
 | **Suppliers are invited by email to create an account and answer the RFQ** | Reverses Part II §2. A third audience, and strict partitioning becomes mandatory. |
 | **The RFQ window closes on 5 offers received OR a configurable delay (72 h default)** | Nothing of the sort exists: no window, no deadline, no reminder, no setting. `SUPPLIERS_RETURNED` already defaults to 5. |
+| **Staff validate the pack and send it — it never leaves automatically** (2026-10-22) | When the window closes and KPI #2 has run, the pack waits for a human. That is an ops surface nobody has built: a queue, an owner, and a delay the buyer feels. It also makes OSI answerable for what it sends, which is the point. |
 | **The Decision Pack = the supplier quote + partner enrichments, ordered by KPI #2** | It has no content of its own — it is a read-model over `Offer`, `PartnerEnrichment` and `KPIResult`. What it must store is which versions were shown, in what order, and when. |
 | **Partners are Globex, escrow.com, transport, inspection, customs** | escrow.com is a *separate* party from Globex, so the money path splits: who holds the funds is no longer a single answer. |
 
