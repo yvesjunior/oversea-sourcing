@@ -1550,9 +1550,19 @@ Consequences, all first-class:
 > - **`contract_party` keeps its shape regardless.** Carriers, brokers and
 >   inspectors are still records; only the supplier gains a login.
 >
-> Still undecided: whether the invitation link lets a supplier answer *without*
-> an account (V6's `Invited` state) with the account coming later, or whether
-> the account is required for the first answer. Drawn as account-first.
+> **Settled 2026-10-22 — the account comes first.** The invitation email asks
+> the supplier to register, and the RFQ is answered from the portal. V6's
+> `Invited` state is therefore a *pending registration*, not a way to answer
+> without one.
+>
+> The cost is accepted deliberately, and it is a cold-email cost: a company
+> that has never heard of OSI is asked to create an account before it sees the
+> request. **So response rate becomes a number to watch, not an assumption.**
+> Three things lean on it — the five-offer window (a Top 5 built from three
+> offers is a list, not a ranking), the response-time data Part I §6 calls the
+> unscrapable half of the moat, and the honesty of the `no_response` signal,
+> which the schema treats as the strongest negative the platform owns. A
+> supplier who simply would not register must not read as one who ignored us.
 
 #### ADR-002 §3 · Two signature mechanisms, split by who the party IS
 
@@ -1792,9 +1802,10 @@ separately. Also committed as `OSI-Parcours-V6.pdf`.
 
 ### Open, and load-bearing
 
-- **Does the invitation let a supplier answer without an account?** V6's
-  `Invited` state suggests a secure link first, the account later. Drawn
-  account-first, on the owner's wording.
+- ~~Does the invitation let a supplier answer without an account?~~
+  **Decided 2026-10-22: the account comes first.** Carries an obligation —
+  measure the response rate from the first dossiers, since the five-offer
+  window and the moat both rest on it.
 - **Does the delay run from the RFQ being sent, or from the first offer?**
 - **escrow.com versus Globex.** They do different jobs — Globex is a Montreal
   currency-exchange and international-payments firm; escrow.com holds funds

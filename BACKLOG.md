@@ -1810,7 +1810,11 @@ partial, three do not exist. Verified against the code, not assumed:
 
 **Blocked on a decision, not on code:**
 
-- Does the invitation let a supplier answer *without* an account first?
+- ~~Does the invitation let a supplier answer without an account first?~~
+  **Decided 2026-10-22: account first.** New work it creates: supplier
+  registration from an invitation, and a response-rate measure — if
+  suppliers do not register, the 5-offer window closes short and
+  `no_response` stops meaning what the schema says it means.
 - Does the 72 h run from the RFQ being sent, or from the first offer?
 - Can escrow.com pay a third party (OSI's fee) from the same transaction? The
   whole financial architecture of V6 §8 rests on it.
