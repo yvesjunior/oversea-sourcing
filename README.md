@@ -1832,6 +1832,14 @@ Until the switch flips, the manual path still needs its surface: a queue of
 packs awaiting release, with an owner and a visible age, so none sits on a
 desk unaccounted for.
 
+**The window closing notifies staff** (owner, 2026-10-24). It is the push half
+of that queue: `notifyStaff` already addresses whoever holds the permission to
+act rather than "all staff", and `quotes_requested` is the existing precedent
+for a staff-facing type — so this is one more entry in
+`NOTIFICATION_TYPES`, gated on `deals`. The pull half is still the queue: a
+notification can be read and forgotten, which is exactly what a visible age
+protects against.
+
 **A supplier still silent when the window closes is simply not in the pack**
 (owner, 2026-10-24) — whether the clock ran out or staff released early. Their
 quote is excluded, not chased.
