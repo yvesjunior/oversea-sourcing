@@ -1899,6 +1899,25 @@ Automating the invitations makes them converge, since the batch would leave at
 once. Until then they differ, and the five-offer condition hides it: the
 question only bites when fewer than five answer.
 
+### Everything here is provisional
+
+**Owner, 2026-10-24: what is decided today is subject to change, and the
+transaction side especially stays open.** That matches V6's own standing —
+it is a working version, not final until Henrik has validated the structure
+and Zack has reviewed the legal points.
+
+Saying it is cheap; what makes it true is refusing to hardcode. V6 already
+prescribes the discipline — *"feature flags pour paiement, KYC, signatures ou
+toute fonction non encore validée juridiquement"* — and the decisions above
+were taken in that spirit: release is a mode rather than a branch, fee rules
+are a grid rather than a percentage, the window is a setting rather than a
+constant. A reversible decision costs a setting; an irreversible one costs a
+migration.
+
+So the practical rule for anything financial: **do not build it yet.** Not
+because the numbers are missing, but because the legal opinion that shapes it
+has not been given.
+
 ### Open, and load-bearing
 
 - ~~Does the invitation let a supplier answer without an account?~~
@@ -1916,11 +1935,13 @@ question only bites when fewer than five answer.
   an RFQ nobody marked sent; and its doc comment calls it *"a human act, by
   email, outside the platform"*, which stops being true once invitations are
   automated.
-- **escrow.com versus Globex.** They do different jobs — Globex is a Montreal
-  currency-exchange and international-payments firm; escrow.com holds funds
-  until the buyer accepts. The open question is whether escrow.com can pay a
-  third party (OSI's fee) out of the same transaction, because the whole
-  financial architecture in V6 §8 depends on it.
+- **The transaction side stays open on purpose** (owner, 2026-10-24). Globex
+  and escrow.com do different jobs — Globex is a Montreal currency-exchange
+  and international-payments firm, escrow.com holds funds until the buyer
+  accepts — and whether escrow.com can pay a third party (OSI's fee) from the
+  same transaction is unanswered. It is not being forced: V6 §8 rests on it,
+  and Zack's first legal question is whether OSI can be kept off the money
+  path at all.
 - ~~Which partners are mandatory before a Decision Pack can exist?~~
   **Decided 2026-10-24: none, for now.** Step 08 therefore blocks nothing —
   enrichment is opportunistic, and a pack can go out with no partner data at
