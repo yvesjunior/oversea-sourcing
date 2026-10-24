@@ -1796,7 +1796,7 @@ separately. Also committed as `OSI-Parcours-V6.pdf`.
 | Decision | Consequence |
 |---|---|
 | **Suppliers are invited by email to create an account and answer the RFQ** | Reverses Part II §2. A third audience, and strict partitioning becomes mandatory. |
-| **The RFQ window closes on 5 offers received OR a configurable delay (72 h default)** | Nothing of the sort exists: no window, no deadline, no reminder, no setting. `SUPPLIERS_RETURNED` already defaults to 5. |
+| **The RFQ window closes on 5 offers, OR the delay (72 h default), OR staff releasing early** (2026-10-24) | Three conditions, not two: staff need not wait out the clock when the offers in hand are enough. Nothing of the sort exists — no window, no deadline, no reminder, no setting. `SUPPLIERS_RETURNED` already defaults to 5. |
 | **Release is a POLICY whose default is manual** (2026-10-22) | Staff validate and send the pack today; automatic release is built for from the start and switched on later. So it is a mode, not a hardcoded step — see the note below. |
 | **The Decision Pack = the supplier quote + partner enrichments, ordered by KPI #2** | It has no content of its own — it is a read-model over `Offer`, `PartnerEnrichment` and `KPIResult`. What it must store is which versions were shown, in what order, and when. |
 | **Partners are Globex, escrow.com, transport, inspection, customs** | escrow.com is a *separate* party from Globex, so the money path splits: who holds the funds is no longer a single answer. |
@@ -1831,6 +1831,24 @@ things follow, and they are design constraints rather than preferences:
 Until the switch flips, the manual path still needs its surface: a queue of
 packs awaiting release, with an owner and a visible age, so none sits on a
 desk unaccounted for.
+
+**A supplier still silent when the window closes is simply not in the pack**
+(owner, 2026-10-24) — whether the clock ran out or staff released early. Their
+quote is excluded, not chased.
+
+> **Excluded from the pack is not the same as unrecorded.** `no_response` is
+> in the schema because ADR Part I §6 calls never answering the strongest
+> negative signal the platform owns — the one thing no competitor can scrape.
+> An outstanding quote that is merely skipped leaves that signal unwritten and
+> the row dangling in `requested` forever.
+>
+> But stamping it blindly repeats a mistake already fixed once. When staff
+> release **early**, the silent supplier never got their full window: recording
+> that as `no_response` blames them for OSI's choice, which is precisely the
+> error `sent_at` was added on 2026-09-12 to stop ("a slow afternoon at OSI's
+> end was being recorded as a slow supplier"). So the honest rule is to
+> distinguish *the window expired on them* from *we closed before it did* —
+> only the first is a fact about the supplier.
 
 **What staff act on is the set of offers the window closed with** — not every
 supplier having answered. The two are different the moment someone is asked

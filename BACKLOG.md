@@ -1798,7 +1798,14 @@ partial, three do not exist. Verified against the code, not assumed:
   guarantee, which every tenancy guard was written against. Partitioning
   becomes mandatory: a supplier must never see competitors' prices, rankings
   or identities, nor internal notes or OSI revenue.
-- **The RFQ window closes on 5 offers or a configurable delay (72 h).**
+- **A silent supplier is excluded, not chased** (2026-10-24). But excluded is
+  not unrecorded: `no_response` exists because never answering is the
+  strongest negative the platform owns, so a skipped quote must not be left
+  dangling in `requested`. And it must not be stamped blindly either — when
+  staff release early the supplier never had their full window, and blaming
+  them for OSI's timing is the same error `sent_at` was added to stop.
+  Distinguish *expired on them* from *we closed first*.
+- **The RFQ window closes on 5 offers, the delay (72 h), or staff releasing early.**
   Nothing exists: no window, no deadline, no reminder, no setting. The one
   piece already in place is `SUPPLIERS_RETURNED`, which defaults to 5.
 - **The Decision Pack is a read-model** over `Offer` + `PartnerEnrichment`
