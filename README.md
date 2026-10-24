@@ -1842,6 +1842,13 @@ quote is excluded, not chased.
 > An outstanding quote that is merely skipped leaves that signal unwritten and
 > the row dangling in `requested` forever.
 >
+> **Closing early requires a written reason** (owner, 2026-10-24). The note is
+> mandatory, stored with the release, and it is what makes the shortfall
+> accountable: the pack went out with three offers instead of five *because*,
+> and the because is on the record. It also feeds the only honest test for
+> switching to automatic — early closes whose reasons all say "enough offers
+> already" mean something different from ones that say "customer in a hurry".
+>
 > But stamping it blindly repeats a mistake already fixed once. When staff
 > release **early**, the silent supplier never got their full window: recording
 > that as `no_response` blames them for OSI's choice, which is precisely the

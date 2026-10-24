@@ -1805,7 +1805,10 @@ partial, three do not exist. Verified against the code, not assumed:
   staff release early the supplier never had their full window, and blaming
   them for OSI's timing is the same error `sent_at` was added to stop.
   Distinguish *expired on them* from *we closed first*.
-- **The RFQ window closes on 5 offers, the delay (72 h), or staff releasing early.**
+- **Closing early requires a mandatory note** (2026-10-24) — stored with the
+  release, not optional. It is what makes a short pack accountable, and the
+  corpus of reasons is the only honest evidence for or against automating.
+- **The RFQ window closes on 5 offers, the delay (72 h, configurable), or staff releasing early.**
   Nothing exists: no window, no deadline, no reminder, no setting. The one
   piece already in place is `SUPPLIERS_RETURNED`, which defaults to 5.
 - **The Decision Pack is a read-model** over `Offer` + `PartnerEnrichment`
