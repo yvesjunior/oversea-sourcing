@@ -1921,8 +1921,16 @@ question only bites when fewer than five answer.
   until the buyer accepts. The open question is whether escrow.com can pay a
   third party (OSI's fee) out of the same transaction, because the whole
   financial architecture in V6 §8 depends on it.
-- **Which partners are mandatory** before a Decision Pack can exist. Until that
-  is fixed, step 08 has no exit condition.
+- ~~Which partners are mandatory before a Decision Pack can exist?~~
+  **Decided 2026-10-24: none, for now.** Step 08 therefore blocks nothing —
+  enrichment is opportunistic, and a pack can go out with no partner data at
+  all. Worth seeing what that costs: landed cost, duties and transport are
+  exactly what partners supply, so without them **KPI #2 scores on the same
+  facts as KPI #1** and the two-scorer split collapses in practice. The pack's
+  "coût total rendu" block is then empty or estimated — and that block is most
+  of what separates a Decision Pack from the report `$id.rapport.tsx` already
+  produces. The decision is sound as a starting point; it just means the first
+  packs are better-presented reports rather than a different artefact.
 - **Nothing here changes the standing constraint** on paid data providers.
 
 ---

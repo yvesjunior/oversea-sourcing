@@ -1860,8 +1860,12 @@ partial, three do not exist. Verified against the code, not assumed:
   RFQs go out by hand at different times.
 - Can escrow.com pay a third party (OSI's fee) from the same transaction? The
   whole financial architecture of V6 §8 rests on it.
-- Which partners are mandatory before a Decision Pack exists? Until that is
-  fixed, step 08 has no exit condition.
+- ~~Which partners are mandatory before a Decision Pack exists?~~
+  **Decided 2026-10-24: none for now.** Step 08 blocks nothing; enrichment is
+  opportunistic. Consequence to plan around: with no partner data, KPI #2 has
+  no landed cost, duties or transport to score on, so it ranks on the same
+  facts as KPI #1 — and the pack's total-cost block, which is most of what
+  distinguishes it from today's report, is empty or estimated.
 
 **Unchanged:** the standing constraint on paid data providers, and everything
 in Parts I and II that V6 does not contradict.
