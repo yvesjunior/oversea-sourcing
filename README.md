@@ -1832,6 +1832,13 @@ Until the switch flips, the manual path still needs its surface: a queue of
 packs awaiting release, with an owner and a visible age, so none sits on a
 desk unaccounted for.
 
+**What staff act on is the set of offers the window closed with** — not every
+supplier having answered. The two are different the moment someone is asked
+and stays silent, which `no_response` exists to record. Eight suppliers asked,
+four answered by the deadline: the pack is built from four. Waiting for the
+rest would make the 72 h cap decorative, and a supplier who never intends to
+reply would hold the buyer indefinitely.
+
 **Scope: one value for everyone** (owner, 2026-10-22). No per-client and no
 per-category override — the mode is a single platform-wide setting, and every
 dossier is released the same way. This keeps the first version honest: a
