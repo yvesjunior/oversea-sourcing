@@ -1854,6 +1854,27 @@ Until the switch flips, the manual path still needs its surface: a queue of
 packs awaiting release, with an owner and a visible age, so none sits on a
 desk unaccounted for.
 
+**Four powers at that moment, not one** (owner, 2026-10-25): approve and send,
+**correct**, **relaunch**, or **refuse**. Each costs something different.
+
+- **Correct.** V6 already requires that KPI #2 *"peut reclasser les offres tout
+  en conservant l'ancien ordre pour audit"*. A human override is the same
+  demand one level up: store the computed order **and** the order actually
+  shown, plus what was changed and why. Without the pair, the question "would
+  automatic have done the same?" is unanswerable — which is the question the
+  automation switch rests on.
+- **Relaunch.** There is precedent: a supplier who declined or never answered
+  can already be asked again, with that round's clocks reset (deploy #36).
+  Reopening the window reuses that shape. What it needs stated is whether
+  offers already in hand survive the new round — they should, since an answer
+  already held is never thrown away — and whether the delay restarts for
+  everyone or only for the suppliers newly asked.
+- **Refuse.** This is the one that adds a state. A request that will never
+  receive a pack has no ending today: `report_ready` is wrong, `cancelled`
+  means the buyer withdrew. It needs its own terminal state with a reason, and
+  — more importantly — **the buyer has to be told**. They waited through the
+  window and a review; silence is the one outcome that cannot be defended.
+
 **The window closing notifies staff** (owner, 2026-10-24). It is the push half
 of that queue: `notifyStaff` already addresses whoever holds the permission to
 act rather than "all staff", and `quotes_requested` is the existing precedent

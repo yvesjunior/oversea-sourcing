@@ -1835,6 +1835,14 @@ partial, three do not exist. Verified against the code, not assumed:
   - a **queue of packs awaiting release** — owner, visible age, so none sits
     on a desk unaccounted for. Still needed alongside the notification: one is
     read and forgotten, the other is a list that does not go away;
+  - **four actions on that queue** (2026-10-25): approve, correct, relaunch,
+    refuse. Correct needs the computed order stored beside the shown order,
+    the same demand V6 already makes of KPI #2. Relaunch reuses the re-ask
+    shape from deploy #36 and must say whether held offers survive and whose
+    clock restarts. **Refuse adds a terminal state the request machine does
+    not have** — `report_ready` is wrong and `cancelled` means the buyer
+    withdrew — plus a message to a buyer who has waited through a window and
+    a review;
   - **stored release provenance** — when, and whether a person or the system
     did it. An irreversible side effect is stored, never derived;
   - **external account signup and moderation** (2026-10-25) — supplier and
