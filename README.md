@@ -1553,14 +1553,22 @@ Consequences, all first-class:
 > **How the account is created, 2026-10-25.** Supplier accounts and transit-agent
 > accounts are **free** — outside the plan ladder entirely, so `plan` and
 > `subscription` never gate them — and both are **set up from a link the person
-> receives**, then **validated by an OSI employee** before they are live.
+> receives**.
 >
-> Three things follow:
+> **An account created from the link is live immediately, with no approval.**
+> The link is the vouching: OSI chose that address and wrote to it, so there is
+> nothing left for a human to confirm. That also removes a delay worth avoiding
+> — an invited supplier never waits in a queue while their 72 h runs down.
 >
-> - **A moderation queue, not a signup form.** An account waits for a human the
->   way a Decision Pack does. That is now the second queue staff owe a response
->   time to, and the same rule applies: it needs an owner and a visible age, or
->   a supplier sits unapproved while the 72 h window runs down on them.
+> It leaves one thing to settle: whether any *other* route into an account
+> exists. V6's lifecycle starts at `Candidate` — found by research — and moves
+> to `Invited`; it describes no unsolicited signup. If there is none, approval
+> is moot and no moderation queue is needed at all. If an unsolicited supplier
+> can one day ask for an account, that path is the one that needs a human,
+> because nothing vouches for it.
+>
+> Two things still follow:
+>
 > - **The word `Validated` is already taken.** V6's supplier lifecycle ends
 >   `… → Transaction Supplier → Validated`, where `Validated` means *earned
 >   trust through positive history*. This new validation means *a human agreed

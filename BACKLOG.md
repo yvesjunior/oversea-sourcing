@@ -1852,13 +1852,13 @@ partial, three do not exist. Verified against the code, not assumed:
     — quotes addressed to them, deals they won, contracts naming them. That is
     where a mistake leaks one supplier's price to another, so it is worth its
     own tests before either surface ships.
-  - **external account signup and moderation** (2026-10-25) — supplier and
-    transit-agent accounts are free, created from an emailed link, and live
-    only once an employee validates them. A second approval queue, with the
-    same owner-and-age requirement as the pack queue. Two cautions: these
-    accounts sit outside the plan ladder, so `plan`/`subscription` must not
-    gate them; and V6 already uses `Validated` for earned trust, so this
-    clerical approval needs a different name or the trust tier inherits it.
+  - **external account setup from the invitation link** (2026-10-25) — free,
+    and **live immediately: no approval**, since the link is the vouching.
+    No moderation queue for this path, and no wait eating the supplier's 72 h.
+    Two cautions remain: these accounts sit outside the plan ladder, so
+    `plan`/`subscription` must not gate them; and if an unsolicited signup
+    route is ever added, *that* one needs a human, because nothing vouches
+    for it.
   - **a record of what review changed**, not just that it happened. Switching
     to automatic is only defensible once review has stopped altering packs,
     and that is unknowable unless corrections are captured.
