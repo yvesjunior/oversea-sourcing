@@ -1550,6 +1550,28 @@ Consequences, all first-class:
 > - **`contract_party` keeps its shape regardless.** Carriers, brokers and
 >   inspectors are still records; only the supplier gains a login.
 >
+> **How the account is created, 2026-10-25.** Supplier accounts and transit-agent
+> accounts are **free** — outside the plan ladder entirely, so `plan` and
+> `subscription` never gate them — and both are **set up from a link the person
+> receives**, then **validated by an OSI employee** before they are live.
+>
+> Three things follow:
+>
+> - **A moderation queue, not a signup form.** An account waits for a human the
+>   way a Decision Pack does. That is now the second queue staff owe a response
+>   time to, and the same rule applies: it needs an owner and a visible age, or
+>   a supplier sits unapproved while the 72 h window runs down on them.
+> - **The word `Validated` is already taken.** V6's supplier lifecycle ends
+>   `… → Transaction Supplier → Validated`, where `Validated` means *earned
+>   trust through positive history*. This new validation means *a human agreed
+>   the account may exist*. Two different facts; they need two different names
+>   in the schema or the trust tier will quietly inherit a clerical approval.
+> - **Transit agents hold accounts too**, which is what the Partner Hub assumed
+>   all along — V6 has a partner seeing *"uniquement les dossiers qui lui sont
+>   assignés"*, and scoping to assigned dossiers requires authentication. So the
+>   external-account work covers suppliers and partners together, not suppliers
+>   alone.
+>
 > **Settled 2026-10-22 — the account comes first.** The invitation email asks
 > the supplier to register, and the RFQ is answered from the portal. V6's
 > `Invited` state is therefore a *pending registration*, not a way to answer

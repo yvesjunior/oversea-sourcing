@@ -1837,6 +1837,13 @@ partial, three do not exist. Verified against the code, not assumed:
     read and forgotten, the other is a list that does not go away;
   - **stored release provenance** — when, and whether a person or the system
     did it. An irreversible side effect is stored, never derived;
+  - **external account signup and moderation** (2026-10-25) — supplier and
+    transit-agent accounts are free, created from an emailed link, and live
+    only once an employee validates them. A second approval queue, with the
+    same owner-and-age requirement as the pack queue. Two cautions: these
+    accounts sit outside the plan ladder, so `plan`/`subscription` must not
+    gate them; and V6 already uses `Validated` for earned trust, so this
+    clerical approval needs a different name or the trust tier inherits it.
   - **a record of what review changed**, not just that it happened. Switching
     to automatic is only defensible once review has stopped altering packs,
     and that is unknowable unless corrections are captured.
