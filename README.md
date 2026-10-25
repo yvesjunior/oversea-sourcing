@@ -1977,8 +1977,16 @@ has not been given.
   first question turns on.
   The percentage being **configurable** matches §8's technical rule that fee
   rules stay a grid — fixed amount, percentage, threshold, currency,
-  triggering event, partner — rather than a number in the code. The rate
-  itself is still undecided.
+  triggering event, partner — rather than a number in the code. **The rate is
+  3 %** (owner, 2026-10-25), as the default that grid ships with.
+  One thing the Decision Pack has to be honest about: **OSI's 3 % is not the
+  only fee the buyer meets.** escrow.com's own published schedule is 2.6 % up
+  to \$5,000 and 2.4 % from \$5,000.01 to \$50,000, plus \$20 on an
+  international wire, and it can be charged to buyer, seller or split. So a
+  \$50,000 order can carry roughly **5.4 % above the goods** once both land.
+  The *coût total rendu* block exists precisely to show that sum rather than
+  let it surface at settlement — and the escrow schedule was read in October
+  2026, so it needs confirming before it is quoted to anyone.
 - ~~Which partners are mandatory before a Decision Pack can exist?~~
   **Decided 2026-10-24: none, for now.** Step 08 therefore blocks nothing —
   enrichment is opportunistic, and a pack can go out with no partner data at
