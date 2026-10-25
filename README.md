@@ -1960,10 +1960,20 @@ has not been given.
 - **The transaction side stays open on purpose** (owner, 2026-10-24). Globex
   and escrow.com do different jobs — Globex is a Montreal currency-exchange
   and international-payments firm, escrow.com holds funds until the buyer
-  accepts — and whether escrow.com can pay a third party (OSI's fee) from the
-  same transaction is unanswered. It is not being forced: V6 §8 rests on it,
-  and Zack's first legal question is whether OSI can be kept off the money
-  path at all.
+  accepts. Zack's first legal question still stands: whether OSI can be kept
+  off the money path at all.
+- **escrow.com pays OSI on volume** (owner, 2026-10-25) — remuneration based
+  on the amount transacted through their platform. That is V6 §8's third row,
+  *revenue share partenaire*: paid **by the partner**, not deducted from the
+  client's money. Which removes the worry I had raised — escrow.com never
+  needs to pay a third party out of the escrowed funds.
+  It leaves one thing to settle, and it is V6's own rule that bends: §8 says
+  OSI's client fee is *"prélevé dans le règlement Globex, sans paiement
+  séparé"*. On a deal settled through escrow.com there is no Globex settlement
+  to deduct from. Three ways out — the client fee still routes via Globex, the
+  client pays OSI separately (which §8 explicitly rules out), or **on escrow
+  deals OSI simply earns the volume share instead of a client fee**. The third
+  is the cleanest and needs no new money path; none is decided.
 - ~~Which partners are mandatory before a Decision Pack can exist?~~
   **Decided 2026-10-24: none, for now.** Step 08 therefore blocks nothing —
   enrichment is opportunistic, and a pack can go out with no partner data at
