@@ -1962,18 +1962,23 @@ has not been given.
   and international-payments firm, escrow.com holds funds until the buyer
   accepts. Zack's first legal question still stands: whether OSI can be kept
   off the money path at all.
-- **escrow.com pays OSI on volume** (owner, 2026-10-25) — remuneration based
-  on the amount transacted through their platform. That is V6 §8's third row,
-  *revenue share partenaire*: paid **by the partner**, not deducted from the
-  client's money. Which removes the worry I had raised — escrow.com never
-  needs to pay a third party out of the escrowed funds.
-  It leaves one thing to settle, and it is V6's own rule that bends: §8 says
-  OSI's client fee is *"prélevé dans le règlement Globex, sans paiement
-  séparé"*. On a deal settled through escrow.com there is no Globex settlement
-  to deduct from. Three ways out — the client fee still routes via Globex, the
-  client pays OSI separately (which §8 explicitly rules out), or **on escrow
-  deals OSI simply earns the volume share instead of a client fee**. The third
-  is the cleanest and needs no new money path; none is decided.
+- **escrow.com collects OSI's fee and remits it** (owner, 2026-10-25). A
+  **configurable percentage of the transaction amount is added on top**;
+  escrow.com collects it with the rest and returns it to OSI.
+  So escrow.com plays the role §8 gave Globex, and this is §8's **second** row
+  — *honoraires de service OSI*, paid by the client, remitted through the
+  partner — **not** the third row, partner revenue share. (That corrects what
+  this record said on 2026-10-25 before the mechanism was explained.) The
+  distinction is not cosmetic: a client-paid fee carries tax and needs the
+  invoice §8 calls a *pièce justificative*; a partner's revenue share does not.
+  It also settles §8's rule rather than bending it — *"sans paiement séparé du
+  client"* holds, because the fee rides inside the transaction the client
+  already funds. And OSI still never touches the money, which is what Zack's
+  first question turns on.
+  The percentage being **configurable** matches §8's technical rule that fee
+  rules stay a grid — fixed amount, percentage, threshold, currency,
+  triggering event, partner — rather than a number in the code. The rate
+  itself is still undecided.
 - ~~Which partners are mandatory before a Decision Pack can exist?~~
   **Decided 2026-10-24: none, for now.** Step 08 therefore blocks nothing —
   enrichment is opportunistic, and a pack can go out with no partner data at
