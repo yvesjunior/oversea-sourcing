@@ -1845,6 +1845,13 @@ partial, three do not exist. Verified against the code, not assumed:
     a review;
   - **stored release provenance** — when, and whether a person or the system
     did it. An irreversible side effect is stored, never derived;
+  - **two new surfaces, not two new roles** (2026-10-25) — the supplier portal
+    and the Partner Hub are their own views, and the scoping rule behind them
+    is new: every guard today asks which workspace the session is in, and a
+    supplier belongs to none. They are scoped by the rows they are a party to
+    — quotes addressed to them, deals they won, contracts naming them. That is
+    where a mistake leaks one supplier's price to another, so it is worth its
+    own tests before either surface ships.
   - **external account signup and moderation** (2026-10-25) — supplier and
     transit-agent accounts are free, created from an emailed link, and live
     only once an employee validates them. A second approval queue, with the

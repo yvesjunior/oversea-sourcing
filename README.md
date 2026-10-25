@@ -1566,6 +1566,23 @@ Consequences, all first-class:
 >   trust through positive history*. This new validation means *a human agreed
 >   the account may exist*. Two different facts; they need two different names
 >   in the schema or the trust tier will quietly inherit a clerical approval.
+> - **Four audiences, four surfaces** (owner, 2026-10-25). Supplier and transit
+>   accounts are not restricted buyer views; they are their own thing. V6
+>   describes them separately — the supplier portal carries offers, documents,
+>   signatures, production and shipping, the Partner Hub carries quotes,
+>   documents, validations and statuses — and it names what each must never
+>   see: a supplier sees no competitor's price, ranking or identity, no
+>   internal note, no OSI revenue; a partner sees only the dossiers assigned to
+>   it.
+>
+>   **The scoping rule changes with them, and that is the real work.** Today
+>   every guard answers one question: which workspace is this session standing
+>   in? A supplier is a member of no workspace — not the buyer's, not OSI's —
+>   so that question returns nothing useful. They are scoped by *the rows they
+>   are a party to*: the quotes addressed to them, the deals they won, the
+>   contracts naming them. That is a different mechanism from
+>   `organization_id` matching, and it is where a partitioning mistake would
+>   leak one supplier's price to another.
 > - **Transit agents hold accounts too**, which is what the Partner Hub assumed
 >   all along — V6 has a partner seeing *"uniquement les dossiers qui lui sont
 >   assignés"*, and scoping to assigned dossiers requires authentication. So the
