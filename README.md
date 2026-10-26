@@ -1865,7 +1865,7 @@ which is the one moment they act together.
 | **The RFQ window closes on 5 offers, OR the delay (72 h default), OR staff releasing early** (2026-10-24) | Three conditions, not two: staff need not wait out the clock when the offers in hand are enough. Nothing of the sort exists — no window, no deadline, no reminder, no setting. `SUPPLIERS_RETURNED` already defaults to 5. |
 | **Release is a POLICY whose default is manual** (2026-10-22) | Staff validate and send the pack today; automatic release is built for from the start and switched on later. So it is a mode, not a hardcoded step — see the note below. |
 | **The Decision Pack = the supplier quote + partner enrichments, ordered by KPI #2** | It has no content of its own — it is a read-model over `Offer`, `PartnerEnrichment` and `KPIResult`. What it must store is which versions were shown, in what order, and when. |
-| **Partners are Globex, escrow.com, transport, inspection, customs** | escrow.com is a *separate* party from Globex, so the money path splits: who holds the funds is no longer a single answer. |
+| **Partners are Globex, escrow.com, transport, inspection, customs** | Globex and escrow.com fill the **same slot**: one settlement partner per dossier, never both (owner, 2026-10-25). They are the first real case of V6's *« partenaires interchangeables derrière des interfaces communes »* — one `PartnerAdapter`, two providers. |
 
 ### Releasing the Decision Pack is a switch, not a step
 
@@ -2022,11 +2022,19 @@ has not been given.
   an RFQ nobody marked sent; and its doc comment calls it *"a human act, by
   email, outside the platform"*, which stops being true once invitations are
   automated.
-- **The transaction side stays open on purpose** (owner, 2026-10-24). Globex
-  and escrow.com do different jobs — Globex is a Montreal currency-exchange
-  and international-payments firm, escrow.com holds funds until the buyer
-  accepts. Zack's first legal question still stands: whether OSI can be kept
-  off the money path at all.
+- **The transaction side stays open on purpose** (owner, 2026-10-24). Zack's
+  first legal question still stands: whether OSI can be kept off the money
+  path at all.
+- **One settlement partner per dossier** (owner, 2026-10-25). Globex and
+  escrow.com occupy the same slot and are chosen per project, never used
+  together. As companies they do differ — Globex is a Montreal
+  currency-exchange and international-payments firm, escrow.com holds funds
+  until the buyer accepts — but in the product they answer the same interface,
+  which is V6's interchangeable-partner principle made concrete.
+  This also dissolves a question raised here on 2026-10-25: whichever partner
+  settles a dossier is the one that collects OSI's 3 % and remits it. There is
+  no second route for the fee to take, and nothing to reconcile between two
+  money paths, because a dossier only ever has one.
 - **escrow.com collects OSI's fee and remits it** (owner, 2026-10-25). A
   **configurable percentage of the transaction amount is added on top**;
   escrow.com collects it with the rest and returns it to OSI.
