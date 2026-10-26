@@ -1823,6 +1823,19 @@ diagram below carries both.
 20 steps in five lanes, with what is decided and what is built shown
 separately. The artifact is the live copy; there is no PDF in the repo.
 
+It carries **two drawings** (2026-10-25). The parcours is not one-way, and a
+strictly descending diagram claimed it was, so it now shows the returns: a
+**relaunch** at step 10 and an **expired offer** both reopen a round of
+solicitation, and **refusing to send** leaves the flow — with a card in the
+buyer's lane, because a buyer who waited through a window and a review has to
+be told something.
+
+Below it, **the money circuit**: the buyer funds one amount containing the
+supplier's price plus OSI's 3 %, escrow.com holds it until acceptance, then
+pays the supplier and remits the fee. It exists because §8 takes three pages
+to say what one picture settles — **OSI is never on the money path**, which is
+exactly what Zack's first question turns on.
+
 The partner lane is split in two (owner, 2026-10-25): **financial** — Globex,
 escrow.com — and **logistics** — transport, SGS, customs, insurance. They are
 not the same kind of counterparty: one touches the money and raises Zack's
