@@ -1570,6 +1570,29 @@ Consequences, all first-class:
 >
 > Two things still follow:
 >
+> - **A supplier may refuse the portal, and staff then act for them** (owner,
+>   2026-10-25). Not a leftover: a permanent second route. Staff receive the
+>   quote by email and key it in, receive the countersigned PDF and upload it,
+>   and do the same for contracts and documents. The portal is the default, not
+>   a requirement — a supplier who will not register must still be able to win
+>   a dossier.
+>
+>   Three consequences, and the third is the one that bites:
+>
+>   - **Every supplier-facing feature needs both routes.** Quotes, signatures,
+>     documents. That is not a fallback bolted on at the end; it is the surface
+>     doubled, and it should be priced in before the portal is designed.
+>   - **`recordedBy` becomes the discriminator** — it already exists, and its
+>     comment is now wrong: *"nobody else can: the supplier has no account"*.
+>     Some can. The field stops meaning "staff keyed it" and starts meaning
+>     "this did not come from the supplier's own hands", which is what a reader
+>     needs to weigh it.
+>   - **A staff-entered answer must not carry OSI's clock.** If the supplier
+>     emails at 09:00 and staff key it at 16:00, `responded_at` is 09:00. This
+>     is exactly the error `sent_at` was added to stop on 2026-09-12, arriving
+>     from the other end: there, OSI's lag was recorded as a slow supplier;
+>     here, OSI's lag would be recorded as a slow *answer*. Same corruption of
+>     the one signal nobody can scrape.
 > - **Four audiences, four surfaces** (owner, 2026-10-25). Supplier and transit
 >   accounts are not restricted buyer views; they are their own thing. V6
 >   describes them separately — the supplier portal carries offers, documents,

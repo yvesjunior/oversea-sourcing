@@ -1855,6 +1855,15 @@ partial, three do not exist. Verified against the code, not assumed:
     a review;
   - **stored release provenance** — when, and whether a person or the system
     did it. An irreversible side effect is stored, never derived;
+  - **both routes, everywhere** (2026-10-25) — a supplier may refuse the
+    portal, so staff must still be able to key in a quote, upload a signed
+    contract and file documents on their behalf. Every supplier-facing feature
+    is therefore two features. Two things to get right: `recordedBy` becomes
+    "not from the supplier's own hands" rather than "staff keyed it, because
+    they have no account" — its schema comment says the latter and is now
+    wrong — and `responded_at` must carry the supplier's time, not the hour
+    staff got round to typing it, or OSI's lag corrupts the response-time
+    signal exactly as it did before `sent_at` was added.
   - **two new surfaces, not two new roles** (2026-10-25) — the supplier portal
     and the Partner Hub are their own views, and the scoping rule behind them
     is new: every guard today asks which workspace the session is in, and a
