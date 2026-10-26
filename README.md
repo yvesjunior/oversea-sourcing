@@ -1821,7 +1821,7 @@ diagram below carries both.
 
 **📐 [The parcours, drawn](https://claude.ai/artifact/Bn6QLTgjbCf61ks2ghQm5N)** —
 20 steps in five lanes, with what is decided and what is built shown
-separately. Also committed as `OSI-Parcours-V6.pdf`.
+separately. The artifact is the live copy; there is no PDF in the repo.
 
 The partner lane is split in two (owner, 2026-10-25): **financial** — Globex,
 escrow.com — and **logistics** — transport, SGS, customs, insurance. They are

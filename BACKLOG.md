@@ -1776,7 +1776,8 @@ no `t()` call and cannot become the fifth missing-i18n-key bug.
 
 The *Architecture stratégique et fonctionnelle V6* describes a bigger product
 than Parts I and II. Full analysis in [README §2c](README.md); the parcours is
-drawn in `OSI-Parcours-V6.pdf`. What matters here is the distance to it.
+drawn in [the parcours artifact](https://claude.ai/artifact/Bn6QLTgjbCf61ks2ghQm5N).
+What matters here is the distance to it.
 
 **Of V6's twelve "étapes confirmées", five are fully in production.** Four are
 partial, three do not exist. Verified against the code, not assumed:
