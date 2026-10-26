@@ -1820,8 +1820,14 @@ That is a *decision* axis and says nothing about what exists — which is why th
 diagram below carries both.
 
 **📐 [The parcours, drawn](https://claude.ai/artifact/Bn6QLTgjbCf61ks2ghQm5N)** —
-20 steps in four lanes, with what is decided and what is built shown
+20 steps in five lanes, with what is decided and what is built shown
 separately. Also committed as `OSI-Parcours-V6.pdf`.
+
+The partner lane is split in two (owner, 2026-10-25): **financial** — Globex,
+escrow.com — and **logistics** — transport, SGS, customs, insurance. They are
+not the same kind of counterparty: one touches the money and raises Zack's
+first question, the other touches the goods. Enrichment at step 08 spans both,
+which is the one moment they act together.
 
 ### What changes versus the built product
 
