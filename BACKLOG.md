@@ -1820,8 +1820,13 @@ partial, three do not exist. Verified against the code, not assumed:
   ordered by `KPIResult` — not a document to author. It should store which
   versions were shown, in what order and when, which is what replaying a past
   decision needs.
-- **escrow.com is a partner distinct from Globex**, so the money path has two
-  candidates and "who holds the funds" stops being one answer.
+- **One settlement partner per dossier** (2026-10-25). Globex and escrow.com
+  fill the same slot and are chosen per project, never used together — the
+  first real case of V6's interchangeable-partner principle, one adapter and
+  two providers. Whichever settles a dossier collects **OSI's 3 % fee** and
+  remits it, so there is no second route for the fee and nothing to reconcile
+  between two money paths. The rate is **configurable and added on top** of
+  the transaction amount; OSI never holds the commercial funds.
 - **Release is a switch whose default is manual.** Staff validate and send the
   pack; the automatic path is designed in now and turned on later. So build a
   mode resolved like the other sourcing knobs, not an `if` in the pipeline.
@@ -1885,8 +1890,11 @@ partial, three do not exist. Verified against the code, not assumed:
   details: what the window does when `sent_at` is null (it is nullable), and
   whether the clock is per supplier or per request, which only matters while
   RFQs go out by hand at different times.
-- Can escrow.com pay a third party (OSI's fee) from the same transaction? The
-  whole financial architecture of V6 §8 rests on it.
+- ~~Can escrow.com pay a third party (OSI's fee) from the same transaction?~~
+  **Answered 2026-10-25: it collects the fee and remits it**, as Globex does.
+  What stays open is the legal half, and only that: whether the partner can
+  remit without OSI being deemed to hold the commercial funds — Zack's first
+  question, and the reason nothing financial should be built yet.
 - ~~Which partners are mandatory before a Decision Pack exists?~~
   **Decided 2026-10-24: none for now.** Step 08 blocks nothing; enrichment is
   opportunistic. Consequence to plan around: with no partner data, KPI #2 has

@@ -1539,8 +1539,9 @@ Consequences, all first-class:
 >
 > Nothing has been built yet, and the consequences are not small:
 >
-> - **A third audience.** The two-audience guarantee above is void; every
->   tenancy guard was written on it.
+> - **Two more audiences.** The two-audience guarantee above is void; every
+>   tenancy guard was written on it. Supplier and transit agent each bring
+>   their own surface — see the four-audience note below.
 > - **Strict partitioning becomes a requirement, not a nicety.** V6 is explicit:
 >   a supplier must never see competitors' prices, rankings or identities, nor
 >   internal notes, OSI revenue or the partner revenue share.
@@ -1569,11 +1570,6 @@ Consequences, all first-class:
 >
 > Two things still follow:
 >
-> - **The word `Validated` is already taken.** V6's supplier lifecycle ends
->   `… → Transaction Supplier → Validated`, where `Validated` means *earned
->   trust through positive history*. This new validation means *a human agreed
->   the account may exist*. Two different facts; they need two different names
->   in the schema or the trust tier will quietly inherit a clerical approval.
 > - **Four audiences, four surfaces** (owner, 2026-10-25). Supplier and transit
 >   accounts are not restricted buyer views; they are their own thing. V6
 >   describes them separately — the supplier portal carries offers, documents,
@@ -1616,7 +1612,7 @@ Consequences, all first-class:
 | Party | Mechanism | Evidence |
 |---|---|---|
 | **Buyer · OSI** (they hold accounts) | **signed in the platform** — no vendor, no email round trip | user id + name snapshot, when, IP, user agent |
-| **Supplier · carrier · broker · inspector** (no account) | **manual upload** — staff send it, receive it signed, upload the countersigned PDF (`signed_file_id`, optional) | who signed as stated, when, the document, and which staff member recorded it |
+| **Supplier · carrier · broker · inspector** (⚠ suppliers and transit agents DO hold accounts since 2026-10-21 — this row predates that and is the open question flagged in §2; carriers, brokers and inspectors still hold none) | **manual upload** — staff send it, receive it signed, upload the countersigned PDF (`signed_file_id`, optional) | who signed as stated, when, the document, and which staff member recorded it |
 
 The mechanism follows the party's **role**, not a setting and not
 `contract_party.user_id` (which is null at draft time). Both paths write the
@@ -1831,8 +1827,9 @@ buyer's lane, because a buyer who waited through a window and a review has to
 be told something.
 
 Below it, **the money circuit**: the buyer funds one amount containing the
-supplier's price plus OSI's 3 %, escrow.com holds it until acceptance, then
-pays the supplier and remits the fee. It exists because §8 takes three pages
+supplier's price plus OSI's 3 %, and a single settlement partner — escrow.com
+**or** Globex, never both — holds it until acceptance, then pays the supplier
+and remits the fee. It exists because §8 takes three pages
 to say what one picture settles — **OSI is never on the money path**, which is
 exactly what Zack's first question turns on.
 
@@ -1861,7 +1858,7 @@ which is the one moment they act together.
 
 | Decision | Consequence |
 |---|---|
-| **Suppliers are invited by email to create an account and answer the RFQ** | Reverses Part II §2. A third audience, and strict partitioning becomes mandatory. |
+| **Suppliers are invited by email to create an account and answer the RFQ** | Reverses Part II §2. Two more audiences — supplier and transit agent — and strict partitioning becomes mandatory. |
 | **The RFQ window closes on 5 offers, OR the delay (72 h default), OR staff releasing early** (2026-10-24) | Three conditions, not two: staff need not wait out the clock when the offers in hand are enough. Nothing of the sort exists — no window, no deadline, no reminder, no setting. `SUPPLIERS_RETURNED` already defaults to 5. |
 | **Release is a POLICY whose default is manual** (2026-10-22) | Staff validate and send the pack today; automatic release is built for from the start and switched on later. So it is a mode, not a hardcoded step — see the note below. |
 | **The Decision Pack = the supplier quote + partner enrichments, ordered by KPI #2** | It has no content of its own — it is a read-model over `Offer`, `PartnerEnrichment` and `KPIResult`. What it must store is which versions were shown, in what order, and when. |
