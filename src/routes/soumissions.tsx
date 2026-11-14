@@ -642,16 +642,32 @@ function QuoteList({
                             thing the platform can do is record that it did —
                             and that stamp is what makes the response time a
                             SUPPLIER measurement rather than ours plus theirs. */}
-                        {canRecord && quote.status === "requested" && !quote.sentAt && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            disabled={marking === quote.id}
-                            onClick={() => void markSent(quote)}
-                          >
-                            {t("soumissions.markSent")}
-                          </Button>
-                        )}
+                        {/* Pack flow: the platform sends the RFQ itself, as
+                            one batch, from the dossier — there is no hand-set
+                            stamp to offer, only the way to where it is sent. */}
+                        {canRecord &&
+                          quote.onPackFlow &&
+                          quote.status === "requested" &&
+                          !quote.sentAt && (
+                            <Button variant="outline" size="sm" asChild>
+                              <Link to="/demandes/$id" params={{ id: quote.requestId }}>
+                                {t("soumissions.sendFromDossier")}
+                              </Link>
+                            </Button>
+                          )}
+                        {canRecord &&
+                          !quote.onPackFlow &&
+                          quote.status === "requested" &&
+                          !quote.sentAt && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={marking === quote.id}
+                              onClick={() => void markSent(quote)}
+                            >
+                              {t("soumissions.markSent")}
+                            </Button>
+                          )}
                         {/* Open for a RECEIVED quote too: a mistyped price
                             used to be permanent, because this button was the
                             only way in and it only appeared before the answer

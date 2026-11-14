@@ -4,6 +4,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { CRITERIA_CATEGORIES } from "@/database/schema";
+import { criteriaEditable } from "@/lib/request-status";
 
 const criterionFields = {
   category: z.enum(CRITERIA_CATEGORIES),
@@ -33,6 +34,11 @@ async function requireOwnRequest(requestId: string) {
     where: eq(schema.request.id, requestId),
   });
   if (!row || row.organizationId !== workspaceId) return null;
+  // FROZEN once the search has answered (V06). The page stopped offering the
+  // edit long ago; nothing here did, so a direct call could change a
+  // specification suppliers were already quoting against. `criteriaEditable`
+  // is an allow list — a state added later is frozen until someone decides.
+  if (!criteriaEditable(row.status)) return null;
   return { db, eq, schema, request: row, workspaceId };
 }
 

@@ -73,7 +73,11 @@ export const postChatMessageFn = createServerFn({ method: "POST" })
       reply = result.reply;
 
       const { and, max } = await import("drizzle-orm");
-      for (const op of result.operations) {
+      // The assistant may still ANSWER once the criteria are frozen, but it
+      // may not change them — same rule as criteria-fns.ts, same reason.
+      const { criteriaEditable } = await import("@/lib/request-status");
+      const operations = criteriaEditable(request.status) ? result.operations : [];
+      for (const op of operations) {
         if (op.op === "add" && op.label && op.value) {
           const [row] = await db
             .select({ max: max(schema.requestCriterion.position) })

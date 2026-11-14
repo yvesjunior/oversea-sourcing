@@ -1233,6 +1233,25 @@ What is already true on the pack flow, and tested as the owning workspace:
 On the report flow nothing changed: the buyer still reads the Top-N and still
 picks who OSI approaches.
 
+**The platform sends the RFQ** (V06, 2026-11-14). From the dossier, staff see
+who would be written to and the email itself, then send the whole confirmed
+shortlist in one act. That opens a **round** — a batch and a clock: one
+deadline, stored on the round, shared by every supplier in it, and never moved
+by a later change to the configured delay. Three rules worth knowing:
+
+- **`quote.sent_at` is stamped after the email, not before.** Only for a
+  message handed to the provider or queued for retry. A quote in a round with
+  no `sent_at` therefore means "not written to", and sending again writes only
+  to those — the batch is resumable by construction.
+- **No reply address, no RFQ.** The platform sends from no-reply@, so the
+  setting `rfq.reply_to` must be filled first; the reply address travels with
+  the message, including through the outbox.
+- **The email cannot name the buyer.** Its builder (`src/lib/rfq-mail.ts`) is
+  never given the workspace. The deadline is quoted in UTC.
+
+Until the supplier portal exists, the supplier answers by email and staff key
+the offer in, as on the report flow.
+
 Guarded transitions live in [`src/lib/request-status.ts`](src/lib/request-status.ts);
 illegal ones throw. Every change writes a `request_event` row, so timelines,
 activity feeds and dashboard stats are **pure read-models of the DB**.
@@ -1964,9 +1983,11 @@ things follow, and they are design constraints rather than preferences:
   is — the buyer's page.
   What a key *is* lives in the registry, `src/lib/platform-settings.ts`: its
   type, range and default. A key that is not there cannot be stored, and a
-  stored value that no longer fits reads as the default. Four keys ship:
-  the RFQ window (72 h), the number of offers that closes it (5), the release
-  mode (`manual`) and the fee rate (300 basis points).
+  stored value that no longer fits reads as the default. Four keys shipped
+  with it: the RFQ window (72 h), the number of offers that closes it (5), the
+  release mode (`manual`) and the fee rate (300 basis points). Two were added
+  since: `flow.pack_enabled` (V05, the pack-flow switch) and `rfq.reply_to`
+  (V06, where suppliers' answers arrive — no default, on purpose).
   **Two honesty rules are built into it.** Every key is marked *not applied
   yet* on the page for as long as nothing reads it — which today is all four,
   because the rounds and packs that will read them are not built — so the
@@ -2444,6 +2465,7 @@ erDiagram
 | `supplier_verification` / `sanction_entry` | ✅ 2026-08-26 (S5b) — one evidence row per supplier × check, and the local OFAC SDN copy. `verification_status` is DERIVED from these rows and written only by `src/server/verification.ts` |
 | `translation_memory` | ✅ 2026-08-29 — platform-wide cache of criterion translations (`request_criterion.value_en`); deliberately not workspace-scoped |
 | `platform_permission` / `platform_role` | ✅ 2026-08-28/29 — the Rôles & accès matrix (feature × role) and the owner-created staff roles; the owner is never a row |
+| `rfq_round`          | ✅ 2026-11-14 (0048, Phase V · V06) — one round of solicitation: the RFQs that left together and the single deadline they share. `closes_at` is stored, and `window_hours` / `target_offers` are snapshots of the settings when it opened, so a later change never moves an open round. `quote.round_id` ties a solicitation to its round; a quote outside a round has no clock. No closing columns yet — they arrive with the task that closes a round (V07) |
 | `supplier_contact`   | ✅ 2026-11-14 (0047, Phase V · V02) — who to write to at a supplier: email, name, role, phone, the language to write in, `source` (`research` \| `staff`). **Exactly one PRIMARY per supplier that has any contact** — a partial unique index for "at most one", `ensurePrimary` for "at least one" — and the RFQ goes to it. Staff-only (`deals`): never returned by a buyer-facing fn, since the pool is platform-global. A researched address is kept only when it is on the supplier's own website domain (`acceptResearchedEmail`); it travels on `source_record.contact_email` and becomes a row here at promotion. Never from a paid provider |
 | `platform_setting`   | ✅ 2026-11-14 (0046, Phase V · V01) — platform-wide settings, ONE value per key for every client; a missing row means the default. Keys, types, ranges and defaults live in the registry `src/lib/platform-settings.ts`, so a new knob is a registry entry and not a migration. Edited from `/interne/parametres` (`settings` permission, owner by default); every change is in `audit_log` with the old and new value |
 | `plan` / `subscription` | limits as rows (daily, lifetime, seats, `quota_scope`, `audience`, `suppliers_returned`, `model_tier`); one subscription per workspace |

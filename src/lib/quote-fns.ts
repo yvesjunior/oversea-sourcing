@@ -57,6 +57,11 @@ export type QuoteView = {
    *  predates `sent_at` or was never marked sent, so the figure still includes
    *  OSI's own lag — do not present it as a supplier metric without saying so. */
   responseFrom: "sent" | "requested";
+  /** The request is on the PACK flow (V06): its RFQ is sent by the platform,
+   *  from the dossier, as one batch — so the manual « marquer comme envoyée »
+   *  does not apply. Only ever true on the staff list; a workspace's own list
+   *  contains no pack-flow quote at all. */
+  onPackFlow: boolean;
 };
 
 /** What the buyer may do with a quote, resolved server-side so the UI never
@@ -98,6 +103,7 @@ function toView(
   quote: typeof import("@/database/schema").quote.$inferSelect,
   requestTitle: string,
   organizationName: string,
+  onPackFlow = false,
 ): QuoteView {
   const responded = quote.respondedAt;
   return {
@@ -135,6 +141,7 @@ function toView(
         ) / 10
       : null,
     responseFrom: quote.sentAt ? ("sent" as const) : ("requested" as const),
+    onPackFlow,
   };
 }
 
@@ -456,7 +463,11 @@ export const getAllQuotesFn = createServerFn({ method: "GET" }).handler(
       .innerJoin(schema.organization, eq(schema.organization.id, schema.quote.organizationId))
       .orderBy(desc(schema.quote.requestedAt));
 
-    const quotes = rows.map((r) => toView(r.quote, r.title, r.workspaceName));
+    const { packFlowRequestIds } = await import("@/server/request-flow");
+    const packFlow = await packFlowRequestIds(rows.map((r) => r.quote.requestId));
+    const quotes = rows.map((r) =>
+      toView(r.quote, r.title, r.workspaceName, packFlow.has(r.quote.requestId)),
+    );
     // Only the suppliers staff still have to write to: an address is working
     // data for an open solicitation, not something to ship for every row.
     const { primaryContactsFor } = await import("@/server/supplier-contacts");
@@ -770,13 +781,27 @@ export const markQuoteSentFn = createServerFn({ method: "POST" })
       return { ok: false, marked: 0 };
     }
 
+    // The manual stamp belongs to the REPORT flow, where the email goes out by
+    // hand. On the pack flow the platform sends the RFQ and stamps `sent_at`
+    // itself, as part of opening a round (`sendRfqBatch`) — a hand-set stamp
+    // there would start a response clock for a message nobody sent, on a
+    // quote that belongs to no round.
+    const candidates = await db.query.quote.findMany({
+      where: inArray(schema.quote.id, data.quoteIds),
+      columns: { id: true, requestId: true },
+    });
+    const { packFlowRequestIds } = await import("@/server/request-flow");
+    const packFlow = await packFlowRequestIds(candidates.map((q) => q.requestId));
+    const markable = candidates.filter((q) => !packFlow.has(q.requestId)).map((q) => q.id);
+    if (markable.length === 0) return { ok: true, marked: 0 };
+
     const now = new Date();
     const marked = await db
       .update(schema.quote)
       .set({ sentAt: now, sentBy: session.user.id, updatedAt: now })
       .where(
         and(
-          inArray(schema.quote.id, data.quoteIds),
+          inArray(schema.quote.id, markable),
           // Only ones still awaiting an answer, and only once.
           eq(schema.quote.status, "requested"),
           isNull(schema.quote.sentAt),

@@ -51,6 +51,8 @@ export type MailInput = {
   subject: string;
   html: string;
   text?: string;
+  /** Where replies go, when not to the sender. Kept on the outbox row. */
+  replyTo?: string;
 };
 
 export type MailResult = {
@@ -91,6 +93,7 @@ async function deliver(input: MailInput, via: Provider, idempotencyKey?: string)
         subject: input.subject,
         html: input.html,
         ...(input.text ? { text: input.text } : {}),
+        ...(input.replyTo ? { reply_to: input.replyTo } : {}),
       }),
     });
     // Resend answers 200 with the message id.
@@ -126,6 +129,7 @@ async function remember(
       subject: input.subject,
       html: input.html,
       body: input.text ?? null,
+      replyTo: input.replyTo ?? null,
       status: (attempt.retryable ? "pending" : "abandoned") satisfies MailOutboxStatus,
       attempts: 1,
       lastError: attempt.error,
@@ -210,6 +214,7 @@ export async function flushMailOutbox(limit = FLUSH_BATCH): Promise<FlushOutcome
         subject: row.subject,
         html: row.html,
         ...(row.body ? { text: row.body } : {}),
+        ...(row.replyTo ? { replyTo: row.replyTo } : {}),
       },
       via,
       // The row's OWN id is the idempotency key: stable across every retry,

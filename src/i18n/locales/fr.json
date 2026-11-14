@@ -608,6 +608,7 @@
     "criteria_fromAttachment": "{{count}} critère(s) extrait(s) des pièces jointes",
     "quotes_requested": "Soumissions demandées",
     "shortlist_confirmed": "{{count}} fournisseur(s) retenu(s) pour consultation",
+    "rfq_sent": "Appel d'offres envoyé à {{count}} fournisseur(s)",
     "deal_opened": "Dossier de transaction ouvert",
     "contracts_drafted": "Contrats préparés",
     "status_contracting": "Contractualisation",
@@ -723,6 +724,31 @@
       "not_shortlisted": "La demande n'est plus à l'étape de présélection.",
       "unknown_supplier": "Un des fournisseurs choisis ne fait pas partie du classement de cette demande.",
       "empty": "Choisissez au moins un fournisseur."
+    }
+  },
+  "rfq": {
+    "title": "Appel d'offres",
+    "notSentYet": "Rien n'est encore parti. À l'envoi, les fournisseurs auront {{hours}} h pour répondre — un seul délai pour tout le lot.",
+    "roundOpen": "Tour n° {{no}} — envoyé le {{opened}}, clôture le {{closes}} ({{hours}} h).",
+    "recipients": "Destinataires",
+    "stillUnsent": "Pas encore joints dans ce tour",
+    "noContact": "aucun contact",
+    "preview": "Voir le courriel tel qu'il partira (exemple : {{to}})",
+    "replyTo": "Les réponses arriveront à",
+    "sendHint": "Un seul envoi pour tout le lot : le délai démarre pour tous au même instant.",
+    "send": "Envoyer l'appel d'offres ({{count}})",
+    "resend": "Renvoyer aux fournisseurs non joints ({{count}})",
+    "sent": "Appel d'offres envoyé à {{count}} fournisseur(s) — clôture le {{closes}}.",
+    "sentWithFailures": "Envoyé à {{count}} fournisseur(s) — clôture le {{closes}}. Non joints : {{failed}}.",
+    "openSettings": "Ouvrir les paramètres",
+    "blocked": {
+      "forbidden": "Action non autorisée.",
+      "not_found": "Cette demande n'existe plus.",
+      "wrong_state": "La demande n'est pas à une étape où un appel d'offres peut partir.",
+      "nothing_to_send": "Aucun fournisseur à joindre : confirmez d'abord la présélection.",
+      "no_reply_address": "Aucune adresse de réponse n'est définie : l'appel d'offres ne peut pas partir.",
+      "missing_contact": "Au moins un fournisseur n'a aucun contact : ajoutez une adresse ou retirez-le de la présélection.",
+      "missing_contact_named": "Sans contact : {{suppliers}}. Ajoutez une adresse ou retirez-les de la présélection."
     }
   },
   "provenance": {
@@ -868,6 +894,7 @@
     },
     "keys": {
       "flow.pack_enabled": "Parcours Decision Pack",
+      "rfq.reply_to": "Adresse de réponse des RFQ",
       "rfq.window_hours": "Délai de réponse des fournisseurs",
       "rfq.target_offers": "Nombre d'offres qui clôt la fenêtre",
       "pack.release_mode": "Envoi du Decision Pack",
@@ -875,6 +902,7 @@
     },
     "hints": {
       "flow.pack_enabled": "Activé : les demandes des abonnements avec soumissions passent par la présélection OSI, l'appel d'offres puis le Decision Pack. Désactivé : toutes les demandes s'arrêtent au rapport, comme aujourd'hui. Reste désactivé tant que le parcours n'est pas entièrement construit.",
+      "rfq.reply_to": "Où arrivent les réponses des fournisseurs. La plateforme envoie depuis une adresse « no-reply » : sans adresse de réponse, un fournisseur qui répond écrirait dans une boîte que personne ne lit. Aucun appel d'offres ne part tant que ce champ est vide.",
       "rfq.window_hours": "Compté à partir de l'envoi du lot de RFQ. Une fenêtre déjà ouverte garde le délai avec lequel elle a été ouverte.",
       "rfq.target_offers": "La fenêtre se ferme dès que ce nombre d'offres est reçu, sans attendre le délai. À ne pas confondre avec le nombre de fournisseurs classés par la recherche, qui se règle par abonnement.",
       "pack.release_mode": "Manuel : l'équipe valide et envoie chaque pack. Automatique : le pack part à la fermeture de la fenêtre, sans intervention.",
@@ -899,7 +927,9 @@
     "usingDefault": "Valeur par défaut — jamais modifiée",
     "lastChangedBy": "Modifié par {{name}}, {{date}}",
     "save": "Enregistrer",
-    "refused": "Valeur refusée — hors des bornes autorisées."
+    "refused": "Valeur refusée — hors des bornes autorisées.",
+    "emailPlaceholder": "approvisionnement@exemple.com",
+    "notSet": "Non défini"
   },
   "notifications": {
     "report_ready": "Votre rapport #{{id}} est prêt",
@@ -1036,6 +1066,7 @@
     "research.rerun": "Recherche web relancée",
     "quotes.requested": "Soumissions demandées",
     "shortlist.confirmed": "Présélection confirmée",
+    "rfq.sent": "Appel d'offres envoyé",
     "quote.received": "Soumission enregistrée",
     "quote.declined": "Soumission refusée",
     "contracts.drafted": "Contrats préparés",
@@ -1176,7 +1207,8 @@
     "askRefusal_forbidden": "Vous n’avez pas les droits pour solliciter un fournisseur.",
     "askRefusal_not_found": "Demande introuvable.",
     "writeTo": "Écrire à",
-    "noContact": "Aucun contact — à ajouter depuis Fournisseurs"
+    "noContact": "Aucun contact — à ajouter depuis Fournisseurs",
+    "sendFromDossier": "Envoyer depuis la demande"
   },
   "contrats": {
     "title": "Contrats",

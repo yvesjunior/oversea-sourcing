@@ -24,6 +24,7 @@ export type SwitchValue = (typeof SWITCH_VALUES)[number];
 /** The value type of every setting. Adding a key starts here. */
 export type PlatformSettingValues = {
   "flow.pack_enabled": SwitchValue;
+  "rfq.reply_to": string;
   "rfq.window_hours": number;
   "rfq.target_offers": number;
   "pack.release_mode": ReleaseMode;
@@ -48,6 +49,8 @@ type ChoiceDefinition<T extends string> = {
    *  ships, with nobody having decided to. */
   unavailable: readonly T[];
 };
+/** A single email address, or "" for "not set yet". */
+type EmailDefinition = { kind: "email"; default: "" };
 type Common = {
   group: SettingGroup;
   /**
@@ -64,8 +67,14 @@ type Common = {
 // `[V] extends [number]`, not `V extends number`: a bare conditional
 // distributes over a union, which would turn a choice between two modes into
 // "a choice of one mode, or a choice of the other".
+// `string extends V` picks out a free-text value (any string) from a choice
+// (a union of literals), which is also a string but not the other way round.
 export type SettingDefinition<V> = Common &
-  ([V] extends [number] ? IntegerDefinition : ChoiceDefinition<V & string>);
+  ([V] extends [number]
+    ? IntegerDefinition
+    : string extends V
+      ? EmailDefinition
+      : ChoiceDefinition<V & string>);
 
 export const SETTING_GROUPS = ["rfq", "pack", "fee"] as const;
 export type SettingGroup = (typeof SETTING_GROUPS)[number];
@@ -96,8 +105,19 @@ export const PLATFORM_SETTINGS: {
     unavailable: ["on"],
     inert: false,
   },
+  /**
+   * Where a supplier's reply to an RFQ goes (V06).
+   *
+   * The platform sends from no-reply@, so without this an RFQ would invite
+   * its reader to answer into a mailbox nobody opens — and the supplier who
+   * did answer would be recorded as never having responded. That is why it
+   * has NO default and why the batch refuses to leave while it is empty: a
+   * guessed address here is worse than a refusal.
+   */
+  "rfq.reply_to": { kind: "email", group: "rfq", default: "", inert: false },
   /** How long suppliers have to answer, counted from the batch leaving
-   *  (`quote.sent_at`, never `requested_at` — README §2c). Read by V06. */
+   *  (README §2c). Snapshotted onto the round when it opens (`sendRfqBatch`),
+   *  so changing it never moves a round already open. */
   "rfq.window_hours": {
     kind: "integer",
     group: "rfq",
@@ -105,14 +125,16 @@ export const PLATFORM_SETTINGS: {
     max: 720,
     default: 72,
     unit: "hours",
-    inert: true,
+    inert: false,
   },
   /**
    * How many OFFERS close a window early.
    *
    * NOT `plan.suppliers_returned` and not the `SUPPLIERS_RETURNED` env var:
    * those say how many suppliers the search ranks. All three default to 5,
-   * which is exactly why they will be confused. Read by V07.
+   * which is exactly why they will be confused. Snapshotted onto the round
+   * since V06; nothing ACTS on it until V07 closes a round on it — so it is
+   * still marked inert.
    */
   "rfq.target_offers": {
     kind: "integer",
@@ -174,12 +196,21 @@ function selectableOptions(definition: {
   return definition.options.filter((option) => !isUnavailableOption(definition, option));
 }
 
+/** "" (not set) or one plausible address. Trimmed and lower-cased on write. */
+const emailValue = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .max(254)
+  .refine((value) => value === "" || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value));
+
 /** The zod schema a value must pass to be STORED. Unavailable options fail. */
 function writeSchema(key: SettingKey): z.ZodType {
   const definition = PLATFORM_SETTINGS[key];
   if (definition.kind === "integer") {
     return z.number().int().min(definition.min).max(definition.max);
   }
+  if (definition.kind === "email") return emailValue;
   const allowed = selectableOptions(definition);
   return z.string().refine((value) => allowed.includes(value));
 }
@@ -193,6 +224,7 @@ function readSchema(key: SettingKey): z.ZodType {
   if (definition.kind === "integer") {
     return z.number().int().min(definition.min).max(definition.max);
   }
+  if (definition.kind === "email") return emailValue;
   return z.string().refine((value) => (definition.options as readonly string[]).includes(value));
 }
 

@@ -97,6 +97,18 @@ function SettingRow({ setting, onSaved }: { setting: SettingView; onSaved: () =>
                 {t(`platformSettings.units.${definition.unit}`)}
               </span>
             </>
+          ) : definition.kind === "email" ? (
+            <Input
+              id={id}
+              type="email"
+              value={draft}
+              placeholder={t("platformSettings.emailPlaceholder")}
+              onChange={(e) => {
+                setRefused(false);
+                setDraft(e.target.value);
+              }}
+              className="h-8 w-64"
+            />
           ) : (
             <select
               id={id}
@@ -142,6 +154,9 @@ function SettingRow({ setting, onSaved }: { setting: SettingView; onSaved: () =>
             ) : null}
             {" · "}
           </>
+        ) : null}
+        {definition.kind === "email" && setting.value === "" ? (
+          <span className="font-semibold text-warning">{t("platformSettings.notSet")} · </span>
         ) : null}
         {setting.updatedAt
           ? t("platformSettings.lastChangedBy", {

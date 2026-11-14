@@ -608,6 +608,7 @@
     "criteria_fromAttachment": "{{count}} criteria extracted from the attachments",
     "quotes_requested": "Quotes requested",
     "shortlist_confirmed": "{{count}} supplier(s) selected for consultation",
+    "rfq_sent": "RFQ sent to {{count}} supplier(s)",
     "deal_opened": "Transaction file opened",
     "contracts_drafted": "Contracts drafted",
     "status_contracting": "Contracting",
@@ -723,6 +724,31 @@
       "not_shortlisted": "The request is no longer at the shortlist stage.",
       "unknown_supplier": "One of the chosen suppliers is not in this request's ranking.",
       "empty": "Choose at least one supplier."
+    }
+  },
+  "rfq": {
+    "title": "Request for quotation",
+    "notSentYet": "Nothing has been sent yet. Once it is, suppliers have {{hours}} h to answer — one deadline for the whole batch.",
+    "roundOpen": "Round {{no}} — sent {{opened}}, closes {{closes}} ({{hours}} h).",
+    "recipients": "Recipients",
+    "stillUnsent": "Not reached yet in this round",
+    "noContact": "no contact",
+    "preview": "See the email as it will leave (example: {{to}})",
+    "replyTo": "Replies will arrive at",
+    "sendHint": "One send for the whole batch: the clock starts for everyone at the same instant.",
+    "send": "Send the RFQ ({{count}})",
+    "resend": "Send again to suppliers not reached ({{count}})",
+    "sent": "RFQ sent to {{count}} supplier(s) — closes {{closes}}.",
+    "sentWithFailures": "Sent to {{count}} supplier(s) — closes {{closes}}. Not reached: {{failed}}.",
+    "openSettings": "Open settings",
+    "blocked": {
+      "forbidden": "Not allowed.",
+      "not_found": "This request no longer exists.",
+      "wrong_state": "The request is not at a stage where an RFQ can be sent.",
+      "nothing_to_send": "No supplier to write to: confirm the shortlist first.",
+      "no_reply_address": "No reply address is set: the RFQ cannot be sent.",
+      "missing_contact": "At least one supplier has no contact: add an address or take it off the shortlist.",
+      "missing_contact_named": "No contact: {{suppliers}}. Add an address or take them off the shortlist."
     }
   },
   "provenance": {
@@ -868,6 +894,7 @@
     },
     "keys": {
       "flow.pack_enabled": "Decision Pack flow",
+      "rfq.reply_to": "RFQ reply address",
       "rfq.window_hours": "Supplier response window",
       "rfq.target_offers": "Number of offers that closes the window",
       "pack.release_mode": "Releasing the Decision Pack",
@@ -875,6 +902,7 @@
     },
     "hints": {
       "flow.pack_enabled": "On: requests on plans with quotes go through OSI's shortlist, the RFQ and then the Decision Pack. Off: every request ends at the report, as today. Stays off until the flow is fully built.",
+      "rfq.reply_to": "Where suppliers' replies arrive. The platform sends from a no-reply address: without a reply address, a supplier who answers would be writing into a mailbox nobody reads. No RFQ leaves while this field is empty.",
       "rfq.window_hours": "Counted from the moment the RFQ batch is sent. A window already open keeps the delay it was opened with.",
       "rfq.target_offers": "The window closes as soon as this many offers are in, without waiting for the delay. Not the number of suppliers the search ranks — that is set per plan.",
       "pack.release_mode": "Manual: staff validate and send each pack. Automatic: the pack goes out when the window closes, with no one involved.",
@@ -899,7 +927,9 @@
     "usingDefault": "Default value — never changed",
     "lastChangedBy": "Changed by {{name}}, {{date}}",
     "save": "Save",
-    "refused": "Value refused — outside the allowed range."
+    "refused": "Value refused — outside the allowed range.",
+    "emailPlaceholder": "sourcing@example.com",
+    "notSet": "Not set"
   },
   "notifications": {
     "report_ready": "Your report #{{id}} is ready",
@@ -1036,6 +1066,7 @@
     "research.rerun": "Web research re-run",
     "quotes.requested": "Quotes requested",
     "shortlist.confirmed": "Shortlist confirmed",
+    "rfq.sent": "RFQ sent",
     "quote.received": "Quote recorded",
     "quote.declined": "Quote declined",
     "contracts.drafted": "Contracts drafted",
@@ -1176,7 +1207,8 @@
     "askRefusal_forbidden": "You do not have the rights to solicit a supplier.",
     "askRefusal_not_found": "Request not found.",
     "writeTo": "Write to",
-    "noContact": "No contact — add one from Suppliers"
+    "noContact": "No contact — add one from Suppliers",
+    "sendFromDossier": "Send from the request"
   },
   "contrats": {
     "title": "Contracts",

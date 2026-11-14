@@ -872,6 +872,11 @@ export const mailOutbox = pgTable(
     subject: text("subject").notNull(),
     html: text("html").notNull(),
     body: text("body"),
+    /** Where a reply should go, when it is not the sender (V06 — an RFQ is
+     *  answered to a staff mailbox, and the sender is no-reply@). Stored so a
+     *  RETRIED message keeps it: without this column the retry of an RFQ would
+     *  silently invite the supplier to answer into a mailbox nobody reads. */
+    replyTo: text("reply_to"),
     /** pending = retry it · sent = handed over · abandoned = never retry
      *  (a permanent refusal, or too many attempts). */
     status: text("status").$type<MailOutboxStatus>().notNull().default("pending"),
@@ -1106,6 +1111,48 @@ export const match = pgTable(
 // screens actually need rather than guessed five phases ahead.
 // ─────────────────────────────────────────────────────────────────────────────
 
+/**
+ * One round of solicitation for a request (Phase V · V06, 2026-11-14).
+ *
+ * A round is a BATCH and a CLOCK: the RFQs that left together, and the single
+ * deadline they share (owner, 2026-11-14 — the window runs per round, not per
+ * supplier). `closes_at` is stored, never recomputed from the setting: a
+ * later change to the configured delay must not move a round already open,
+ * which is also why `window_hours` and `target_offers` are SNAPSHOTS of the
+ * settings as they stood when the round opened.
+ *
+ * A relaunch (V11) opens round 2, 3… with a clock of its own; offers held from
+ * an earlier round stay on their quotes.
+ *
+ * What is NOT here yet, on purpose: how a round ended (`closed_at`, the
+ * reason, who, the early-close note). Nothing closes a round before V07, and
+ * a column nobody writes reads as a capability.
+ */
+export const rfqRound = pgTable(
+  "rfq_round",
+  {
+    id: text("id").primaryKey(),
+    requestId: text("request_id")
+      .notNull()
+      .references(() => request.id, { onDelete: "cascade" }),
+    /** 1 for the first batch; a relaunch increments it. */
+    roundNo: integer("round_no").notNull(),
+    /** The instant the batch left — the round's clock starts here. */
+    openedAt: timestamp("opened_at").notNull().defaultNow(),
+    closesAt: timestamp("closes_at").notNull(),
+    windowHours: integer("window_hours").notNull(),
+    targetOffers: integer("target_offers").notNull(),
+    openedBy: text("opened_by").references(() => user.id, { onDelete: "set null" }),
+    openedByName: text("opened_by_name"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => [
+    // Also what settles two "send" clicks arriving together: both compute the
+    // same round number, and the second insert is refused.
+    uniqueIndex("rfq_round_request_no_uq").on(table.requestId, table.roundNo),
+  ],
+);
+
 export const QUOTE_STATUSES = ["requested", "received", "declined", "accepted", "expired"] as const;
 export type QuoteStatus = (typeof QUOTE_STATUSES)[number];
 
@@ -1170,18 +1217,29 @@ export const quote = pgTable(
     requestedAt: timestamp("requested_at").notNull().defaultNow(),
     requestedBy: text("requested_by").references(() => user.id, { onDelete: "set null" }),
     /**
-     * When OSI actually sent the request to the supplier — a human act, by
-     * email, outside the platform.
+     * When OSI actually sent the request to the supplier.
+     *
+     * Two ways it gets stamped, and they must not be confused:
+     *  • REPORT flow — a human act, by email, outside the platform; staff
+     *    press « Marquer comme envoyée » afterwards (`markQuoteSentFn`).
+     *  • PACK flow — the platform sends the RFQ itself (`sendRfqBatch`, V06)
+     *    and stamps this only once the message has been handed to the mail
+     *    provider or safely queued. So on that flow a null here means exactly
+     *    "this supplier has not been written to", and is something to act on.
      *
      * Without it the response time measured `requested_at → responded_at`,
      * which is OSI's own lag PLUS the supplier's. That is not what ADR Part I
      * §6 promises: supplier responsiveness is the unscrapable signal, and a
      * slow afternoon at OSI's end was being recorded as a slow supplier.
-     * Null on rows created before 2026-09-12 and whenever staff have not
-     * marked the request sent — readers fall back to `requested_at` and say so.
+     * Null on rows created before 2026-09-12 and whenever the request has not
+     * gone out — report-flow readers fall back to `requested_at` and say so.
      */
     sentAt: timestamp("sent_at"),
     sentBy: text("sent_by").references(() => user.id, { onDelete: "set null" }),
+    /** The round this solicitation belongs to (V06). Null on the report flow,
+     *  and on a confirmed shortlist entry whose batch has not left yet — a
+     *  quote outside a round has no clock (decision D9). */
+    roundId: text("round_id").references(() => rfqRound.id, { onDelete: "set null" }),
     /** When the supplier actually answered — the response-time signal. */
     respondedAt: timestamp("responded_at"),
     /** The staff member who keyed the offer in (nobody else can: the supplier

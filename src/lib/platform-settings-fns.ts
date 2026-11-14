@@ -71,7 +71,7 @@ export const updatePlatformSettingFn = createServerFn({ method: "POST" })
       key: z.string().min(1).max(64),
       // The registry decides what is valid for the key; this only bounds the
       // shape so nothing structured can be stored under a scalar setting.
-      value: z.union([z.number(), z.string().max(64)]),
+      value: z.union([z.number(), z.string().max(254)]),
     }),
   )
   .handler(async ({ data }): Promise<UpdateSettingResult> => {

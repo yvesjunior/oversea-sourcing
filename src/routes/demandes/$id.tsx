@@ -37,6 +37,8 @@ import { AttachmentsList } from "@/components/osi/AttachmentsList";
 import { StatusPill } from "@/components/osi/StatusPill";
 import { ShortlistPanel } from "@/components/osi/ShortlistPanel";
 import { getShortlistFn, type ShortlistData } from "@/lib/shortlist-fns";
+import { RfqPanel } from "@/components/osi/RfqPanel";
+import { getRfqPreviewFn, type RfqPreview } from "@/lib/rfq-fns";
 import type { Risque } from "@/data/osi";
 import type { RiskLevel } from "@/database/schema";
 import {
@@ -109,7 +111,10 @@ export const Route = createFileRoute("/demandes/$id")({
     // that owns the request never receives it.
     const shortlist =
       demande.flow === "pack" ? await getShortlistFn({ data: { requestId: params.id } }) : null;
-    return { demande, dossier, shortlist };
+    // Who the RFQ would go to, what stops it, and the email itself (V06) —
+    // same gate as the shortlist, so again never sent to the owning workspace.
+    const rfq = shortlist ? await getRfqPreviewFn({ data: { requestId: params.id } }) : null;
+    return { demande, dossier, shortlist, rfq };
   },
   component: DemandeDetail,
 });
@@ -132,10 +137,11 @@ const STEP_ICONS: Record<StepKey, typeof FileText> = {
 function DemandeDetail() {
   const { t, i18n } = useTranslation();
   const router = useRouter();
-  const { demande, dossier, shortlist } = Route.useLoaderData() as {
+  const { demande, dossier, shortlist, rfq } = Route.useLoaderData() as {
     demande: RequestDetail;
     dossier: RequestDealStatus;
     shortlist: ShortlistData | null;
+    rfq: RfqPreview | null;
   };
   const [drafting, setDrafting] = useState(false);
   const dateLocale = i18n.language === "fr" ? fr : enUS;
@@ -561,6 +567,10 @@ function DemandeDetail() {
 
           {shortlist && (
             <ShortlistPanel shortlist={shortlist} onChanged={() => void router.invalidate()} />
+          )}
+
+          {rfq && (
+            <RfqPanel requestId={demande.id} rfq={rfq} onChanged={() => void router.invalidate()} />
           )}
 
           {showSuppliers && (

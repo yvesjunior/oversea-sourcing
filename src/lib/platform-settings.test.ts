@@ -94,6 +94,39 @@ describe("the pack-flow switch", () => {
   });
 });
 
+// The platform sends from no-reply@. An RFQ with no reply address would invite
+// the supplier to answer into a mailbox nobody reads.
+describe("the RFQ reply address", () => {
+  it("has no default — a guessed address is worse than none", () => {
+    expect(defaultSetting("rfq.reply_to")).toBe("");
+    expect(resolveSetting("rfq.reply_to", undefined)).toBe("");
+  });
+
+  it("stores one address, trimmed and lower-cased", () => {
+    expect(parseSettingValue("rfq.reply_to", "  Sourcing@Example.com ")).toEqual({
+      ok: true,
+      value: "sourcing@example.com",
+    });
+  });
+
+  it("can be cleared", () => {
+    expect(parseSettingValue("rfq.reply_to", "")).toEqual({ ok: true, value: "" });
+  });
+
+  it("refuses what is not an address", () => {
+    for (const bad of ["sourcing", "sourcing@", "@example.com", "a b@example.com", 42]) {
+      expect(parseSettingValue("rfq.reply_to", bad).ok, String(bad)).toBe(false);
+    }
+  });
+
+  it("is read by the batch send, and so is the window", () => {
+    expect(PLATFORM_SETTINGS["rfq.reply_to"].inert).toBe(false);
+    expect(PLATFORM_SETTINGS["rfq.window_hours"].inert).toBe(false);
+    // Snapshotted onto the round, but nothing closes a round on it before V07.
+    expect(PLATFORM_SETTINGS["rfq.target_offers"].inert).toBe(true);
+  });
+});
+
 describe("reading a value back", () => {
   it("falls back to the default when there is no row", () => {
     expect(resolveSetting("rfq.window_hours", undefined)).toBe(72);

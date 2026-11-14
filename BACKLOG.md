@@ -24,7 +24,7 @@
 | **E9** Notifications | In-app + email | 🟡 bell, emitters, **prefs (2026-08-26)** live; Phase P types (`quote_received`, `contract_to_sign`, `contract_signed`) + staff alert on `quotes.requested` (2026-09-07) live; **the bell alerts (2026-09-14)** — count badge, 30 s poll, chime, per-browser mute |
 | **E10** Admin surfaces | Verification, imports, ops queue | 🟡 **verification LIVE (S5b/S5c, 2026-08-26)**; imports/ops queue placeholders |
 | **R** Custom staff roles | Roles as data + the matrix | ✅ **BUILT 2026-08-29** (migration 0039) — create/delete roles, dynamic matrix, `requests.all` |
-| **E13** V6 architecture | Supplier portal · KPI #2 · Partner Hub · Decision Pack | 🔵 **NEW 2026-10-21** — scope opened by the V6 document; diagrams validated 2026-11-14; **34 tasks in seven slices — [Phase V](#phase-v--the-v6-parcours-task-by-task-e13--written-2026-11-14)**; **V01, V02, V04, V05 built 2026-11-14** (settings, contacts, request states, the fork + shortlist — switch off), not deployed |
+| **E13** V6 architecture | Supplier portal · KPI #2 · Partner Hub · Decision Pack | 🔵 **NEW 2026-10-21** — scope opened by the V6 document; diagrams validated 2026-11-14; **34 tasks in seven slices — [Phase V](#phase-v--the-v6-parcours-task-by-task-e13--written-2026-11-14)**; **V01, V02, V04, V05, V06 built 2026-11-14** (settings, contacts, states, fork + shortlist, RFQ batch — switch off), not deployed |
 | **E11** Settings | Profile, sourcing rules | 🟡 Paramètres + notification prefs live; **password / 2FA / theme / rename (2026-08-27)** live; buyer Abonnement self-service waits for billing |
 
 **MVP1 = E0–E7 + E10.** Definition of done **restated 2026-08-29 by ADR-002**
@@ -4185,7 +4185,7 @@ below are built on:
   until staff add addresses or a real research run reports one — every
   supplier already in the pool still has none.
 - ~~**Nothing platform-wide can be configured.**~~ **Fixed by V01
-  (2026-11-14):** `platform_setting` and `/interne/parametres`. 42 tables with V02.
+  (2026-11-14):** `platform_setting` and `/interne/parametres`. 43 tables with V02 and V06.
   The four keys it ships are stored and read by nothing yet.
 - **The buyer picks who is asked** — still, on the report flow, which is
   every request while `flow.pack_enabled` is off. `requestQuotesFn` is guarded
@@ -4641,7 +4641,68 @@ built in: **S** one, **M** two to three, **L** four or more.
       ADR-002's first acceptance decision, *"the BUYER picks"* — say so in
       the commit.
 
-- [ ] **V06 · RFQ rounds and the batch send.** *Size L. Step 07. Depends on:
+- [x] **V06 · RFQ rounds and the batch send — BUILT 2026-11-14** (migration
+      **0048**, not deployed). `rfq_round`, `quote.round_id`,
+      `mail_outbox.reply_to`; the setting `rfq.reply_to`; the email in
+      `src/lib/rfq-mail.ts`; `src/server/rfq.ts` (`previewRfq`,
+      `sendRfqBatch`); `getRfqPreviewFn` / `sendRfqBatchFn`; `RfqPanel` on the
+      dossier. 481 tests, 12 on the email.
+      **`sent_at` is stamped AFTER the email, per supplier — never in the
+      opening transaction.** Order: open the round and tie the quotes to it;
+      `shortlisted → soliciting`; one email each; stamp `sent_at` only for a
+      message that was handed to the provider or queued in the outbox. So on
+      this flow, a quote in a round with no `sent_at` means exactly "not
+      written to", and **calling the send again resumes** — it writes only to
+      those. Everyone in the opening batch shares the round's own instant; a
+      supplier reached by a later call gets the time they were actually
+      written to. This replaces the "idempotency key = round + quote" the
+      task named: a second send finds nobody left to write to, and two clicks
+      arriving together are settled by `rfq_round_request_no_uq`.
+      **The round** stores `closes_at` and snapshots `window_hours` and
+      `target_offers`. It has no closing columns yet — V07 adds them with the
+      thing that closes a round.
+      **Two things the send refuses on, before opening anything:**
+      • **no reply address.** The platform sends from no-reply@, so
+        `rfq.reply_to` (new setting, no default) must be set — otherwise a
+        supplier who answered would be writing into a mailbox nobody reads and
+        would be recorded as silent. `MailInput.replyTo` carries it, and the
+        outbox keeps it so a retried RFQ does not lose it.
+      • **a supplier with no contact.** The batch is the confirmed shortlist,
+        whole: add an address or take the supplier off the shortlist.
+      **The email** is built by a pure function and shown to staff, word for
+      word, before it leaves. It carries the need, the criteria (their
+      English values for an English reader), the buyer's description as
+      written, the deadline **in UTC**, and what to answer with. It is never
+      handed the workspace, so it cannot name the buyer — the description is
+      the one place identity can still slip in, hence the preview.
+      **Guards added:** criteria are frozen on the server once the search has
+      answered (`criteria-fns.ts` and the chat's operations — until now only
+      the page stopped an edit); the manual « marquer comme envoyée » is
+      refused on a pack-flow quote and replaced on `/soumissions` by a link
+      to the dossier.
+      *Verified live in dev on request #3049, then restored:* the panel
+      refused for want of a reply address, then showed recipients and the
+      email; the window was set to 48 h, the batch sent, and the round holds
+      `window_hours` 48 and `closes_at` = `opened_at` + 48 h exactly; both
+      quotes carry the same instant; the request is `soliciting`; the French
+      and English emails were logged (dev mail is silent), deadline in UTC.
+      **V01's deferred line holds:** putting the setting back to 72 left the
+      open round at 48. One quote was un-stamped by hand to stand for a
+      failed send — the panel listed it as not reached, the resend wrote to
+      it alone and gave it its own time, and no second round opened. As the
+      owning workspace: the stage, « Appel d'offres envoyé à 2 fournisseur(s) »,
+      and no supplier name or address anywhere in the response.
+      **Not exercised:** a real send through Resend with the `reply_to`
+      field, and a retry from the outbox carrying it; the criteria freeze by
+      direct call; two sends arriving at the same instant.
+      **Limits to know:** attachments are not sent (the supplier asks, until
+      the portal); the description goes out in the buyer's language; a mail
+      outage long enough to queue the batch still starts the round's clock —
+      the window is counted from the send, not from the delivery.
+      **D9 is implemented as its default** — a quote outside a round has no
+      clock, and only the batch opens one — and is still the owner's to
+      confirm.
+- [x] ~~**V06 · RFQ rounds and the batch send.**~~ *Size L. Step 07. Depends on:
       V01, V02, V05. Blocks: V07.*
 
       **What it does.** Sends the RFQ from the platform — today `sent_at` is
@@ -4685,6 +4746,14 @@ built in: **S** one, **M** two to three, **L** four or more.
 
 - [ ] **V07 · The window closes: three conditions, one handler.** *Size L.
       Step 07 → 10. Depends on: V06. Blocks: V10, V11.*
+
+      **Left for this task by V06:** the round's closing columns
+      (`closed_at`, `close_reason`, `closed_by` + name, `early_note`) — V06
+      created none of them; flip `rfq.target_offers` to `inert: false` when a
+      round first closes on it; and **a buyer's cancel during an open round**
+      — the machine allows it (V04) and nothing handles it: the round must
+      close and the suppliers already written to must be told the RFQ is
+      withdrawn.
 
       **What it does.** Closes a round when five offers are in, when the delay
       runs out, or when staff decide not to wait — and tells staff it
