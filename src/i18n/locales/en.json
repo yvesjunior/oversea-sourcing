@@ -624,7 +624,41 @@
     "risk": "Risk",
     "matched": "Linked files",
     "provenance": "Provenance",
-    "viewSourceRequest": "View request #{{id}}"
+    "viewSourceRequest": "View request #{{id}}",
+    "contacts_one": "{{count}} contact",
+    "contacts_other": "{{count}} contacts",
+    "contactsNone": "No contact",
+    "manageContacts": "Contacts"
+  },
+  "contacts": {
+    "title": "Contacts — {{supplier}}",
+    "subtitle": "Who to write to at this supplier. OSI staff only: these addresses are never shown to a buyer.",
+    "loading": "Loading…",
+    "none": "No address on file. Until there is one, this supplier cannot be sent an RFQ from the platform.",
+    "primary": "Primary",
+    "makePrimary": "Make primary contact",
+    "remove": "Remove this contact",
+    "addTitle": "Add a contact",
+    "email": "Email",
+    "name": "Name",
+    "role": "Role",
+    "phone": "Phone",
+    "locale": "Language to write in",
+    "add": "Add",
+    "locales": {
+      "en": "English",
+      "fr": "French"
+    },
+    "source": {
+      "research": "found by research",
+      "staff": "entered by staff"
+    },
+    "problem": {
+      "forbidden": "Not allowed.",
+      "not_found": "This contact no longer exists.",
+      "invalid_email": "That does not look like an email address.",
+      "duplicate": "That address is already on file for this supplier."
+    }
   },
   "provenance": {
     "imported": "Imported",
@@ -947,7 +981,10 @@
     "workspace.archived": "Workspace archived",
     "workspace.restored": "Workspace restored",
     "user.email_verified_by_staff": "Email marked verified by staff",
-    "user.reset_link_issued": "Password-reset link issued by staff"
+    "user.reset_link_issued": "Password-reset link issued by staff",
+    "supplier_contact.added": "Supplier contact added",
+    "supplier_contact.primary_set": "Primary contact set",
+    "supplier_contact.removed": "Supplier contact removed"
   },
   "twofa": {
     "title": "Two-step verification",
@@ -1066,7 +1103,9 @@
     "askSkipped_other": "{{count}} already under way",
     "askRefusal_already_decided": "An offer has already been accepted for this request.",
     "askRefusal_forbidden": "You do not have the rights to solicit a supplier.",
-    "askRefusal_not_found": "Request not found."
+    "askRefusal_not_found": "Request not found.",
+    "writeTo": "Write to",
+    "noContact": "No contact — add one from Suppliers"
   },
   "contrats": {
     "title": "Contracts",

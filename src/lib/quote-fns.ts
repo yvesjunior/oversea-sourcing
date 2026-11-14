@@ -76,6 +76,16 @@ export type QuoteListResult = {
    * tab to read it is how the wrong figure gets typed.
    */
   needs: Record<string, RequestNeed>;
+  /**
+   * Who to write to, per supplier id — STAFF LISTS ONLY (V02), and only for
+   * suppliers with a quote still waiting to be sent or answered.
+   *
+   * Always `{}` on a buyer's list. The supplier pool is platform-global: a
+   * buyer holding the address would write to the supplier directly, and the
+   * address is OSI's working data, not the buyer's. A supplier missing from
+   * the map has no contact on file and cannot be written to yet.
+   */
+  contacts: Record<string, { email: string; name: string | null }>;
 };
 
 export type RequestNeed = {
@@ -363,7 +373,7 @@ export const getMyQuotesFn = createServerFn({ method: "GET" }).handler(
     ]);
     const headers = getRequest().headers;
     const caller = await requireWorkspaceRole(headers, "viewer");
-    if (!caller) return { quotes: [], canRecord: false, canAct: false, needs: {} };
+    if (!caller) return { quotes: [], canRecord: false, canAct: false, needs: {}, contacts: {} };
 
     const session = await auth.api.getSession({ headers });
     const canRecord = session ? await effectiveHasPermission(session, "deals") : false;
@@ -387,6 +397,8 @@ export const getMyQuotesFn = createServerFn({ method: "GET" }).handler(
       canRecord,
       // A viewer seat is read-only: they may look, not solicit or accept.
       canAct: caller.role !== "viewer",
+      // Never on a workspace's own list — see QuoteListResult.contacts.
+      contacts: {},
     };
   },
 );
@@ -416,7 +428,7 @@ export const getAllQuotesFn = createServerFn({ method: "GET" }).handler(
     // what effectiveHasPermission does, and it is why raw platformRole is
     // never used here.
     if (!session || !(await effectiveHasPermission(session, "deals"))) {
-      return { quotes: [], canRecord: false, canAct: false, needs: {} };
+      return { quotes: [], canRecord: false, canAct: false, needs: {}, contacts: {} };
     }
 
     const rows = await db
@@ -431,11 +443,23 @@ export const getAllQuotesFn = createServerFn({ method: "GET" }).handler(
       .orderBy(desc(schema.quote.requestedAt));
 
     const quotes = rows.map((r) => toView(r.quote, r.title, r.workspaceName));
+    // Only the suppliers staff still have to write to: an address is working
+    // data for an open solicitation, not something to ship for every row.
+    const { primaryContactsFor } = await import("@/server/supplier-contacts");
+    const primaries = await primaryContactsFor(
+      quotes
+        .filter((q) => q.status === "requested")
+        .map((q) => q.supplierId)
+        .filter((id): id is string => id !== null),
+    );
     return {
       quotes,
       canRecord: true,
       canAct: true,
       needs: await loadNeeds(quotes.map((q) => q.requestId)),
+      contacts: Object.fromEntries(
+        [...primaries].map(([supplierId, c]) => [supplierId, { email: c.email, name: c.name }]),
+      ),
     };
   },
 );

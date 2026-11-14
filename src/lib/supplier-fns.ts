@@ -9,7 +9,16 @@
 // with.
 
 import { createServerFn } from "@tanstack/react-start";
-import type { RiskLevel, SupplierProvenance, VerificationStatus } from "@/database/schema";
+import { z } from "zod";
+import {
+  CONTACT_LOCALES,
+  type ContactLocale,
+  type RiskLevel,
+  type SupplierContactSource,
+  type SupplierProvenance,
+  type VerificationStatus,
+} from "@/database/schema";
+import { isPlausibleEmail } from "@/lib/supplier-contact";
 
 export type SupplierView = {
   id: string;
@@ -37,14 +46,24 @@ export type SupplierView = {
    *  since the pool is platform-global (ADR-001) and answering "whose
    *  supplier is this" would leak which customer searched for a given part. */
   createdAt: string;
+  /**
+   * How many contact addresses OSI holds for this supplier — staff directory
+   * only. NULL for every buyer-facing list: a contact is never shown to a
+   * buyer, and not even the count is, since "OSI has an address for this
+   * one" is a fact about OSI's work and not about the supplier.
+   */
+  contactCount: number | null;
 };
 
 export type SupplierDirectory = {
   suppliers: SupplierView[];
   total: number;
+  /** True for staff holding `deals` — the people who solicit suppliers are
+   *  the ones who keep their addresses. */
+  canManageContacts: boolean;
 };
 
-const EMPTY: SupplierDirectory = { suppliers: [], total: 0 };
+const EMPTY: SupplierDirectory = { suppliers: [], total: 0, canManageContacts: false };
 
 /** Strip the discovering-request id unless the caller may actually open that
  *  request: own workspace, or an employee with cross-workspace sourcing sight. */
@@ -109,11 +128,17 @@ export const getSuppliersFn = createServerFn({ method: "GET" }).handler(
       .groupBy(schema.supplier.id, schema.request.organizationId)
       .orderBy(desc(schema.supplier.confidenceScore), asc(schema.supplier.name));
 
+    const [{ contactCounts }, canManageContacts] = await Promise.all([
+      import("@/server/supplier-contacts"),
+      effectiveHasPermission(session, "deals"),
+    ]);
+    const counts = await contactCounts();
     const suppliers = rows.map((row) => ({
       ...gateDiscovery(row, session.session.activeOrganizationId, seesAllData),
       createdAt: row.createdAt.toISOString(),
+      contactCount: counts.get(row.id) ?? 0,
     }));
-    return { suppliers, total: suppliers.length };
+    return { suppliers, total: suppliers.length, canManageContacts };
   },
 );
 
@@ -214,7 +239,154 @@ export const getLinkedSuppliersFn = createServerFn({ method: "GET" }).handler(
     const suppliers = rows.map((row) => ({
       ...gateDiscovery(row, workspaceId, seesAllData),
       createdAt: row.createdAt.toISOString(),
+      // Never for a buyer — see SupplierView.contactCount.
+      contactCount: null,
     }));
-    return { suppliers, total: suppliers.length };
+    return { suppliers, total: suppliers.length, canManageContacts: false };
   },
 );
+
+// ── Supplier contacts (Phase V · V02) ───────────────────────────────────────
+//
+// Staff only, behind `deals`: the people who solicit suppliers keep their
+// addresses. No buyer-facing fn in this file returns a contact, and none
+// should — the pool is platform-global, and a buyer holding the address would
+// simply write to the supplier and leave OSI out of its own transaction.
+
+export type SupplierContactView = {
+  id: string;
+  email: string;
+  name: string | null;
+  role: string | null;
+  phone: string | null;
+  locale: ContactLocale;
+  source: SupplierContactSource;
+  isPrimary: boolean;
+  createdByName: string | null;
+  createdAt: string;
+};
+
+function toContactView(
+  row: typeof import("@/database/schema").supplierContact.$inferSelect,
+): SupplierContactView {
+  return {
+    id: row.id,
+    email: row.email,
+    name: row.name,
+    role: row.role,
+    phone: row.phone,
+    locale: row.locale,
+    source: row.source,
+    isPrimary: row.isPrimary,
+    createdByName: row.createdByName,
+    createdAt: row.createdAt.toISOString(),
+  };
+}
+
+async function requireContactStaff() {
+  const [{ auth }, { getRequest }, { effectiveHasPermission }] = await Promise.all([
+    import("@/server/auth"),
+    import("@tanstack/react-start/server"),
+    import("@/server/workspace-guard"),
+  ]);
+  const session = await auth.api.getSession({ headers: getRequest().headers });
+  if (!session || !(await effectiveHasPermission(session, "deals"))) return null;
+  return session;
+}
+
+export const getSupplierContactsFn = createServerFn({ method: "GET" })
+  .inputValidator(z.object({ supplierId: z.string().min(1) }))
+  .handler(async ({ data }): Promise<{ contacts: SupplierContactView[] }> => {
+    if (!(await requireContactStaff())) return { contacts: [] };
+    const { listContacts } = await import("@/server/supplier-contacts");
+    return { contacts: (await listContacts(data.supplierId)).map(toContactView) };
+  });
+
+// No update fn on purpose: correcting a contact is removing it and adding it
+// again, which is two journal lines that say exactly what happened.
+const contactFields = {
+  name: z.string().trim().max(120).nullable(),
+  role: z.string().trim().max(120).nullable(),
+  phone: z.string().trim().max(40).nullable(),
+  locale: z.enum(CONTACT_LOCALES),
+};
+
+export type ContactMutationResult =
+  { ok: true } | { ok: false; reason: "forbidden" | "not_found" | "invalid_email" | "duplicate" };
+
+export const addSupplierContactFn = createServerFn({ method: "POST" })
+  .inputValidator(
+    z.object({ supplierId: z.string().min(1), email: z.string().max(254), ...contactFields }),
+  )
+  .handler(async ({ data }): Promise<ContactMutationResult> => {
+    const session = await requireContactStaff();
+    if (!session) return { ok: false, reason: "forbidden" };
+    if (!isPlausibleEmail(data.email)) return { ok: false, reason: "invalid_email" };
+
+    const [{ db }, { eq }, schema] = await Promise.all([
+      import("@/database"),
+      import("drizzle-orm"),
+      import("@/database/schema"),
+    ]);
+    const supplier = await db.query.supplier.findFirst({
+      where: eq(schema.supplier.id, data.supplierId),
+      columns: { id: true, name: true },
+    });
+    if (!supplier) return { ok: false, reason: "not_found" };
+
+    const { addContact } = await import("@/server/supplier-contacts");
+    const added = await addContact({
+      supplierId: supplier.id,
+      email: data.email,
+      name: data.name,
+      role: data.role,
+      phone: data.phone,
+      locale: data.locale,
+      source: "staff",
+      actor: { id: session.user.id, name: session.user.name },
+    });
+    if (!added.ok) return { ok: false, reason: "duplicate" };
+
+    const { logAudit, actorOf } = await import("@/server/audit");
+    await logAudit({
+      ...actorOf(session),
+      action: "supplier_contact.added",
+      target: data.email.trim().toLowerCase(),
+      detail: { supplier: supplier.name },
+    });
+    return { ok: true };
+  });
+
+export const setPrimarySupplierContactFn = createServerFn({ method: "POST" })
+  .inputValidator(z.object({ id: z.string().min(1) }))
+  .handler(async ({ data }): Promise<ContactMutationResult> => {
+    const session = await requireContactStaff();
+    if (!session) return { ok: false, reason: "forbidden" };
+    const { setPrimaryContact } = await import("@/server/supplier-contacts");
+    const contact = await setPrimaryContact(data.id);
+    if (!contact) return { ok: false, reason: "not_found" };
+    const { logAudit, actorOf } = await import("@/server/audit");
+    await logAudit({
+      ...actorOf(session),
+      action: "supplier_contact.primary_set",
+      target: contact.email,
+    });
+    return { ok: true };
+  });
+
+export const removeSupplierContactFn = createServerFn({ method: "POST" })
+  .inputValidator(z.object({ id: z.string().min(1) }))
+  .handler(async ({ data }): Promise<ContactMutationResult> => {
+    const session = await requireContactStaff();
+    if (!session) return { ok: false, reason: "forbidden" };
+    const { removeContact } = await import("@/server/supplier-contacts");
+    const removed = await removeContact(data.id);
+    if (!removed) return { ok: false, reason: "not_found" };
+    const { logAudit, actorOf } = await import("@/server/audit");
+    await logAudit({
+      ...actorOf(session),
+      action: "supplier_contact.removed",
+      target: removed.email,
+    });
+    return { ok: true };
+  });

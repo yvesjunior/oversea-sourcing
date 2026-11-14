@@ -19,6 +19,7 @@ import {
   getMyQuotesFn,
   recordQuoteFn,
   declineQuoteFn,
+  type QuoteListResult,
   type QuoteView,
   type RequestNeed,
 } from "@/lib/quote-fns";
@@ -345,7 +346,7 @@ function Soumissions() {
           soumissions by rule (owner 2026-08-29). Their own dossiers live in
           their personal workspace, one switch away. */}
       {isStaff ? (
-        <StaffQuotes quotes={all.quotes} needs={all.needs} />
+        <StaffQuotes quotes={all.quotes} needs={all.needs} contacts={all.contacts} />
       ) : (
         <QuoteList
           quotes={mine.quotes}
@@ -365,9 +366,11 @@ function Soumissions() {
 function StaffQuotes({
   quotes,
   needs,
+  contacts,
 }: {
   quotes: QuoteView[];
   needs: Record<string, RequestNeed>;
+  contacts: QuoteListResult["contacts"];
 }) {
   const filters = useListFilters();
   // Filtered on requestedAt — when OSI ASKED. The answer's date would move a
@@ -386,7 +389,7 @@ function StaffQuotes({
         total={quotes.length}
         shown={shown.length}
       />
-      <QuoteList quotes={shown} needs={needs} canRecord showAccount />
+      <QuoteList quotes={shown} needs={needs} contacts={contacts} canRecord showAccount />
     </div>
   );
 }
@@ -394,6 +397,7 @@ function StaffQuotes({
 function QuoteList({
   quotes,
   needs,
+  contacts,
   canRecord,
   canAccept = false,
   showAccount = false,
@@ -401,6 +405,9 @@ function QuoteList({
   quotes: QuoteView[];
   /** The specification behind each request, keyed by request id. */
   needs: Record<string, RequestNeed>;
+  /** Who to write to, per supplier — passed by the staff list only. Absent on
+   *  a buyer's list, which is what keeps the address off their screen. */
+  contacts?: QuoteListResult["contacts"] | undefined;
   canRecord: boolean;
   /** Only the buyer commits their company to a supplier — never staff. */
   canAccept?: boolean;
@@ -536,6 +543,27 @@ function QuoteList({
                         <span className="block truncate text-sm font-semibold">
                           {quote.supplierName}
                         </span>
+                        {/* Who to write to, while there is still something to
+                            send or to chase (V02). Staff lists only. */}
+                        {contacts && quote.status === "requested" && (
+                          <span className="block truncate text-xs">
+                            {quote.supplierId && contacts[quote.supplierId] ? (
+                              <>
+                                <span className="text-muted-foreground">
+                                  {t("soumissions.writeTo")}{" "}
+                                </span>
+                                <a
+                                  href={`mailto:${contacts[quote.supplierId]?.email}`}
+                                  className="font-medium underline-offset-2 hover:underline"
+                                >
+                                  {contacts[quote.supplierId]?.email}
+                                </a>
+                              </>
+                            ) : (
+                              <span className="text-warning">{t("soumissions.noContact")}</span>
+                            )}
+                          </span>
+                        )}
                         <span className="text-xs text-muted-foreground">
                           {quote.status === "received" || quote.status === "accepted"
                             ? `${money(quote.amountCents, quote.currency, i18n.language)} · ${

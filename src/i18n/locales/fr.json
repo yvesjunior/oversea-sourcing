@@ -624,7 +624,41 @@
     "risk": "Risque",
     "matched": "Dossiers associés",
     "provenance": "Provenance",
-    "viewSourceRequest": "Voir la demande #{{id}}"
+    "viewSourceRequest": "Voir la demande #{{id}}",
+    "contacts_one": "{{count}} contact",
+    "contacts_other": "{{count}} contacts",
+    "contactsNone": "Aucun contact",
+    "manageContacts": "Contacts"
+  },
+  "contacts": {
+    "title": "Contacts — {{supplier}}",
+    "subtitle": "À qui écrire chez ce fournisseur. Réservé à l'équipe OSI : ces adresses ne sont jamais montrées à un acheteur.",
+    "loading": "Chargement…",
+    "none": "Aucune adresse enregistrée. Tant qu'il n'y en a pas, ce fournisseur ne peut pas recevoir de RFQ depuis la plateforme.",
+    "primary": "Principal",
+    "makePrimary": "Définir comme contact principal",
+    "remove": "Retirer ce contact",
+    "addTitle": "Ajouter un contact",
+    "email": "Courriel",
+    "name": "Nom",
+    "role": "Fonction",
+    "phone": "Téléphone",
+    "locale": "Langue des échanges",
+    "add": "Ajouter",
+    "locales": {
+      "en": "Anglais",
+      "fr": "Français"
+    },
+    "source": {
+      "research": "trouvé par la recherche",
+      "staff": "saisi par l'équipe"
+    },
+    "problem": {
+      "forbidden": "Action non autorisée.",
+      "not_found": "Ce contact n'existe plus.",
+      "invalid_email": "Cette adresse n'a pas la forme d'un courriel.",
+      "duplicate": "Cette adresse est déjà enregistrée pour ce fournisseur."
+    }
   },
   "provenance": {
     "imported": "Importé",
@@ -947,7 +981,10 @@
     "workspace.archived": "Espace archivé",
     "workspace.restored": "Espace restauré",
     "user.email_verified_by_staff": "Adresse marquée vérifiée par l'équipe",
-    "user.reset_link_issued": "Lien de réinitialisation généré par l'équipe"
+    "user.reset_link_issued": "Lien de réinitialisation généré par l'équipe",
+    "supplier_contact.added": "Contact fournisseur ajouté",
+    "supplier_contact.primary_set": "Contact principal défini",
+    "supplier_contact.removed": "Contact fournisseur retiré"
   },
   "twofa": {
     "title": "Vérification en deux étapes",
@@ -1066,7 +1103,9 @@
     "askSkipped_other": "{{count}} déjà en cours",
     "askRefusal_already_decided": "Une offre a déjà été acceptée pour cette demande.",
     "askRefusal_forbidden": "Vous n’avez pas les droits pour solliciter un fournisseur.",
-    "askRefusal_not_found": "Demande introuvable."
+    "askRefusal_not_found": "Demande introuvable.",
+    "writeTo": "Écrire à",
+    "noContact": "Aucun contact — à ajouter depuis Fournisseurs"
   },
   "contrats": {
     "title": "Contrats",

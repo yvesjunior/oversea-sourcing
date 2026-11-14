@@ -404,6 +404,74 @@ export const supplier = pgTable(
   (table) => [uniqueIndex("supplier_dedup_key_uq").on(table.dedupKey)],
 );
 
+/** Where a supplier contact came from. `research` = read off the supplier's
+ *  own page by the research pass; `staff` = typed in by OSI. A third value,
+ *  the supplier's own entry, arrives with the portal (V16) — it is not listed
+ *  because nothing can write it yet. */
+export const SUPPLIER_CONTACT_SOURCES = ["research", "staff"] as const;
+export type SupplierContactSource = (typeof SUPPLIER_CONTACT_SOURCES)[number];
+
+/** The language OSI writes to a contact in. English by default: it is the
+ *  language the manufacturing web answers in, and a wrong guess in English is
+ *  still read where one in French is not. */
+export const CONTACT_LOCALES = ["en", "fr"] as const;
+export type ContactLocale = (typeof CONTACT_LOCALES)[number];
+
+/**
+ * Who to write to at a supplier (Phase V · V02, 2026-11-14).
+ *
+ * Until this table a supplier had NO contact address anywhere in the schema —
+ * name, country, website, scores, and nothing to send to. Every RFQ left from
+ * a staff mailbox, to an address someone found by hand. Sending from the
+ * platform (V06) reads the PRIMARY contact from here.
+ *
+ * A contact is a person, not a fact about the company, and it is treated that
+ * way: it is deleted with the supplier (cascade), it is never shown to a
+ * buyer — the supplier pool is platform-global and a buyer who could read it
+ * would simply write to the supplier directly — and it comes from the
+ * supplier's own published page, from staff, or (later) from the supplier.
+ * Never from a paid enrichment provider: that is a standing constraint.
+ *
+ * Values and gates live in src/lib/supplier-contact.ts.
+ */
+export const supplierContact = pgTable(
+  "supplier_contact",
+  {
+    id: text("id").primaryKey(),
+    supplierId: text("supplier_id")
+      .notNull()
+      .references(() => supplier.id, { onDelete: "cascade" }),
+    /** Trimmed and lower-cased before it is stored, so the unique index below
+     *  means what it says. */
+    email: text("email").notNull(),
+    name: text("name"),
+    role: text("role"),
+    phone: text("phone"),
+    /** The language OSI writes to this person in. */
+    locale: text("locale").$type<ContactLocale>().notNull().default("en"),
+    source: text("source").$type<SupplierContactSource>().notNull(),
+    /** The one address an RFQ goes to. At most one per supplier (partial
+     *  unique index), and exactly one whenever the supplier has any contact —
+     *  src/server/supplier-contacts.ts keeps that true on add and on remove. */
+    isPrimary: boolean("is_primary").notNull().default(false),
+    /** Null for a research-sourced row — no person entered it. */
+    createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+    createdByName: text("created_by_name"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (table) => [
+    index("supplier_contact_supplier_idx").on(table.supplierId),
+    uniqueIndex("supplier_contact_supplier_email_uq").on(table.supplierId, table.email),
+    // Enforced by the database rather than by the server fn: two staff
+    // members promoting two different contacts at once would both pass an
+    // application-side check — the same reasoning as the accepted-quote index.
+    uniqueIndex("supplier_contact_one_primary_uq")
+      .on(table.supplierId)
+      .where(sql`${table.isPrimary}`),
+  ],
+);
+
 // ── Data sources (validated 2026-08-22) — the platform-curated catalogue ─────
 // Each source is an independent pull-only connector (src/server/sources/);
 // requests never specify a source — effective set = enabled ∩ workspace-activated.
@@ -479,6 +547,14 @@ export const sourceRecord = pgTable(
     confidenceScore: integer("confidence_score").notNull().default(50),
     /** Where this source saw the company (URL, registry entry…). */
     sourceUrl: text("source_url"),
+    /**
+     * A contact address the source stated for this company (V02) — for the web
+     * research, one read off the supplier's own page and kept only when it is
+     * on the supplier's own domain (`acceptResearchedEmail`). Travels with the
+     * record and becomes a `supplier_contact` row at promotion, because a
+     * supplier row does not exist until a record ranks Top-N.
+     */
+    contactEmail: text("contact_email"),
     /** The connector's raw payload, verbatim. */
     payload: jsonb("payload").$type<Record<string, unknown>>(),
     status: text("status").$type<"active" | "banned">().notNull().default("active"),

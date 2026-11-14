@@ -50,6 +50,10 @@ export type SourceCandidate = {
   confidence: number;
   /** Where the source saw this company (URL, registry entry id…). */
   sourceUrl?: string | null;
+  /** A contact address the source states for the company, when it has one
+   *  (V02). The core gates it before storing — a connector passes on what it
+   *  was given and does not decide whether to believe it. */
+  contactEmail?: string | null;
   /** The connector's raw payload, stored on the supplier_source membership. */
   raw?: Record<string, unknown>;
 };

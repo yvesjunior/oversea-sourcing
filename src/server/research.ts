@@ -31,6 +31,7 @@ import {
   RESEARCH_CANDIDATE_CAP,
 } from "@/server/sourcing-config";
 import { isDynamicSource } from "@/lib/source-kind";
+import { acceptResearchedEmail } from "@/lib/supplier-contact";
 import { getConnector } from "@/server/sources/registry";
 import {
   eligibleCandidates,
@@ -86,6 +87,9 @@ function toRecordRow(candidate: SourceCandidate, dataSourceId: string) {
     descriptor: candidate.descriptor?.trim() || null,
     countryCode: country,
     website: cleanWebsite(candidate.website),
+    // Gated HERE, once, at the store's door: kept only when well-formed,
+    // attended, and on the domain of the website this same candidate reports.
+    contactEmail: acceptResearchedEmail(candidate.contactEmail, candidate.website),
     description: candidate.description?.trim() || null,
     descriptionEn: candidate.descriptionEn?.trim() || null,
     confidenceScore: clampConfidence(candidate.confidence),
@@ -137,6 +141,9 @@ async function persistFromSource(
           // Keep an English text once we have one: a later collection by a
           // connector that cannot produce one must not erase it.
           descriptionEn: sql`coalesce(excluded.description_en, ${schema.sourceRecord.descriptionEn})`,
+          // Same rule for a contact address: most passes will not see one, and
+          // the pass that did must not be undone by the next that did not.
+          contactEmail: sql`coalesce(excluded.contact_email, ${schema.sourceRecord.contactEmail})`,
         },
         setWhere: eq(schema.sourceRecord.status, "active"),
       })

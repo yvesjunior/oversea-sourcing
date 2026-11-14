@@ -24,7 +24,7 @@
 | **E9** Notifications | In-app + email | 🟡 bell, emitters, **prefs (2026-08-26)** live; Phase P types (`quote_received`, `contract_to_sign`, `contract_signed`) + staff alert on `quotes.requested` (2026-09-07) live; **the bell alerts (2026-09-14)** — count badge, 30 s poll, chime, per-browser mute |
 | **E10** Admin surfaces | Verification, imports, ops queue | 🟡 **verification LIVE (S5b/S5c, 2026-08-26)**; imports/ops queue placeholders |
 | **R** Custom staff roles | Roles as data + the matrix | ✅ **BUILT 2026-08-29** (migration 0039) — create/delete roles, dynamic matrix, `requests.all` |
-| **E13** V6 architecture | Supplier portal · KPI #2 · Partner Hub · Decision Pack | 🔵 **NEW 2026-10-21** — scope opened by the V6 document; diagrams validated 2026-11-14; **34 tasks in seven slices — [Phase V](#phase-v--the-v6-parcours-task-by-task-e13--written-2026-11-14)**; **V01 built 2026-11-14** (platform settings), not deployed |
+| **E13** V6 architecture | Supplier portal · KPI #2 · Partner Hub · Decision Pack | 🔵 **NEW 2026-10-21** — scope opened by the V6 document; diagrams validated 2026-11-14; **34 tasks in seven slices — [Phase V](#phase-v--the-v6-parcours-task-by-task-e13--written-2026-11-14)**; **V01 + V02 built 2026-11-14** (platform settings, supplier contacts), not deployed |
 | **E11** Settings | Profile, sourcing rules | 🟡 Paramètres + notification prefs live; **password / 2FA / theme / rename (2026-08-27)** live; buyer Abonnement self-service waits for billing |
 
 **MVP1 = E0–E7 + E10.** Definition of done **restated 2026-08-29 by ADR-002**
@@ -4180,12 +4180,12 @@ must never see a competitor's price) gets its own slice and its own tests.
 Read from the source, not from earlier notes. These are the facts the tasks
 below are built on:
 
-- **A supplier has no contact address.** The `supplier` table carries name,
-  country, website, descriptions, provenance, verification, scores, dedup key
-  and ban fields — and no email, phone or contact name, there or in any other
-  table. Step 07 cannot send anything until V02.
+- ~~**A supplier has no contact address.**~~ **Fixed by V02 (2026-11-14):**
+  `supplier_contact`, kept by staff and fed by research. The table is empty
+  until staff add addresses or a real research run reports one — every
+  supplier already in the pool still has none.
 - ~~**Nothing platform-wide can be configured.**~~ **Fixed by V01
-  (2026-11-14):** `platform_setting` and `/interne/parametres`. 41 tables now.
+  (2026-11-14):** `platform_setting` and `/interne/parametres`. 42 tables with V02.
   The four keys it ships are stored and read by nothing yet.
 - **The buyer picks who is asked.** `requestQuotesFn` is guarded by
   `requireWorkspaceRole(…, "buyer")` and gated by `plan.quotes_enabled`. The
@@ -4325,7 +4325,58 @@ built in: **S** one, **M** two to three, **L** four or more.
       the `sourcing-config.ts` env knobs here in the same task — they are read
       at module load by the worker, and that is its own change.
 
-- [ ] **V02 · Supplier contacts.** *Size M. Depends on: nothing. Blocks: V06.*
+- [x] **V02 · Supplier contacts — BUILT 2026-11-14** (migration **0047**,
+      not deployed). `supplier_contact` + `source_record.contact_email`;
+      the rules in `src/lib/supplier-contact.ts`; reads and writes in
+      `src/server/supplier-contacts.ts`; `getSupplierContactsFn` ·
+      `addSupplierContactFn` · `setPrimarySupplierContactFn` ·
+      `removeSupplierContactFn` (staff, `deals`, each journalled);
+      `SupplierContactsDialog` on the staff directory; 12 unit tests.
+      **The invariant to keep:** a supplier with any contact has exactly one
+      PRIMARY. "At most one" is a partial unique index; "at least one" is
+      `ensurePrimary`, run after every add and every remove. The first
+      contact becomes primary; removing the primary promotes the oldest one
+      left. **V06 sends to the primary** — read it with `primaryContactsFor`.
+      **The research path.** The research prompt now asks for a contact
+      address *when a page it read states one* — and not to search for one.
+      The address is gated once, when the record is stored
+      (`acceptResearchedEmail`): well-formed, not a no-reply mailbox, and
+      **on the domain of the website the same candidate reports**. A guessed
+      address looks exactly like "sales@" plus the company's name, so an
+      address on any other domain — a directory's, a free-mail account — is
+      dropped. It rides on the record and becomes a contact at promotion,
+      because a supplier row does not exist before a record ranks Top-N. It
+      never overwrites an address on file and never takes the primary slot
+      from one a person chose.
+      **Differences from the task as written:**
+      • No `bounced_at` and no `self` source. Nothing can write either yet
+        (no bounce handling; no portal), and a column nobody writes reads as
+        a capability. `self` arrives with V16.
+      • No edit: correcting a contact is removing it and adding it again —
+        two journal lines that say exactly what happened.
+      • Added: on `/soumissions`, staff see « Écrire à <adresse> » on every
+        quote still to send or to chase, or a warning when there is no
+        contact. It makes V02 useful before V06 exists.
+      *Verified live in dev:* added a contact (stored lower-cased, became
+      primary on its own); the same address in another case refused as a
+      duplicate; a second contact added, made primary, then removed — the
+      first took the primary slot back; four journal lines, labelled; the
+      address shows on Hartford's pending quote in `/soumissions`. The sync
+      was run against the dev database: a researched address becomes the
+      primary of a supplier with no contact, a second run adds nothing, and
+      it stays secondary where staff had chosen a primary. The upsert keeps
+      a stored address when a later pass reports none (checked in a
+      rolled-back transaction). Production build verified, no chunk cycle.
+      **NOT verified — needs a real research run, which costs money:** that
+      the model reports an address and that extraction fills `contactEmail`.
+      Everything downstream of that field is tested; the field itself has
+      never been produced by the model. Check it on the next real request.
+      **Carried forward:** "a supplier with no contact is flagged in the
+      shortlist and cannot be included in a send" belongs to V05 and V06 —
+      there is no shortlist and no batch yet. A contact is never returned by
+      a buyer-facing fn: `contactCount` is null and `contacts` is `{}` on
+      every workspace list.
+- [x] ~~**V02 · Supplier contacts.**~~ *Size M. Depends on: nothing. Blocks: V06.*
 
       **What it does.** Records who to write to at a supplier. Today there is
       nowhere to put an address, so every RFQ leaves from a staff mailbox

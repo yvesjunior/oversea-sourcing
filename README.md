@@ -1771,7 +1771,7 @@ email and answers by email, and nothing else about them touches the product.
 | 03 | Verification of each candidate | Platform | ✅ built (3 of 6 checks) |
 | 04 | Top-N + printable report | Buyer receives | ✅ built |
 | 05 | **Picks who to solicit** | Buyer — *decision* | ✅ built |
-| 06 | Sends the quote requests | OSI staff | ⚠️ the ask is recorded and staff are alerted; **the email goes out by hand** |
+| 06 | Sends the quote requests | OSI staff | ⚠️ the ask is recorded and staff are alerted; **the email goes out by hand** — since 2026-11-14 the quote shows staff who to write to (`supplier_contact`, Phase V · V02), or warns that no address is on file |
 | 07 | Answers with price, MOQ, lead time | **Supplier — off platform** | by design; no account exists |
 | 08 | Records each offer | OSI staff | ✅ built |
 | 09 | **Compares and accepts ONE** | Buyer — *decision* | ✅ built |
@@ -2398,6 +2398,7 @@ erDiagram
 | `supplier_verification` / `sanction_entry` | ✅ 2026-08-26 (S5b) — one evidence row per supplier × check, and the local OFAC SDN copy. `verification_status` is DERIVED from these rows and written only by `src/server/verification.ts` |
 | `translation_memory` | ✅ 2026-08-29 — platform-wide cache of criterion translations (`request_criterion.value_en`); deliberately not workspace-scoped |
 | `platform_permission` / `platform_role` | ✅ 2026-08-28/29 — the Rôles & accès matrix (feature × role) and the owner-created staff roles; the owner is never a row |
+| `supplier_contact`   | ✅ 2026-11-14 (0047, Phase V · V02) — who to write to at a supplier: email, name, role, phone, the language to write in, `source` (`research` \| `staff`). **Exactly one PRIMARY per supplier that has any contact** — a partial unique index for "at most one", `ensurePrimary` for "at least one" — and the RFQ goes to it. Staff-only (`deals`): never returned by a buyer-facing fn, since the pool is platform-global. A researched address is kept only when it is on the supplier's own website domain (`acceptResearchedEmail`); it travels on `source_record.contact_email` and becomes a row here at promotion. Never from a paid provider |
 | `platform_setting`   | ✅ 2026-11-14 (0046, Phase V · V01) — platform-wide settings, ONE value per key for every client; a missing row means the default. Keys, types, ranges and defaults live in the registry `src/lib/platform-settings.ts`, so a new knob is a registry entry and not a migration. Edited from `/interne/parametres` (`settings` permission, owner by default); every change is in `audit_log` with the old and new value |
 | `plan` / `subscription` | limits as rows (daily, lifetime, seats, `quota_scope`, `audience`, `suppliers_returned`, `model_tier`); one subscription per workspace |
 | `notification` / `notification_pref` | ✅ E9 — in-app inbox (type + params, rendered in the viewer's language) and per-user channel preferences |

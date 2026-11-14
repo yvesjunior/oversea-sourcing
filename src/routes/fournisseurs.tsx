@@ -1,10 +1,12 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { BadgeCheck, ScanSearch } from "lucide-react";
+import { useState } from "react";
+import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
+import { BadgeCheck, Mail, ScanSearch } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { CountryTag } from "@/components/osi/CountryTag";
 import { RiskBadge } from "@/components/osi/RiskBadge";
 import { MineEmpty } from "@/components/osi/EmployeeTabs";
+import { SupplierContactsDialog } from "@/components/osi/SupplierContactsDialog";
 import { applyListFilters, ListFiltersBar, useListFilters } from "@/components/osi/ListFilters";
 import type { Risque } from "@/data/osi";
 import type { RiskLevel } from "@/database/schema";
@@ -44,7 +46,14 @@ export const Route = createFileRoute("/fournisseurs")({
   component: Fournisseurs,
 });
 
-function SupplierGrid({ suppliers }: { suppliers: SupplierView[] }) {
+function SupplierGrid({
+  suppliers,
+  onManageContacts,
+}: {
+  suppliers: SupplierView[];
+  /** Present only for staff who may keep supplier addresses (`deals`). */
+  onManageContacts?: ((supplier: SupplierView) => void) | undefined;
+}) {
   const { t } = useTranslation();
   return (
     <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -88,6 +97,24 @@ function SupplierGrid({ suppliers }: { suppliers: SupplierView[] }) {
               <span className="text-xs text-muted-foreground">{t("fournisseurs.provenance")}</span>
               <span className="text-xs">{t(`provenance.${s.provenance}`)}</span>
             </div>
+            {/* Who to write to — staff directory only. `contactCount` is
+                null on every buyer-facing list, so this row cannot render
+                there whatever the caller passes. */}
+            {s.contactCount !== null && (
+              <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
+                <span className="text-xs text-muted-foreground">
+                  {s.contactCount === 0
+                    ? t("fournisseurs.contactsNone")
+                    : t("fournisseurs.contacts", { count: s.contactCount })}
+                </span>
+                {onManageContacts && (
+                  <Button variant="outline" size="sm" onClick={() => onManageContacts(s)}>
+                    <Mail className="size-4" />
+                    {t("fournisseurs.manageContacts")}
+                  </Button>
+                )}
+              </div>
+            )}
             {/* Which request's research surfaced this company. Absent for
                 seeded/imported rows, and withheld server-side when the dossier
                 belongs to another workspace. */}
@@ -108,6 +135,8 @@ function SupplierGrid({ suppliers }: { suppliers: SupplierView[] }) {
 
 function Fournisseurs() {
   const { t } = useTranslation();
+  const router = useRouter();
+  const [contactsOf, setContactsOf] = useState<SupplierView | null>(null);
   const { directory, mine } = Route.useLoaderData();
   const { session } = Route.useRouteContext();
   const platformRole = (session?.user as { platformRole?: string } | undefined)?.platformRole;
@@ -145,8 +174,17 @@ function Fournisseurs() {
       {shown.length === 0 && source.suppliers.length === 0 && !employee ? (
         <MineEmpty />
       ) : (
-        <SupplierGrid suppliers={shown} />
+        <SupplierGrid
+          suppliers={shown}
+          onManageContacts={employee && directory.canManageContacts ? setContactsOf : undefined}
+        />
       )}
+
+      <SupplierContactsDialog
+        supplier={contactsOf}
+        onClose={() => setContactsOf(null)}
+        onChanged={() => void router.invalidate()}
+      />
     </div>
   );
 }

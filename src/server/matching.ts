@@ -24,6 +24,7 @@ import * as schema from "@/database/schema";
 import { haystackTokens, tokens } from "@/lib/match-tokens";
 import { recordEvent } from "@/server/requests";
 import { SUPPLIERS_RETURNED } from "@/server/sourcing-config";
+import { syncResearchedContacts } from "@/server/supplier-contacts";
 import { eligibleCandidates, resolveScope, type MatchCandidate } from "@/server/sources/scope";
 
 /** How many suppliers reach the buyer — configured via SUPPLIERS_RETURNED. */
@@ -403,6 +404,17 @@ export async function createMatchesForRequest(
     supplierIds.set(c.dedupKey, supplierId);
   }
   const placed = ranked.filter((entry) => supplierIds.has(entry.candidate.dedupKey));
+
+  // The addresses research read off these suppliers' own pages become
+  // contacts now — the first moment a supplier row exists to hang them from
+  // (V02). Opportunistic, so a failure here must never cost the buyer their
+  // ranking: an uncaught throw in this function is how request 3026
+  // crash-looped for 90 minutes.
+  try {
+    await syncResearchedContacts([...supplierIds.values()]);
+  } catch (error) {
+    console.error(`matching: contact sync failed for ${requestId}:`, error);
+  }
 
   await db.delete(schema.match).where(eq(schema.match.requestId, requestId));
   // An empty Top-N is a legitimate outcome, not an error: the gate presents

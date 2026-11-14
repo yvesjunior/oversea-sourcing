@@ -109,6 +109,15 @@ const CandidateSchema = z.object({
   descriptionEn: z.string().nullable(),
   /** Page the agent actually read this from — provenance for the buyer. */
   sourceUrl: z.string().nullable(),
+  /**
+   * A sales or general contact address, ONLY when a page the agent read
+   * states one (Phase V · V02). Null is the normal answer.
+   *
+   * Not trusted as it arrives: src/server/research.ts keeps it only when it
+   * sits on the domain of `website` (`acceptResearchedEmail`), because a
+   * guessed address looks exactly like "sales@" plus the company's name.
+   */
+  contactEmail: z.string().nullable(),
   /** 0-100, how well the evidence supports this being a real, fitting supplier. */
   confidence: z.number(),
 });
@@ -189,6 +198,10 @@ const RESEARCH_SYSTEM = [
   "(ISO 3166-1 alpha-2), the website, one sentence on what they make that fits this",
   "need, and the page you read it from.",
   "",
+  "If a page you read states a sales or general contact email address for the",
+  "company, report it as well. Do not spend a search looking for one, and never",
+  "guess or construct an address — leave it out when no page states it.",
+  "",
   "Rules:",
   "- Only report companies you actually found on a page you read. Never invent a",
   "  company, a website, or a certification.",
@@ -207,6 +220,9 @@ const EXTRACTION_SYSTEM = [
   "`descriptionEn` saying the same thing in English. They must carry the same",
   "facts — the English one is what lets a later buyer in another language find",
   "this supplier in our own pool instead of paying for a fresh search.",
+  "contactEmail: copy an email address only when the findings state one for",
+  "that company, character for character. Otherwise null — never build one from",
+  "the company's name or its website.",
   "confidence reflects how well the findings evidence that company: 80+ when a",
   "manufacturer page states the capability, 50-70 when it is implied, below 50",
   "when it is a guess.",
