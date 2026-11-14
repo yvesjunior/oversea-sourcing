@@ -24,7 +24,7 @@
 | **E9** Notifications | In-app + email | 🟡 bell, emitters, **prefs (2026-08-26)** live; Phase P types (`quote_received`, `contract_to_sign`, `contract_signed`) + staff alert on `quotes.requested` (2026-09-07) live; **the bell alerts (2026-09-14)** — count badge, 30 s poll, chime, per-browser mute |
 | **E10** Admin surfaces | Verification, imports, ops queue | 🟡 **verification LIVE (S5b/S5c, 2026-08-26)**; imports/ops queue placeholders |
 | **R** Custom staff roles | Roles as data + the matrix | ✅ **BUILT 2026-08-29** (migration 0039) — create/delete roles, dynamic matrix, `requests.all` |
-| **E13** V6 architecture | Supplier portal · KPI #2 · Partner Hub · Decision Pack | 🔵 **NEW 2026-10-21** — scope opened by the V6 document; diagrams validated 2026-11-14; **34 tasks in seven slices — [Phase V](#phase-v--the-v6-parcours-task-by-task-e13--written-2026-11-14)**; **V01, V02, V04–V09 built 2026-11-14** (settings, contacts, states, fork + shortlist, RFQ batch, window closing, typed answer time + channel, KPI #2 v1 — switch off), not deployed |
+| **E13** V6 architecture | Supplier portal · KPI #2 · Partner Hub · Decision Pack | 🔵 **NEW 2026-10-21** — scope opened by the V6 document; diagrams validated 2026-11-14; **34 tasks in seven slices — [Phase V](#phase-v--the-v6-parcours-task-by-task-e13--written-2026-11-14)**; **V01, V02, V04–V09 built 2026-11-14** (settings, contacts, states, fork + shortlist, RFQ batch, window closing, typed answer time + channel, KPI #2 v1), **live on prod since deploy #45 (2026-11-14) with the pack-flow switch OFF** |
 | **E11** Settings | Profile, sourcing rules | 🟡 Paramètres + notification prefs live; **password / 2FA / theme / rename (2026-08-27)** live; buyer Abonnement self-service waits for billing |
 
 **MVP1 = E0–E7 + E10.** Definition of done **restated 2026-08-29 by ADR-002**
@@ -38,7 +38,31 @@ tracked to delivery** — with the PDF report available throughout.
 
 ### START HERE — handoff, 2026-09-14 (read this first)
 
-**Prod = `8f40d1e` (deploy #40).** `main` and prod are level.
+**Prod = `7cfd46f` (deploy #45, 2026-11-14)** — Phase V tasks V01–V09, with
+the pack-flow switch off. `main` is one commit ahead: this record.
+*(This line read "Prod = `8f40d1e` (deploy #40)" until 2026-11-14; deploys
+#41–#44 are in the table further down and were never reflected here.)*
+
+**Deploy #45 verification** — backup `osi-20261114-180556.sql.gz` (31 M) + its
+uploads archive (85 B) taken first. Build gate passed locally. Six migrations
+(0046–0051), all additive. On the VM: `git log` at `7cfd46f`; `web` / `worker`
+/ `worker-research` all 13 s old; `__drizzle_migrations` 46 → 52;
+`platform_setting`, `supplier_contact`, `rfq_round`, `kpi_result` exist and
+are empty; `quote.channel`, `quote.round_id`, `rfq_round.closed_at`,
+`mail_outbox.reply_to`, `source_record.contact_email` exist. **Data unchanged
+across the deploy:** 14 requests, all `report_ready`; 3 quotes, all
+`requested`, none answered (so the `channel` backfill had nothing to set);
+129 request events. Zero `__exportAll` / `TypeError` / `Error:` lines in the
+web log and zero `failed` / `fatal` lines in either worker's; the pipeline
+worker is listening and its round sweep has not complained. Over the tunnel:
+origin 200, `/demandes`, `/soumissions` and `/interne/parametres` 307. The
+served bundles carry `flow.pack_enabled`, `rfq_window_closed` and
+`answered_after_close` — the new code is what is serving.
+**Not checked on prod:** signing in and opening the new pages by hand — every
+live check of V01–V09 was done in dev (see each task below).
+**Before the pack flow can ever be switched on:** slice 1 must be complete
+(V10–V13), `on` must be made selectable in the registry, and
+`rfq.reply_to` must be set to a mailbox someone reads.
 
 **Deploy #40 verification** — backup `osi-20260914-184919.sql.gz` (31 M) +
 uploads archive taken first. Code-only. On the VM: `git log` at `8f40d1e`,
@@ -253,6 +277,7 @@ deploy failed mid-session and prod was rolled back; see #24.
 | 23 | `5b90649` | — | **the platform workspace can no longer be deleted** — the org-plugin's own `POST /organization/delete` bypassed `destroyWorkspace`; guard moved into a `beforeDeleteOrganization` hook |
 | 24 | `95b825a` | — | **filters on all four ops lists** (multi-account + week/month/year/custom period) · **the global supplier directory is staff-only** · the DB cleared for fresh testing. *First attempt (`77d37b0`) took prod down — see the chunk-cycle note* |
 | 25 | `b7481d6` | — | **"linked supplier" widened to four traces** (matched · quoted · dealt · contract party) · **a session opens in your PERSONAL workspace** when you have one · the discovery store cleared for a cold research test |
+| 45 | `7cfd46f` | 0046–0051 | **Phase V, tasks V01–V09 — the pack flow is built up to the ranked offers and SWITCHED OFF** (`flow.pack_enabled` = off, and `on` cannot be selected until slice 1 is complete). Platform settings and `/interne/parametres` · supplier contacts · the two request flows and their states · the fork and OSI's internal shortlist · RFQ rounds and the batch send · the window closing (target, deadline, early, withdrawal) · KPI #2 v1. **What changes for today's users with the switch off:** the offer form asks when the supplier answered (« Réponse reçue le ») and shows why an entry is refused; each offer shows its channel; criteria are frozen server-side once the search has answered; research keeps a supplier's contact address when it is on the supplier's own domain |
 | 44 | `a520006` | — | **SendGrid removed** — Resend is the only provider. The dual dispatch existed to make the cutover safe; once Resend was proven it was a second contract (202 vs 200, two error vocabularies) guarding a path that cannot work, since the account is dead rather than dormant. Dead `SENDGRID_API_KEY` also removed from both prod `.env` files (this project and prestigelocations) |
 | 43 | `f288716` | — | **email is no longer a single point of failure for ACCESS** — staff can mark an address verified and issue a real one-hour password-reset link to hand over by phone, from `/interne/utilisateurs`. Both gated on `users`, both audited. Neither weakens the rule it rescues: a human vouches instead of a link that cannot arrive, and the person still chooses their own password |
 | 42 | `f387358` | 0045 | **mail is alive again, and can no longer be lost** — SendGrid's trial had ended (401 "Maximum credits exceeded", unfixable in code), so sending moved to **Resend free**, chosen by which key is set so the cutover was one line in `.env`. A refused message now lands in `mail_outbox` and the worker retries it instead of dropping it on the floor. Also **raised Happy Eyeballs' per-address timeout to 2 s** — Node's 250 ms default is shorter than this VM's connect time to every Cloudflare-fronted host, which would have made Resend fail no matter how DNS was set up, and is very likely the real cause of the 2026-08-17 Google sign-in hang |
@@ -4267,7 +4292,7 @@ built in: **S** one, **M** two to three, **L** four or more.
 #### Slice 0 — Foundations
 
 - [x] **V01 · Platform settings — BUILT 2026-11-14** (migration **0046**,
-      not deployed). `platform_setting` (key PK, jsonb value, tombstone
+      live since deploy #45). `platform_setting` (key PK, jsonb value, tombstone
       author); the registry `src/lib/platform-settings.ts`;
       `src/server/platform-settings.ts` (30 s in-process cache, busted on
       write); `getPlatformSettingsFn` / `updatePlatformSettingFn`;
@@ -4334,7 +4359,7 @@ built in: **S** one, **M** two to three, **L** four or more.
       at module load by the worker, and that is its own change.
 
 - [x] **V02 · Supplier contacts — BUILT 2026-11-14** (migration **0047**,
-      not deployed). `supplier_contact` + `source_record.contact_email`;
+      live since deploy #45). `supplier_contact` + `source_record.contact_email`;
       the rules in `src/lib/supplier-contact.ts`; reads and writes in
       `src/server/supplier-contacts.ts`; `getSupplierContactsFn` ·
       `addSupplierContactFn` · `setPrimarySupplierContactFn` ·
@@ -4648,7 +4673,7 @@ built in: **S** one, **M** two to three, **L** four or more.
       the commit.
 
 - [x] **V06 · RFQ rounds and the batch send — BUILT 2026-11-14** (migration
-      **0048**, not deployed). `rfq_round`, `quote.round_id`,
+      **0048**, live since deploy #45). `rfq_round`, `quote.round_id`,
       `mail_outbox.reply_to`; the setting `rfq.reply_to`; the email in
       `src/lib/rfq-mail.ts`; `src/server/rfq.ts` (`previewRfq`,
       `sendRfqBatch`); `getRfqPreviewFn` / `sendRfqBatchFn`; `RfqPanel` on the
@@ -4751,7 +4776,7 @@ built in: **S** one, **M** two to three, **L** four or more.
       belongs to a round.
 
 - [x] **V07 · The window closes — BUILT 2026-11-14** (migration **0049**,
-      not deployed). `rfq_round` gains `closed_at`, `close_reason`,
+      live since deploy #45). `rfq_round` gains `closed_at`, `close_reason`,
       `closed_by` + name, `early_note`; `src/lib/rfq-round.ts` (the rules,
       pure); `src/server/rfq-window.ts` (`closeRound`, `closeRoundIfTargetReached`,
       `withdrawOpenRounds`, `sweepRounds`, `roundCounts`); `closeRoundEarlyFn`;
@@ -4884,7 +4909,7 @@ built in: **S** one, **M** two to three, **L** four or more.
       settles two acceptances.
 
 - [x] **V08 · The staff route says what it is — BUILT 2026-11-14**
-      (migration **0050**, not deployed). `quote.channel`; `recordQuoteFn`
+      (migration **0050**, live since deploy #45). `quote.channel`; `recordQuoteFn`
       takes `respondedAt`; `checkAnsweredAt` (`src/lib/deal-status.ts`);
       `lateAnswerOpen` / `answeredInRound` (`src/lib/rfq-round.ts`); the
       field, the chip and the late-answer entry on `/soumissions`. 531 tests
@@ -4979,7 +5004,7 @@ built in: **S** one, **M** two to three, **L** four or more.
       and the one signal nobody can scrape is corrupted at the source.
 
 - [x] **V09 · KPI #2, version 1 — BUILT 2026-11-14** (migration **0051**,
-      not deployed). `src/lib/kpi2.ts` (pure: `rankOffers`,
+      live since deploy #45). `src/lib/kpi2.ts` (pure: `rankOffers`,
       `kpi2Fingerprint`, `readIncoterm`); `kpi_result`; `src/server/kpi.ts`
       (`runKpi2`, `refreshKpi2`, `loadOfferRanking`); `getOfferRankingFn` /
       `recomputeOfferRankingFn`; `OfferRankingPanel` on the dossier, staff
