@@ -24,7 +24,7 @@
 | **E9** Notifications | In-app + email | 🟡 bell, emitters, **prefs (2026-08-26)** live; Phase P types (`quote_received`, `contract_to_sign`, `contract_signed`) + staff alert on `quotes.requested` (2026-09-07) live; **the bell alerts (2026-09-14)** — count badge, 30 s poll, chime, per-browser mute |
 | **E10** Admin surfaces | Verification, imports, ops queue | 🟡 **verification LIVE (S5b/S5c, 2026-08-26)**; imports/ops queue placeholders |
 | **R** Custom staff roles | Roles as data + the matrix | ✅ **BUILT 2026-08-29** (migration 0039) — create/delete roles, dynamic matrix, `requests.all` |
-| **E13** V6 architecture | Supplier portal · KPI #2 · Partner Hub · Decision Pack | 🔵 **NEW 2026-10-21** — scope opened by the V6 document; diagrams validated 2026-11-14; nothing built, see below |
+| **E13** V6 architecture | Supplier portal · KPI #2 · Partner Hub · Decision Pack | 🔵 **NEW 2026-10-21** — scope opened by the V6 document; diagrams validated 2026-11-14; **34 tasks in seven slices — [Phase V](#phase-v--the-v6-parcours-task-by-task-e13--written-2026-11-14)**; nothing built |
 | **E11** Settings | Profile, sourcing rules | 🟡 Paramètres + notification prefs live; **password / 2FA / theme / rename (2026-08-27)** live; buyer Abonnement self-service waits for billing |
 
 **MVP1 = E0–E7 + E10.** Definition of done **restated 2026-08-29 by ADR-002**
@@ -1788,6 +1788,11 @@ therefore no longer moving under this epic — the gap table below is measured
 against an agreed picture. It changes nothing about what is built, and the
 legal reservation on the money circuit stays open until it is explicitly
 lifted. A printable copy sits at the repo root: `OSI-Parcours-V6.pdf`.
+
+**The work is cut in Phase V** (2026-11-14), further down: 34 tasks in seven
+slices, each written to be executed cold, with the ten questions that are
+still the owner's to answer and the default each task takes meanwhile. This
+section stays the *why*; Phase V is the *what* and the *in which order*.
 
 **Of V6's twelve "étapes confirmées", five are fully in production.** Four are
 partial, three do not exist. Verified against the code, not assumed:
@@ -4002,7 +4007,8 @@ in the browser before committing; deploy only when the owner asks.
       method, and both `contract_to_sign` and `contract_signed` notifications
       emitted.
 
-- [ ] **P7 · Commandes — milestones.**
+- [ ] **P7 · Commandes — milestones.** → **re-scoped as V27** (Phase V,
+      2026-11-14): same table, and the supplier can now update it.
       *Parcours step 14. Depends on: P3 (P6 for the unlock).*
 
       New table `order_milestone` (deal_id, kind, status, planned_at,
@@ -4028,16 +4034,20 @@ in the browser before committing; deploy only when the owner asks.
       documents row". ~~BLOCKED until the uploads volume is backed up~~ — the
       volume has been in `backup.sh` since 2026-08-29.
 
-- [ ] **P9 · Paiements.** *Depends on: P7.* Ledger view — dépôts, soldes,
+- [ ] **P9 · Paiements.** → **re-scoped as V32** (Phase V) and gated on the
+      legal opinion. *Depends on: P7.* Ledger view — dépôts, soldes,
       factures, frais OSI, état. **Track-only, staff-entered, no PSP** (README
       rule unchanged). Money stays `amount_cents` + `currency`, never
       converted.
 
-- [ ] **P10 · Messages.** *Depends on: P3.* Threads per deal, buyer ↔ staff
+- [ ] **P10 · Messages.** → **folded into V25**, the Transaction Room; the
+      "never get an account" line below is superseded by Phase V slice 2.
+      *Depends on: P3.* Threads per deal, buyer ↔ staff
       in-app. External parties are reached by email through the platform and
       **never get an account**.
 
-- [ ] **P11 · Rapports.** *Depends on: P7, P9.* Dépenses, économies,
+- [ ] **P11 · Rapports.** → supplier performance is **V31**; the rest stays
+      here. *Depends on: P7, P9.* Dépenses, économies,
       performance fournisseur. **The « économies » tile cannot be computed
       honestly today** — nothing in the model holds a baseline price to
       compare against. Either capture a target/market price on the request
@@ -4064,7 +4074,9 @@ in the browser before committing; deploy only when the owner asks.
       manual upload keeps working, because some counterparties will always
       return a signed PDF by post and a link that replaced upload would strand
       them.
-- ❓ **G2 — supplier/sub-contractor portal access.** Owner-deferred 2026-08-29;
+- ✅ **G2 — supplier/sub-contractor portal access.** **Decided 2026-10-21:
+      suppliers and partners get accounts — Phase V slices 2 and 4.** Was
+      owner-deferred 2026-08-29;
       brief §6's last two rows are out of scope. `contract_party` is where it
       attaches later.
 - ❓ **Plan dimension.** Do deals/contracts belong to a plan tier, or are they
@@ -4117,6 +4129,1043 @@ grants; "Manager" refused as reserved and a duplicate as existing; granted
 and the supplier directory; deleting it while held was refused (1 holder);
 after reassignment it deleted, and deleting a built-in was refused.
 
+### Phase V — the V6 parcours, task by task (E13 · written 2026-11-14)
+
+**The target is the validated diagram** — 20 steps in five lanes, plus the
+money circuit ([the artifact](https://claude.ai/artifact/Bn6QLTgjbCf61ks2ghQm5N);
+printable copy `OSI-Parcours-V6.pdf` at the repo root). *Why* each thing is the
+way it is lives in [README §2c](README.md) and in "E13 · What the V6 document
+opens" above. This section is only the work: 34 tasks, in an order that ships.
+
+**How it is cut.** Seven slices. Each one ends on something a person can use,
+and none needs the next one to be worth deploying.
+
+| Slice | Tasks | Parcours steps | What exists when it ships | Gate |
+|---|---|---|---|---|
+| **0 · Foundations** | V01–V03 | — | a home for platform settings, supplier contacts, accounts that belong to no workspace | none |
+| **1 · The decision flow, staff-mediated** | V04–V14 | 05–12 | the whole validated flow from shortlist to dossier, with staff typing what suppliers send | V01, V02 |
+| **2 · Supplier portal** | V15–V17 | 07 | suppliers register from the link and answer the RFQ themselves | V03, slice 1 |
+| **3 · Spec and validation** | V18–V20 | 02–04 | the AI clarifies, a cahier des charges exists, the buyer validates it | none — independent |
+| **4 · Partner Hub** | V21–V24 | 08–09 | partners enrich offers; KPI #2 ranks on landed cost | V03, V09 |
+| **5 · Execution** | V25–V31 | 13–14, 16–20 | Transaction Room through closure | slice 1 |
+| **6 · Settlement** | V32–V34 | 15 | one settlement partner per dossier, the 3 % fee | **legal — Zack** |
+
+**Why slice 1 comes before the portal.** The staff-mediated route is
+permanent (owner, 2026-10-25: a supplier may refuse the platform), so building
+it first is not a detour — it is half of every supplier-facing feature anyway,
+and it is the half that carries no partitioning risk. It delivers the entire
+validated flow to the buyer while the riskiest piece of E13 (an account that
+must never see a competitor's price) gets its own slice and its own tests.
+
+#### What the code says today — re-checked 2026-11-14, `main` at `14fe201`
+
+Read from the source, not from earlier notes. These are the facts the tasks
+below are built on:
+
+- **A supplier has no contact address.** The `supplier` table carries name,
+  country, website, descriptions, provenance, verification, scores, dedup key
+  and ban fields — and no email, phone or contact name, there or in any other
+  table. Step 07 cannot send anything until V02.
+- **Nothing platform-wide can be configured.** 40 tables; the only config
+  stores are `sourcing_rules` (per workspace) and `plan` (per plan). The seven
+  `/interne/*` pages are clients, finance, logging, plans, sources,
+  utilisateurs and verification.
+- **The buyer picks who is asked.** `requestQuotesFn` is guarded by
+  `requireWorkspaceRole(…, "buyer")` and gated by `plan.quotes_enabled`. The
+  validated diagram moves that choice to OSI (steps 06–07).
+- **`no_response` is a decline reason, not a status**, and nothing writes it
+  automatically: `declineQuoteFn` takes it from a staff member, and the only
+  reason the code sets by itself is `lost`, when a sibling offer is accepted.
+- **Every signup creates a workspace** unless a pending invitation exists for
+  that email (`databaseHooks.user.create.after` in `src/server/auth.ts`).
+- **`score_breakdown` is computed and stored on `match` and rendered by no
+  route or component.**
+- **The per-request AI chat exists and is off**: `src/server/ai/chat.ts`
+  returns criteria operations, behind `AI_CHAT=true` (default false).
+- **`document` hangs from a quote and/or a request only**, with kinds
+  `offer | other`.
+- **`transitionDeal` has one caller** (`signature-fns.ts`, `open →
+  contracting`). `/transactions` still renders the showcase constant
+  `etapesTransaction`; `/interne/finance` is an empty section.
+- **Contract party roles already include** `supplier`, `carrier`,
+  `customs_broker`, `inspector`; `IN_PLATFORM_ROLES` is `["buyer", "osi"]`.
+
+#### Decisions these tasks assume — the owner's to confirm or change
+
+None of these blocks starting. Each task is written against the default named
+here, and each default is the cheapest one to reverse.
+
+| # | Question | Default the tasks take | Bites at |
+|---|---|---|---|
+| **D1** | Between steps 04 and 10 the buyer's lane is empty in the diagram. Does today's Top-N report (which the buyer sees at `report_ready`) disappear? | The buyer sees progress and counts, not suppliers, until the pack is released. | V04, V05 |
+| **D2** | `plan.quotes_enabled` gates soumissions today. Is the V6 flow for every plan? | Unchanged: plans without quotes stop at the existing report; plans with quotes get the V6 flow. | V04 |
+| **D3** | Who presses send on the RFQs — staff, or the platform as soon as KPI #1 finishes? | Staff confirm the shortlist and send the whole batch in one act. | V05, V06 |
+| **D4** | The window is per request or per supplier (README §2c, still open). | Per round: one clock, started when the batch leaves. Batch send makes the two readings converge. | V06, V07 |
+| **D5** | On relaunch, do offers already held survive, and whose clock restarts? | They survive; a new round has its own clock, for the suppliers newly asked only. | V11 |
+| **D6** | What does a supplier see of the buyer before a dossier opens? | The specification, never the buyer's name or workspace. Identity is disclosed when the deal opens. | V16 |
+| **D7** | Offers arrive in different currencies and money is never converted (ADR-002). What does KPI #2 compare? | Landed cost is compared only within one currency; across currencies the pack says so instead of ranking on a rate nobody stored. A rate entered by staff or supplied by the settlement partner is stored on the pack when one exists. | V09, V24 |
+| **D8** | Who sets the KPIProfile weights? | The platform proposes them from the criteria; the buyer adjusts and validates them with the cahier des charges. | V19 |
+| **D9** | `quote.sent_at` is nullable. What does the window do with an RFQ nobody marked sent? | Such a quote is not in a round and has no clock; the batch send (V06) is the only thing that opens one. | V06 |
+| **D10** | Who assigns a partner to a case, and which partner kinds exist at launch? | Staff assign, per offer. Kinds: settlement, transport, inspection, customs, insurance. | V21, V22 |
+
+#### How to read the Phase V tasks
+
+Same contract as Phase P: each task is written to be executed **cold**. Read
+first the Phase P header, its "How to read these tasks" (the house rules there
+apply to every task here and are not repeated), "Contracts a next session must
+NOT re-derive differently", README §2c, and the slice table above.
+
+**Four rules specific to this phase.**
+
+1. **An external account has no workspace.** A supplier or a partner user is
+   scoped by the rows they are a party to. `requireWorkspaceRole` and
+   `effectiveHasPermission` are the wrong tools for them — use the guard V03
+   creates, and nothing else.
+2. **Default deny.** A session that is not a workspace member reaches nothing
+   outside its own shell. A new buyer or staff route must not become reachable
+   by an external account because nobody thought to exclude it.
+3. **Both routes, everywhere.** Any feature a supplier or partner can use from
+   their portal must also be operable by staff on their behalf, and the row
+   must say which route produced it.
+4. **A side effect that cannot be taken back is stored, not derived** — an
+   email sent, a pack released, a window closed. Everything else follows the
+   existing derived-at-read rule.
+
+Sizes are indicative, in working sessions of the kind this backlog has been
+built in: **S** one, **M** two to three, **L** four or more.
+
+---
+
+#### Slice 0 — Foundations
+
+- [ ] **V01 · Platform settings: a store and an internal page.** *Size M.
+      Depends on: nothing. Blocks: V06, V07, V14, V32.*
+
+      **What it does.** Gives OSI one place to set values that apply to every
+      client — the home the owner asked for on 2026-10-22 and which does not
+      exist. One value per key, no per-client and no per-category override.
+
+      **Schema.** `platform_setting` — `key` (PK), `value` (jsonb),
+      `updated_by` + `updated_by_name` (tombstone rule), `updated_at`. One row
+      per key; a missing row means the default.
+
+      **Files.** New `src/lib/platform-settings.ts` — the **registry**: every
+      key with its zod schema, default and i18n label, pure and client-safe.
+      New `src/server/platform-settings.ts` — `getSetting(key)` (reads the
+      row, falls back to the default; short in-process cache invalidated on
+      write) and `setSetting`. New `src/lib/platform-settings-fns.ts`. New
+      route `src/routes/interne/parametres.tsx`. Touch `src/lib/roles.ts` (a
+      `settings` feature, **owner only**, like `plans`) and `AppSidebar.tsx`.
+
+      **Keys it ships with.** `rfq.window_hours` = 72 · `rfq.target_offers` =
+      5 · `pack.release_mode` = `manual` (`manual | automatic`) ·
+      `fee.rate_bps` = 300. The last one is **stored and shown, and applied
+      by nothing** until slice 6 clears its legal gate.
+
+      **Acceptance.** The owner changes the window to 48 h → the next round
+      opened uses 48, rounds already open keep the value they opened with. A
+      manager cannot open the page. Each change writes an `audit_log` row with
+      the old and new value. An unknown key is refused by the registry, not
+      stored. The i18n registry test covers the labels in FR and EN.
+
+      **Gotcha.** `rfq.target_offers` is **not** `plan.suppliers_returned` and
+      not the `SUPPLIERS_RETURNED` env var. Those say how many suppliers the
+      search ranks; this says how many *offers* close a window. They both
+      default to 5, which is exactly why they will be confused. Do not move
+      the `sourcing-config.ts` env knobs here in the same task — they are read
+      at module load by the worker, and that is its own change.
+
+- [ ] **V02 · Supplier contacts.** *Size M. Depends on: nothing. Blocks: V06.*
+
+      **What it does.** Records who to write to at a supplier. Today there is
+      nowhere to put an address, so every RFQ leaves from a staff mailbox
+      using an address found by hand.
+
+      **Schema.** `supplier_contact` — `supplier_id` (cascade), `email`
+      (lower-cased), `name`, `role`, `phone`, `locale` (`fr | en`, default
+      `en`), `source` (`research | staff | self`), `is_primary`, `bounced_at`,
+      `created_by`, timestamps. Unique on (`supplier_id`, `email`).
+
+      **Files.** `src/database/schema.ts`; `src/lib/supplier-fns.ts`
+      (`getSupplierContactsFn`, `upsertSupplierContactFn`,
+      `removeSupplierContactFn` — staff, `deals`); the supplier detail on
+      `/fournisseurs`; `src/server/ai/research.ts` — the research pass already
+      reads the supplier's site, so have it return a contact address **when
+      the page states one**, with `source: "research"`.
+
+      **Acceptance.** Staff add an address to a supplier and it is offered as
+      the recipient when the RFQ batch is prepared. A supplier with no contact
+      is flagged in the shortlist and cannot be included in a send. A research
+      pass that finds no address stores nothing rather than a guess.
+
+      **Gotcha.** No paid enrichment, ever (standing constraint). An address
+      comes from the supplier's own published page, from staff, or from the
+      supplier — nowhere else. And a contact is a person: it is deleted with
+      the supplier and it is never shown to a buyer.
+
+- [ ] **V03 · External accounts: a principal with no workspace.** *Size L.
+      Depends on: nothing. Blocks: V15, V16, V23, and every external surface.*
+
+      **What it does.** Makes it possible for a `user` to be a supplier's or a
+      partner's person rather than a workspace member — the third kind of
+      account the diagram's two right-hand lanes need. No screen of its own;
+      it is the guard and the tests the portals stand on.
+
+      **Schema.** `user.account_type` already exists (`individual` default):
+      add `supplier` and `partner` as values. `supplier_user` — `user_id`,
+      `supplier_id`, `created_via` (`invitation`), `created_at`; unique on the
+      pair. `partner_user` likewise, added with V21.
+
+      **Files.** `src/server/auth.ts` — `databaseHooks.user.create.after` must
+      create **no workspace** for these two types (the invitation branch above
+      it is the precedent), and the session hook must leave
+      `activeOrganizationId` null. New `src/server/party-guard.ts` —
+      `requireSupplierSession(headers)` → `{ userId, supplierIds }`,
+      `requirePartnerSession(headers)`. `src/lib/auth-guard.ts` —
+      `enforceAuth` routes an external session to its own shell and refuses
+      everything else. `src/server/plan.ts` — these accounts sit outside the
+      plan ladder; nothing may call `resolvePlan` or `checkRequestQuota` for
+      them.
+
+      **Acceptance — these are tests, written before any portal screen.**
+      With two suppliers A and B invited on the same request: A's session
+      cannot read B's quote, B's name, the number of suppliers asked, any
+      rank, any `match` row, the buyer's organisation, an internal note, or a
+      `platform_setting`. A's session receives a refusal — not an empty list —
+      from every existing server fn in `src/lib/*-fns.ts` that is not
+      explicitly opened to external accounts; the test enumerates the fns so
+      a new one fails the suite until someone decides. A supplier account
+      signs in with no workspace and no plan row and nothing throws.
+
+      **Gotcha.** Every guard in the codebase asks "which workspace is this
+      session in?". An external session answers "none", and a guard that
+      treats *none* as *skip the filter* leaks everything. Grep for
+      `activeOrganizationId` and read each use before trusting the tests.
+      Also correct the record in the same commit: ADR-002 §3's table in the
+      README still lists suppliers as "(no account)".
+
+---
+
+#### Slice 1 — The decision flow, staff-mediated (steps 05–12)
+
+- [ ] **V04 · Request states for the V6 flow.** *Size M. Steps 06–10.
+      Depends on: nothing. Blocks: V05–V13.*
+
+      **What it does.** Gives the request machine the stretch the diagram adds
+      between "candidates found" and "the buyer has something to decide on",
+      including the two returns and the refusal.
+
+      **Schema.** `REQUEST_STATUSES` gains `shortlisted` (KPI #1 done, waiting
+      for staff to send), `soliciting` (a round is open), `pack_review` (the
+      round closed, staff decide), and `unfulfilled` (terminal: staff refused
+      to send a pack). `request.unfulfilled_reason`, `unfulfilled_at`,
+      `unfulfilled_by` + name snapshot.
+
+      **Transitions** (`src/lib/request-status.ts`): `validating →
+      shortlisted → soliciting → pack_review → report_ready`; `pack_review →
+      soliciting` (relaunch); `pack_review → unfulfilled` (refuse);
+      `report_ready → soliciting` (an offer expired, the buyer asks again).
+      The existing `report_ready → searching` and `→ closed` stay.
+
+      **Files.** `request-status.ts` + its test, `PIPELINE_ORDER` and
+      `progressPct`, `src/worker.ts`, `StatusPill.tsx`, `Timeline.tsx`,
+      `demandes/$id.tsx`, both locale files.
+
+      **Acceptance.** Every new edge is legal and every edge not listed is
+      refused (unit tests, the `deal-status.test.ts` pattern). A request on a
+      plan without quotes still ends at `report_ready` exactly as today (D2).
+      The buyer's dossier shows which stage it is in and since when (D1).
+
+      **Gotcha.** `isInFlight` and the stranded sweep must **not** include the
+      three new resting states. `shortlisted` and `pack_review` wait on a
+      person and `soliciting` waits on a clock; a sweep that re-adopts them
+      after two minutes would re-run the pipeline over a live round.
+      `report_ready` keeps its name and now means "the pack is released" —
+      renaming it is a migration across every reader for no behaviour, so it
+      is left out on purpose.
+
+- [ ] **V05 · KPI #1 yields an internal shortlist.** *Size M. Steps 05–06.
+      Depends on: V04. Blocks: V06.*
+
+      **What it does.** The ranking `matching.ts` already produces stops being
+      the buyer's answer and becomes OSI's working list: staff see who ranked,
+      why, and confirm who will be asked.
+
+      **Files.** New `src/routes/interne/shortlist.tsx` (or a tab on
+      `/soumissions` under `EmployeeTabs`) — the request's ranked `match`
+      rows with **`score_breakdown` rendered** for the first time, the contact
+      status from V02, and include/exclude per supplier. `src/lib/quote-fns.ts`
+      — `confirmShortlistFn({ requestId, supplierIds[] })`, staff (`deals`),
+      creating the `quote` rows `requestQuotesFn` creates today, with
+      `requested_by` the staff member. `src/worker.ts` — the pipeline ends on
+      `shortlisted` for plans with quotes.
+
+      **Acceptance.** A finished search lands in `shortlisted` and notifies
+      staff holding `deals`. Staff exclude one supplier and add a lower-ranked
+      one → exactly those `quote` rows exist. The breakdown shows, per
+      criterion, what matched and what did not. The buyer sees no supplier
+      (D1).
+
+      **Gotcha.** `requestQuotesFn` and the checkboxes on the buyer's Top-N
+      are the feature D1 retires. Do not delete them in this task: put the
+      buyer path behind the plan fork so D2's default holds, and remove it
+      only once the owner has answered D1.
+
+- [ ] **V06 · RFQ rounds and the batch send.** *Size L. Step 07. Depends on:
+      V01, V02, V05. Blocks: V07.*
+
+      **What it does.** Sends the RFQ from the platform — today `sent_at` is
+      stamped by a staff member after writing from their own mailbox — and
+      opens the round whose clock the window runs on.
+
+      **Schema.** `rfq_round` — `request_id`, `round_no`, `opened_at`,
+      `closes_at`, `window_hours` and `target_offers` (**snapshots** of the
+      settings at opening), `closed_at`, `close_reason` (`target_reached |
+      deadline | early`), `closed_by` + name snapshot (null = the system),
+      `early_note`. Unique on (`request_id`, `round_no`). `quote.round_id`.
+
+      **Files.** New `src/lib/rfq-fns.ts` — `sendRfqBatchFn({ requestId })`:
+      one transaction opens the round, stamps `sent_at` on every quote in it,
+      and moves the request to `soliciting`; then one email per supplier
+      through `sendMail`, so each lands in `mail_outbox` and survives an
+      outage. New `src/server/rfq-mail.ts` — the FR/EN template, in the
+      contact's `locale`: the specification, the reply deadline, and how to
+      answer (by reply until slice 2 adds the link).
+
+      **Acceptance.** One click sends N emails and stamps N `sent_at` values
+      within the same second. `closes_at` equals `opened_at` + the configured
+      hours. A supplier without a contact cannot be in the batch. Sending
+      twice does not open a second round or a second email (idempotency key =
+      round + quote). `sent_by` is the staff member who pressed send.
+
+      **Gotcha.** The schema comment on `quote.sent_at` calls it "a human act,
+      by email, outside the platform". That stops being true here — rewrite
+      the comment in this commit. And the response-time signal now starts from
+      a real send, so do not fall back to `requested_at` for any quote that
+      belongs to a round.
+
+- [ ] **V07 · The window closes: three conditions, one handler.** *Size L.
+      Step 07 → 10. Depends on: V06. Blocks: V10, V11.*
+
+      **What it does.** Closes a round when five offers are in, when the delay
+      runs out, or when staff decide not to wait — and tells staff it
+      happened.
+
+      **Files.** New `src/server/rfq-window.ts` — `closeRound(roundId, reason,
+      actor?, note?)`, the **only** function that closes a round.
+      `src/worker.ts` — a sweep (pipeline worker only, like the others) that
+      closes rounds past `closes_at`; `recordQuoteFn` and the portal submit
+      call it when the count of `received` reaches `target_offers`.
+      `src/lib/rfq-fns.ts` — `closeRoundEarlyFn({ roundId, note })`, staff,
+      `note` **required and non-empty**. `src/lib/notification-types.ts` —
+      `rfq_window_closed`, staff-facing, in-app + email, sent with
+      `notifyStaff("deals", …)`.
+
+      **What happens to a silent supplier.** On `deadline`: their quote goes
+      `declined` with `decline_reason: "no_response"` — the window expired on
+      them, and that is a fact about the supplier. On `early` or
+      `target_reached`: `declined` with a **new** reason,
+      `closed_before_deadline` — OSI stopped waiting, and that is not. Add the
+      value to `QUOTE_DECLINE_REASONS` and its FR/EN label (the registry test
+      fails until both exist).
+
+      **Acceptance.** Five answers close the round at once, with
+      `target_reached`. A round with two answers closes at `closes_at` with
+      `deadline`, and its silent suppliers carry `no_response`. An early close
+      without a note is refused; with one, it is stored on the round and the
+      silent suppliers carry `closed_before_deadline`. Closing twice is a
+      no-op. The request is in `pack_review` and staff holding `deals` are
+      notified, except the person who closed it. A round that closes with
+      **zero** offers still reaches `pack_review` — a person decides between
+      relaunching and refusing; the system does not.
+
+      **Gotcha.** Two closes can race — the fifth answer arriving as the
+      deadline sweep runs. Close with a conditional update (`WHERE closed_at
+      IS NULL`) and act on the row count, the way the accepted-quote index
+      settles two acceptances.
+
+- [ ] **V08 · The staff-mediated route says what it is.** *Size S. Step 07.
+      Depends on: nothing. Blocks: V16.*
+
+      **What it does.** Keeps the hand-entered route honest now that it is one
+      of two routes rather than the only one.
+
+      **Schema.** `quote.channel` — `portal | staff`, not null, default
+      `staff` for existing rows. Rewrite the comment on `recorded_by`: it
+      means "this did not come from the supplier's own hands", not "staff
+      keyed it because the supplier has no account".
+
+      **Files.** `src/lib/quote-fns.ts` — `recordQuoteFn` takes
+      `respondedAt`, **required when entered by staff**, defaulting in the
+      form to now but editable, and refuses a value before `sent_at` or in
+      the future. `soumissions.tsx` — the field, and a channel chip on each
+      offer.
+
+      **Acceptance.** Staff type on Thursday an offer the supplier emailed on
+      Tuesday → `responded_at` is Tuesday and the response time shown is the
+      supplier's. Every offer shows which route it came by.
+
+      **Gotcha.** This is the `sent_at` lesson again: without `respondedAt`
+      the hour staff got round to typing is recorded as the supplier's speed,
+      and the one signal nobody can scrape is corrupted at the source.
+
+- [ ] **V09 · KPI #2, first version, and the stored result.** *Size M. Step
+      09. Depends on: V07. Blocks: V10.*
+
+      **What it does.** Ranks the offers a round closed with — the offers,
+      not the suppliers. KPI #1 scored who is worth asking; this scores what
+      they actually answered.
+
+      **Schema.** `kpi_result` — `request_id`, `round_id`, `quote_id`, `kpi`
+      (`1 | 2`), `rank`, `score`, `breakdown` (jsonb), `inputs_version`,
+      `computed_at`. Append-only: a re-run writes new rows and the earlier
+      order stays readable, which is V6's *"en conservant l'ancien ordre pour
+      audit"*.
+
+      **Files.** New `src/lib/kpi2.ts` — pure, no server imports, fully
+      unit-tested: takes offers (+ enrichments when slice 4 exists) and the
+      weights, returns ranks with a per-factor breakdown. Version 1 factors
+      are the ones the `quote` row holds: price, lead time, MOQ against the
+      requested quantity, incoterm, validity, plus the supplier's
+      verification and KPI #1 score. New `src/server/kpi.ts` runs it when a
+      round closes.
+
+      **Acceptance.** The same inputs always produce the same order. Two
+      offers in different currencies are **not** ranked against each other on
+      price; the breakdown says "not comparable" (D7). Recomputing after a
+      correction leaves the first result in the table.
+
+      **Gotcha.** With no partner data this ranks on nearly the same facts as
+      KPI #1 — README §2c says so plainly. Do not invent a landed cost to
+      make the two scorers look different. The honest version 1 is a ranking
+      of offers on what suppliers stated.
+
+- [ ] **V10 · The Decision Pack — a read-model with a memory.** *Size M. Step
+      10. Depends on: V09. Blocks: V11, V12.*
+
+      **What it does.** Records what a buyer was shown: which offers, in
+      which order, built from which versions, released when and by whom. The
+      pack has no content of its own — it points at offers, enrichments and
+      KPI results.
+
+      **Schema.** `decision_pack` — `request_id`, `round_id`, `status`
+      (`pending | released | refused`), `release_mode` (the setting's value
+      **at the time**), `released_at`, `released_by` + name snapshot (**null
+      = the system**), `refused_reason`, `created_at`. `decision_pack_item` —
+      `pack_id`, `quote_id`, `rank_computed`, `rank_shown`, `kpi_result_id`,
+      and a frozen copy of the offer's figures as shown.
+
+      **Files.** New `src/server/decision-pack.ts` — `buildPack(roundId)`
+      (called when a round closes, creating a `pending` pack of at most
+      `target_offers` items) and `getPackView(packId, audience)`.
+
+      **Acceptance.** A released pack reads the same a month later even after
+      the supplier edits their profile or an offer expires. `rank_computed`
+      and `rank_shown` are equal until someone corrects (V11). Replaying a
+      past decision needs no table other than these two and `kpi_result`.
+
+      **Gotcha.** Release is the irreversible act — rule 4. `released_by`
+      null must mean "automatic" and nothing else; a staff member whose
+      account was later deleted is told apart by the name snapshot.
+
+- [ ] **V11 · The release queue and its four actions.** *Size L. Step 10.
+      Depends on: V10. Blocks: V12, V14.*
+
+      **What it does.** The desk the diagram's step 10 happens at: every pack
+      awaiting a decision, whose it is, and how long it has waited — with the
+      four powers the owner named on 2026-10-25.
+
+      **Schema.** `decision_pack.assigned_to` + name snapshot.
+      `decision_pack_event` — `pack_id`, `action` (`approved | corrected |
+      relaunched | refused | assigned`), `actor` + name, `payload` (what
+      changed, and why), `created_at`. Permanent, beside the pack — not
+      `audit_log`, which is purged at three months.
+
+      **Files.** New `src/routes/interne/packs.tsx` (`deals`), new
+      `src/lib/pack-fns.ts`:
+      • `approvePackFn` — releases as built.
+      • `correctPackFn({ order, removals, note })` — writes `rank_shown`,
+        leaves `rank_computed` alone, `note` required, then releases.
+      • `relaunchPackFn({ supplierIds, note })` — pack stays `pending`,
+        request `pack_review → soliciting`, a new round for the suppliers
+        named; offers already held stay in the pack (D5).
+      • `refusePackFn({ reason })` — pack `refused`, request `unfulfilled`,
+        the buyer notified.
+
+      **Acceptance.** The queue lists every `pending` pack oldest first with
+      its age and assignee; an unassigned one is visibly so. A correction
+      stores both orders and the reason, and the buyer sees only the shown
+      order. A relaunch that brings two more offers rebuilds the same pack
+      with the earlier offers still in it. A refusal with no reason is
+      refused.
+
+      **Gotcha.** Relaunch is the re-ask shape from deploy #36 (`declined` or
+      `expired` → `requested`, clocks reset) applied to a round — read
+      "Re-asking a supplier" above before writing it. A supplier closed with
+      `closed_before_deadline` may be asked again; one closed with
+      `no_response` already had a full window, and asking again is a
+      decision, so say so in the UI.
+
+- [ ] **V12 · The buyer reads the pack — or is told there will be none.**
+      *Size L. Steps 10–11. Depends on: V11. Blocks: V13.*
+
+      **What it does.** The buyer's side of step 10: the released pack, and
+      the card the diagram puts in the buyer's lane when staff refuse.
+
+      **Files.** New `src/routes/demandes/$id.pack.tsx` — the offers in
+      `rank_shown` order, each with its figures, **why it ranks where it
+      does** (the KPI #2 breakdown, in plain words), the supplier's
+      verification, and a *coût total rendu* block. `notification-types.ts` —
+      `pack_ready` and `request_unfulfilled`, both in-app + email.
+      `demandes/$id.tsx` — the `unfulfilled` state with staff's reason.
+
+      **Acceptance.** A buyer with a released pack sees up to five offers and
+      can explain the order from the page alone. The total-cost block shows
+      what is known and **labels what is not** — "transport: not provided" —
+      rather than a total that silently omits it. A refused request tells the
+      buyer why, on the dossier and by email. A `viewer` reads the pack and
+      cannot accept.
+
+      **Gotcha.** The buyer never sees `rank_computed`, the correction note,
+      an internal note, or how many suppliers stayed silent by name. And the
+      pack must be honest that OSI's fee is not the only one: once slice 6
+      exists, the settlement partner's own fee belongs in the same block.
+
+- [ ] **V13 · Choosing from the pack opens the dossier.** *Size S. Steps
+      11–12. Depends on: V12.*
+
+      **What it does.** `acceptQuoteFn` already does steps 11 and 12 in one
+      transaction (P3). This ties it to the pack and wires the second return
+      the diagram shows.
+
+      **Schema.** `deal.decision_pack_id`.
+
+      **Files.** `src/lib/quote-fns.ts` — `acceptQuoteFn` refuses a quote that
+      is not an item of a `released` pack for that request, and stamps the
+      pack on the deal. The expired-offer path: an offer past `valid_until`
+      cannot be accepted, and the buyer's "ask again" moves the request
+      `report_ready → soliciting` with a new round for that supplier.
+
+      **Acceptance.** Accepting from the pack opens the deal, closes the
+      sibling offers with `lost`, and the deal names the pack it came from.
+      An offer that expired while the buyer was deciding is refused with a
+      message, not a 500, and asking again reopens a round.
+
+      **Gotcha.** The no-splitting index and the `already_accepted` path are
+      unchanged — do not re-derive them.
+
+- [ ] **V14 · Automatic release, built and switched off.** *Size M. Step 10.
+      Depends on: V01, V11.*
+
+      **What it does.** The other value of `pack.release_mode`. When it is
+      `automatic`, a closing round releases its pack without a person —
+      designed in now, turned on later, by a setting and not a deploy.
+
+      **Files.** `src/server/rfq-window.ts` — after `buildPack`, read the
+      setting: `manual` → queue, `automatic` → release with `released_by`
+      null. New `src/routes/interne/packs.tsx` tab **« Ce que la revue a
+      changé »** — over a period: packs approved untouched, corrected,
+      relaunched, refused; early closes with their notes; and the two waits,
+      window and desk, shown separately and summed.
+
+      **Acceptance.** Flipping the setting changes the next round and no
+      round already closed. An automatic release never happens on a round
+      with zero offers — that one always goes to a person. The report answers
+      "how often did review change the pack?" from stored rows, without
+      reading a log.
+
+      **Gotcha.** Do not flip it. The precondition is evidence that review
+      stopped changing packs, and this task is what produces that evidence.
+      The buyer's wait is the window **plus** the desk; show the sum, because
+      that is the number the buyer lives with.
+
+---
+
+#### Slice 2 — The supplier portal (step 07, the supplier's lane)
+
+- [ ] **V15 · The invitation link and the account it creates.** *Size L.
+      Depends on: V03, V06. Blocks: V16.*
+
+      **What it does.** The RFQ email gains a link; the supplier follows it,
+      sets a password, and has an account — free, and live immediately,
+      because the link is the vouching (owner, 2026-10-25).
+
+      **Schema.** `rfq_invitation` — `quote_id`, `contact_id`, `token_hash`
+      (the token itself is never stored), `expires_at`, `opened_at`,
+      `registered_user_id`, `created_at`.
+
+      **Files.** `src/server/rfq-mail.ts` — the link. New route
+      `src/routes/portail/inscription.tsx` (public, token in the path) and
+      `src/lib/portal-auth-fns.ts` — `redeemInvitationFn`: creates the `user`
+      with `account_type: "supplier"` and `email_verified: true` (reaching
+      the link proves the mailbox), the `supplier_user` row, and a session.
+      `isPublicPath` in `auth-guard.ts`.
+
+      **Acceptance.** A supplier goes from the email to a working session in
+      one form. No approval step, no moderation queue, no plan row. A second
+      contact of the same supplier redeeming their own link joins the same
+      supplier. A used or expired token explains itself and offers sign-in.
+      An existing account using a new invitation is linked, not duplicated.
+
+      **Gotcha.** There is **no unsolicited supplier signup**, and this task
+      must not create one: the public signup form keeps producing buyer
+      accounts only. If an open route is ever wanted, that one needs a human,
+      because nothing vouches for it. Redemption needs its own rate limit:
+      the limiter configured in `auth.ts` (`rateLimit.customRules`) covers
+      better-auth's own endpoints only, not a server fn — so either create
+      the account through `/sign-up/email` carrying the token, or add a rule.
+      Without `REDIS_URL` those counters are in-memory, per container.
+
+- [ ] **V16 · The portal: answer, decline, attach.** *Size L. Depends on:
+      V08, V15. Blocks: V17.*
+
+      **What it does.** The supplier's own surface: the RFQs addressed to
+      them, and the form to answer one.
+
+      **Files.** New `src/routes/portail/index.tsx` and
+      `portail/rfq.$id.tsx`, in their own shell — not `AppShell`, whose
+      sidebar is the buyer's and staff's. New `src/lib/portal-fns.ts`, every
+      fn through `requireSupplierSession`: `getMyRfqsFn`, `getRfqFn`,
+      `submitOfferFn` (the `recordQuoteFn` fields; `channel: "portal"`,
+      `responded_at` = now, `recorded_by` null), `declineRfqFn` (→ `declined`,
+      `supplier_declined`), and document upload through a portal variant of
+      `/api/quote-document`.
+
+      **Acceptance.** A supplier sees only quotes whose `supplier_id` is one
+      of theirs. They see the specification and the deadline, and not the
+      buyer's name (D6). Submitting stamps the response time and, if it is
+      the fifth, closes the round (V07). After the round closes the form is
+      read-only and says so. V03's partition tests pass against every fn in
+      this file.
+
+      **Gotcha.** The document belongs to the **buyer's** workspace (P8's
+      ownership rule) even though the supplier uploads it — and the supplier
+      must still be able to read back their own upload, which is a second
+      access path to the same row. Test both.
+
+- [ ] **V17 · What a supplier is told, and the response funnel.** *Size M.
+      Depends on: V16.*
+
+      **What it does.** Closes the loop on the supplier's side and measures
+      the thing the whole five-offer window rests on.
+
+      **Files.** `notification-types.ts` — supplier-facing types (round
+      closed; offer retained; offer not retained), delivered by email in the
+      contact's locale. `/interne/packs` or `/analyses` — per round and over
+      time: invited → opened → registered → answered → answered in time,
+      split by channel.
+
+      **Acceptance.** A supplier whose offer lost learns that it was not
+      retained and **nothing else** — not who won, not at what price, not how
+      many answered. Staff can read, for the last thirty days, what share of
+      invited suppliers registered and what share answered.
+
+      **Gotcha.** If suppliers do not register, rounds close short and
+      `no_response` stops meaning what the schema says. This funnel is the
+      early warning; build it with the portal, not after.
+
+---
+
+#### Slice 3 — Specification and validation (steps 02–04)
+
+- [ ] **V18 · The AI clarifies and restructures.** *Size M. Step 02. Depends
+      on: nothing. Blocks: V19.*
+
+      **What it does.** Before a request is launched, the assistant asks for
+      what is missing and restates the need. The machinery exists:
+      `src/server/ai/chat.ts` already returns criteria operations, behind
+      `AI_CHAT`, off by default.
+
+      **Files.** `src/server/ai/chat.ts` — a clarification prompt that takes
+      the draft and its parsed criteria and returns questions plus proposed
+      operations. `HeroPrompt.tsx` / `RequestChat.tsx` — the exchange on the
+      draft. `src/server/ai/flags.ts`. `parse-criteria.ts` stays as the free
+      first pass.
+
+      **Acceptance.** A draft missing a quantity gets asked for one. Accepted
+      proposals become `request_criterion` rows exactly as a manual edit
+      would. With the flag off the flow is today's.
+
+      **Gotcha.** "A pending draft never spends money on its own" (owner,
+      2026-08-29) — the clarification runs when the buyer asks for it, never
+      on a timer, and it uses the plan's `model_tier`.
+
+- [ ] **V19 · Cahier des charges and KPIProfile v1.** *Size L. Step 03.
+      Depends on: V18. Blocks: V20.*
+
+      **What it does.** Turns the structured request into the two artefacts
+      the diagram names: a specification a supplier can quote against, and
+      the weights both scorers will use.
+
+      **Schema.** `request_spec` — `request_id`, `version`, `content`
+      (structured jsonb + rendered text), `created_by`, `created_at`;
+      immutable, a change is a new version. `kpi_profile` — `request_id`,
+      `version`, `weights` (jsonb), `source` (`default | buyer`),
+      `created_at`.
+
+      **Files.** New `src/server/spec.ts` (builds the spec from criteria,
+      attachments and the clarification), `src/lib/kpi-profile.ts` (pure:
+      default weights from the criteria the buyer marked required),
+      `src/lib/spec-fns.ts`, and the spec view on the dossier.
+
+      **Acceptance.** The spec states everything a supplier needs and nothing
+      identifying the buyer — it is the text V06 sends. Editing criteria
+      after a spec exists creates version 2 and leaves version 1 readable.
+      `matching.ts` and `kpi2.ts` read their weights from the profile.
+
+      **Gotcha.** The RFQ, the offers and the KPI results must each record
+      **which spec version** they were made against; an offer answering
+      version 1 ranked against version 2 is the kind of error nobody notices.
+
+- [ ] **V20 · The buyer validates the cahier.** *Size M. Step 04. Depends on:
+      V19.*
+
+      **What it does.** Adds the gate the diagram calls `Request VALIDATED`:
+      nothing is searched and no supplier is written to until the buyer has
+      approved the specification.
+
+      **Schema.** `REQUEST_STATUSES` gains `spec_review` between `draft` and
+      `received`. `request.validated_at`, `validated_by` + name snapshot,
+      `validated_spec_version`.
+
+      **Files.** `request-status.ts` (`draft → spec_review → received`,
+      `spec_review → draft`), the dossier (the spec, the weights, **Valider**
+      / **Modifier**), `requests-fns.ts` — launching requires a validated
+      spec.
+
+      **Acceptance.** A request cannot reach `received` without a validated
+      version. A `viewer` cannot validate. Quota is counted exactly where it
+      is today — the gate adds a step and moves no count.
+
+      **Gotcha.** `checkRequestQuota` runs when the request row is **created**
+      (`requests-fns.ts`, under the per-workspace advisory lock), so a draft
+      waiting in `spec_review` has already been counted. Keep it that way: it
+      is what stops a buyer from holding unlimited drafts that each ran a
+      paid clarification (V18).
+
+---
+
+#### Slice 4 — The Partner Hub (steps 08–09)
+
+- [ ] **V21 · Partners, and the adapter they sit behind.** *Size M. Depends
+      on: V03. Blocks: V22, V32.*
+
+      **What it does.** Makes "a partner" a thing the platform knows, behind
+      one interface, so that two providers can fill the same slot — the
+      settlement slot being the first real case.
+
+      **Schema.** `partner` — `name`, `kind` (`settlement | transport |
+      inspection | customs | insurance`), `provider` (which adapter),
+      `active`, contact fields. `partner_user` (see V03).
+
+      **Files.** New `src/server/partners/adapter.ts` — the interface V6
+      names: `createCase`, `requestDocument`, `getStatus`, `redirectUrl`,
+      `receiveWebhook`. New `src/server/partners/manual.ts` — the first and
+      only provider: a person does the work and staff record it. New
+      `src/routes/interne/partenaires.tsx`.
+
+      **Acceptance.** Staff create a transport partner and an inspection
+      partner. No domain code imports a provider directly — only the adapter,
+      the rule `mail.ts` and `esign.ts` already follow.
+
+      **Gotcha.** Do not write an escrow.com or Globex client here. The
+      `manual` provider is what makes the seam real without a contract, a
+      key, or a legal opinion.
+
+- [ ] **V22 · Cases and enrichments.** *Size L. Step 08. Depends on: V21.
+      Blocks: V23, V24.*
+
+      **What it does.** Lets a partner add to an offer what only a partner
+      knows — freight, duties, inspection cost, insurance, an exchange rate.
+
+      **Schema.** `partner_case` — `partner_id`, `quote_id` and/or `deal_id`,
+      `kind`, `status`, `opened_by`, timestamps. `partner_enrichment` —
+      `case_id`, `quote_id`, `kind`, `amount_cents` + `currency`, `details`
+      (jsonb), `valid_until`, `channel` (`portal | staff`), `version`,
+      `created_by`.
+
+      **Files.** New `src/lib/partner-fns.ts` — staff open a case on an offer
+      and record an enrichment on the partner's behalf (rule 3). The offer
+      view on `/soumissions` shows what has been added.
+
+      **Acceptance.** Staff attach a freight figure to an offer; it appears
+      on the offer and in the pack's total-cost block. Step 08 blocks
+      nothing: a round with no enrichment at all still produces a pack
+      (owner, 2026-10-24).
+
+      **Gotcha.** An enrichment has a validity and a currency of its own. A
+      freight quote in USD on an offer in EUR is not added to it — D7 again.
+
+- [ ] **V23 · The Partner Hub surface.** *Size L. Step 08. Depends on: V03,
+      V22.*
+
+      **What it does.** The fourth surface: a partner's person — the transit
+      agent the owner named — sees the cases assigned to them and answers
+      there. The account is free and created from a link, like a supplier's.
+
+      **Files.** New `src/routes/partenaires/*` in its own shell, new
+      `src/lib/partner-portal-fns.ts` through `requirePartnerSession`, and the
+      invitation flow of V15 reused for `partner_user`.
+
+      **Acceptance.** A partner sees only the cases assigned to their
+      partner, and within a case only what the case needs: the goods, the
+      route, the quantities — not the supplier's price unless the case kind
+      requires it, never another supplier's offer, never OSI's fee. V03's
+      partition tests are extended to partner sessions.
+
+      **Gotcha.** A partner is a second external audience with a *different*
+      need-to-know from a supplier's. Do not reuse the supplier guard with a
+      flag; write the rule down per case kind.
+
+- [ ] **V24 · KPI #2 on landed cost.** *Size M. Step 09. Depends on: V09,
+      V22.*
+
+      **What it does.** The version of KPI #2 the diagram describes: offers
+      re-ranked on what the goods cost delivered, and on risk.
+
+      **Files.** `src/lib/kpi2.ts` — landed cost = price + enrichments (+ the
+      fees, once slice 6 exists), computed **only** when every component
+      shares a currency or a stored rate covers the gap. `decision_pack`
+      gains `fx_rates` (jsonb): the rates used, their source and date.
+
+      **Acceptance.** Two offers, one cheaper ex-works and dearer delivered:
+      KPI #2 puts the delivered-cheaper one first and the breakdown shows the
+      arithmetic. An offer missing a component is ranked on what exists and
+      marked incomplete — never treated as zero.
+
+      **Gotcha.** A missing freight figure read as zero makes the least
+      documented offer look cheapest. Incomplete is a state, not a number.
+
+---
+
+#### Slice 5 — Execution (steps 13–14 and 16–20)
+
+The diagram draws these dashed: *recommandé / cible*, not confirmed. They are
+specified here so the path is visible, and they absorb Phase P's open tasks
+rather than duplicating them — P7 becomes V27, the rest of P8 lands in V25,
+P10 in V25, P11 in V31.
+
+- [ ] **V25 · The Transaction Room.** *Size L. Step 13. Depends on: V13
+      (V16 and V23 for the external views). Blocks: V26–V30.*
+
+      **What it does.** One page per dossier where every party sees its own
+      slice: the parties, the retained offer, the documents, the exchanges.
+
+      **Schema.** `deal_party` — `deal_id`, `role` (the
+      `CONTRACT_PARTY_ROLES` vocabulary), `supplier_id` / `partner_id` /
+      `organization_id` (nullable, with name snapshots). `document.deal_id`
+      and `document.contract_id`, `document.version` + `supersedes_id`, and
+      the kinds the later tasks produce — each added by the task that writes
+      it. `message_thread` + `message` (P10), scoped to a deal and to the
+      parties in the thread.
+
+      **Files.** New `src/routes/dossiers/$id.tsx` for buyer and staff, with
+      the portal and Partner Hub reading the same data through their own
+      guards. `/transactions` becomes the list of dossiers and
+      `etapesTransaction` in `src/data/osi.ts` is deleted.
+
+      **Acceptance.** Buyer, staff, supplier and a partner each open the same
+      dossier and see four different pages. A thread between buyer and staff
+      is invisible to the supplier. Uploading a new version keeps the old one
+      readable.
+
+      **Gotcha.** P10 said external parties "never get an account"; that line
+      is superseded by slice 2, and a thread now has to state who is in it.
+      Disclosing the buyer's identity to the supplier happens **here**, when
+      the deal opens (D6) — make it an explicit step in the code, not a side
+      effect of a join.
+
+- [ ] **V26 · Contracts: the supplier signs in the platform.** *Size M. Step
+      14. Depends on: V16, V25.*
+
+      **What it does.** A supplier with an account signs the way the buyer
+      and OSI do. Without one — or refusing to — staff upload the countersigned
+      PDF, as today. Both stay, permanently.
+
+      **Files.** `src/lib/signature.ts` — whether a party signs in the
+      platform is decided by whether the party has a linked account, not by
+      `IN_PLATFORM_ROLES` alone. `signature-fns.ts` — `signContractFn` for a
+      supplier session through `requireSupplierSession`. The portal's
+      contract view.
+
+      **Acceptance.** A registered supplier signs a purchase order in the
+      portal and the `N/M` indicator moves. An unregistered one is handled by
+      `recordManualSignatureFn` exactly as now. Both produce the same
+      `contract_event` trail and differ only in the recorded method.
+
+      **Gotcha.** Whether an in-platform signature by an *external* party is
+      sufficient evidence is a legal question, not a technical one — put it
+      to Zack with the money circuit. Ship behind a flag (V6: *"feature flags
+      pour … signatures"*), default off. The five contract types beyond the
+      two built are separate work and not part of this task.
+
+- [ ] **V27 · Production: milestones and proofs.** *Size L. Step 16. Depends
+      on: V25. Replaces P7.*
+
+      **What it does.** The dossier moves after contracts are signed — today
+      nothing moves it. Milestones with dates, and the evidence for each.
+
+      **Schema.** `order_milestone` as P7 specified it (deal_id, kind,
+      status, planned_at, completed_at, note, updated_by + name snapshot),
+      plus `channel` (`portal | staff`) and proof documents by `document`.
+
+      **Files.** `src/lib/milestone-fns.ts`; the dossier; the portal — the
+      supplier updates production and attaches photos or reports; staff can
+      do the same on their behalf. `transitionDeal` finally gets its callers:
+      `contracting → in_production → shipping → delivered`.
+
+      **Acceptance.** A supplier marks production started with a photo → the
+      buyer sees it, dated, with who recorded it. A milestone past its
+      planned date shows late without anyone marking it late. Staff can enter
+      the same update for a supplier off the platform.
+
+      **Gotcha.** This answers P7's open question — who updates milestones —
+      with "the supplier, or staff for them". Lateness is **derived** from
+      `planned_at`, never a stored flag and never a cron.
+
+- [ ] **V28 · Inspection and conformity.** *Size M. Step 17. Depends on: V22,
+      V27.*
+
+      **What it does.** An inspection partner is asked, reports, and what
+      does not conform is tracked to a resolution.
+
+      **Schema.** `deal_issue` — `deal_id`, `kind` (`nonconformity | damage |
+      shortfall | delay | other`), `raised_by` + role, `description`,
+      `status` (`open | resolved | disputed`), `resolution`, timestamps.
+      Document kind `inspection`.
+
+      **Acceptance.** Staff open an inspection case; the inspector (or staff
+      for them) files the report; a gap becomes an issue the buyer sees, and
+      the dossier cannot be closed while one is `open`.
+
+- [ ] **V29 · Transport and customs.** *Size M. Step 18. Depends on: V22,
+      V27.*
+
+      **What it does.** Booking, transit and customs statuses from the
+      logistics partners, with the paperwork each produces.
+
+      **Schema.** Document kinds `packing_list`, `bill_of_lading`, `customs`,
+      `insurance`. Statuses are `order_milestone` rows of the transport and
+      customs kinds — no parallel status table.
+
+      **Acceptance.** A transit agent records a booking and a customs
+      clearance from the Partner Hub; the buyer follows them on the dossier;
+      staff can record either one instead.
+
+      **Gotcha.** No carrier or customs API. The `manual` provider is the
+      whole integration until a partner contract says otherwise.
+
+- [ ] **V30 · The buyer confirms reception.** *Size M. Step 19. Depends on:
+      V27.*
+
+      **What it does.** The buyer's act the `deal` table has been waiting
+      for: `satisfaction`, `review_comment`, `reviewed_at` and `reviewed_by`
+      exist and nothing writes them.
+
+      **Files.** New `src/lib/deal-fns.ts` — `confirmReceptionFn({ dealId,
+      satisfaction, comment, issues[] })`, buyer role, `delivered →
+      reviewed`. The dossier.
+
+      **Acceptance.** Only a `buyer` seat confirms. Reporting a discrepancy
+      creates `deal_issue` rows and still records the reception. Staff cannot
+      confirm for the buyer — the rule is two acts by two actors.
+
+- [ ] **V31 · Closure, and what the platform remembers.** *Size M. Step 20.
+      Depends on: V30. Replaces P11's supplier-performance half.*
+
+      **What it does.** Staff close the dossier, and what happened is written
+      back to the supplier graph so the next search is better informed.
+
+      **Schema.** `supplier_performance` — one row per closed deal:
+      `supplier_id`, `deal_id`, response time, on-time against planned
+      milestones, satisfaction, issues raised and resolved. Append-only.
+
+      **Files.** `closeDealFn` (staff, `reviewed → closed`, refused while an
+      issue is open); `matching.ts` — KPI #1 reads the aggregate.
+
+      **Acceptance.** A supplier with two late deliveries ranks lower on the
+      next comparable request, and the breakdown from V05 says why. Closing
+      over an unreviewed dossier stays illegal.
+
+      **Gotcha.** This is the moat ADR-001 describes — facts nobody can
+      scrape. Store the facts per deal and derive the score; a stored score
+      cannot be re-weighted when the formula changes.
+
+---
+
+#### Slice 6 — Settlement (step 15) — 🔒 blocked on the legal opinion
+
+**Nothing in this slice starts before Zack has answered** whether a partner
+can remit OSI's fee without OSI being deemed to hold the commercial funds.
+README §2c's rule stands: for anything financial, *do not build it yet*. The
+tasks are written so the day the answer comes, the work is already cut.
+
+- [ ] **V32 · The settlement record and the fee grid.** *Size L. Depends on:
+      V01, V21, V25, **and the legal opinion**. Replaces P9.*
+
+      **Schema.** `settlement` — `deal_id` (**unique: one settlement partner
+      per dossier, never both**), `partner_id` (kind `settlement`),
+      `status`, `goods_cents` + `currency`, `fee_bps` and `fee_cents`
+      (**snapshots** — a later rate change never rewrites a dossier),
+      `partner_fee_cents`, `partner_reference`, timestamps. `fee_rule` — the
+      grid §8 asks for: fixed amount, percentage, threshold, currency,
+      triggering event, partner; the 3 % is the row it ships with.
+
+      **Acceptance.** Choosing escrow.com for a dossier makes Globex
+      unavailable for it, at the database, not in the form. The buyer sees
+      one amount, composed of the supplier's price and OSI's fee, and the
+      partner's own fee beside it. Track-only: staff record what the partner
+      reports.
+
+      **Gotcha.** No table here holds a balance. OSI is never on the money
+      path, and a ledger that looks like one is the first thing a regulator
+      reads.
+
+- [ ] **V33 · Settlement providers.** *Size L. Depends on: V32 and a signed
+      partner agreement.* escrow.com and Globex as two implementations of the
+      V21 adapter — `createCase`, `redirectUrl`, `receiveWebhook`. Behind a
+      feature flag. The buyer is redirected to the partner; no card, account
+      or wire detail ever reaches OSI.
+
+- [ ] **V34 · The fee's supporting document.** *Size M. Depends on: V32.*
+      The *pièce justificative* for OSI's fee — a client-paid service fee
+      carries tax and needs one, a partner revenue share would not (README
+      §2c). Numbered, stored as a `document`, issued when the partner remits.
+
+---
+
+#### Order, and what each slice needs from the one before
+
+```
+V01 ─┬─────────────► V06 ─► V07 ─► V09 ─► V10 ─► V11 ─► V12 ─► V13
+V02 ─┘                ▲                           └─► V14
+V04 ─► V05 ───────────┘
+V08 (anytime)
+
+V03 ─► V15 ─► V16 ─► V17            needs slice 1 running
+V18 ─► V19 ─► V20                   independent — any time
+V03 ─► V21 ─► V22 ─► V23 · V22 ─► V24 (needs V09)
+V13 ─► V25 ─► V26 · V27 ─► V28 · V29 · V30 ─► V31
+V32 ─► V33 · V34                    🔒 legal
+```
+
+**Recommended order: slice 0 → 1 → 2 → 3 → 4 → 5, slice 6 when cleared.**
+Slice 3 can move earlier at no cost; it touches the front of the funnel and
+nothing after it.
+
+**What "done" means for E13.** A buyer describes a need, validates the cahier
+des charges, and receives a Decision Pack of up to five offers ranked on
+landed cost, released by staff or by the platform; picks one; and the dossier
+runs to closure with the supplier and the partners acting from their own
+surfaces or through staff — with OSI never on the money path. Slices 0–5
+deliver all of it except payment; slice 6 delivers payment.
+
+**What Phase V does to Phase P's open tasks.** P7 → V27. P8's remainder →
+V25 (deal and contract documents, versions) and the kinds added by V28–V29.
+P9 → V32. P10 → V25. P11 → V31 for supplier performance; the « économies »
+tile stays blocked on the same missing baseline price. G2 (supplier portal
+access, deferred 2026-08-29) is decided: slice 2.
+
 ### Sequencing & dependencies
 
 ```
@@ -4126,6 +5175,9 @@ B1 → B2 → B3/B5 → B6/B7 · B4 + real email need B9 · B8 anytime after B1
 C1 needs A1-A3 · C2 needs C1 · C3/C4 independent of C1-C2 · C5 gates alibaba
 MVP1 (E6 facilitation, E10 verification) interleaves freely — verification
 feeds C3/C4 value (Recommandé requires Vérifié)
+V01+V02 → V04 → V05 → V06 → V07 → V09 → V10 → V11 → V12 → V13 (slice 1)
+V03 gates every external surface (V15-V17, V23) · V18-V20 independent
+V32-V34 (settlement) wait on the legal opinion — full graph in Phase V
 ```
 
 ## Epics → tasks
@@ -4616,6 +5668,7 @@ E3 → E4 → E5         (the core loop: request → research → Top 5)
 E6 → E7              (facilitation + report = MVP1 demo-able)
 E10 in parallel from E4 (admin grows with supplier data)
 E8, E9, E11          (execution & comfort)
+E13 = Phase V        (slices 0 → 1 → 2 → 3 → 4 → 5; slice 6 after legal)
 ```
 
 **MVP1 = E0–E7 + E10.** Definition of done — **restated by ADR-002

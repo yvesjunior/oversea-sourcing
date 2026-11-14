@@ -1851,7 +1851,8 @@ page 1, the money circuit on page 2.
 > still carries — Henrik on the structure, Zack on the legal points (see
 > *Everything here is provisional* below, and the « À confirmer par Zack »
 > line the money circuit still shows). Nothing is built as a result; the
-> distance to it is in [BACKLOG E13](BACKLOG.md).
+> distance to it is in [BACKLOG E13](BACKLOG.md), and the work to close it is
+> cut into 34 tasks in **BACKLOG Phase V** (2026-11-14).
 
 It carries **two drawings** (2026-10-25). The parcours is not one-way, and a
 strictly descending diagram claimed it was, so it now shows the returns: a
