@@ -1840,7 +1840,18 @@ diagram below carries both.
 
 **📐 [The parcours, drawn](https://claude.ai/artifact/Bn6QLTgjbCf61ks2ghQm5N)** —
 20 steps in five lanes, with what is decided and what is built shown
-separately. The artifact is the live copy; there is no PDF in the repo.
+separately. The artifact is the live copy; a printable two-page copy is
+[`OSI-Parcours-V6.pdf`](OSI-Parcours-V6.pdf) at the repo root — the parcours on
+page 1, the money circuit on page 2.
+
+> **Status: VALIDATED — reported by the owner on 2026-11-14.** Both drawings,
+> the parcours and the money circuit, were validated. What this records is the
+> owner's statement and nothing more: **who** validated is not written down
+> here, and it does not by itself lift the two reservations this section
+> still carries — Henrik on the structure, Zack on the legal points (see
+> *Everything here is provisional* below, and the « À confirmer par Zack »
+> line the money circuit still shows). Nothing is built as a result; the
+> distance to it is in [BACKLOG E13](BACKLOG.md).
 
 It carries **two drawings** (2026-10-25). The parcours is not one-way, and a
 strictly descending diagram claimed it was, so it now shows the returns: a

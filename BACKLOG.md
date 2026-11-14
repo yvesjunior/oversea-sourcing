@@ -24,7 +24,7 @@
 | **E9** Notifications | In-app + email | 🟡 bell, emitters, **prefs (2026-08-26)** live; Phase P types (`quote_received`, `contract_to_sign`, `contract_signed`) + staff alert on `quotes.requested` (2026-09-07) live; **the bell alerts (2026-09-14)** — count badge, 30 s poll, chime, per-browser mute |
 | **E10** Admin surfaces | Verification, imports, ops queue | 🟡 **verification LIVE (S5b/S5c, 2026-08-26)**; imports/ops queue placeholders |
 | **R** Custom staff roles | Roles as data + the matrix | ✅ **BUILT 2026-08-29** (migration 0039) — create/delete roles, dynamic matrix, `requests.all` |
-| **E13** V6 architecture | Supplier portal · KPI #2 · Partner Hub · Decision Pack | 🔵 **NEW 2026-10-21** — scope opened by the V6 document; nothing built, see below |
+| **E13** V6 architecture | Supplier portal · KPI #2 · Partner Hub · Decision Pack | 🔵 **NEW 2026-10-21** — scope opened by the V6 document; diagrams validated 2026-11-14; nothing built, see below |
 | **E11** Settings | Profile, sourcing rules | 🟡 Paramètres + notification prefs live; **password / 2FA / theme / rename (2026-08-27)** live; buyer Abonnement self-service waits for billing |
 
 **MVP1 = E0–E7 + E10.** Definition of done **restated 2026-08-29 by ADR-002**
@@ -1782,6 +1782,12 @@ included, and **the money circuit** underneath. That second one is the piece to
 put in front of Zack — it answers in a glance what §8 takes three pages to
 state, namely that OSI is never on the money path.
 What matters here is the distance to it.
+
+**Both drawings are validated** (owner, reported 2026-11-14). The target is
+therefore no longer moving under this epic — the gap table below is measured
+against an agreed picture. It changes nothing about what is built, and the
+legal reservation on the money circuit stays open until it is explicitly
+lifted. A printable copy sits at the repo root: `OSI-Parcours-V6.pdf`.
 
 **Of V6's twelve "étapes confirmées", five are fully in production.** Four are
 partial, three do not exist. Verified against the code, not assumed:
