@@ -22,6 +22,7 @@
     "clients": "Customers",
     "finance": "Finance",
     "plans": "Subscriptions",
+    "settings": "Platform settings",
     "users": "Users",
     "logging": "Logging",
     "sources": "Data sources"
@@ -758,6 +759,45 @@
     "usedToday": "Used (24 h)",
     "plan": "Plan"
   },
+  "platformSettings": {
+    "title": "Platform settings",
+    "subtitle": "One value per setting, applied to every client. Each change is logged.",
+    "groups": {
+      "rfq": "Requests for quotation (RFQ)",
+      "pack": "Decision Pack",
+      "fee": "OSI fee"
+    },
+    "keys": {
+      "rfq.window_hours": "Supplier response window",
+      "rfq.target_offers": "Number of offers that closes the window",
+      "pack.release_mode": "Releasing the Decision Pack",
+      "fee.rate_bps": "Fee rate"
+    },
+    "hints": {
+      "rfq.window_hours": "Counted from the moment the RFQ batch is sent. A window already open keeps the delay it was opened with.",
+      "rfq.target_offers": "The window closes as soon as this many offers are in, without waiting for the delay. Not the number of suppliers the search ranks — that is set per plan.",
+      "pack.release_mode": "Manual: staff validate and send each pack. Automatic: the pack goes out when the window closes, with no one involved.",
+      "fee.rate_bps": "In basis points of the transaction amount, added on top: 300 = 3%. The settlement partner's own fees come on top of it. Nothing applies it until the money circuit has its legal opinion."
+    },
+    "units": {
+      "hours": "hours",
+      "offers": "offers",
+      "bps": "basis points"
+    },
+    "options": {
+      "manual": "Manual",
+      "automatic": "Automatic"
+    },
+    "optionSoon": "coming soon",
+    "inert": "Not applied yet",
+    "inertHint": "This setting is stored, but nothing in the platform reads it yet.",
+    "range": "From {{min}} to {{max}}",
+    "percent": "i.e. {{percent}}%",
+    "usingDefault": "Default value — never changed",
+    "lastChangedBy": "Changed by {{name}}, {{date}}",
+    "save": "Save",
+    "refused": "Value refused — outside the allowed range."
+  },
   "notifications": {
     "report_ready": "Your report #{{id}} is ready",
     "invitation_accepted": "{{name}} joined your workspace {{workspace}}",
@@ -866,6 +906,7 @@
     "ownership.transferred": "Ownership transferred",
     "plan.assigned": "Plan assigned",
     "plan.updated": "Plan limits updated",
+    "platform_setting.updated": "Platform setting changed",
     "supplier.verified": "Supplier verified (Vérifié OSI)",
     "supplier.verification_revoked": "Verification withdrawn",
     "supplier.banned": "Supplier banned (global)",
@@ -931,6 +972,7 @@
       "finance": "Finance",
       "analytics": "Analytics",
       "plans": "Subscriptions — limits & assignment",
+      "settings": "Platform settings",
       "users": "Users (internal team)",
       "clients": "Customers",
       "sources": "Data sources",

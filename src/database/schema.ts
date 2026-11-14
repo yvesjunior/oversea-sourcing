@@ -647,6 +647,32 @@ export const platformRoleTable = pgTable("platform_role", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+/**
+ * Platform-wide settings (Phase V · V01, 2026-11-14) — ONE value per key,
+ * applying to every client. No per-workspace and no per-category override
+ * (owner, 2026-10-22): a switch nobody can special-case is a switch whose
+ * behaviour can be stated in one sentence.
+ *
+ * Before this table nothing platform-wide could be configured: the only
+ * config stores were `sourcing_rules` (per workspace) and `plan` (per plan),
+ * and everything else was an env var that needed a deploy to change.
+ *
+ * A MISSING row means the default. The keys, their types, ranges and defaults
+ * live in src/lib/platform-settings.ts — the registry is the schema for
+ * `value`, which is why the column is jsonb and not one column per setting:
+ * adding a knob is a registry entry, not a migration. A row whose value no
+ * longer passes the registry reads as the default rather than as garbage.
+ */
+export const platformSetting = pgTable("platform_setting", {
+  key: text("key").primaryKey(),
+  value: jsonb("value").notNull(),
+  /** Tombstone pair — "who set the fee to 0" must outlive the account. */
+  updatedBy: text("updated_by").references(() => user.id, { onDelete: "set null" }),
+  updatedByName: text("updated_by_name"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
 export const auditLog = pgTable(
   "audit_log",
   {

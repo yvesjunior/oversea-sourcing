@@ -1910,15 +1910,28 @@ things follow, and they are design constraints rather than preferences:
 
 - **The gate is configuration, not control flow** — and it lives in the
   platform's own Paramètres (owner, 2026-10-22), so turning it on is a setting
-  and not a deploy. **That home does not exist yet.** Checked: of the 40
-  tables, the only configuration stores are `sourcing_rules`, which is
-  per-workspace (`sourcing_rules_org_uq` on `organization_id`), and `plan`,
-  which is per-plan. `/parametres` is the buyer's page and carries no
-  `requirePlatformFeature`; the seven internal pages are clients, finance,
-  logging, plans, sources, utilisateurs and verification. A platform-level
-  setting therefore needs a store and an internal surface, neither of which is
-  built — and both would serve the knobs still living in env vars, such as
-  `SUPPLIERS_RETURNED` and the 72 h window.
+  and not a deploy. **That home exists since 2026-11-14** (BACKLOG Phase V,
+  V01 — migration 0046): the `platform_setting` table, one row per key, and
+  the internal page `/interne/parametres`, owner-only through the `settings`
+  permission. Until then the only configuration stores were `sourcing_rules`
+  (per workspace) and `plan` (per plan), and `/parametres` was — and still
+  is — the buyer's page.
+  What a key *is* lives in the registry, `src/lib/platform-settings.ts`: its
+  type, range and default. A key that is not there cannot be stored, and a
+  stored value that no longer fits reads as the default. Four keys ship:
+  the RFQ window (72 h), the number of offers that closes it (5), the release
+  mode (`manual`) and the fee rate (300 basis points).
+  **Two honesty rules are built into it.** Every key is marked *not applied
+  yet* on the page for as long as nothing reads it — which today is all four,
+  because the rounds and packs that will read them are not built — so the
+  page cannot suggest a number does something it does not. And `automatic`
+  exists as a release mode but is **refused by the server** until the code
+  that honours it ships: a mode selectable before its reader exists would
+  switch itself on the day that reader is deployed, with nobody having
+  decided to.
+  The env-var knobs (`SUPPLIERS_RETURNED` and the rest of
+  `sourcing-config.ts`) were deliberately not moved: they are read at module
+  load by the worker, and that is its own change.
 - **Who released it is STORED, never derived.** Handing a pack to a buyer is
   an irreversible side effect, like a sent email: the row records when, and
   whether a person or the system did it. That is the distinction the derived
@@ -2385,6 +2398,7 @@ erDiagram
 | `supplier_verification` / `sanction_entry` | ✅ 2026-08-26 (S5b) — one evidence row per supplier × check, and the local OFAC SDN copy. `verification_status` is DERIVED from these rows and written only by `src/server/verification.ts` |
 | `translation_memory` | ✅ 2026-08-29 — platform-wide cache of criterion translations (`request_criterion.value_en`); deliberately not workspace-scoped |
 | `platform_permission` / `platform_role` | ✅ 2026-08-28/29 — the Rôles & accès matrix (feature × role) and the owner-created staff roles; the owner is never a row |
+| `platform_setting`   | ✅ 2026-11-14 (0046, Phase V · V01) — platform-wide settings, ONE value per key for every client; a missing row means the default. Keys, types, ranges and defaults live in the registry `src/lib/platform-settings.ts`, so a new knob is a registry entry and not a migration. Edited from `/interne/parametres` (`settings` permission, owner by default); every change is in `audit_log` with the old and new value |
 | `plan` / `subscription` | limits as rows (daily, lifetime, seats, `quota_scope`, `audience`, `suppliers_returned`, `model_tier`); one subscription per workspace |
 | `notification` / `notification_pref` | ✅ E9 — in-app inbox (type + params, rendered in the viewer's language) and per-user channel preferences |
 | `organization_profile` | ✅ 2026-08-26 — legal and tax identity of a company workspace |
@@ -2607,6 +2621,7 @@ Implementation facts that must not be re-derived differently:
 | `src/server/`                 | Server-only: auth, queue, matching, research, attachments, storage              |
 | `src/server/ai/`              | **The only place that calls Claude** — gateway, model registry, research agent  |
 | `src/server/sourcing-config.ts` | `SUPPLIERS_RETURNED` and everything derived from it                          |
+| `src/lib/platform-settings.ts`  | The platform settings REGISTRY — keys, types, ranges, defaults (`src/server/platform-settings.ts` reads and writes the table) |
 | `src/worker.ts`               | Background worker entrypoint (pg-boss)                                         |
 | `src/database/`               | Drizzle schema, migrations, seed                                               |
 | `src/data/osi.ts`             | Remaining showcase data (transactions only — analytics is now DB-backed)        |

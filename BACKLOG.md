@@ -24,7 +24,7 @@
 | **E9** Notifications | In-app + email | 🟡 bell, emitters, **prefs (2026-08-26)** live; Phase P types (`quote_received`, `contract_to_sign`, `contract_signed`) + staff alert on `quotes.requested` (2026-09-07) live; **the bell alerts (2026-09-14)** — count badge, 30 s poll, chime, per-browser mute |
 | **E10** Admin surfaces | Verification, imports, ops queue | 🟡 **verification LIVE (S5b/S5c, 2026-08-26)**; imports/ops queue placeholders |
 | **R** Custom staff roles | Roles as data + the matrix | ✅ **BUILT 2026-08-29** (migration 0039) — create/delete roles, dynamic matrix, `requests.all` |
-| **E13** V6 architecture | Supplier portal · KPI #2 · Partner Hub · Decision Pack | 🔵 **NEW 2026-10-21** — scope opened by the V6 document; diagrams validated 2026-11-14; **34 tasks in seven slices — [Phase V](#phase-v--the-v6-parcours-task-by-task-e13--written-2026-11-14)**; nothing built |
+| **E13** V6 architecture | Supplier portal · KPI #2 · Partner Hub · Decision Pack | 🔵 **NEW 2026-10-21** — scope opened by the V6 document; diagrams validated 2026-11-14; **34 tasks in seven slices — [Phase V](#phase-v--the-v6-parcours-task-by-task-e13--written-2026-11-14)**; **V01 built 2026-11-14** (platform settings), not deployed |
 | **E11** Settings | Profile, sourcing rules | 🟡 Paramètres + notification prefs live; **password / 2FA / theme / rename (2026-08-27)** live; buyer Abonnement self-service waits for billing |
 
 **MVP1 = E0–E7 + E10.** Definition of done **restated 2026-08-29 by ADR-002**
@@ -1856,7 +1856,7 @@ partial, three do not exist. Verified against the code, not assumed:
   pack; the automatic path is designed in now and turned on later. So build a
   mode resolved like the other sourcing knobs, not an `if` in the pipeline.
   Three pieces of work, none of which exists:
-  - a **platform settings store and an internal Paramètres page** — the owner
+  - ✅ **BUILT 2026-11-14 (Phase V · V01).** a **platform settings store and an internal Paramètres page** — the owner
     wants the mode set from OSI's own Paramètres (2026-10-22), as **one global
     value applying to every client, with no per-client or per-category
     override**, and there is nowhere to put it: of 40 tables the only config stores are
@@ -4184,10 +4184,9 @@ below are built on:
   country, website, descriptions, provenance, verification, scores, dedup key
   and ban fields — and no email, phone or contact name, there or in any other
   table. Step 07 cannot send anything until V02.
-- **Nothing platform-wide can be configured.** 40 tables; the only config
-  stores are `sourcing_rules` (per workspace) and `plan` (per plan). The seven
-  `/interne/*` pages are clients, finance, logging, plans, sources,
-  utilisateurs and verification.
+- ~~**Nothing platform-wide can be configured.**~~ **Fixed by V01
+  (2026-11-14):** `platform_setting` and `/interne/parametres`. 41 tables now.
+  The four keys it ships are stored and read by nothing yet.
 - **The buyer picks who is asked.** `requestQuotesFn` is guarded by
   `requireWorkspaceRole(…, "buyer")` and gated by `plan.quotes_enabled`. The
   validated diagram moves that choice to OSI (steps 06–07).
@@ -4263,7 +4262,33 @@ built in: **S** one, **M** two to three, **L** four or more.
 
 #### Slice 0 — Foundations
 
-- [ ] **V01 · Platform settings: a store and an internal page.** *Size M.
+- [x] **V01 · Platform settings — BUILT 2026-11-14** (migration **0046**,
+      not deployed). `platform_setting` (key PK, jsonb value, tombstone
+      author); the registry `src/lib/platform-settings.ts`;
+      `src/server/platform-settings.ts` (30 s in-process cache, busted on
+      write); `getPlatformSettingsFn` / `updatePlatformSettingFn`;
+      `/interne/parametres`; the `settings` permission, owner by default; 13
+      unit tests.
+      **Two things added beyond the task as written**, both to keep the page
+      honest:
+      • **`inert`** — every key carries a flag that is true while nothing
+        reads it, and the page shows « Pas encore appliqué ». All four are
+        inert today. **The task that makes a key real flips its flag in the
+        same commit**: `rfq.window_hours` in V06, `rfq.target_offers` in V07,
+        `pack.release_mode` in V07, `fee.rate_bps` in V32.
+      • **`unavailable`** — `automatic` is in the type and refused on write
+        until V14, so the mode cannot be selected before its reader exists.
+        A stored value is still read back if an option is later withdrawn.
+      *Verified live in dev:* the owner set the window 72 → 48 → 72 and each
+      change wrote `platform_setting.updated` with `{from, to}`, labelled in
+      the journal; saving the value already in force writes no audit row;
+      9999 was refused by the server with a message and stored nothing; a
+      manager in the internal workspace gets a 307 from `/interne/parametres`
+      while `/interne/sources` answers 200; the entry sits in the INTERNE nav.
+      **Not verifiable yet:** "the next round opened uses 48, rounds already
+      open keep theirs" — there are no rounds until V06. Carry that line into
+      V06's acceptance.
+- [x] ~~**V01 · Platform settings: a store and an internal page.**~~ *Size M.
       Depends on: nothing. Blocks: V06, V07, V14, V32.*
 
       **What it does.** Gives OSI one place to set values that apply to every

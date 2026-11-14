@@ -39,6 +39,10 @@ export const PLATFORM_FEATURES = {
   // Plans & subscriptions (owner decision 2026-08-27: "owner combines all
   // rights") — money & rules are OWNER territory; managers operate.
   plans: ["owner"],
+  // Platform-wide settings (Phase V · V01): the RFQ window, the Decision
+  // Pack's release mode, the fee rate. One value for every client, so a
+  // change here moves the whole product — owner territory, like plans.
+  settings: ["owner"],
   // Platform user management: every account, its workspace, plan and usage.
   users: ["owner", "manager"],
   // The audit journal — every lifecycle/admin action, per org, per user.

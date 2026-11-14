@@ -22,6 +22,7 @@
     "clients": "Clients",
     "finance": "Finance",
     "plans": "Abonnements",
+    "settings": "Paramètres plateforme",
     "users": "Utilisateurs",
     "logging": "Logging",
     "sources": "Sources de données"
@@ -758,6 +759,45 @@
     "usedToday": "Utilisées (24 h)",
     "plan": "Forfait"
   },
+  "platformSettings": {
+    "title": "Paramètres de la plateforme",
+    "subtitle": "Une seule valeur par réglage, appliquée à tous les clients. Chaque changement est journalisé.",
+    "groups": {
+      "rfq": "Appels d'offres (RFQ)",
+      "pack": "Decision Pack",
+      "fee": "Honoraires OSI"
+    },
+    "keys": {
+      "rfq.window_hours": "Délai de réponse des fournisseurs",
+      "rfq.target_offers": "Nombre d'offres qui clôt la fenêtre",
+      "pack.release_mode": "Envoi du Decision Pack",
+      "fee.rate_bps": "Taux des honoraires"
+    },
+    "hints": {
+      "rfq.window_hours": "Compté à partir de l'envoi du lot de RFQ. Une fenêtre déjà ouverte garde le délai avec lequel elle a été ouverte.",
+      "rfq.target_offers": "La fenêtre se ferme dès que ce nombre d'offres est reçu, sans attendre le délai. À ne pas confondre avec le nombre de fournisseurs classés par la recherche, qui se règle par abonnement.",
+      "pack.release_mode": "Manuel : l'équipe valide et envoie chaque pack. Automatique : le pack part à la fermeture de la fenêtre, sans intervention.",
+      "fee.rate_bps": "En points de base du montant de la transaction, ajoutés en sus : 300 = 3 %. Les frais propres du partenaire de règlement s'y ajoutent. Rien ne l'applique tant que le circuit de l'argent n'a pas reçu son avis juridique."
+    },
+    "units": {
+      "hours": "heures",
+      "offers": "offres",
+      "bps": "points de base"
+    },
+    "options": {
+      "manual": "Manuel",
+      "automatic": "Automatique"
+    },
+    "optionSoon": "bientôt",
+    "inert": "Pas encore appliqué",
+    "inertHint": "Ce réglage est enregistré, mais rien dans la plateforme ne le lit encore.",
+    "range": "De {{min}} à {{max}}",
+    "percent": "soit {{percent}} %",
+    "usingDefault": "Valeur par défaut — jamais modifiée",
+    "lastChangedBy": "Modifié par {{name}}, {{date}}",
+    "save": "Enregistrer",
+    "refused": "Valeur refusée — hors des bornes autorisées."
+  },
   "notifications": {
     "report_ready": "Votre rapport #{{id}} est prêt",
     "invitation_accepted": "{{name}} a rejoint votre espace {{workspace}}",
@@ -866,6 +906,7 @@
     "ownership.transferred": "Propriété transférée",
     "plan.assigned": "Abonnement assigné",
     "plan.updated": "Limites du plan modifiées",
+    "platform_setting.updated": "Paramètre plateforme modifié",
     "supplier.verified": "Fournisseur vérifié (Vérifié OSI)",
     "supplier.verification_revoked": "Vérification retirée",
     "supplier.banned": "Fournisseur banni (global)",
@@ -931,6 +972,7 @@
       "finance": "Finance",
       "analytics": "Analyses",
       "plans": "Abonnements — limites & assignation",
+      "settings": "Paramètres de la plateforme",
       "users": "Utilisateurs (équipe interne)",
       "clients": "Clients",
       "sources": "Sources de données",

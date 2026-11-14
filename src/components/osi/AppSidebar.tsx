@@ -16,6 +16,7 @@ import {
   ScrollText,
   Settings,
   ShieldCheck,
+  SlidersHorizontal,
   UserCog,
   Users,
   Handshake,
@@ -102,6 +103,9 @@ const itemsInterne: {
   { key: "finance", url: "/interne/finance", icone: Wallet },
   // Real screen, not a placeholder — so it stays live for managers.
   { key: "plans", url: "/interne/plans", icone: CreditCard },
+  // One value per key, for every client (Phase V · V01). Not the buyer's
+  // "Paramètres" — that one is /parametres, in the client block above.
+  { key: "settings", url: "/interne/parametres", icone: SlidersHorizontal },
   // Platform user management: accounts, roles, plan assignment (2026-08-23).
   { key: "users", url: "/interne/utilisateurs", icone: UserCog },
   // The audit journal — own entry since 2026-08-27 (was on Utilisateurs).
