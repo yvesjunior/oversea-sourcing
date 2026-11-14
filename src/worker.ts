@@ -17,7 +17,7 @@ import { and, eq, inArray, lt } from "drizzle-orm";
 import { db } from "@/database";
 import * as schema from "@/database/schema";
 import type { RequestStatus } from "@/database/schema";
-import { IN_FLIGHT_STATUSES } from "@/lib/request-status";
+import { forksToPack, IN_FLIGHT_STATUSES } from "@/lib/request-status";
 import {
   QUEUES,
   type PipelineJob,
@@ -134,6 +134,32 @@ async function handlePipeline({ requestId }: PipelineJob, enqueue: Enqueue): Pro
     await sleep(STAGE_MS);
   }
   if (status === "validating") {
+    // THE FORK (Phase V · V05). A workspace whose plan includes quotes goes on
+    // to the internal shortlist — when the pack flow is switched on at all —
+    // and the buyer is told nothing yet: there is no report on that flow, and
+    // the ranking is OSI's working list. Everyone else ends here, as always.
+    const [{ resolvePlan }, { getSetting }] = await Promise.all([
+      import("@/server/plan"),
+      import("@/server/platform-settings"),
+    ]);
+    const plan = await resolvePlan(orgId);
+    if (forksToPack(plan.quotesEnabled, await getSetting("flow.pack_enabled"))) {
+      await transitionRequest(requestId, orgId, "validating", "shortlisted");
+      const { notifyStaff } = await import("@/server/notify");
+      await notifyStaff("deals", {
+        type: "shortlist_ready",
+        params: { id: requestId },
+        link: `/demandes/${requestId}`,
+        email: {
+          subjectFr: `Présélection à confirmer — demande #${requestId}`,
+          subjectEn: `Shortlist to confirm — request #${requestId}`,
+          bodyFr: `La recherche de la demande #${requestId} est terminée et sa présélection de fournisseurs attend d'être confirmée.\nRien n'est parti : aucun fournisseur n'est sollicité tant que la présélection n'est pas confirmée.\nOuvrez la demande dans OSI pour choisir qui consulter.`,
+          bodyEn: `The search for request #${requestId} is complete and its supplier shortlist is waiting to be confirmed.\nNothing has been sent: no supplier is solicited until the shortlist is confirmed.\nOpen the request in OSI to choose who to consult.`,
+        },
+      });
+      console.log(`pipeline: ${requestId} forked to the pack flow — shortlist awaits staff`);
+      return;
+    }
     await transitionRequest(requestId, orgId, "validating", "report_ready");
     // E9: the buyer should not have to keep the tab open to learn the result.
     // created_by is null when the creator's account was deleted (UC-6

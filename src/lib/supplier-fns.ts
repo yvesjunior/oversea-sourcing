@@ -182,12 +182,12 @@ export const getLinkedSuppliersFn = createServerFn({ method: "GET" }).handler(
     // message thread, when P10 lands) is one more block, not a rewrite.
     const [matched, quoted, dealt, partied] = await Promise.all([
       db
-        .select({ id: schema.match.supplierId })
+        .select({ id: schema.match.supplierId, requestId: schema.match.requestId })
         .from(schema.match)
         .innerJoin(schema.request, eq(schema.match.requestId, schema.request.id))
         .where(eq(schema.request.organizationId, workspaceId)),
       db
-        .select({ id: schema.quote.supplierId })
+        .select({ id: schema.quote.supplierId, requestId: schema.quote.requestId })
         .from(schema.quote)
         .where(eq(schema.quote.organizationId, workspaceId)),
       db
@@ -203,9 +203,18 @@ export const getLinkedSuppliersFn = createServerFn({ method: "GET" }).handler(
 
     // The supplier reference is nullable on quote/deal/contract_party — the row
     // survives its supplier (the tombstone rule), and a null cannot be looked up.
+    // On the pack flow, being shortlisted or asked is NOT yet a link the buyer
+    // may see: the suppliers OSI is soliciting stay unnamed until the Decision
+    // Pack (owner, 2026-11-14). A deal or a contract is different — by then
+    // the supplier has been chosen and disclosed — so those two traces are
+    // never filtered.
+    const { packFlowRequestIds } = await import("@/server/request-flow");
+    const packFlow = await packFlowRequestIds([...matched, ...quoted].map((row) => row.requestId));
+    const disclosed = [...matched, ...quoted].filter((row) => !packFlow.has(row.requestId));
+
     const linkedIds = [
       ...new Set(
-        [...matched, ...quoted, ...dealt, ...partied]
+        [...disclosed, ...dealt, ...partied]
           .map((row) => row.id)
           .filter((id): id is string => id !== null),
       ),

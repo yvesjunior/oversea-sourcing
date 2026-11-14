@@ -9,6 +9,7 @@ import { REQUEST_STATUSES, type RequestStatus } from "@/database/schema";
 import {
   canTransition,
   criteriaEditable,
+  forksToPack,
   IN_FLIGHT_STATUSES,
   isInFlight,
   isTerminal,
@@ -260,5 +261,18 @@ describe("labels", () => {
       expect(stepsFlux[key], `stepsFlux.${key}`).toBeTypeOf("string");
       expect(stepsDemande[key], `stepsDemande.${key}`).toBeTypeOf("object");
     }
+  });
+});
+
+// ── Phase V · V05: the fork ──────────────────────────────────────────────────
+
+describe("which requests take the pack flow", () => {
+  it("needs BOTH a plan with quotes and the flow switched on", () => {
+    expect(forksToPack(true, "on")).toBe(true);
+    expect(forksToPack(true, "off")).toBe(false);
+    // A plan without quotes ends at the report whatever the switch says
+    // (owner, 2026-11-14: the plan decides who enters the V6 flow).
+    expect(forksToPack(false, "on")).toBe(false);
+    expect(forksToPack(false, "off")).toBe(false);
   });
 });

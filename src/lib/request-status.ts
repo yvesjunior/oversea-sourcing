@@ -88,6 +88,19 @@ export function isTerminal(status: RequestStatus): boolean {
 
 export type RequestFlow = "report" | "pack";
 
+/**
+ * The fork, decided once when `validating` finishes.
+ *
+ * Both must hold: the workspace's plan includes quotes (owner, 2026-11-14 —
+ * the plan decides who enters the V6 flow), AND the platform has the pack
+ * flow switched on. The second condition is temporary scaffolding: it lets
+ * the flow be built and exercised task by task without stranding real
+ * requests in a state the product cannot yet move them out of.
+ */
+export function forksToPack(planHasQuotes: boolean, packFlowSetting: "off" | "on"): boolean {
+  return planHasQuotes && packFlowSetting === "on";
+}
+
 /** States only the pack flow can be in. */
 const PACK_ONLY_STATUSES: readonly RequestStatus[] = [
   "shortlisted",

@@ -1207,12 +1207,31 @@ neither `report_ready` (the buyer received nothing) nor `cancelled` (which
 means the buyer withdrew). `report_ready` keeps its name on both flows; on the
 pack flow it means the Decision Pack has been released.
 
-**The machine exists; the fork does not.** Nothing moves a request into
-`shortlisted` until V05, so this changes no behaviour yet. What it does
-guarantee already: a request's flow is *derived* from where it has been, and
-**the workspace that owns a pack-flow request never reads its ranked
-suppliers** — on that flow the ranking is OSI's internal shortlist, and the
-buyer sees no supplier before the Decision Pack.
+**The fork exists and is switched off** (V05, 2026-11-14). When `validating`
+finishes, the worker sends a request to `shortlisted` only if the workspace's
+plan includes quotes **and** the platform setting `flow.pack_enabled` is `on`.
+It ships `off`, and `on` cannot be selected from the product: a request that
+reaches `shortlisted` has no way forward until the rest of the flow is built
+(RFQ batch, window, pack, release — BACKLOG Phase V, V06–V12), so turning it on
+early would strand every paying customer's request there. In development it is
+exercised by writing the setting's row directly.
+
+What is already true on the pack flow, and tested as the owning workspace:
+
+- A request's flow is *derived* from where it has been, never stored.
+- **The workspace that owns the request reads no supplier.** Not the ranking,
+  not the quotes OSI solicits, not their documents, not the linked-suppliers
+  list — and no "offer received" notification goes out. One helper answers
+  "is this request on the pack flow?" for every fn that needs to know
+  (`src/server/request-flow.ts`). What the buyer does see is the stage and a
+  count: « 3 fournisseur(s) retenu(s) pour consultation ».
+- **Staff read the ranking as a shortlist**, on the dossier: why each supplier
+  ranks where it does (`score_breakdown`, computed since day one and shown
+  nowhere until now), who an RFQ would go to, and the one decision the stage
+  holds — who is asked. Confirming creates the `quote` rows and sends nothing.
+
+On the report flow nothing changed: the buyer still reads the Top-N and still
+picks who OSI approaches.
 
 Guarded transitions live in [`src/lib/request-status.ts`](src/lib/request-status.ts);
 illegal ones throw. Every change writes a `request_event` row, so timelines,

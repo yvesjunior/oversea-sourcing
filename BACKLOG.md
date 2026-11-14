@@ -24,7 +24,7 @@
 | **E9** Notifications | In-app + email | 🟡 bell, emitters, **prefs (2026-08-26)** live; Phase P types (`quote_received`, `contract_to_sign`, `contract_signed`) + staff alert on `quotes.requested` (2026-09-07) live; **the bell alerts (2026-09-14)** — count badge, 30 s poll, chime, per-browser mute |
 | **E10** Admin surfaces | Verification, imports, ops queue | 🟡 **verification LIVE (S5b/S5c, 2026-08-26)**; imports/ops queue placeholders |
 | **R** Custom staff roles | Roles as data + the matrix | ✅ **BUILT 2026-08-29** (migration 0039) — create/delete roles, dynamic matrix, `requests.all` |
-| **E13** V6 architecture | Supplier portal · KPI #2 · Partner Hub · Decision Pack | 🔵 **NEW 2026-10-21** — scope opened by the V6 document; diagrams validated 2026-11-14; **34 tasks in seven slices — [Phase V](#phase-v--the-v6-parcours-task-by-task-e13--written-2026-11-14)**; **V01, V02, V04 built 2026-11-14** (platform settings, supplier contacts, request states), not deployed |
+| **E13** V6 architecture | Supplier portal · KPI #2 · Partner Hub · Decision Pack | 🔵 **NEW 2026-10-21** — scope opened by the V6 document; diagrams validated 2026-11-14; **34 tasks in seven slices — [Phase V](#phase-v--the-v6-parcours-task-by-task-e13--written-2026-11-14)**; **V01, V02, V04, V05 built 2026-11-14** (settings, contacts, request states, the fork + shortlist — switch off), not deployed |
 | **E11** Settings | Profile, sourcing rules | 🟡 Paramètres + notification prefs live; **password / 2FA / theme / rename (2026-08-27)** live; buyer Abonnement self-service waits for billing |
 
 **MVP1 = E0–E7 + E10.** Definition of done **restated 2026-08-29 by ADR-002**
@@ -4187,9 +4187,10 @@ below are built on:
 - ~~**Nothing platform-wide can be configured.**~~ **Fixed by V01
   (2026-11-14):** `platform_setting` and `/interne/parametres`. 42 tables with V02.
   The four keys it ships are stored and read by nothing yet.
-- **The buyer picks who is asked.** `requestQuotesFn` is guarded by
-  `requireWorkspaceRole(…, "buyer")` and gated by `plan.quotes_enabled`. The
-  validated diagram moves that choice to OSI (steps 06–07).
+- **The buyer picks who is asked** — still, on the report flow, which is
+  every request while `flow.pack_enabled` is off. `requestQuotesFn` is guarded
+  by `requireWorkspaceRole(…, "buyer")` and gated by `plan.quotes_enabled`.
+  On the pack flow OSI picks (V05) and the fn refuses.
 - **`no_response` is a decline reason, not a status**, and nothing writes it
   automatically: `declineQuoteFn` takes it from a staff member, and the only
   reason the code sets by itself is `lost`, when a sibling offer is accepted.
@@ -4211,7 +4212,7 @@ below are built on:
 
 None of these blocks starting. Each task is written against the default named
 here, and each default is the cheapest one to reverse. **Answered so far: D1, D2,
-D3, D4** (2026-11-14). Six remain.
+D3, D4** (2026-11-14). Seven remain — D11 was added by V05.
 
 **D1 and D2 read together.** D1 hides suppliers from the buyer until the
 pack; D2 keeps the Top-N report for plans without quotes. They do not
@@ -4231,6 +4232,7 @@ report, exactly as today, because that report is all they get.
 | **D8** | Who sets the KPIProfile weights? | The platform proposes them from the criteria; the buyer adjusts and validates them with the cahier des charges. | V19 |
 | **D9** | `quote.sent_at` is nullable. What does the window do with an RFQ nobody marked sent? | Such a quote is not in a round and has no clock; the batch send (V06) is the only thing that opens one. | V06 |
 | **D10** | Who assigns a partner to a case, and which partner kinds exist at launch? | Staff assign, per offer. Kinds: settlement, transport, inspection, customs, insurance. | V21, V22 |
+| **D11** | The shortlist is the Top-N the search ranks — 5 by default — and the window closes on 5 offers. Asking five suppliers will rarely bring five answers. Should the pack flow rank more than it needs? | Unchanged: the shortlist is what `SUPPLIERS_RETURNED` ranks. Staff relaunch (V11) when a round comes back short. Ranking more costs a supplier row and a verification run per extra candidate. | V05, V07 |
 
 #### How to read the Phase V tasks
 
@@ -4523,7 +4525,69 @@ built in: **S** one, **M** two to three, **L** four or more.
       renaming it is a migration across every reader for no behaviour, so it
       is left out on purpose.
 
-- [ ] **V05 · KPI #1 yields an internal shortlist.** *Size M. Steps 05–06.
+- [x] **V05 · The fork and the internal shortlist — BUILT 2026-11-14** (no
+      migration). `forksToPack` + the worker's fork; the platform setting
+      `flow.pack_enabled`; `src/server/request-flow.ts`; `src/server/shortlist.ts`
+      + `getShortlistFn` / `confirmShortlistFn`; `ShortlistPanel` on the
+      dossier; the staff notification `shortlist_ready`. 460 tests.
+      **THE SWITCH IS OFF AND CANNOT BE TURNED ON FROM THE PRODUCT.**
+      `flow.pack_enabled` defaults to `off`, and `on` is an *unavailable*
+      option — the page greys it and the server fn refuses it — because a
+      request reaching `shortlisted` has no way forward before V06–V12. The
+      reader still honours a stored `on`, which is how the flow is exercised
+      in dev: `insert into platform_setting (key, value) values
+      ('flow.pack_enabled', '"on"')`, then restart the worker (30 s cache).
+      **Remove `on` from `unavailable` in the commit that completes slice 1,
+      and not before.**
+      **The fork** (`src/worker.ts`, when `validating` finishes): plan with
+      quotes AND switch on → `shortlisted`, staff holding `deals` are
+      notified, the buyer is told nothing. Otherwise → `report_ready`,
+      exactly as before.
+      **The shortlist** is a panel on the dossier, for staff with `deals`:
+      the ranking, **`score_breakdown` rendered for the first time** (what
+      matched per criterion, and the points), who the RFQ would go to or a
+      warning that nobody can be written to, and the contacts dialog. Staff
+      tick who is asked and confirm. Confirming creates the `quote` rows,
+      sends nothing and does not move the request. It is re-runnable:
+      newcomers are added, and a supplier dropped is removed **only if its
+      solicitation is still unsent** — one that went out is a fact.
+      **D1's doors, all closed** through one helper
+      (`packFlowRequestIds`): `getMyQuotesFn`, `getQuotesForRequestFn`,
+      `getLinkedSuppliersFn` (match and quote traces; a deal or a contract
+      still discloses), `getDocumentsFn`, and the `quote_received`
+      notification. `requestQuotesFn` and `acceptQuoteFn` refuse a pack-flow
+      request outright.
+      **Differences from the task as written:**
+      • **The buyer's selection is NOT removed.** With the switch off, every
+        request is on the report flow and "the buyer picks" is still how a
+        paying customer gets quotes — deleting it would remove the only path
+        in production. It is refused on the pack flow instead. Delete it the
+        day the switch is on for good.
+      • **A panel on the dossier, not a separate screen.** Staff already open
+        the dossier from `/demandes` and from the notification.
+      • **Staff cannot add a lower-ranked supplier**: only the Top-N are
+        `match` rows — nothing below rank N is stored. See D11.
+      *Verified live in dev on request #3049, then restored:* the three fork
+      cases through the real worker — switch on + plan without quotes →
+      report (buyer notified); switch on + plan with quotes → `shortlisted`
+      (two staff notified, buyer not); switch off + plan with quotes →
+      report. The panel as staff: breakdown, contact warnings, confirm three,
+      then drop one — « 2 fournisseur(s) — 0 ajouté(s), 1 retiré(s) », and
+      the rows in `quote` match. **As the owning workspace: no supplier name
+      on `/demandes/3049`, `/soumissions`, `/fournisseurs`, `/documents`,
+      `/`, `/demandes` or the report route — neither in the page nor in the
+      data embedded in it** — while the dossier shows the stage and « 3
+      fournisseur(s) retenu(s) pour consultation ». Recording an offer on the
+      pack flow created no notification.
+      **Not exercised:** `requestQuotesFn` and `acceptQuoteFn` refusing a
+      direct call on a pack-flow request (same helper as the lists, but those
+      two lines were not hit), and the staff email's rendering — dev mail is
+      silent.
+      **For later tasks:** V12 must give the buyer something to read at
+      `report_ready` on this flow — today that page is the stages and
+      nothing else. V13 replaces `acceptQuoteFn`'s refusal with "must be an
+      item of a released pack".
+- [x] ~~**V05 · KPI #1 yields an internal shortlist.**~~ *Size M. Steps 05–06.
       Depends on: V04. Blocks: V06.*
 
       **What it does.** The ranking `matching.ts` already produces stops being

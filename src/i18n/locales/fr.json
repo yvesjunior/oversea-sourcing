@@ -126,6 +126,7 @@
       "contract_to_sign": "Contrat à signer (un contrat attend votre signature)",
       "contract_signed": "Contrat signé (toutes les signatures sont réunies)",
       "quotes_requested": "Soumissions à envoyer (un client a choisi ses fournisseurs) — équipe OSI",
+      "shortlist_ready": "Présélections à confirmer (une recherche est terminée) — équipe OSI",
       "mail_backlog": "Envoi d'e-mails en échec (des messages attendent) — équipe OSI"
     },
     "tabOrganisation": "Organisation",
@@ -606,6 +607,7 @@
     "matches_created": "Top {{count}} sélectionné sur {{analyzed}} fournisseurs analysés",
     "criteria_fromAttachment": "{{count}} critère(s) extrait(s) des pièces jointes",
     "quotes_requested": "Soumissions demandées",
+    "shortlist_confirmed": "{{count}} fournisseur(s) retenu(s) pour consultation",
     "deal_opened": "Dossier de transaction ouvert",
     "contracts_drafted": "Contrats préparés",
     "status_contracting": "Contractualisation",
@@ -684,6 +686,43 @@
       "not_found": "Ce contact n'existe plus.",
       "invalid_email": "Cette adresse n'a pas la forme d'un courriel.",
       "duplicate": "Cette adresse est déjà enregistrée pour ce fournisseur."
+    }
+  },
+  "shortlist": {
+    "title": "Présélection — à qui demander une offre",
+    "subtitle": "Classement interne (KPI n° 1). Le client ne voit aucun de ces fournisseurs avant le Decision Pack.",
+    "readOnly": "La présélection n'est plus modifiable : la demande a quitté cette étape.",
+    "score": "Score",
+    "confidence": "Confiance",
+    "why": "Pourquoi ce rang",
+    "noBreakdown": "Détail du score indisponible pour cette ligne.",
+    "criteriaCoverage": "{{matched}} critère(s) attesté(s) sur {{checkable}} vérifiable(s)",
+    "points": {
+      "criteria": "Critères",
+      "confidence": "Confiance",
+      "verification": "Vérification",
+      "risk": "Risque"
+    },
+    "outcome": {
+      "matched": "attesté",
+      "partial": "partiel",
+      "missed": "absent",
+      "unverifiable": "non vérifiable"
+    },
+    "required": "obligatoire",
+    "contact": "RFQ à",
+    "noContact": "Aucun contact — ce fournisseur ne pourra pas recevoir la RFQ",
+    "manageContacts": "Contacts",
+    "alreadySent": "déjà envoyée",
+    "confirm": "Confirmer la présélection ({{count}})",
+    "confirmHint": "Confirmer ne déclenche aucun envoi : cela fixe qui sera consulté.",
+    "confirmed": "Présélection enregistrée : {{selected}} fournisseur(s) — {{added}} ajouté(s), {{removed}} retiré(s).",
+    "problem": {
+      "forbidden": "Action non autorisée.",
+      "not_found": "Cette demande n'existe plus.",
+      "not_shortlisted": "La demande n'est plus à l'étape de présélection.",
+      "unknown_supplier": "Un des fournisseurs choisis ne fait pas partie du classement de cette demande.",
+      "empty": "Choisissez au moins un fournisseur."
     }
   },
   "provenance": {
@@ -828,12 +867,14 @@
       "fee": "Honoraires OSI"
     },
     "keys": {
+      "flow.pack_enabled": "Parcours Decision Pack",
       "rfq.window_hours": "Délai de réponse des fournisseurs",
       "rfq.target_offers": "Nombre d'offres qui clôt la fenêtre",
       "pack.release_mode": "Envoi du Decision Pack",
       "fee.rate_bps": "Taux des honoraires"
     },
     "hints": {
+      "flow.pack_enabled": "Activé : les demandes des abonnements avec soumissions passent par la présélection OSI, l'appel d'offres puis le Decision Pack. Désactivé : toutes les demandes s'arrêtent au rapport, comme aujourd'hui. Reste désactivé tant que le parcours n'est pas entièrement construit.",
       "rfq.window_hours": "Compté à partir de l'envoi du lot de RFQ. Une fenêtre déjà ouverte garde le délai avec lequel elle a été ouverte.",
       "rfq.target_offers": "La fenêtre se ferme dès que ce nombre d'offres est reçu, sans attendre le délai. À ne pas confondre avec le nombre de fournisseurs classés par la recherche, qui se règle par abonnement.",
       "pack.release_mode": "Manuel : l'équipe valide et envoie chaque pack. Automatique : le pack part à la fermeture de la fenêtre, sans intervention.",
@@ -846,7 +887,9 @@
     },
     "options": {
       "manual": "Manuel",
-      "automatic": "Automatique"
+      "automatic": "Automatique",
+      "off": "Désactivé",
+      "on": "Activé"
     },
     "optionSoon": "bientôt",
     "inert": "Pas encore appliqué",
@@ -870,6 +913,7 @@
     "contract_to_sign": "Un contrat attend votre signature",
     "contract_signed": "Contrat entièrement signé",
     "quotes_requested": "{{count}} fournisseur(s) à solliciter — demande #{{id}}",
+    "shortlist_ready": "Présélection à confirmer — demande #{{id}}",
     "mail_backlog": "L'envoi d'e-mails est en échec — {{count}} message(s) en attente"
   },
   "verificationAdmin": {
@@ -991,6 +1035,7 @@
     "request.cancelled": "Demande annulée",
     "research.rerun": "Recherche web relancée",
     "quotes.requested": "Soumissions demandées",
+    "shortlist.confirmed": "Présélection confirmée",
     "quote.received": "Soumission enregistrée",
     "quote.declined": "Soumission refusée",
     "contracts.drafted": "Contrats préparés",

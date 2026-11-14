@@ -73,6 +73,9 @@ export const getDocumentsFn = createServerFn({ method: "GET" }).handler(
         file: schema.file,
         requestTitle: schema.request.title,
         supplierName: schema.quote.supplierName,
+        // The request a quote-only document belongs to — `document.request_id`
+        // may be null while `quote_id` is set.
+        quoteRequestId: schema.quote.requestId,
         organizationName: schema.organization.name,
       })
       .from(schema.document)
@@ -83,9 +86,26 @@ export const getDocumentsFn = createServerFn({ method: "GET" }).handler(
       .where(crossAccount ? undefined : eq(schema.document.organizationId, caller.workspaceId))
       .orderBy(desc(schema.document.createdAt));
 
+    // A workspace's own list leaves out what hangs from a pack-flow request:
+    // a supplier's quotation is the supplier, by name, with its price — the
+    // very thing the buyer is not shown before the Decision Pack. Staff
+    // reading across accounts see everything.
+    const { packFlowRequestIds } = await import("@/server/request-flow");
+    const packFlow = crossAccount
+      ? new Set<string>()
+      : await packFlowRequestIds(
+          rows
+            .map((row) => row.document.requestId ?? row.quoteRequestId)
+            .filter((id): id is string => id !== null),
+        );
+    const shown = rows.filter((row) => {
+      const requestId = row.document.requestId ?? row.quoteRequestId;
+      return requestId === null || !packFlow.has(requestId);
+    });
+
     return {
       crossAccount,
-      items: rows.map((row) => ({
+      items: shown.map((row) => ({
         id: row.document.id,
         fileId: row.document.fileId,
         filename: row.file.filename,

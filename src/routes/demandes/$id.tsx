@@ -35,6 +35,8 @@ import { CriteriaPanel } from "@/components/osi/CriteriaPanel";
 import { RequestChat } from "@/components/osi/RequestChat";
 import { AttachmentsList } from "@/components/osi/AttachmentsList";
 import { StatusPill } from "@/components/osi/StatusPill";
+import { ShortlistPanel } from "@/components/osi/ShortlistPanel";
+import { getShortlistFn, type ShortlistData } from "@/lib/shortlist-fns";
 import type { Risque } from "@/data/osi";
 import type { RiskLevel } from "@/database/schema";
 import {
@@ -102,7 +104,12 @@ export const Route = createFileRoute("/demandes/$id")({
     // required contract. Same mapping as the drafting fn, so the two cannot
     // disagree; it returns an empty shape when no offer has been accepted.
     const dossier = await getRequestDealStatusFn({ data: { requestId: params.id } });
-    return { demande, dossier };
+    // The internal shortlist (V05) — only a pack-flow request has one, and the
+    // fn answers null for anyone but staff holding `deals`, so the workspace
+    // that owns the request never receives it.
+    const shortlist =
+      demande.flow === "pack" ? await getShortlistFn({ data: { requestId: params.id } }) : null;
+    return { demande, dossier, shortlist };
   },
   component: DemandeDetail,
 });
@@ -125,9 +132,10 @@ const STEP_ICONS: Record<StepKey, typeof FileText> = {
 function DemandeDetail() {
   const { t, i18n } = useTranslation();
   const router = useRouter();
-  const { demande, dossier } = Route.useLoaderData() as {
+  const { demande, dossier, shortlist } = Route.useLoaderData() as {
     demande: RequestDetail;
     dossier: RequestDealStatus;
+    shortlist: ShortlistData | null;
   };
   const [drafting, setDrafting] = useState(false);
   const dateLocale = i18n.language === "fr" ? fr : enUS;
@@ -153,8 +161,11 @@ function DemandeDetail() {
   }, [polling, router]);
 
   // Timeline: the 5 pipeline stages × recorded status.* events.
+  // The LATEST entry into a stage, not the first: a request can come back —
+  // a research re-run, a relaunched RFQ round — and the stage's date is when
+  // it last got there.
   const statusEventDate = (status: string): string | null => {
-    const event = demande.events.find((e) => e.type === `status.${status}`);
+    const event = [...demande.events].reverse().find((e) => e.type === `status.${status}`);
     return event ? formatDayTime(event.createdAt, i18n.language) : null;
   };
   const etapesTimeline: Etape[] = steps.map((step, index) => {
@@ -167,13 +178,21 @@ function DemandeDetail() {
           : ("attente" as const);
     return {
       titre: t(`stepsDemande.${step.stepKey}.title`),
-      detail: date ?? (etat === "encours" ? t("detail.stepInProgress") : t("detail.stepPending")),
+      // A stage still ahead shows no date, even if the request has been there
+      // before: after a return, an old date under a waiting stage reads as
+      // "already done".
+      detail:
+        (etat === "attente" ? null : date) ??
+        (etat === "encours" ? t("detail.stepInProgress") : t("detail.stepPending")),
       etat,
     };
   });
 
   // Data-driven: the Top-5 appears once the matching stage produced real rows.
-  const showSuppliers = demande.matches.length > 0;
+  // Not beside the shortlist panel, though — that IS the same ranking, with
+  // its reasons and its one decision, and two lists of the same suppliers on
+  // one page would only ask which is the real one.
+  const showSuppliers = demande.matches.length > 0 && shortlist === null;
   // P2 — the BUYER picks who OSI approaches (owner 2026-08-29). Nothing is
   // solicited without this selection: no automatic outreach, ever.
   const [picked, setPicked] = useState<string[]>([]);
@@ -538,6 +557,10 @@ function DemandeDetail() {
                 </div>
               </div>
             </section>
+          )}
+
+          {shortlist && (
+            <ShortlistPanel shortlist={shortlist} onChanged={() => void router.invalidate()} />
           )}
 
           {showSuppliers && (

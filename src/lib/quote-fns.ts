@@ -197,6 +197,13 @@ export const requestQuotesFn = createServerFn({ method: "POST" })
     });
     if (!request) return { ok: false, reason: "not_found" };
 
+    // On the pack flow OSI picks who is asked, from its own shortlist — the
+    // buyer does not (owner, 2026-11-14; this is what retires "the buyer
+    // picks" there). The page cannot even offer it, since the shortlist is
+    // withheld from the owner; this is the guard against a direct call.
+    const { flowOfRequest } = await import("@/server/request-flow");
+    if ((await flowOfRequest(request.id)) === "pack") return { ok: false, reason: "forbidden" };
+
     // Soumissions are a PAID feature (owner 2026-09-14): Pro for an
     // individual account, Business or Enterprise for an organisation; the
     // trial plans only allow requests. The plan row decides
@@ -390,7 +397,14 @@ export const getMyQuotesFn = createServerFn({ method: "GET" }).handler(
       .where(eq(schema.quote.organizationId, caller.workspaceId))
       .orderBy(desc(schema.quote.requestedAt));
 
-    const quotes = rows.map((r) => toView(r.quote, r.title, r.workspaceName));
+    // Pack-flow requests are left out entirely: their quotes are OSI's
+    // solicitation in progress, and the buyer sees no supplier before the
+    // Decision Pack (`ownerSeesQuotes`).
+    const { packFlowRequestIds } = await import("@/server/request-flow");
+    const packFlow = await packFlowRequestIds(rows.map((r) => r.quote.requestId));
+    const quotes = rows
+      .filter((r) => !packFlow.has(r.quote.requestId))
+      .map((r) => toView(r.quote, r.title, r.workspaceName));
     return {
       quotes,
       needs: await loadNeeds(quotes.map((q) => q.requestId)),
@@ -507,6 +521,9 @@ export const getQuotesForRequestFn = createServerFn({ method: "GET" })
       ]);
     const caller = await requireWorkspaceRole(getRequest().headers, "viewer");
     if (!caller) return [];
+    // Same rule as the workspace list — nothing of a pack-flow solicitation.
+    const { flowOfRequest } = await import("@/server/request-flow");
+    if ((await flowOfRequest(data.requestId)) === "pack") return [];
 
     const rows = await db
       .select({
@@ -690,7 +707,13 @@ export const recordQuoteFn = createServerFn({ method: "POST" })
     const request = await db.query.request.findFirst({
       where: eq(schema.request.id, quote.requestId),
     });
-    if (request?.createdBy) {
+    // Not on the pack flow: this notification NAMES the supplier, in-app and
+    // by email, and there the buyer learns of offers through the Decision
+    // Pack. Telling them one by one as staff key them in would hand over the
+    // shortlist a line at a time.
+    const { flowOfRequest } = await import("@/server/request-flow");
+    const onPackFlow = request ? (await flowOfRequest(request.id)) === "pack" : false;
+    if (request?.createdBy && !onPackFlow) {
       const { notifyUser } = await import("@/server/notify");
       await notifyUser({
         userId: request.createdBy,
@@ -873,6 +896,14 @@ export const acceptQuoteFn = createServerFn({ method: "POST" })
       });
       if (!quote) return { ok: false, reason: "not_found" };
       // You cannot accept an offer that never arrived.
+      // A pack-flow offer is accepted from the Decision Pack, which does not
+      // exist yet (V12/V13). Until it does, there is nothing the buyer was
+      // shown that they could be accepting — so refuse rather than let a
+      // direct call open a dossier on an offer OSI has not released.
+      const { flowOfRequest } = await import("@/server/request-flow");
+      if ((await flowOfRequest(quote.requestId)) === "pack") {
+        return { ok: false, reason: "not_found" };
+      }
       if (quote.status !== "received") return { ok: false, reason: "not_received" };
       // Nor one whose validity has run out (owner 2026-09-14): ask the supplier
       // again from the request instead — the price may no longer stand.

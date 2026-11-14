@@ -12,6 +12,7 @@ import { requirePlatformFeature } from "@/lib/auth-guard";
 import { formatDayTime } from "@/lib/instant";
 import {
   bpsToPercent,
+  isUnavailableOption,
   PLATFORM_SETTINGS,
   SETTING_GROUPS,
   type SettingKey,
@@ -107,7 +108,7 @@ function SettingRow({ setting, onSaved }: { setting: SettingView; onSaved: () =>
               className="h-8 rounded-md border border-input bg-background px-2 text-sm"
             >
               {definition.options.map((option) => {
-                const unavailable = definition.unavailable.includes(option);
+                const unavailable = isUnavailableOption(definition, option);
                 return (
                   <option key={option} value={option} disabled={unavailable}>
                     {t(`platformSettings.options.${option}`)}

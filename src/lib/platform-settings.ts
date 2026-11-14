@@ -17,8 +17,13 @@ import { z } from "zod";
 export const RELEASE_MODES = ["manual", "automatic"] as const;
 export type ReleaseMode = (typeof RELEASE_MODES)[number];
 
+/** A plain on/off setting. */
+export const SWITCH_VALUES = ["off", "on"] as const;
+export type SwitchValue = (typeof SWITCH_VALUES)[number];
+
 /** The value type of every setting. Adding a key starts here. */
 export type PlatformSettingValues = {
+  "flow.pack_enabled": SwitchValue;
   "rfq.window_hours": number;
   "rfq.target_offers": number;
   "pack.release_mode": ReleaseMode;
@@ -68,6 +73,29 @@ export type SettingGroup = (typeof SETTING_GROUPS)[number];
 export const PLATFORM_SETTINGS: {
   [K in SettingKey]: SettingDefinition<PlatformSettingValues[K]>;
 } = {
+  /**
+   * Whether requests take the PACK flow at all (Phase V · V05).
+   *
+   * `on` → a request whose workspace plan includes quotes forks to
+   * `shortlisted` when the search finishes, instead of ending at the Top-N
+   * report. `off` → every request ends at the report, as it always has.
+   *
+   * `on` is UNAVAILABLE, deliberately, until the rest of slice 1 exists: a
+   * request that reaches `shortlisted` has no way forward before V06–V12, so
+   * switching this on in production would strand every paying customer's
+   * request there. The reader honours a stored `on` (see `readSchema`), which
+   * is how it is exercised in development — by writing the row — while the
+   * page and the server fn refuse to set it. Remove `on` from `unavailable`
+   * in the commit that completes the slice, and not before.
+   */
+  "flow.pack_enabled": {
+    kind: "choice",
+    group: "pack",
+    options: SWITCH_VALUES,
+    default: "off",
+    unavailable: ["on"],
+    inert: false,
+  },
   /** How long suppliers have to answer, counted from the batch leaving
    *  (`quote.sent_at`, never `requested_at` — README §2c). Read by V06. */
   "rfq.window_hours": {
@@ -129,14 +157,31 @@ export function isSettingKey(key: string): key is SettingKey {
   return Object.prototype.hasOwnProperty.call(PLATFORM_SETTINGS, key);
 }
 
+/** Is this option one that nothing implements yet? Compared as plain strings:
+ *  with more than one choice setting, the definitions form a union whose
+ *  option types have nothing in common. */
+export function isUnavailableOption(
+  definition: { unavailable: readonly string[] },
+  option: string,
+): boolean {
+  return definition.unavailable.includes(option);
+}
+
+function selectableOptions(definition: {
+  options: readonly string[];
+  unavailable: readonly string[];
+}): string[] {
+  return definition.options.filter((option) => !isUnavailableOption(definition, option));
+}
+
 /** The zod schema a value must pass to be STORED. Unavailable options fail. */
 function writeSchema(key: SettingKey): z.ZodType {
   const definition = PLATFORM_SETTINGS[key];
   if (definition.kind === "integer") {
     return z.number().int().min(definition.min).max(definition.max);
   }
-  const allowed = definition.options.filter((option) => !definition.unavailable.includes(option));
-  return z.string().refine((value) => (allowed as readonly string[]).includes(value));
+  const allowed = selectableOptions(definition);
+  return z.string().refine((value) => allowed.includes(value));
 }
 
 /** The schema a STORED value must pass to be read back. Wider than

@@ -71,6 +71,29 @@ describe("storing a value", () => {
   });
 });
 
+// Switching the pack flow on before slice 1 is complete would strand every
+// paying customer's request in `shortlisted` — nothing can move it on yet.
+describe("the pack-flow switch", () => {
+  it("is off unless a row says otherwise", () => {
+    expect(defaultSetting("flow.pack_enabled")).toBe("off");
+    expect(resolveSetting("flow.pack_enabled", undefined)).toBe("off");
+  });
+
+  it("cannot be switched on from the page or the server fn", () => {
+    expect(parseSettingValue("flow.pack_enabled", "off")).toEqual({ ok: true, value: "off" });
+    expect(parseSettingValue("flow.pack_enabled", "on").ok).toBe(false);
+  });
+
+  // How it is exercised in development: by writing the row.
+  it("is honoured when the stored row already says on", () => {
+    expect(resolveSetting("flow.pack_enabled", "on")).toBe("on");
+  });
+
+  it("is read by the pipeline, so it is not marked inert", () => {
+    expect(PLATFORM_SETTINGS["flow.pack_enabled"].inert).toBe(false);
+  });
+});
+
 describe("reading a value back", () => {
   it("falls back to the default when there is no row", () => {
     expect(resolveSetting("rfq.window_hours", undefined)).toBe(72);

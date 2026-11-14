@@ -26,6 +26,11 @@ export const NOTIFICATION_TYPES = [
    *  a customer, and the one where a delay is a delay in the product itself —
    *  nothing reaches the supplier until a human sends the request. */
   { type: "quotes_requested", hasEmail: true },
+  /** STAFF-facing (Phase V · V05): a pack-flow search finished and its
+   *  shortlist waits for someone to confirm who is asked. Like
+   *  `quotes_requested`, a delay here is a delay in the product itself —
+   *  nothing reaches a supplier until a person has looked. */
+  { type: "shortlist_ready", hasEmail: true },
   /** A contract went out and the buyer's signature is what it waits on (P6). */
   { type: "contract_to_sign", hasEmail: true },
   /** Every mandatory signature is in — the contract is complete (P6). */

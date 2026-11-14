@@ -126,6 +126,7 @@
       "contract_to_sign": "Contract to sign (a contract is waiting for your signature)",
       "contract_signed": "Contract signed (every signature is in)",
       "quotes_requested": "Quotes to send out (a customer picked their suppliers) — OSI staff",
+      "shortlist_ready": "Shortlists to confirm (a search finished) — OSI staff",
       "mail_backlog": "Outbound mail failing (messages are waiting to be sent) — OSI staff"
     },
     "tabOrganisation": "Organisation",
@@ -606,6 +607,7 @@
     "matches_created": "Top {{count}} selected out of {{analyzed}} suppliers analyzed",
     "criteria_fromAttachment": "{{count}} criteria extracted from the attachments",
     "quotes_requested": "Quotes requested",
+    "shortlist_confirmed": "{{count}} supplier(s) selected for consultation",
     "deal_opened": "Transaction file opened",
     "contracts_drafted": "Contracts drafted",
     "status_contracting": "Contracting",
@@ -684,6 +686,43 @@
       "not_found": "This contact no longer exists.",
       "invalid_email": "That does not look like an email address.",
       "duplicate": "That address is already on file for this supplier."
+    }
+  },
+  "shortlist": {
+    "title": "Shortlist — who to ask for an offer",
+    "subtitle": "Internal ranking (KPI #1). The client sees none of these suppliers before the Decision Pack.",
+    "readOnly": "The shortlist can no longer be changed: the request has left this stage.",
+    "score": "Score",
+    "confidence": "Confidence",
+    "why": "Why this rank",
+    "noBreakdown": "No score detail available for this row.",
+    "criteriaCoverage": "{{matched}} of {{checkable}} checkable criteria evidenced",
+    "points": {
+      "criteria": "Criteria",
+      "confidence": "Confidence",
+      "verification": "Verification",
+      "risk": "Risk"
+    },
+    "outcome": {
+      "matched": "evidenced",
+      "partial": "partial",
+      "missed": "missing",
+      "unverifiable": "not checkable"
+    },
+    "required": "required",
+    "contact": "RFQ to",
+    "noContact": "No contact — this supplier cannot be sent the RFQ",
+    "manageContacts": "Contacts",
+    "alreadySent": "already sent",
+    "confirm": "Confirm the shortlist ({{count}})",
+    "confirmHint": "Confirming sends nothing: it sets who will be consulted.",
+    "confirmed": "Shortlist saved: {{selected}} supplier(s) — {{added}} added, {{removed}} removed.",
+    "problem": {
+      "forbidden": "Not allowed.",
+      "not_found": "This request no longer exists.",
+      "not_shortlisted": "The request is no longer at the shortlist stage.",
+      "unknown_supplier": "One of the chosen suppliers is not in this request's ranking.",
+      "empty": "Choose at least one supplier."
     }
   },
   "provenance": {
@@ -828,12 +867,14 @@
       "fee": "OSI fee"
     },
     "keys": {
+      "flow.pack_enabled": "Decision Pack flow",
       "rfq.window_hours": "Supplier response window",
       "rfq.target_offers": "Number of offers that closes the window",
       "pack.release_mode": "Releasing the Decision Pack",
       "fee.rate_bps": "Fee rate"
     },
     "hints": {
+      "flow.pack_enabled": "On: requests on plans with quotes go through OSI's shortlist, the RFQ and then the Decision Pack. Off: every request ends at the report, as today. Stays off until the flow is fully built.",
       "rfq.window_hours": "Counted from the moment the RFQ batch is sent. A window already open keeps the delay it was opened with.",
       "rfq.target_offers": "The window closes as soon as this many offers are in, without waiting for the delay. Not the number of suppliers the search ranks — that is set per plan.",
       "pack.release_mode": "Manual: staff validate and send each pack. Automatic: the pack goes out when the window closes, with no one involved.",
@@ -846,7 +887,9 @@
     },
     "options": {
       "manual": "Manual",
-      "automatic": "Automatic"
+      "automatic": "Automatic",
+      "off": "Off",
+      "on": "On"
     },
     "optionSoon": "coming soon",
     "inert": "Not applied yet",
@@ -870,6 +913,7 @@
     "contract_to_sign": "A contract awaits your signature",
     "contract_signed": "Contract fully signed",
     "quotes_requested": "{{count}} supplier(s) to solicit — request #{{id}}",
+    "shortlist_ready": "Shortlist to confirm — request #{{id}}",
     "mail_backlog": "Outbound mail is failing — {{count}} message(s) waiting to be sent"
   },
   "verificationAdmin": {
@@ -991,6 +1035,7 @@
     "request.cancelled": "Request cancelled",
     "research.rerun": "Web research re-run",
     "quotes.requested": "Quotes requested",
+    "shortlist.confirmed": "Shortlist confirmed",
     "quote.received": "Quote recorded",
     "quote.declined": "Quote declined",
     "contracts.drafted": "Contracts drafted",
