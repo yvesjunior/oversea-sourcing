@@ -1284,6 +1284,32 @@ that matters for the graph, and it is three different facts:
 - `not_reached` — the RFQ never got to them. Whatever closed the round,
   deadline included: silence from someone who was not asked is not silence.
 
+**An answer has a time and a route** (V08, 2026-11-14). Until the portal
+exists every offer is typed in by staff from the supplier's email, and two
+things about that route are now on the record:
+
+- **When the supplier answered is typed, not stamped.** The offer form asks
+  « Réponse reçue le » — prefilled with now, editable — and that is what
+  `quote.responded_at` holds. An offer emailed on Tuesday and entered on
+  Thursday answered on Tuesday; stamping the typing time recorded OSI's lag
+  as the supplier's speed. The server refuses a time before the request was
+  sent or in the future, and a mistyped one can be corrected like a price,
+  with the change in the journal.
+- **`quote.channel`** says which route an answer came by — `staff` (keyed in
+  by OSI) or `portal` (the supplier's own entry, slice 2) — and each offer
+  on `/soumissions` shows it. Null while there is no answer.
+
+**The late-keyed answer.** A round closes on its own and declines whoever had
+not answered — but on the staff route "answered" means "typed in". A supplier
+who replied in time, whose email nobody had entered yet, would stay on record
+as `no_response`. So a quote its round declined as unanswered (`no_response`
+or `closed_before_deadline`, never `not_reached`) can still take an offer
+while the request is in `pack_review`, **provided the typed answer time is
+not after the round closed**. The quote goes back to `received`, the decline
+reason is cleared, and the timeline says an offer was added after the close.
+That is the one `declined → received` path; everything else about a declined
+quote stays frozen.
+
 Guarded transitions live in [`src/lib/request-status.ts`](src/lib/request-status.ts);
 illegal ones throw. Every change writes a `request_event` row, so timelines,
 activity feeds and dashboard stats are **pure read-models of the DB**.
@@ -2505,7 +2531,7 @@ erDiagram
 | `plan` / `subscription` | limits as rows (daily, lifetime, seats, `quota_scope`, `audience`, `suppliers_returned`, `model_tier`); one subscription per workspace |
 | `notification` / `notification_pref` | ✅ E9 — in-app inbox (type + params, rendered in the viewer's language) and per-user channel preferences |
 | `organization_profile` | ✅ 2026-08-26 — legal and tax identity of a company workspace |
-| `quote`              | ✅ P1 (0033) — one soumission per supplier asked; `decline_reason` + `sent_at` (0040); **`quote_one_accepted_per_request_uq`** enforces no splitting |
+| `quote`              | ✅ P1 (0033) — one soumission per supplier asked; `decline_reason` + `sent_at` (0040); `round_id` (0048); `channel` (0050, V08 — the route the answer came by, null until there is one; existing answers backfilled `staff`); `responded_at` is the time the supplier answered, typed by staff on that route; **`quote_one_accepted_per_request_uq`** enforces no splitting |
 | `deal` / `deal_event` | ✅ P1 — the dossier de transaction opened by ONE acceptance; amount/currency/incoterm snapshots; two-act closure (`reviewed` before `closed`) |
 | `contract` / `contract_party` / `contract_event` | ✅ P1/P5/P6 — text frozen in `content` at draft time; parties are ROWS with name snapshots; the permanent signature trail (never purged, unlike `audit_log`) |
 | `document`           | ✅ 2026-09-12 (P8 slice 1, 0041) — the typed row over `file` (kind `offer\|other`, hangs from a quote and/or request); `orphaned_at` (0042) drives the 36-month retention sweep |

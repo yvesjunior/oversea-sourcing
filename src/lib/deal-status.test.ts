@@ -13,6 +13,8 @@ import {
   defaultQuoteValidUntil,
   isQuoteExpired,
   effectiveQuoteStatus,
+  checkAnsweredAt,
+  QUOTE_TRANSITIONS,
 } from "@/lib/deal-status";
 
 const party = (required: boolean, signatureStatus: string) => ({ required, signatureStatus });
@@ -32,6 +34,54 @@ describe("quote transitions", () => {
     // request. The DB enforces one accepted quote per request too.
     expect(canTransitionQuote("accepted", "declined")).toBe(false);
     expect(canTransitionQuote("accepted", "received")).toBe(false);
+  });
+});
+
+describe("when the supplier answered — a typed time", () => {
+  const now = new Date("2026-11-19T15:00:00Z");
+  const askedAt = new Date("2026-11-17T10:05:20Z");
+
+  it("accepts a time between the send and now, unchanged", () => {
+    const tuesday = new Date("2026-11-17T16:30:00Z");
+    expect(checkAnsweredAt({ respondedAt: tuesday, askedAt, now })).toEqual({
+      ok: true,
+      respondedAt: tuesday,
+    });
+  });
+
+  it("refuses an answer from before the request was sent", () => {
+    expect(
+      checkAnsweredAt({ respondedAt: new Date("2026-11-17T10:04:59Z"), askedAt, now }),
+    ).toEqual({ ok: false, reason: "answered_before_sent" });
+  });
+
+  it("does not refuse the minute of the send itself — the field has no seconds", () => {
+    const sameMinute = new Date("2026-11-17T10:05:00Z");
+    expect(checkAnsweredAt({ respondedAt: sameMinute, askedAt, now }).ok).toBe(true);
+  });
+
+  it("refuses a time in the future", () => {
+    expect(
+      checkAnsweredAt({ respondedAt: new Date(now.getTime() + 6 * 60_000), askedAt, now }),
+    ).toEqual({ ok: false, reason: "answered_in_future" });
+  });
+
+  it("clamps a browser clock running a little fast to now", () => {
+    const fast = new Date(now.getTime() + 2 * 60_000);
+    expect(checkAnsweredAt({ respondedAt: fast, askedAt, now })).toEqual({
+      ok: true,
+      respondedAt: now,
+    });
+  });
+});
+
+describe("the late-keyed answer", () => {
+  it("is the only way out of declined besides asking again", () => {
+    expect(QUOTE_TRANSITIONS.declined).toEqual(["requested", "received"]);
+  });
+
+  it("is not a general reopening: the offer form stays frozen on a declined quote", () => {
+    expect(offerEntryMode("declined")).toBeNull();
   });
 });
 

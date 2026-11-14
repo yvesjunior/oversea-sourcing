@@ -1215,6 +1215,21 @@ export const QUOTE_DECLINE_REASONS = [
 ] as const;
 export type QuoteDeclineReason = (typeof QUOTE_DECLINE_REASONS)[number];
 
+/**
+ * Which route an ANSWER came by (Phase V · V08).
+ *
+ * `staff`  — the supplier answered by email and a staff member keyed it in.
+ * `portal` — the supplier entered it themselves (slice 2; nothing writes it
+ *            before the portal exists).
+ *
+ * The two are not equally first-hand, and a reader comparing offers is owed
+ * the difference: a `staff` offer is OSI's transcription of an email, with
+ * the answer time a person typed; a `portal` offer is the supplier's own
+ * entry, stamped by the platform.
+ */
+export const QUOTE_CHANNELS = ["portal", "staff"] as const;
+export type QuoteChannel = (typeof QUOTE_CHANNELS)[number];
+
 /** A soumission: one supplier asked for one request. The buyer picks WHO is
  *  asked (owner 2026-08-29), staff send and record what comes back.
  *
@@ -1283,10 +1298,25 @@ export const quote = pgTable(
      *  and on a confirmed shortlist entry whose batch has not left yet — a
      *  quote outside a round has no clock (decision D9). */
     roundId: text("round_id").references(() => rfqRound.id, { onDelete: "set null" }),
-    /** When the supplier actually answered — the response-time signal. */
+    /**
+     * When the supplier actually answered — the response-time signal.
+     *
+     * On the `staff` channel this is what the person keying the offer in
+     * SAYS it was (V08), not the moment they typed it: an offer emailed on
+     * Tuesday and entered on Thursday answered on Tuesday. Stamping the
+     * typing time was the `sent_at` mistake from the other end — OSI's lag
+     * recorded as the supplier's.
+     */
     respondedAt: timestamp("responded_at"),
-    /** The staff member who keyed the offer in (nobody else can: the supplier
-     *  has no account). */
+    /** The route the answer came by. Null until there IS an answer — a
+     *  solicitation still waiting has no channel yet — and cleared when a
+     *  supplier is asked again. */
+    channel: text("channel").$type<QuoteChannel>(),
+    /** The staff member who entered or last corrected the offer. Set = "this
+     *  did not come from the supplier's own hands" — true of every `staff`
+     *  offer, and of a `portal` offer staff later corrected. Not "staff keyed
+     *  it because the supplier has no account": since the portal, staff entry
+     *  is one of two routes, not the only one. */
     recordedBy: text("recorded_by").references(() => user.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),

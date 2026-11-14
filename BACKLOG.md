@@ -24,7 +24,7 @@
 | **E9** Notifications | In-app + email | 🟡 bell, emitters, **prefs (2026-08-26)** live; Phase P types (`quote_received`, `contract_to_sign`, `contract_signed`) + staff alert on `quotes.requested` (2026-09-07) live; **the bell alerts (2026-09-14)** — count badge, 30 s poll, chime, per-browser mute |
 | **E10** Admin surfaces | Verification, imports, ops queue | 🟡 **verification LIVE (S5b/S5c, 2026-08-26)**; imports/ops queue placeholders |
 | **R** Custom staff roles | Roles as data + the matrix | ✅ **BUILT 2026-08-29** (migration 0039) — create/delete roles, dynamic matrix, `requests.all` |
-| **E13** V6 architecture | Supplier portal · KPI #2 · Partner Hub · Decision Pack | 🔵 **NEW 2026-10-21** — scope opened by the V6 document; diagrams validated 2026-11-14; **34 tasks in seven slices — [Phase V](#phase-v--the-v6-parcours-task-by-task-e13--written-2026-11-14)**; **V01, V02, V04, V05, V06, V07 built 2026-11-14** (settings, contacts, states, fork + shortlist, RFQ batch, window closing — switch off), not deployed |
+| **E13** V6 architecture | Supplier portal · KPI #2 · Partner Hub · Decision Pack | 🔵 **NEW 2026-10-21** — scope opened by the V6 document; diagrams validated 2026-11-14; **34 tasks in seven slices — [Phase V](#phase-v--the-v6-parcours-task-by-task-e13--written-2026-11-14)**; **V01, V02, V04–V08 built 2026-11-14** (settings, contacts, states, fork + shortlist, RFQ batch, window closing, typed answer time + channel — switch off), not deployed |
 | **E11** Settings | Profile, sourcing rules | 🟡 Paramètres + notification prefs live; **password / 2FA / theme / rename (2026-08-27)** live; buyer Abonnement self-service waits for billing |
 
 **MVP1 = E0–E7 + E10.** Definition of done **restated 2026-08-29 by ADR-002**
@@ -4234,6 +4234,7 @@ report, exactly as today, because that report is all they get.
 | **D10** | Who assigns a partner to a case, and which partner kinds exist at launch? | Staff assign, per offer. Kinds: settlement, transport, inspection, customs, insurance. | V21, V22 |
 | **D11** | The shortlist is the Top-N the search ranks — 5 by default — and the window closes on 5 offers. Asking five suppliers will rarely bring five answers. Should the pack flow rank more than it needs? | Unchanged: the shortlist is what `SUPPLIERS_RETURNED` ranks. Staff relaunch (V11) when a round comes back short. Ranking more costs a supplier row and a verification run per extra candidate. | V05, V07 |
 | **D12** | A round where nobody is left to answer — every supplier asked has either sent an offer or declined — but the offer target is not reached. Three asked, three answered, target five: the round stays open until its deadline, waiting for no one. Should it close by itself? | **Not closed automatically** (V07 as built): README §2c names three conditions and this would be a fourth. The dossier shows « 0 fournisseur(s) sans réponse à ce jour », and staff close early with a reason. | V07 |
+| **D13** | A round closed early (staff, or the target reached) tells the suppliers who had not answered **nothing**: their RFQ still shows the original deadline. One who answers after the close but before that deadline is refused (V08: not in time for the round). Should they be told the RFQ is closed? | **Not told** (V07/V08 as built) — README §2c: a silent supplier is *"excluded, not chased"*. A closing notice is not chasing, and `buildRfqWithdrawnMail` shows the shape; it is one more email per silent supplier per early close. | V07, V08 |
 
 #### How to read the Phase V tasks
 
@@ -4882,7 +4883,62 @@ built in: **S** one, **M** two to three, **L** four or more.
       IS NULL`) and act on the row count, the way the accepted-quote index
       settles two acceptances.
 
-- [ ] **V08 · The staff-mediated route says what it is.** *Size S. Step 07.
+- [x] **V08 · The staff route says what it is — BUILT 2026-11-14**
+      (migration **0050**, not deployed). `quote.channel`; `recordQuoteFn`
+      takes `respondedAt`; `checkAnsweredAt` (`src/lib/deal-status.ts`);
+      `lateAnswerOpen` / `answeredInRound` (`src/lib/rfq-round.ts`); the
+      field, the chip and the late-answer entry on `/soumissions`. 531 tests
+      (18 new).
+      **`responded_at` is typed.** « Réponse reçue le », prefilled with now,
+      editable; required on a first entry. Refused before the request reached
+      the supplier (`sent_at`, else `requested_at`, compared to the minute —
+      the field has no seconds) or in the future (a browser clock up to five
+      minutes fast is clamped to now). Default validity counts from the
+      answer, as before.
+      **Two things beyond the task as written:**
+      • **`channel` is nullable, not `not null default 'staff'`.** A
+        solicitation still waiting has no answer and therefore no route; a
+        default would have put `staff` on every unanswered quote. Null until
+        an answer is recorded, cleared when a supplier is asked again;
+        existing answers are backfilled `staff` in the migration.
+      • **The answer time can be corrected.** It is a typed fact like the
+        price, so a mistyped one must be fixable — the correction shows in
+        `quote.corrected` with before and after. The form only sends it when
+        it was changed, so correcting a price never moves it.
+      **The late-keyed answer** (left to this task by V07). A quote declined
+      by its round closing as `no_response` or `closed_before_deadline` can
+      still take an offer while the request is in `pack_review`, if the typed
+      answer time is not after the round's `closed_at`. `declined → received`
+      is in `QUOTE_TRANSITIONS` for this and `recordQuoteFn` is its only
+      door. The decline reason is cleared, the audit row carries `late` and
+      what the reason was, and the timeline gets `rfq.offer_added`. Not for
+      `not_reached`, not after a withdrawal, not once the request has left
+      the review. **The offer joins the round** — see V09 and V10.
+      **Also fixed in passing:** a declined quote on `/soumissions` read
+      « En attente de réponse »; and the offer form closed silently on a
+      refusal — it now stays open and says which rule it hit.
+      *Verified live in dev on request #3049, then restored (baseline
+      re-checked):* an offer entered with yesterday 09:30 as its answer time
+      is stored as such and shows a response time of 21.6 h from the send,
+      with the chip « Saisie par OSI »; a time before the send, a time
+      tomorrow and an empty one were each refused with their own message; a
+      price-only correction left the answer time untouched to the
+      millisecond; correcting the time moved the response time to 27.1 h.
+      After the worker's sweep closed the round on its deadline: the silent
+      supplier had the late-answer button and the never-reached one did not;
+      an answer dated one minute after the close was refused; one dated the
+      day before was recorded (`received`, reason cleared, event and audit
+      as described); with the form open and the request moved out of review
+      by SQL, the save was refused and the button was gone on reload. The
+      backfill statement was run by hand on a fixture row and set `staff` on
+      the one quote with an answer.
+      **Not exercised:** the migration's backfill on real rows (dev held no
+      answered quote when it ran); a report-flow quote with no `sent_at`
+      (the `requested_at` bound, unit-tested only); the English labels.
+      **Limit to know:** the late answer is bounded by when the round
+      actually closed. A supplier who answers after an early close but
+      before the deadline their RFQ states is refused — decision D13.
+- [x] ~~**V08 · The staff-mediated route says what it is.**~~ *Size S. Step 07.
       Depends on: nothing. Blocks: V16.*
 
       **Left for this task by V07 — the late-keyed answer.** A round closes
@@ -4925,6 +4981,12 @@ built in: **S** one, **M** two to three, **L** four or more.
 - [ ] **V09 · KPI #2, first version, and the stored result.** *Size M. Step
       09. Depends on: V07. Blocks: V10.*
 
+      **Left for this task by V08:** the set of offers in a closed round can
+      still GROW while the request is in `pack_review` — a late-keyed answer
+      (`recordQuoteFn`, event `rfq.offer_added`). The ranking computed at the
+      close is then missing an offer: re-run it there. Append-only already
+      covers the audit side.
+
       **What it does.** Ranks the offers a round closed with — the offers,
       not the suppliers. KPI #1 scored who is worth asking; this scores what
       they actually answered.
@@ -4962,6 +5024,11 @@ built in: **S** one, **M** two to three, **L** four or more.
       `closeRound` (`src/server/rfq-window.ts`), after the commit and only for
       a close that leads to the review (`leadsToReview`), never for
       `withdrawn`.
+      **Left for this task by V08:** a late-keyed answer adds an offer to a
+      closed round while its pack is still `pending` — rebuild the pending
+      pack's items when that happens. And each pack item should carry the
+      offer's `channel`: what the buyer is shown is either the supplier's own
+      entry or OSI's transcription of an email.
 
       **What it does.** Records what a buyer was shown: which offers, in
       which order, built from which versions, released when and by whom. The

@@ -620,7 +620,8 @@
     "research_rerun": "Web research re-run",
     "quote_accepted": "Quote accepted — transaction file opened",
     "rfq_closed": "Response window closed — {{offers}} offer(s) received",
-    "rfq_withdrawn": "RFQ withdrawn from {{count}} supplier(s)"
+    "rfq_withdrawn": "RFQ withdrawn from {{count}} supplier(s)",
+    "rfq_offer_added": "Offer that arrived in time, entered after the close — {{offers}} offer(s) in total"
   },
   "stepsDemande": {
     "received": {
@@ -1239,7 +1240,31 @@
     "askRefusal_not_found": "Request not found.",
     "writeTo": "Write to",
     "noContact": "No contact — add one from Suppliers",
-    "sendFromDossier": "Send from the request"
+    "sendFromDossier": "Send from the request",
+    "answeredAt": "Answer received on",
+    "answeredAtHint": "When the supplier answered — not when you are entering the offer.",
+    "recordLate": "Enter an answer that arrived in time",
+    "lateTitle": "Answer received before the close — {{supplier}}",
+    "lateHint": "The round closed on {{closed}}. An answer received before then can still be entered while the request is in review; say when it arrived.",
+    "channel": {
+      "staff": "Entered by OSI",
+      "portal": "Supplier portal"
+    },
+    "channelHint": {
+      "staff": "Offer received by email and entered by OSI staff.",
+      "portal": "Offer entered by the supplier themselves."
+    },
+    "recordRefusal": {
+      "forbidden": "Not allowed.",
+      "not_found": "This quote no longer exists.",
+      "frozen": "This offer can no longer be changed.",
+      "validity_past": "The validity date has already passed.",
+      "illegal_transition": "This offer cannot be recorded in its current state.",
+      "answered_at_required": "Say when the supplier answered.",
+      "answered_before_sent": "The answer cannot be earlier than the request being sent to the supplier.",
+      "answered_in_future": "The answer cannot be dated in the future.",
+      "answered_after_close": "This answer arrived after the round closed: it cannot be added to it."
+    }
   },
   "contrats": {
     "title": "Contracts",

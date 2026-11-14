@@ -30,7 +30,13 @@ export const QUOTE_TRANSITIONS: Record<QuoteStatus, readonly QuoteStatus[]> = {
   //
   // Only from these two. `received` and `accepted` are NOT reopenable: asking
   // again would throw away an answer we already have.
-  declined: ["requested"],
+  //
+  // `declined → received` is the LATE-KEYED ANSWER and nothing else (V08): a
+  // round closed and declined this supplier as silent, but they had answered
+  // in time and the email was simply not typed in yet. Legal here; allowed
+  // only when `lateAnswerOpen` (src/lib/rfq-round.ts) says so and the answer
+  // predates the round's close — `recordQuoteFn` is the one door.
+  declined: ["requested", "received"],
   expired: ["requested"],
 };
 
@@ -61,6 +67,42 @@ export function offerEntryMode(status: QuoteStatus): "record" | "correct" | null
 /** A quote can only be compared once it holds an answer. */
 export function isComparable(status: QuoteStatus): boolean {
   return status === "received" || status === "accepted";
+}
+
+// ── When the supplier answered ──────────────────────────────────────────────
+// On the staff route the answer time is TYPED (V08): the person entering the
+// offer says when the supplier's email arrived. A typed date needs the two
+// checks a stamped one never did.
+
+/** How far ahead of the server a browser's clock may run before "now" is
+ *  treated as a date in the future. */
+export const ANSWER_CLOCK_SKEW_MS = 5 * 60_000;
+
+export type AnsweredAtRefusal = "answered_before_sent" | "answered_in_future";
+
+/**
+ * Is this a time the supplier can have answered at?
+ *
+ * `askedAt` is when the request reached them: `sent_at`, or `requested_at`
+ * for a quote that was never stamped as sent. Compared at MINUTE granularity
+ * on that side — the form's field has no seconds, so "sent 10:05:20, answered
+ * 10:05" is a rounding artefact, not an answer before the question.
+ *
+ * A time slightly ahead of the server (a browser clock running fast) is
+ * clamped to now rather than refused; anything further is a typo.
+ */
+export function checkAnsweredAt(input: {
+  respondedAt: Date;
+  askedAt: Date;
+  now: Date;
+}): { ok: true; respondedAt: Date } | { ok: false; reason: AnsweredAtRefusal } {
+  const { respondedAt, askedAt, now } = input;
+  if (respondedAt.getTime() > now.getTime() + ANSWER_CLOCK_SKEW_MS) {
+    return { ok: false, reason: "answered_in_future" };
+  }
+  const askedMinute = Math.floor(askedAt.getTime() / 60_000) * 60_000;
+  if (respondedAt.getTime() < askedMinute) return { ok: false, reason: "answered_before_sent" };
+  return { ok: true, respondedAt: respondedAt.getTime() > now.getTime() ? now : respondedAt };
 }
 
 // ── Validity ────────────────────────────────────────────────────────────────

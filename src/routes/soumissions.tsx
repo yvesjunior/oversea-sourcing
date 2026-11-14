@@ -72,6 +72,14 @@ function dateInputValue(iso: string | null): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
+/** yyyy-mm-ddThh:mm for a datetime-local input, in the browser's zone. */
+function dateTimeInputValue(iso: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${dateInputValue(iso)}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 /** The default staff see in the field: one calendar month from today. */
 function defaultValidityInput(): string {
   const d = new Date();
@@ -88,9 +96,22 @@ function money(cents: number | null, currency: string | null, lang: string): str
     : value.toLocaleString(lang);
 }
 
-/** Staff-only: key in what arrived by email. */
-function RecordForm({ quote, onDone }: { quote: QuoteView; onDone: () => void }) {
-  const { t } = useTranslation();
+/** Staff-only: key in what arrived by email.
+ *
+ *  `late` = the late-keyed answer (V08): the quote was declined as silent by
+ *  its round closing, and the answer — which arrived in time — is only now
+ *  being typed. Same form; the answer time starts EMPTY, because "now" is by
+ *  definition after the round closed and would be refused. */
+function RecordForm({
+  quote,
+  late = false,
+  onDone,
+}: {
+  quote: QuoteView;
+  late?: boolean;
+  onDone: () => void;
+}) {
+  const { t, i18n } = useTranslation();
   // Prefilled when correcting: retyping every field to fix one of them is how
   // the SECOND typo happens.
   const mode = offerEntryMode(quote.status);
@@ -108,6 +129,16 @@ function RecordForm({ quote, onDone }: { quote: QuoteView; onDone: () => void })
   const [validUntil, setValidUntil] = useState(
     quote.validUntil ? dateInputValue(quote.validUntil) : defaultValidityInput(),
   );
+  // When the SUPPLIER answered (V08) — not when this form is filled. Shown
+  // prefilled with now on a first entry, because most offers are typed as
+  // they arrive; staff move it back when the email is older than that.
+  const [initialAnsweredAt] = useState(() =>
+    late
+      ? ""
+      : dateTimeInputValue(mode === "correct" ? quote.respondedAt : new Date().toISOString()),
+  );
+  const [answeredAt, setAnsweredAt] = useState(initialAnsweredAt);
+  const [refusal, setRefusal] = useState<string | null>(null);
   const [notes, setNotes] = useState(quote.notes ?? "");
   const [declineReason, setDeclineReason] = useState<StaffDeclineReason>("no_response");
   const [saving, setSaving] = useState(false);
@@ -141,9 +172,10 @@ function RecordForm({ quote, onDone }: { quote: QuoteView; onDone: () => void })
 
   const save = async () => {
     setSaving(true);
+    setRefusal(null);
     try {
       const parsed = Number.parseFloat(amount.replace(",", "."));
-      await recordQuoteFn({
+      const result = await recordQuoteFn({
         data: {
           quoteId: quote.id,
           amountCents: Number.isFinite(parsed) ? Math.round(parsed * 100) : null,
@@ -155,8 +187,20 @@ function RecordForm({ quote, onDone }: { quote: QuoteView; onDone: () => void })
           // End of the chosen day, in this browser's zone: "valid until the
           // 14th" means the 14th counts.
           validUntil: validUntil ? new Date(`${validUntil}T23:59:59`).toISOString() : null,
+          // On a correction, only when it was actually changed: the field
+          // has no seconds, so sending back what it was prefilled with would
+          // round the stored answer time and log a change nobody made.
+          ...(answeredAt && (mode !== "correct" || answeredAt !== initialAnsweredAt)
+            ? { respondedAt: new Date(answeredAt).toISOString() }
+            : {}),
         },
       });
+      // A refusal is data: the form stays open and says which rule it hit,
+      // instead of closing as though the offer had been saved.
+      if (!result.ok) {
+        setRefusal(t(`soumissions.recordRefusal.${result.reason}`));
+        return;
+      }
       onDone();
     } finally {
       setSaving(false);
@@ -167,10 +211,28 @@ function RecordForm({ quote, onDone }: { quote: QuoteView; onDone: () => void })
   return (
     <div className="mt-3 rounded-lg border border-border bg-secondary/40 p-4">
       <p className="mb-3 text-xs font-semibold">
-        {t(mode === "correct" ? "soumissions.correctTitle" : "soumissions.recordTitle", {
-          supplier: quote.supplierName,
-        })}
+        {t(
+          late
+            ? "soumissions.lateTitle"
+            : mode === "correct"
+              ? "soumissions.correctTitle"
+              : "soumissions.recordTitle",
+          { supplier: quote.supplierName },
+        )}
       </p>
+      {late && quote.lateAnswerUntil && (
+        <p className="-mt-1 mb-3 text-[11px] text-muted-foreground">
+          {t("soumissions.lateHint", {
+            closed: formatInstant(quote.lateAnswerUntil, i18n.language, {
+              day: "numeric",
+              month: "short",
+              year: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+            }),
+          })}
+        </p>
+      )}
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
         <div>
           <label className={label} htmlFor={`amt-${quote.id}`}>
@@ -231,7 +293,33 @@ function RecordForm({ quote, onDone }: { quote: QuoteView; onDone: () => void })
           />
         </div>
       </div>
-      <div className="mt-3 grid gap-3 sm:grid-cols-[220px_minmax(0,1fr)]">
+      <div className="mt-3 grid gap-3 sm:grid-cols-[220px_220px_minmax(0,1fr)]">
+        <div>
+          <label className={label} htmlFor={`ra-${quote.id}`}>
+            {t("soumissions.answeredAt")}
+          </label>
+          <Input
+            id={`ra-${quote.id}`}
+            type="datetime-local"
+            value={answeredAt}
+            // The same bounds the server enforces, so the picker greys out
+            // what would be refused: not before the request reached them, not
+            // in the future — and, for a late-keyed answer, not after the
+            // round closed.
+            min={dateTimeInputValue(quote.sentAt ?? quote.requestedAt)}
+            max={dateTimeInputValue(
+              late && quote.lateAnswerUntil ? quote.lateAnswerUntil : new Date().toISOString(),
+            )}
+            onChange={(e) => {
+              setRefusal(null);
+              setAnsweredAt(e.target.value);
+            }}
+            className="h-9"
+          />
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            {t("soumissions.answeredAtHint")}
+          </p>
+        </div>
         <div>
           <label className={label} htmlFor={`vu-${quote.id}`}>
             {t("soumissions.validUntil")}
@@ -284,38 +372,53 @@ function RecordForm({ quote, onDone }: { quote: QuoteView; onDone: () => void })
         </p>
       </div>
 
+      {refusal && (
+        <p role="alert" className="mt-3 text-xs font-medium text-destructive">
+          {refusal}
+        </p>
+      )}
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <Button variant="gold" size="sm" disabled={saving} onClick={() => void save()}>
           {t(mode === "correct" ? "soumissions.saveCorrection" : "soumissions.save")}
         </Button>
-        {/* The reason is REQUIRED, so it is picked here rather than asked for
-            in a second step: a decline with no reason is the row that taught
-            the supplier graph nothing. `lost` is absent on purpose — staff
-            never choose it, acceptQuoteFn writes it for the siblings. */}
-        <select
-          aria-label={t("soumissions.declineReasonLabel")}
-          value={declineReason}
-          onChange={(e) => setDeclineReason(e.target.value as StaffDeclineReason)}
-          className="h-9 rounded-lg border border-border bg-background px-2 text-sm"
-        >
-          {STAFF_DECLINE_REASONS.map((reason) => (
-            <option key={reason} value={reason}>
-              {t(`soumissions.declineReason.${reason}`)}
-            </option>
-          ))}
-        </select>
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={saving}
-          onClick={() =>
-            void declineQuoteFn({
-              data: { quoteId: quote.id, reason: declineReason, ...(notes ? { note: notes } : {}) },
-            }).then(onDone)
-          }
-        >
-          {t("soumissions.decline")}
-        </Button>
+        {/* Not on a late-keyed answer: that quote is already declined — the
+            only thing to do here is record the offer or leave it be. */}
+        {!late && (
+          <>
+            {/* The reason is REQUIRED, so it is picked here rather than asked for
+                in a second step: a decline with no reason is the row that taught
+                the supplier graph nothing. `lost` is absent on purpose — staff
+                never choose it, acceptQuoteFn writes it for the siblings. */}
+            <select
+              aria-label={t("soumissions.declineReasonLabel")}
+              value={declineReason}
+              onChange={(e) => setDeclineReason(e.target.value as StaffDeclineReason)}
+              className="h-9 rounded-lg border border-border bg-background px-2 text-sm"
+            >
+              {STAFF_DECLINE_REASONS.map((reason) => (
+                <option key={reason} value={reason}>
+                  {t(`soumissions.declineReason.${reason}`)}
+                </option>
+              ))}
+            </select>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={saving}
+              onClick={() =>
+                void declineQuoteFn({
+                  data: {
+                    quoteId: quote.id,
+                    reason: declineReason,
+                    ...(notes ? { note: notes } : {}),
+                  },
+                }).then(onDone)
+              }
+            >
+              {t("soumissions.decline")}
+            </Button>
+          </>
+        )}
       </div>
     </div>
   );
@@ -564,15 +667,22 @@ function QuoteList({
                             )}
                           </span>
                         )}
-                        <span className="text-xs text-muted-foreground">
-                          {quote.status === "received" || quote.status === "accepted"
-                            ? `${money(quote.amountCents, quote.currency, i18n.language)} · ${
-                                quote.leadTimeDays !== null
-                                  ? `${quote.leadTimeDays} j`
-                                  : t("soumissions.leadTime")
-                              }${quote.incoterm ? ` · ${quote.incoterm}` : ""}`
-                            : t("soumissions.awaiting")}
-                        </span>
+                        {/* "Awaiting an answer" is true of a request still
+                            out, and of nothing else: a declined quote is not
+                            waiting for anyone. */}
+                        {(quote.status === "received" ||
+                          quote.status === "accepted" ||
+                          quote.status === "requested") && (
+                          <span className="text-xs text-muted-foreground">
+                            {quote.status === "requested"
+                              ? t("soumissions.awaiting")
+                              : `${money(quote.amountCents, quote.currency, i18n.language)} · ${
+                                  quote.leadTimeDays !== null
+                                    ? `${quote.leadTimeDays} j`
+                                    : t("soumissions.leadTime")
+                                }${quote.incoterm ? ` · ${quote.incoterm}` : ""}`}
+                          </span>
+                        )}
                         {/* Until when the offer stands — and, once it has run
                             out, what the buyer can do about it. */}
                         {quote.status === "received" && quote.validUntil && (
@@ -620,6 +730,18 @@ function QuoteList({
                             {quote.responseFrom === "requested" && " *"}
                           </span>
                         )}
+                        {/* Which route the answer came by (V08): OSI's
+                            transcription of an email, or the supplier's own
+                            entry. Only where there IS an answer. */}
+                        {quote.channel &&
+                          (quote.status === "received" || quote.status === "accepted") && (
+                            <span
+                              title={t(`soumissions.channelHint.${quote.channel}`)}
+                              className="rounded bg-secondary px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground"
+                            >
+                              {t(`soumissions.channel.${quote.channel}`)}
+                            </span>
+                          )}
                         <span
                           className={cn(
                             "rounded-full border px-2.5 py-0.5 text-[11px] font-semibold",
@@ -686,11 +808,25 @@ function QuoteList({
                             )}
                           </Button>
                         )}
+                        {/* The late-keyed answer (V08): the round closed
+                            and declined this supplier as silent, but an
+                            answer that arrived in time can still be typed in
+                            while the pack is in review. */}
+                        {canRecord && quote.lateAnswerUntil && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setOpenForm(openForm === quote.id ? null : quote.id)}
+                          >
+                            {t("soumissions.recordLate")}
+                          </Button>
+                        )}
                       </div>
                     </div>
                     {openForm === quote.id && (
                       <RecordForm
                         quote={quote}
+                        late={quote.lateAnswerUntil !== null}
                         onDone={() => {
                           setOpenForm(null);
                           void router.invalidate();

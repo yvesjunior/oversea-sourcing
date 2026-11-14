@@ -620,7 +620,8 @@
     "research_rerun": "Recherche web relancée",
     "quote_accepted": "Soumission acceptée — dossier ouvert",
     "rfq_closed": "Fenêtre de réponse fermée — {{offers}} offre(s) reçue(s)",
-    "rfq_withdrawn": "Appel d'offres retiré auprès de {{count}} fournisseur(s)"
+    "rfq_withdrawn": "Appel d'offres retiré auprès de {{count}} fournisseur(s)",
+    "rfq_offer_added": "Offre arrivée dans le délai, saisie après la fermeture — {{offers}} offre(s) au total"
   },
   "stepsDemande": {
     "received": {
@@ -1239,7 +1240,31 @@
     "askRefusal_not_found": "Demande introuvable.",
     "writeTo": "Écrire à",
     "noContact": "Aucun contact — à ajouter depuis Fournisseurs",
-    "sendFromDossier": "Envoyer depuis la demande"
+    "sendFromDossier": "Envoyer depuis la demande",
+    "answeredAt": "Réponse reçue le",
+    "answeredAtHint": "Quand le fournisseur a répondu — pas quand vous saisissez l'offre.",
+    "recordLate": "Saisir une réponse arrivée à temps",
+    "lateTitle": "Réponse arrivée avant la fermeture — {{supplier}}",
+    "lateHint": "Le tour a été fermé le {{closed}}. Une réponse reçue avant cet instant peut encore être saisie tant que la demande est en revue ; indiquez quand elle est arrivée.",
+    "channel": {
+      "staff": "Saisie par OSI",
+      "portal": "Portail fournisseur"
+    },
+    "channelHint": {
+      "staff": "Offre reçue par courriel et saisie par l'équipe OSI.",
+      "portal": "Offre saisie par le fournisseur lui-même."
+    },
+    "recordRefusal": {
+      "forbidden": "Action non autorisée.",
+      "not_found": "Cette soumission n'existe plus.",
+      "frozen": "Cette offre n'est plus modifiable.",
+      "validity_past": "La date de validité est déjà passée.",
+      "illegal_transition": "Cette offre ne peut pas être enregistrée dans son état actuel.",
+      "answered_at_required": "Indiquez quand le fournisseur a répondu.",
+      "answered_before_sent": "La réponse ne peut pas être antérieure à l'envoi de la demande au fournisseur.",
+      "answered_in_future": "La réponse ne peut pas être datée dans le futur.",
+      "answered_after_close": "Cette réponse est arrivée après la fermeture du tour : elle ne peut pas y être ajoutée."
+    }
   },
   "contrats": {
     "title": "Contrats",

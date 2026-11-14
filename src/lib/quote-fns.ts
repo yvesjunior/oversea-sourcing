@@ -10,7 +10,11 @@
 // a by-product of the tab the brief asked for.
 
 import { createServerFn } from "@tanstack/react-start";
-import { QUOTE_DECLINE_REASONS, type QuoteDeclineReason } from "@/database/schema";
+import {
+  QUOTE_DECLINE_REASONS,
+  type QuoteChannel,
+  type QuoteDeclineReason,
+} from "@/database/schema";
 import { z } from "zod";
 import { isQuoteExpired } from "@/lib/deal-status";
 import type { QuoteStatus } from "@/database/schema";
@@ -57,6 +61,17 @@ export type QuoteView = {
    *  predates `sent_at` or was never marked sent, so the figure still includes
    *  OSI's own lag — do not present it as a supplier metric without saying so. */
   responseFrom: "sent" | "requested";
+  /** The route the answer came by (V08) — `staff` = keyed in by OSI from the
+   *  supplier's email, `portal` = entered by the supplier. Null while there is
+   *  no answer. */
+  channel: QuoteChannel | null;
+  /**
+   * STAFF LIST ONLY (V08). Set when this quote was declined as unanswered by
+   * its round closing AND an answer that arrived in time may still be typed
+   * in: the instant the round closed, which the answer must not postdate.
+   * Null everywhere else — the door is shut, or the reader is not staff.
+   */
+  lateAnswerUntil: string | null;
   /** The request is on the PACK flow (V06): its RFQ is sent by the platform,
    *  from the dossier, as one batch — so the manual « marquer comme envoyée »
    *  does not apply. Only ever true on the staff list; a workspace's own list
@@ -103,7 +118,7 @@ function toView(
   quote: typeof import("@/database/schema").quote.$inferSelect,
   requestTitle: string,
   organizationName: string,
-  onPackFlow = false,
+  staff: { onPackFlow?: boolean; lateAnswerUntil?: string | null } = {},
 ): QuoteView {
   const responded = quote.respondedAt;
   return {
@@ -141,7 +156,9 @@ function toView(
         ) / 10
       : null,
     responseFrom: quote.sentAt ? ("sent" as const) : ("requested" as const),
-    onPackFlow,
+    channel: quote.channel ?? null,
+    lateAnswerUntil: staff.lateAnswerUntil ?? null,
+    onPackFlow: staff.onPackFlow ?? false,
   };
 }
 
@@ -310,6 +327,7 @@ export const requestQuotesFn = createServerFn({ method: "POST" })
         sentAt: null,
         sentBy: null,
         respondedAt: null,
+        channel: null,
         validUntil: null,
         requestedAt: new Date(),
         requestedBy: caller.userId,
@@ -456,17 +474,39 @@ export const getAllQuotesFn = createServerFn({ method: "GET" }).handler(
       .select({
         quote: schema.quote,
         title: schema.request.title,
+        requestStatus: schema.request.status,
         workspaceName: schema.organization.name,
+        // Null for a quote outside a round (left join).
+        roundClosedAt: schema.rfqRound.closedAt,
+        roundCloseReason: schema.rfqRound.closeReason,
       })
       .from(schema.quote)
       .innerJoin(schema.request, eq(schema.request.id, schema.quote.requestId))
       .innerJoin(schema.organization, eq(schema.organization.id, schema.quote.organizationId))
+      .leftJoin(schema.rfqRound, eq(schema.rfqRound.id, schema.quote.roundId))
       .orderBy(desc(schema.quote.requestedAt));
 
-    const { packFlowRequestIds } = await import("@/server/request-flow");
+    const [{ packFlowRequestIds }, { lateAnswerOpen }] = await Promise.all([
+      import("@/server/request-flow"),
+      import("@/lib/rfq-round"),
+    ]);
     const packFlow = await packFlowRequestIds(rows.map((r) => r.quote.requestId));
     const quotes = rows.map((r) =>
-      toView(r.quote, r.title, r.workspaceName, packFlow.has(r.quote.requestId)),
+      toView(r.quote, r.title, r.workspaceName, {
+        onPackFlow: packFlow.has(r.quote.requestId),
+        // The late-keyed answer (V08): only where `recordQuoteFn` would
+        // accept one, so the button never promises what the server refuses.
+        lateAnswerUntil:
+          r.roundClosedAt &&
+          lateAnswerOpen({
+            status: r.quote.status,
+            declineReason: r.quote.declineReason ?? null,
+            requestStatus: r.requestStatus,
+            round: { closedAt: r.roundClosedAt, closeReason: r.roundCloseReason },
+          })
+            ? r.roundClosedAt.toISOString()
+            : null,
+      }),
     );
     // Only the suppliers staff still have to write to: an address is working
     // data for an open solicitation, not something to ship for every row.
@@ -556,10 +596,36 @@ export const getQuotesForRequestFn = createServerFn({ method: "GET" })
     return rows.map((r) => toView(r.quote, r.title, r.workspaceName));
   });
 
+/** Why an offer was not recorded — typed, so the form can say which. */
+export type RecordQuoteRefusal =
+  | "forbidden"
+  | "not_found"
+  | "frozen"
+  | "validity_past"
+  | "illegal_transition"
+  /** A first entry (or a late-keyed answer) with no answer time. */
+  | "answered_at_required"
+  | "answered_before_sent"
+  | "answered_in_future"
+  /** A late-keyed answer dated after its round closed: not in time. */
+  | "answered_after_close";
+
 /**
  * Staff key in an offer that arrived by email. Moves the quote to `received`
- * and stamps `responded_at` — which is what turns "we asked five suppliers"
- * into a response-time signal we own and nobody can scrape.
+ * and records WHEN THE SUPPLIER ANSWERED — which is what turns "we asked five
+ * suppliers" into a response-time signal we own and nobody can scrape.
+ *
+ * That time is `respondedAt`, typed by the person entering the offer (V08),
+ * never the moment of typing: an offer emailed on Tuesday and entered on
+ * Thursday answered on Tuesday. Required on a first entry; on a correction it
+ * may be fixed like any other mistyped field.
+ *
+ * Three ways in:
+ *  • `requested` → the first entry;
+ *  • `received`  → a correction (not a transition);
+ *  • `declined` by a round closing, while the pack is still in review → the
+ *    LATE-KEYED ANSWER: the supplier answered in time, the round closed
+ *    before anyone typed it. Only when `respondedAt` is not after the close.
  */
 export const recordQuoteFn = createServerFn({ method: "POST" })
   .inputValidator(
@@ -576,9 +642,11 @@ export const recordQuoteFn = createServerFn({ method: "POST" })
       /** Until when the offer stands — ISO timestamp. Absent or null = one
        *  calendar month from the answer (owner 2026-09-14). */
       validUntil: z.string().datetime({ offset: true }).nullable().optional(),
+      /** When the supplier answered — ISO timestamp. See the fn comment. */
+      respondedAt: z.string().datetime({ offset: true }).optional(),
     }),
   )
-  .handler(async ({ data }): Promise<{ ok: boolean; reason?: string }> => {
+  .handler(async ({ data }): Promise<{ ok: true } | { ok: false; reason: RecordQuoteRefusal }> => {
     const [{ effectiveHasPermission }, { auth }, { getRequest }, { db }, { eq }, schema] =
       await Promise.all([
         import("@/server/workspace-guard"),
@@ -599,17 +667,59 @@ export const recordQuoteFn = createServerFn({ method: "POST" })
     const quote = await db.query.quote.findFirst({ where: eq(schema.quote.id, data.quoteId) });
     if (!quote) return { ok: false, reason: "not_found" };
 
-    const { offerEntryMode, effectiveQuoteStatus, defaultQuoteValidUntil } =
+    const { offerEntryMode, effectiveQuoteStatus, defaultQuoteValidUntil, checkAnsweredAt } =
       await import("@/lib/deal-status");
     // The EFFECTIVE status: an offer past its validity is frozen like a
     // declined one — the buyer asks again, staff record the new answer.
     const mode = offerEntryMode(effectiveQuoteStatus(quote));
-    if (mode === null) return { ok: false, reason: "frozen" };
+
+    // Frozen — unless this is the one exception: a quote its round declined
+    // as silent, whose answer arrived in time and is only now being typed.
+    let lateRoundClosedAt: Date | null = null;
+    if (mode === null) {
+      if (quote.status === "declined" && quote.roundId) {
+        const [round, owner, { lateAnswerOpen }] = await Promise.all([
+          db.query.rfqRound.findFirst({ where: eq(schema.rfqRound.id, quote.roundId) }),
+          db.query.request.findFirst({
+            where: eq(schema.request.id, quote.requestId),
+            columns: { status: true },
+          }),
+          import("@/lib/rfq-round"),
+        ]);
+        if (
+          round?.closedAt &&
+          owner &&
+          lateAnswerOpen({
+            status: quote.status,
+            declineReason: quote.declineReason ?? null,
+            requestStatus: owner.status,
+            round: { closedAt: round.closedAt, closeReason: round.closeReason ?? null },
+          })
+        ) {
+          lateRoundClosedAt = round.closedAt;
+        }
+      }
+      if (!lateRoundClosedAt) return { ok: false, reason: "frozen" };
+    }
 
     // A validity date in the past is not an offer anyone can accept.
     const explicitValidUntil = data.validUntil ? new Date(data.validUntil) : null;
     if (explicitValidUntil && explicitValidUntil.getTime() <= Date.now()) {
       return { ok: false, reason: "validity_past" };
+    }
+
+    // WHEN THE SUPPLIER ANSWERED. Typed, so checked: not before the request
+    // reached them, not in the future. `sent_at` when the send was stamped,
+    // else the ask — the same clock the response time is measured from.
+    let respondedAt: Date | null = null;
+    if (data.respondedAt) {
+      const checked = checkAnsweredAt({
+        respondedAt: new Date(data.respondedAt),
+        askedAt: quote.sentAt ?? quote.requestedAt,
+        now: new Date(),
+      });
+      if (!checked.ok) return { ok: false, reason: checked.reason };
+      respondedAt = checked.respondedAt;
     }
 
     // A CORRECTION IS NOT A TRANSITION. Driving the state machine for both is
@@ -628,6 +738,7 @@ export const recordQuoteFn = createServerFn({ method: "POST" })
         paymentTerms: quote.paymentTerms,
         notes: quote.notes,
         validUntil: quote.validUntil,
+        respondedAt: quote.respondedAt,
       };
       const after = {
         amountCents: data.amountCents ?? null,
@@ -641,6 +752,11 @@ export const recordQuoteFn = createServerFn({ method: "POST" })
         // A correction may extend (or shorten) the validity; left blank it
         // keeps what the row already holds rather than resetting the default.
         validUntil: explicitValidUntil ?? quote.validUntil,
+        // The answer time is a typed fact like the price (V08), so a mistyped
+        // one can be fixed — and the fix is in the journal with the rest.
+        // Left out of the call, it keeps what the row holds: correcting a
+        // price must never move the response time by accident.
+        respondedAt: respondedAt ?? quote.respondedAt,
       };
       for (const [key, value] of Object.entries(after)) {
         const was = before[key as keyof typeof before];
@@ -656,9 +772,9 @@ export const recordQuoteFn = createServerFn({ method: "POST" })
         .update(schema.quote)
         .set({
           ...after,
-          // respondedAt is NOT touched: a correction is not a new answer, and
-          // rewriting it would move the response time this table exists to
-          // measure. recordedBy IS updated — whoever fixed it owns the figure.
+          // recordedBy IS updated — whoever fixed it owns the figure. The
+          // channel is not: a portal offer staff corrected still came by the
+          // portal, and `recorded_by` being set is what says a person touched it.
           recordedBy: session.user.id,
           updatedAt: new Date(),
         })
@@ -676,6 +792,16 @@ export const recordQuoteFn = createServerFn({ method: "POST" })
       return { ok: true };
     }
 
+    // From here on this is an ANSWER being entered — first entry or late-keyed
+    // — and an answer has a time.
+    if (!respondedAt) return { ok: false, reason: "answered_at_required" };
+    if (lateRoundClosedAt) {
+      const { answeredInRound } = await import("@/lib/rfq-round");
+      if (!answeredInRound(respondedAt, lateRoundClosedAt)) {
+        return { ok: false, reason: "answered_after_close" };
+      }
+    }
+
     const { transitionQuote } = await import("@/server/deals");
     try {
       await transitionQuote(quote.id, quote.status, "received", {
@@ -687,11 +813,14 @@ export const recordQuoteFn = createServerFn({ method: "POST" })
         incoterm: data.incoterm ?? null,
         paymentTerms: data.paymentTerms ?? null,
         notes: data.notes ?? null,
-        // Only stamp the answer time once — a correction is not a new answer.
-        respondedAt: quote.respondedAt ?? new Date(),
+        respondedAt,
+        channel: "staff",
+        // A late-keyed answer undoes the round's verdict: this supplier did
+        // answer, so the reason they were declined for no longer stands.
+        ...(lateRoundClosedAt ? { declineReason: null } : {}),
         // Validity (owner 2026-09-14): what staff typed, else one month from
         // the answer. Always written, so every recorded offer carries a date.
-        validUntil: explicitValidUntil ?? defaultQuoteValidUntil(quote.respondedAt ?? new Date()),
+        validUntil: explicitValidUntil ?? defaultQuoteValidUntil(respondedAt),
         recordedBy: session.user.id,
       });
     } catch (error) {
@@ -712,8 +841,22 @@ export const recordQuoteFn = createServerFn({ method: "POST" })
         ...(data.amountCents != null ? { amountCents: data.amountCents } : {}),
         ...(data.currency ? { currency: data.currency } : {}),
         ...(data.leadTimeDays != null ? { leadTimeDays: data.leadTimeDays } : {}),
+        respondedAt: respondedAt.toISOString(),
+        // What the round had recorded about this supplier, now overturned.
+        ...(lateRoundClosedAt ? { late: true, was: quote.declineReason } : {}),
       },
     });
+
+    if (lateRoundClosedAt && quote.roundId) {
+      // The timeline said how many offers the window closed with; it is now
+      // one more, and the request's history should not contradict the pack.
+      const [{ roundCounts }, { recordEvent }] = await Promise.all([
+        import("@/server/rfq-window"),
+        import("@/server/requests"),
+      ]);
+      const offers = (await roundCounts([quote.roundId])).get(quote.roundId)?.offers ?? 0;
+      await recordEvent(quote.requestId, quote.organizationId, "rfq.offer_added", { offers });
+    }
 
     // The offer that fills the round closes it (V07). After the audit row and
     // never instead of it: the offer is recorded whether or not this works,

@@ -8,7 +8,12 @@
 // signal about a supplier that cannot be scraped from anywhere, so it must
 // only ever be written when the supplier really was given their full time.
 
-import type { QuoteDeclineReason, RoundCloseReason } from "@/database/schema";
+import type {
+  QuoteDeclineReason,
+  QuoteStatus,
+  RequestStatus,
+  RoundCloseReason,
+} from "@/database/schema";
 
 /**
  * Why a quote still waiting for an answer is declined when its round closes.
@@ -61,4 +66,46 @@ export function dueClose(input: {
   if (targetReached(input.offers, input.targetOffers)) return "target_reached";
   if (input.closesAt.getTime() <= input.now.getTime()) return "deadline";
   return null;
+}
+
+/**
+ * May staff still record an answer on a quote its round declined? (V08)
+ *
+ * On the staff route an offer reaches the platform when someone TYPES it, not
+ * when the supplier sends it. A round that closes in between declines the
+ * quote as silent — and a supplier who answered on time is then on record as
+ * never having answered, which is the one signal `no_response` exists to keep
+ * clean. This is the door that lets the late typing be done.
+ *
+ * Open only when ALL of these hold:
+ *  • the round declined it as unanswered — `no_response` or
+ *    `closed_before_deadline`. Not `not_reached` (nobody the RFQ never
+ *    reached can have answered it), and not a decline a person chose;
+ *  • the round did not end by the buyer withdrawing — there is no request
+ *    left to put an offer in front of;
+ *  • the request is still in `pack_review`. Once the pack is released,
+ *    relaunched or refused, the offers it was decided on are history.
+ *
+ * It says nothing about WHEN the supplier answered: the caller must also
+ * check the typed time is not after the round closed (`answeredInRound`).
+ */
+export function lateAnswerOpen(input: {
+  status: QuoteStatus;
+  declineReason: QuoteDeclineReason | null;
+  requestStatus: RequestStatus;
+  round: { closedAt: Date | null; closeReason: RoundCloseReason | null } | null;
+}): boolean {
+  if (input.status !== "declined") return false;
+  if (input.declineReason !== "no_response" && input.declineReason !== "closed_before_deadline") {
+    return false;
+  }
+  if (!input.round?.closedAt || input.round.closeReason === "withdrawn") return false;
+  return input.requestStatus === "pack_review";
+}
+
+/** Did the answer arrive while the round was open? Up to the instant it
+ *  actually closed — for a deadline close that is the sweep's instant, up to
+ *  a minute after `closes_at`, and an answer in that minute was in time. */
+export function answeredInRound(respondedAt: Date, closedAt: Date): boolean {
+  return respondedAt.getTime() <= closedAt.getTime();
 }

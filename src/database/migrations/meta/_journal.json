@@ -351,6 +351,13 @@
       "when": 1794680251567,
       "tag": "0049_fixed_tombstone",
       "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1794682155995,
+      "tag": "0050_curved_prism",
+      "breakpoints": true
     }
   ]
 }
