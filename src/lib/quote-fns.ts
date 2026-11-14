@@ -10,11 +10,7 @@
 // a by-product of the tab the brief asked for.
 
 import { createServerFn } from "@tanstack/react-start";
-import {
-  QUOTE_DECLINE_REASONS,
-  type QuoteChannel,
-  type QuoteDeclineReason,
-} from "@/database/schema";
+import type { QuoteChannel, QuoteDeclineReason } from "@/database/schema";
 import { z } from "zod";
 import { isQuoteExpired } from "@/lib/deal-status";
 import type { QuoteStatus } from "@/database/schema";
@@ -78,6 +74,12 @@ export type QuoteView = {
    *  contains no pack-flow quote at all. */
   onPackFlow: boolean;
 };
+
+/** The decline reasons a staff member may choose. Everything else in
+ *  `QUOTE_DECLINE_REASONS` is written by an event, never picked. On the pack
+ *  flow only `supplier_declined` is accepted — see `declineQuoteFn`. */
+export const STAFF_DECLINE_REASONS = ["no_response", "supplier_declined"] as const;
+export type StaffDeclineReason = (typeof STAFF_DECLINE_REASONS)[number];
 
 /** What the buyer may do with a quote, resolved server-side so the UI never
  *  has to re-derive a rule. */
@@ -607,8 +609,11 @@ export type RecordQuoteRefusal =
   | "answered_at_required"
   | "answered_before_sent"
   | "answered_in_future"
-  /** A late-keyed answer dated after its round closed: not in time. */
-  | "answered_after_close";
+  /** An answer dated after its round closed: not in time (a late-keyed
+   *  answer), or no longer in time (a correction). */
+  | "answered_after_close"
+  /** Pack flow: the RFQ has not been sent to this supplier yet. */
+  | "rfq_not_sent";
 
 /**
  * Staff key in an offer that arrived by email. Moves the quote to `received`
@@ -702,6 +707,18 @@ export const recordQuoteFn = createServerFn({ method: "POST" })
       if (!lateRoundClosedAt) return { ok: false, reason: "frozen" };
     }
 
+    const { flowOfRequest } = await import("@/server/request-flow");
+    const onPackFlow = (await flowOfRequest(quote.requestId)) === "pack";
+    // On the pack flow the platform sends the RFQ, and an offer belongs to
+    // the ROUND it answers. One keyed in before the RFQ left has no round: it
+    // would be skipped by the batch (which writes only to `requested` quotes),
+    // counted by no window and ranked by nothing — an offer on record that
+    // can never reach a pack. Send first; the report flow, where the email
+    // goes out by hand, keeps its looser rule.
+    if (mode === "record" && onPackFlow && !quote.sentAt) {
+      return { ok: false, reason: "rfq_not_sent" };
+    }
+
     // A validity date in the past is not an offer anyone can accept.
     const explicitValidUntil = data.validUntil ? new Date(data.validUntil) : null;
     if (explicitValidUntil && explicitValidUntil.getTime() <= Date.now()) {
@@ -720,6 +737,22 @@ export const recordQuoteFn = createServerFn({ method: "POST" })
       });
       if (!checked.ok) return { ok: false, reason: checked.reason };
       respondedAt = checked.respondedAt;
+      // …nor, for an offer already in a CLOSED round, after that round
+      // closed. Every offer a round holds was answered while it was open;
+      // without this a late-keyed answer could be entered with a time that
+      // passes the rule and then "corrected" to one that does not.
+      if (mode === "correct" && quote.roundId) {
+        const [round, { answeredInRound }] = await Promise.all([
+          db.query.rfqRound.findFirst({
+            where: eq(schema.rfqRound.id, quote.roundId),
+            columns: { closedAt: true },
+          }),
+          import("@/lib/rfq-round"),
+        ]);
+        if (round?.closedAt && !answeredInRound(respondedAt, round.closedAt)) {
+          return { ok: false, reason: "answered_after_close" };
+        }
+      }
     }
 
     // A CORRECTION IS NOT A TRANSITION. Driving the state machine for both is
@@ -884,8 +917,6 @@ export const recordQuoteFn = createServerFn({ method: "POST" })
     // by email, and there the buyer learns of offers through the Decision
     // Pack. Telling them one by one as staff key them in would hand over the
     // shortlist a line at a time.
-    const { flowOfRequest } = await import("@/server/request-flow");
-    const onPackFlow = request ? (await flowOfRequest(request.id)) === "pack" : false;
     if (request?.createdBy && !onPackFlow) {
       const { notifyUser } = await import("@/server/notify");
       await notifyUser({
@@ -998,10 +1029,12 @@ export const declineQuoteFn = createServerFn({ method: "POST" })
   .inputValidator(
     z.object({
       quoteId: z.string().min(1),
-      // Not the two reasons a round closing writes (`closeRound`): they are
-      // never chosen — a person picking one would be recording a close that
+      // Only what a PERSON can know: the supplier said no, or never
+      // answered. The others are written by an event — `lost` by the buyer
+      // accepting someone else, `closed_before_deadline` and `not_reached` by
+      // a round closing — and a hand-picked one would record an event that
       // did not happen.
-      reason: z.enum(QUOTE_DECLINE_REASONS).exclude(["closed_before_deadline", "not_reached"]),
+      reason: z.enum(STAFF_DECLINE_REASONS),
       note: z.string().trim().max(300).optional(),
     }),
   )
@@ -1021,6 +1054,15 @@ export const declineQuoteFn = createServerFn({ method: "POST" })
 
     const quote = await db.query.quote.findFirst({ where: eq(schema.quote.id, data.quoteId) });
     if (!quote) return { ok: false };
+
+    // On the pack flow "never answered" is the ROUND's verdict, reached when
+    // its window runs out on a supplier who was written to (`closeRound`).
+    // Picked by hand before that, it would blame a supplier who still had
+    // time — the exact error the round's three decline reasons exist to stop.
+    if (data.reason === "no_response") {
+      const { flowOfRequest } = await import("@/server/request-flow");
+      if ((await flowOfRequest(quote.requestId)) === "pack") return { ok: false };
+    }
 
     const { transitionQuote } = await import("@/server/deals");
     try {

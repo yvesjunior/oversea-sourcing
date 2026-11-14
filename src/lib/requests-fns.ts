@@ -578,7 +578,11 @@ export const getRequestDetailFn = createServerFn({ method: "GET" })
       .where(eq(schema.researchRun.requestId, row.id))
       .orderBy(desc(schema.researchRun.createdAt))
       .limit(1);
-    const researchFailed = lastRun?.status === "failed";
+    // Report flow only: re-running reopens the SEARCH, and on the pack flow
+    // the search's answer has already become a shortlist, an RFQ round and
+    // offers — `report_ready → searching` there would send a released pack
+    // back to the start.
+    const researchFailed = flow === "report" && lastRun?.status === "failed";
     // Re-running costs money and reopens the search, so it needs a working
     // seat in the owning workspace (a viewer may read the dossier, never spend
     // on it) or staff standing in the internal workspace. Same two-sided rule
@@ -768,6 +772,12 @@ export const rerunResearchFn = createServerFn({ method: "POST" })
     // Refuses a `running` run too, by construction: the latest would not be
     // `failed`, so a double click cannot buy two collections.
     if (lastRun?.status !== "failed") return { ok: false, reason: "not_failed" };
+    // The state machine allows `report_ready → searching` and cannot tell the
+    // flows apart — both end on that state. This fn can, and must: on the
+    // pack flow `report_ready` is a released Decision Pack, not a report
+    // built on a failed collection.
+    const { flowOfRequest } = await import("@/server/request-flow");
+    if ((await flowOfRequest(row.id)) === "pack") return { ok: false, reason: "not_failed" };
 
     const { canTransition } = await import("@/lib/request-status");
     const { recordEvent, transitionRequest } = await import("@/server/requests");
@@ -816,8 +826,16 @@ export const cancelRequestFn = createServerFn({ method: "POST" })
     const { canTransition } = await import("@/lib/request-status");
     if (!canTransition(row.status, "cancelled")) return { ok: false };
 
-    const { transitionRequest } = await import("@/server/requests");
-    await transitionRequest(row.id, workspaceId, row.status, "cancelled");
+    const { transitionRequest, StaleTransitionError } = await import("@/server/requests");
+    try {
+      await transitionRequest(row.id, workspaceId, row.status, "cancelled");
+    } catch (error) {
+      // The request moved between the read above and this write (the worker
+      // finished a stage, a round closed). Nothing was cancelled; the page
+      // reloads and shows where the request really is.
+      if (error instanceof StaleTransitionError) return { ok: false };
+      throw error;
+    }
 
     // Cancelled while suppliers were quoting (V07): the round closes and
     // whoever was written to is told the RFQ no longer stands. AFTER the

@@ -80,3 +80,21 @@ describe("an address the research pass reports", () => {
     expect(acceptResearchedEmail(undefined, "acme.com")).toBeNull();
   });
 });
+
+describe("a storefront on someone else's domain", () => {
+  it("does not make the marketplace's address the supplier's", () => {
+    expect(emailMatchesWebsite("service@alibaba.com", "https://acme.en.alibaba.com")).toBe(false);
+    expect(emailMatchesWebsite("info@made-in-china.com", "acme.en.made-in-china.com")).toBe(false);
+    expect(acceptResearchedEmail("sales@alibaba.com", "https://acme.en.alibaba.com")).toBeNull();
+  });
+
+  it("nor an address on a site builder's domain", () => {
+    expect(emailMatchesWebsite("hello@wixsite.com", "https://acme.wixsite.com/home")).toBe(false);
+    expect(emailMatchesWebsite("acme@acme.myshopify.com", "acme.myshopify.com")).toBe(false);
+  });
+
+  it("still accepts a supplier's own domain, including one that merely resembles a shared host", () => {
+    expect(emailMatchesWebsite("sales@acme.com", "https://shop.acme.com")).toBe(true);
+    expect(emailMatchesWebsite("sales@notalibaba.com", "https://www.notalibaba.com")).toBe(true);
+  });
+});

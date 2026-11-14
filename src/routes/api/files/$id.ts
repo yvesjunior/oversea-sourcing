@@ -34,6 +34,25 @@ export const Route = createFileRoute("/api/files/$id")({
           if (!(await effectiveHasPermission(session, "requests.all"))) {
             return Response.json({ error: "not found" }, { status: 404 });
           }
+        } else {
+          // The owning workspace reads no supplier on the pack flow before the
+          // Decision Pack (owner, 2026-11-14) — and a supplier's quotation IS
+          // the supplier, by name, with its price. The Documents list already
+          // leaves these out (document-fns.ts); this is the same rule for
+          // someone holding the file's address. Only documents attached to a
+          // QUOTE: the buyer's own attachments stay theirs on either flow.
+          const quoted = await db
+            .select({ requestId: schema.quote.requestId })
+            .from(schema.document)
+            .innerJoin(schema.quote, eq(schema.quote.id, schema.document.quoteId))
+            .where(eq(schema.document.fileId, row.id));
+          if (quoted.length > 0) {
+            const { packFlowRequestIds } = await import("@/server/request-flow");
+            const packFlow = await packFlowRequestIds(quoted.map((q) => q.requestId));
+            if (quoted.some((q) => packFlow.has(q.requestId))) {
+              return Response.json({ error: "not found" }, { status: 404 });
+            }
+          }
         }
 
         const { Readable } = await import("node:stream");

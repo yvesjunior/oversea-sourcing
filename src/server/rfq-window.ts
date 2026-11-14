@@ -10,6 +10,7 @@
 //
 // ── What a close does, in one transaction ───────────────────────────────────
 //
+//   0. lock the request, and decide the reason from what it is NOW
 //   1. stamp the round            (the conditional update — the gate)
 //   2. decline whoever had not answered, with the reason the close implies
 //   3. soliciting → pack_review   (every close but the buyer's withdrawal)
@@ -105,15 +106,26 @@ export async function closeRound(
   });
   if (!request) return { ok: false, reason: "not_found" };
 
-  // A round whose request is already over can only be WITHDRAWN, whatever the
-  // caller asked for: there is no review to hand it to, and its suppliers are
-  // owed the notice. (Reached when a cancel died before withdrawing the round
-  // and something else got to it first.)
-  const reason: RoundCloseReason = isTerminal(request.status) ? "withdrawn" : requested;
-  const earlyNote = reason === "early" ? (note ?? "").trim() : "";
-
   const now = new Date();
   const outcome = await db.transaction(async (tx) => {
+    // FIRST, the request — locked, and read under the lock. Everything below
+    // depends on whether it is still alive, and a buyer can cancel it at any
+    // instant: decided on a status read before the lock, a cancel landing in
+    // that gap would be closed as a `deadline`, its suppliers recorded as
+    // silent and never told.
+    const [current] = await tx
+      .select({ status: schema.request.status })
+      .from(schema.request)
+      .where(eq(schema.request.id, request.id))
+      .for("update");
+    if (!current) return null;
+
+    // A round whose request is already over can only be WITHDRAWN, whatever
+    // the caller asked for: there is no review to hand it to, and its
+    // suppliers are owed the notice.
+    const reason: RoundCloseReason = isTerminal(current.status) ? "withdrawn" : requested;
+    const earlyNote = reason === "early" ? (note ?? "").trim() : "";
+
     // THE GATE. Two closes racing both reach this line; the database lets
     // exactly one of them change the row.
     const [round] = await tx
@@ -160,15 +172,7 @@ export async function closeRound(
       .where(and(eq(schema.quote.roundId, roundId), eq(schema.quote.status, "received")));
 
     if (leadsToReview(reason)) {
-      // Lock the request and read it again: a buyer may have cancelled it
-      // since this function loaded it, and a cancelled request must not be
-      // walked back into the review.
-      const [current] = await tx
-        .select({ status: schema.request.status })
-        .from(schema.request)
-        .where(eq(schema.request.id, request.id))
-        .for("update");
-      if (current?.status === "soliciting") {
+      if (current.status === "soliciting") {
         await transitionRequest(
           request.id,
           request.organizationId,
@@ -187,11 +191,11 @@ export async function closeRound(
         tx,
       );
     }
-    return { round, silent, answered };
+    return { round, silent, answered, reason, earlyNote };
   });
 
   if (!outcome) return { ok: true, closed: false, offers: 0, declined: 0 };
-  const { round, silent, answered } = outcome;
+  const { round, silent, answered, reason, earlyNote } = outcome;
   const offers = answered.length;
 
   // ── After the commit: what cannot be rolled back ──────────────────────────

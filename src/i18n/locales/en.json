@@ -1264,7 +1264,8 @@
       "answered_at_required": "Say when the supplier answered.",
       "answered_before_sent": "The answer cannot be earlier than the request being sent to the supplier.",
       "answered_in_future": "The answer cannot be dated in the future.",
-      "answered_after_close": "This answer arrived after the round closed: it cannot be added to it."
+      "answered_after_close": "This answer arrived after the round closed: it cannot be added to it.",
+      "rfq_not_sent": "The RFQ has not been sent to this supplier yet: send it from the request before entering an offer."
     }
   },
   "contrats": {

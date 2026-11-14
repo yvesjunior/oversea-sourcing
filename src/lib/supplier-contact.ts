@@ -38,11 +38,66 @@ function hostOf(website: string): string | null {
 }
 
 /**
+ * Domains that host MANY companies: marketplaces, directories, site builders.
+ *
+ * A supplier whose "website" is a storefront there (`acme.en.alibaba.com`,
+ * `acme.wixsite.com`) is on someone else's domain, so an address at that
+ * domain (`service@alibaba.com`) is the platform's, not the supplier's — and
+ * the "same domain" test below would accept it, the site's host sitting
+ * under the mail domain. An RFQ sent there reaches nobody at the company and
+ * starts its response clock all the same.
+ *
+ * A list, and so incomplete by nature. It only has to catch the hosts the
+ * research actually returns as supplier websites; anything it misses is one
+ * wrong suggestion, shown to staff before any RFQ leaves.
+ */
+const SHARED_HOSTS: readonly string[] = [
+  // B2B marketplaces and directories
+  "alibaba.com",
+  "1688.com",
+  "aliexpress.com",
+  "made-in-china.com",
+  "globalsources.com",
+  "dhgate.com",
+  "indiamart.com",
+  "tradeindia.com",
+  "exportersindia.com",
+  "ec21.com",
+  "ecplaza.net",
+  "tradekey.com",
+  "go4worldbusiness.com",
+  "europages.com",
+  "kompass.com",
+  "thomasnet.com",
+  "yellowpages.com",
+  // Social and profile pages
+  "linkedin.com",
+  "facebook.com",
+  "instagram.com",
+  // Site builders and hosted storefronts
+  "wixsite.com",
+  "weebly.com",
+  "wordpress.com",
+  "blogspot.com",
+  "myshopify.com",
+  "squarespace.com",
+  "webnode.com",
+  "godaddysites.com",
+  "github.io",
+  "google.com",
+];
+
+function onSharedHost(domain: string): boolean {
+  return SHARED_HOSTS.some((host) => domain === host || domain.endsWith(`.${host}`));
+}
+
+/**
  * Does this address belong to the company whose site this is?
  *
  * True when the mail domain and the site's host are the same or one sits
  * under the other: `sales@acme.com` for `shop.acme.com`, `info@eu.acme.com`
- * for `acme.com`. No public-suffix list is consulted, so a bare registry
+ * for `acme.com` — unless the domain is one many companies share
+ * (`SHARED_HOSTS`). No public-suffix list is consulted, so a bare registry
  * suffix used as a mail domain (`someone@co.uk`) would match every site under
  * it — nobody receives mail there, and the cost of the rare miss is one
  * wrong suggestion staff can delete.
@@ -52,6 +107,8 @@ export function emailMatchesWebsite(email: string, website: string | null | unde
   const host = hostOf(website);
   const domain = normalizeEmail(email).split("@")[1];
   if (!host || !domain || !domain.includes(".")) return false;
+  // Never "the supplier's own domain" when the domain is shared by thousands.
+  if (onSharedHost(domain)) return false;
   return domain === host || host.endsWith(`.${domain}`) || domain.endsWith(`.${host}`);
 }
 

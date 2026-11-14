@@ -38,7 +38,8 @@ export const REQUEST_TRANSITIONS: Record<RequestStatus, readonly RequestStatus[]
   // (→ soliciting), refuse ends it (→ unfulfilled).
   pack_review: ["report_ready", "soliciting", "unfulfilled", "cancelled"],
   // Two ways back, one per flow, and each fn that takes one checks it is on
-  // the right flow — the machine cannot, since both flows end on this state:
+  // the right flow (`flowOfRequest`) — the machine cannot, since both flows
+  // end on this state:
   //
   //  • → `searching` is the RE-RUN of a failed research pass (rerunResearchFn,
   //    2026-09-07): the report exists but was built on a collection that never

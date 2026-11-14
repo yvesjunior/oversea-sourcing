@@ -1264,7 +1264,8 @@
       "answered_at_required": "Indiquez quand le fournisseur a répondu.",
       "answered_before_sent": "La réponse ne peut pas être antérieure à l'envoi de la demande au fournisseur.",
       "answered_in_future": "La réponse ne peut pas être datée dans le futur.",
-      "answered_after_close": "Cette réponse est arrivée après la fermeture du tour : elle ne peut pas y être ajoutée."
+      "answered_after_close": "Cette réponse est arrivée après la fermeture du tour : elle ne peut pas y être ajoutée.",
+      "rfq_not_sent": "L'appel d'offres n'a pas encore été envoyé à ce fournisseur : envoyez-le depuis la demande avant de saisir une offre."
     }
   },
   "contrats": {

@@ -39,7 +39,11 @@ tracked to delivery** — with the PDF report available throughout.
 ### START HERE — handoff, 2026-09-14 (read this first)
 
 **Prod = `7cfd46f` (deploy #45, 2026-11-14)** — Phase V tasks V01–V09, with
-the pack-flow switch off. `main` is one commit ahead: this record.
+the pack-flow switch off. **`main` is ahead of prod and NOT deployed:** the
+deploy record, then the review of V01–V09 and its fixes (see "Review of
+V01–V09" under Phase V). Prod therefore still has the issues that review
+found — none can occur while the pack flow is off, except the stale-write on
+a request's status, which is as old as the pipeline.
 *(This line read "Prod = `8f40d1e` (deploy #40)" until 2026-11-14; deploys
 #41–#44 are in the table further down and were never reflected here.)*
 
@@ -4260,6 +4264,49 @@ report, exactly as today, because that report is all they get.
 | **D11** | The shortlist is the Top-N the search ranks — 5 by default — and the window closes on 5 offers. Asking five suppliers will rarely bring five answers. Should the pack flow rank more than it needs? | Unchanged: the shortlist is what `SUPPLIERS_RETURNED` ranks. Staff relaunch (V11) when a round comes back short. Ranking more costs a supplier row and a verification run per extra candidate. | V05, V07 |
 | **D12** | A round where nobody is left to answer — every supplier asked has either sent an offer or declined — but the offer target is not reached. Three asked, three answered, target five: the round stays open until its deadline, waiting for no one. Should it close by itself? | **Not closed automatically** (V07 as built): README §2c names three conditions and this would be a fourth. The dossier shows « 0 fournisseur(s) sans réponse à ce jour », and staff close early with a reason. | V07 |
 | **D13** | A round closed early (staff, or the target reached) tells the suppliers who had not answered **nothing**: their RFQ still shows the original deadline. One who answers after the close but before that deadline is refused (V08: not in time for the round). Should they be told the RFQ is closed? | **Not told** (V07/V08 as built) — README §2c: a silent supplier is *"excluded, not chased"*. A closing notice is not chasing, and `buildRfqWithdrawnMail` shows the shape; it is one more email per silent supplier per early close. | V07, V08 |
+
+#### Review of V01–V09 — 2026-11-14, after deploy #45
+
+Every file Phase V added or changed was re-read once the nine tasks were on
+prod. What was found, what was done, and what was checked. **Fixed on `main`,
+not deployed** — prod is still `7cfd46f`.
+
+| # | Found | Fix |
+|---|---|---|
+| R1 | **A request's status was written blindly.** `transitionRequest` validated the edge and then updated the row whatever it now held, so a status read a moment earlier could overwrite one written since: a buyer's cancel undone by the pipeline finishing its stage (as old as the pipeline), by staff sending an RFQ batch for a request withdrawn a second before (V06), or by the fork (V05). | The update is **conditional** on the row still being in `from`; otherwise `StaleTransitionError`. A worker job that throws is retried and finds the request where it is. `sendRfqBatch` now opens the round, ties the quotes and moves the request in **one transaction**, and answers `wrong_state` when the request has moved; `cancelRequestFn` answers `ok: false`. A round is opened from `shortlisted` only. |
+| R2 | **`closeRound` chose its reason before locking the request.** A cancel landing between the read and the lock closed the round as `deadline`: suppliers recorded as silent, never told, staff notified of a review that would not happen. | The request is locked first and the reason decided from the status read under the lock. This also makes real the guard V07 listed as "not exercised": any close on a request that is over is a withdrawal. |
+| R3 | **The research re-run was offered and accepted on a pack-flow request.** The state machine's comment said each fn "checks it is on the right flow"; `rerunResearchFn` did not. On a released pack, `report_ready → searching` would have sent the request back to the start. | Refused on the pack flow, and no longer offered there. |
+| R4 | **Two leaks of "the buyer sees no supplier" (D1).** The per-supplier count on the buyer's supplier list included pack-flow requests — a supplier already known from an earlier report showed one more dossier, which says it is on the shortlist. And `/api/files/:id` served a supplier's quotation to the owning workspace if it held the file's id. | The count leaves pack-flow requests out. The download route answers 404 to the owning workspace for a document attached to a quote of a pack-flow request (the buyer's own attachments are untouched). |
+| R5 | **A researched contact on a marketplace's domain passed the "own domain" test.** For a supplier whose website is a storefront (`acme.en.alibaba.com`), `service@alibaba.com` was accepted: the site's host sits under the mail domain. | `SHARED_HOSTS` — marketplaces, directories, site builders — are never "the supplier's own domain". A list, so incomplete; staff still see the address before any RFQ leaves. |
+| R6 | **Three things staff could do on the pack flow that contradict the round's rules:** decline a quote as `no_response` by hand, before any deadline; record an offer before the RFQ had left (no round → skipped by the batch, counted by no window, ranked by nothing); and correct an answer time to after the round closed, undoing the late-answer rule. `declineQuoteFn` also accepted `lost`, which only an acceptance should write. | `declineQuoteFn` takes `supplier_declined` or `no_response` only, and refuses `no_response` on the pack flow; the form offers the same. `recordQuoteFn` refuses `rfq_not_sent` and bounds a correction by the round's close; the button is not offered before the send. |
+| R7 | **README statements that Phase V made false:** the window "does not exist", the buyer rule is "still how the code behaves until V05", a `shortlisted` request "has no way forward". | Corrected in place. |
+
+*Verified live in dev on request #3049, then restored (baseline re-checked):*
+a transition from a status the request no longer had was refused with
+nothing written, and the valid one went through; the batch send still opens
+the round and moves the request (three RFQs logged); an early close asked on
+a request cancelled underneath it closed as `withdrawn` and the three
+suppliers were told; with the last research run marked failed, the re-run is
+not offered on the pack flow (in review, and released) and is on the report
+flow; as a buyer of the owning workspace, the quotation file answers 404 and
+is not listed on the pack flow, and is listed on the report flow; with a
+second request in the workspace, a supplier common to both shows 1 dossier
+while the other request is on the pack flow and 2 when it is not; on
+`/soumissions` an unsent pack-flow quote has no "record" button, the decline
+list holds only « Le fournisseur a refusé », and an answer time moved past the
+round's close is refused while one before it is saved.
+**Not exercised:** the stale refusal inside `sendRfqBatch`'s transaction and
+in `cancelRequestFn` (the helper they rely on was); the two server refusals
+the form no longer lets a person reach (`no_response` and `rfq_not_sent` on
+the pack flow); the pipeline end to end after R1 — it needs a real research
+run, which costs money.
+**Reviewed and left as they are:** the settings cache (30 s, per process —
+snapshots cover what must not move); the contact-primary invariant; the
+KPI #2 scorer; the labels (every key the new screens use exists in French
+and English — checked by script; the English screens themselves were never
+opened).
+**Noticed, outside this work:** a `file` row whose bytes are missing on disk
+drops the connection instead of answering 404 (`/api/files/:id`).
 
 #### How to read the Phase V tasks
 

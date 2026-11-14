@@ -7,10 +7,10 @@
 //
 // ── The order of operations, and why ────────────────────────────────────────
 //
-//   1. open the round, tie the quotes to it          (one transaction)
-//   2. shortlisted → soliciting
-//   3. one email per supplier
-//   4. stamp `quote.sent_at` — ONLY for an email that left or was queued
+//   1. open the round, tie the quotes to it,
+//      shortlisted → soliciting                      (one transaction)
+//   2. one email per supplier
+//   3. stamp `quote.sent_at` — ONLY for an email that left or was queued
 //
 // `sent_at` is stamped after the fact, per supplier, and never in the opening
 // transaction. So on this flow a quote in a round with no `sent_at` means
@@ -27,7 +27,7 @@ import type { RoundCloseReason } from "@/database/schema";
 import { buildRfqMail, type RfqMail } from "@/lib/rfq-mail";
 import { sendMail } from "@/server/mail";
 import { getSetting } from "@/server/platform-settings";
-import { recordEvent, transitionRequest } from "@/server/requests";
+import { recordEvent, StaleTransitionError, transitionRequest } from "@/server/requests";
 import { roundCounts } from "@/server/rfq-window";
 import { primaryContactsFor, type PrimaryContact } from "@/server/supplier-contacts";
 
@@ -155,8 +155,11 @@ export async function previewRfq(requestId: string): Promise<RfqPreview | null> 
     email: (quote.supplierId && contacts.get(quote.supplierId)?.email) || null,
   }));
 
-  const sendable =
-    (request.status === "shortlisted" || request.status === "soliciting") && !round?.closedAt;
+  // The same two doors `sendRfqBatch` has: a round is OPENED from
+  // `shortlisted`, and an open one is RESUMED while `soliciting`.
+  const sendable = round
+    ? request.status === "soliciting" && !round.closedAt
+    : request.status === "shortlisted";
   const blockedBy: RfqBlocker | null = !sendable
     ? "wrong_state"
     : quotes.length === 0
@@ -243,6 +246,10 @@ export async function sendRfqBatch(
   }
 
   if (!round) {
+    // A round is opened from `shortlisted` and nowhere else. `soliciting`
+    // with no round would be a request that lost its round — nothing to
+    // resume, and not this function's to repair.
+    if (request.status !== "shortlisted") return { ok: false, reason: "wrong_state" };
     const [windowHours, targetOffers] = await Promise.all([
       getSetting("rfq.window_hours"),
       getSetting("rfq.target_offers"),
@@ -278,17 +285,20 @@ export async function sendRfqBatch(
               isNull(schema.quote.roundId),
             ),
           );
+        // In the SAME transaction as the round: if the request is no longer
+        // `shortlisted` — the buyer cancelled it a moment ago — the round is
+        // not opened either, and no supplier is written to about a request
+        // that was withdrawn.
+        await transitionRequest(requestId, request.organizationId, "shortlisted", "soliciting", tx);
         return created!;
       });
     } catch (error) {
       // Two clicks arrived together and the other one opened the round. Its
       // call is doing the sending; this one has nothing left to do.
       if (isUniqueViolation(error)) return { ok: false, reason: "nothing_to_send" };
+      if (error instanceof StaleTransitionError) return { ok: false, reason: "wrong_state" };
       throw error;
     }
-  }
-  if (request.status === "shortlisted") {
-    await transitionRequest(requestId, request.organizationId, "shortlisted", "soliciting");
   }
 
   let sent = 0;

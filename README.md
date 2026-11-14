@@ -1210,18 +1210,22 @@ pack flow it means the Decision Pack has been released.
 **The fork exists and is switched off** (V05, 2026-11-14). When `validating`
 finishes, the worker sends a request to `shortlisted` only if the workspace's
 plan includes quotes **and** the platform setting `flow.pack_enabled` is `on`.
-It ships `off`, and `on` cannot be selected from the product: a request that
-reaches `shortlisted` has no way forward until the rest of the flow is built
-(RFQ batch, window, pack, release — BACKLOG Phase V, V06–V12), so turning it on
-early would strand every paying customer's request there. In development it is
-exercised by writing the setting's row directly.
+It ships `off`, and `on` cannot be selected from the product. Since 2026-11-14
+a pack-flow request can travel as far as `pack_review` — shortlist, RFQ batch,
+the window closing, the offers ranked (BACKLOG Phase V, V05–V09) — and stops
+there: the Decision Pack, its release and the buyer's acceptance are not built
+(V10–V13). Turning it on early would strand every paying customer's request
+in review. In development it is exercised by writing the setting's row
+directly.
 
 What is already true on the pack flow, and tested as the owning workspace:
 
 - A request's flow is *derived* from where it has been, never stored.
 - **The workspace that owns the request reads no supplier.** Not the ranking,
-  not the quotes OSI solicits, not their documents, not the linked-suppliers
-  list — and no "offer received" notification goes out. One helper answers
+  not the quotes OSI solicits, not their documents (the list, and the file
+  itself for someone holding its address), not the linked-suppliers list nor
+  the per-supplier count on it — and no "offer received" notification goes
+  out. One helper answers
   "is this request on the pack flow?" for every fn that needs to know
   (`src/server/request-flow.ts`). What the buyer does see is the stage and a
   count: « 3 fournisseur(s) retenu(s) pour consultation ».
@@ -1310,6 +1314,12 @@ reason is cleared, and the timeline says an offer was added after the close.
 That is the one `declined → received` path; everything else about a declined
 quote stays frozen.
 
+Three things staff **cannot** do on the pack flow, each refused by the server
+(2026-11-14 review): record an offer before the RFQ has been sent to that
+supplier (it would belong to no round and reach no ranking); decline a quote
+as "no response" by hand (that is the round's verdict, reached only when its
+window runs out); and correct an answer time to after the round closed.
+
 **The offers are ranked — KPI #2, version 1** (V09, 2026-11-14). When a round
 closes into the review, the offers it holds are ranked and the result is
 stored; staff see it on the dossier, with every factor of every offer. KPI #1
@@ -1352,8 +1362,12 @@ Once the request leaves the review the ranking is a record and is no longer
 recomputed. The scorer is a pure function, `src/lib/kpi2.ts`.
 
 Guarded transitions live in [`src/lib/request-status.ts`](src/lib/request-status.ts);
-illegal ones throw. Every change writes a `request_event` row, so timelines,
-activity feeds and dashboard stats are **pure read-models of the DB**.
+illegal ones throw. So do **stale** ones (since 2026-11-14): `transitionRequest`
+only moves a request that is still in the state the caller read, so whoever
+acts second — the pipeline finishing a stage, staff sending an RFQ, the round
+sweep — loses cleanly to a buyer's cancel instead of overwriting it. Every
+change writes a `request_event` row, so timelines, activity feeds and
+dashboard stats are **pure read-models of the DB**.
 
 1. **Create** (`createRequestFn`) — the **structured form** (ADR-001 S2,
    2026-08-26) inserts a `request` (ids from `request_id_seq`, `#3000+`) with
@@ -2057,11 +2071,11 @@ which is the one moment they act together.
 
 | Decision | Consequence |
 |---|---|
-| **The buyer sees no supplier before the Decision Pack** (2026-11-14) | Between validating the cahier and receiving the pack, the buyer sees progress and counts only. Today's Top-N becomes OSI's internal shortlist, and Part II's *"the buyer picks who to solicit"* (parcours steps 04–05, built as P2) is retired — OSI picks from KPI #1. Still how the code behaves until BACKLOG Phase V task V05. |
+| **The buyer sees no supplier before the Decision Pack** (2026-11-14) | Between validating the cahier and receiving the pack, the buyer sees progress and counts only. Today's Top-N becomes OSI's internal shortlist, and Part II's *"the buyer picks who to solicit"* (parcours steps 04–05, built as P2) is retired — OSI picks from KPI #1. **Built** (Phase V · V05, 2026-11-14) and enforced on every door a workspace reads its own request through; on the report flow the buyer still picks. |
 | **The plan decides who enters the V6 flow** (2026-11-14) | `plan.quotes_enabled` stays the line. Without it a request ends at the Top-N report, as today — so that buyer still reads suppliers, because the report is all they get. With it, the request continues to shortlist, RFQ and pack, and the row above applies. |
-| **Staff send the RFQs, as one batch** (2026-11-14) | They confirm the KPI #1 shortlist and every RFQ leaves in the same act — not automatically when KPI #1 finishes. One send is one clock, so the per-request and per-supplier readings of the window (below) give the same answer in practice. |
+| **Staff send the RFQs, as one batch** (2026-11-14) | They confirm the KPI #1 shortlist and every RFQ leaves in the same act — not automatically when KPI #1 finishes. **Built** (Phase V · V06). One send is one clock, so the per-request and per-supplier readings of the window (below) give the same answer in practice. |
 | **Suppliers are invited by email to create an account and answer the RFQ** | Reverses Part II §2. Two more audiences — supplier and transit agent — and strict partitioning becomes mandatory. |
-| **The RFQ window closes on 5 offers, OR the delay (72 h default), OR staff releasing early** (2026-10-24) | Three conditions, not two: staff need not wait out the clock when the offers in hand are enough. Nothing of the sort exists — no window, no deadline, no reminder, no setting. `SUPPLIERS_RETURNED` already defaults to 5. |
+| **The RFQ window closes on 5 offers, OR the delay (72 h default), OR staff releasing early** (2026-10-24) | Three conditions, not two: staff need not wait out the clock when the offers in hand are enough. **Built** (Phase V · V06–V07, 2026-11-14): the round stores its deadline and its offer target (`rfq.window_hours`, `rfq.target_offers` — a setting of its own, not `SUPPLIERS_RETURNED`), a sweep closes it, and a fourth way out exists — the buyer withdrawing. No reminder, by decision: a silent supplier is excluded, not chased. |
 | **Release is a POLICY whose default is manual** (2026-10-22) | Staff validate and send the pack today; automatic release is built for from the start and switched on later. So it is a mode, not a hardcoded step — see the note below. |
 | **The Decision Pack = the supplier quote + partner enrichments, ordered by KPI #2** | It has no content of its own — it is a read-model over `Offer`, `PartnerEnrichment` and `KPIResult`. What it must store is which versions were shown, in what order, and when. |
 | **Partners are Globex, escrow.com, transport, inspection, customs** | Globex and escrow.com fill the **same slot**: one settlement partner per dossier, never both (owner, 2026-10-25). They are the first real case of V6's *« partenaires interchangeables derrière des interfaces communes »* — one `PartnerAdapter`, two providers. |
@@ -2567,7 +2581,7 @@ erDiagram
 | `translation_memory` | ✅ 2026-08-29 — platform-wide cache of criterion translations (`request_criterion.value_en`); deliberately not workspace-scoped |
 | `platform_permission` / `platform_role` | ✅ 2026-08-28/29 — the Rôles & accès matrix (feature × role) and the owner-created staff roles; the owner is never a row |
 | `rfq_round`          | ✅ 2026-11-14 (0048, Phase V · V06) — one round of solicitation: the RFQs that left together and the single deadline they share. `closes_at` is stored, and `window_hours` / `target_offers` are snapshots of the settings when it opened, so a later change never moves an open round. `quote.round_id` ties a solicitation to its round; a quote outside a round has no clock. **How it ended** (0049, V07): `closed_at` (null = open), `close_reason` (`target_reached` · `deadline` · `early` · `withdrawn`), `closed_by` + name snapshot (null on a closed round = the system) and `early_note` — written together by `closeRound`, in the conditional update that decides who closed it, and never rewritten |
-| `supplier_contact`   | ✅ 2026-11-14 (0047, Phase V · V02) — who to write to at a supplier: email, name, role, phone, the language to write in, `source` (`research` \| `staff`). **Exactly one PRIMARY per supplier that has any contact** — a partial unique index for "at most one", `ensurePrimary` for "at least one" — and the RFQ goes to it. Staff-only (`deals`): never returned by a buyer-facing fn, since the pool is platform-global. A researched address is kept only when it is on the supplier's own website domain (`acceptResearchedEmail`); it travels on `source_record.contact_email` and becomes a row here at promotion. Never from a paid provider |
+| `supplier_contact`   | ✅ 2026-11-14 (0047, Phase V · V02) — who to write to at a supplier: email, name, role, phone, the language to write in, `source` (`research` \| `staff`). **Exactly one PRIMARY per supplier that has any contact** — a partial unique index for "at most one", `ensurePrimary` for "at least one" — and the RFQ goes to it. Staff-only (`deals`): never returned by a buyer-facing fn, since the pool is platform-global. A researched address is kept only when it is on the supplier's own website domain (`acceptResearchedEmail`) — and never when that domain is one many companies share (a marketplace storefront, a site builder: `SHARED_HOSTS`), where the address would be the platform's and not the supplier's; it travels on `source_record.contact_email` and becomes a row here at promotion. Never from a paid provider |
 | `kpi_result`         | ✅ 2026-11-14 (0051, Phase V · V09) — KPI #2: one row per offer per run. `run_id` groups a computation; `rank`, `score` (hundredths of a point), `breakdown` (per-factor state, points and weight, the notes, and the offer exactly as it was scored), `formula_version`, `inputs_hash`, `trigger`, `computed_at`. **Append-only** — the current ranking of a round is its latest run. KPI #1 is not here: it scores a supplier before anyone is asked and stays on `match` |
 | `platform_setting`   | ✅ 2026-11-14 (0046, Phase V · V01) — platform-wide settings, ONE value per key for every client; a missing row means the default. Keys, types, ranges and defaults live in the registry `src/lib/platform-settings.ts`, so a new knob is a registry entry and not a migration. Edited from `/interne/parametres` (`settings` permission, owner by default); every change is in `audit_log` with the old and new value |
 | `plan` / `subscription` | limits as rows (daily, lifetime, seats, `quota_scope`, `audience`, `suppliers_returned`, `model_tier`); one subscription per workspace |

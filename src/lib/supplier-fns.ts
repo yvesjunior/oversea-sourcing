@@ -162,14 +162,19 @@ export const getSuppliersFn = createServerFn({ method: "GET" }).handler(
  */
 export const getLinkedSuppliersFn = createServerFn({ method: "GET" }).handler(
   async (): Promise<SupplierDirectory> => {
-    const [{ auth }, { getRequest }, { db }, { asc, count, desc, eq, inArray }, schema] =
-      await Promise.all([
-        import("@/server/auth"),
-        import("@tanstack/react-start/server"),
-        import("@/database"),
-        import("drizzle-orm"),
-        import("@/database/schema"),
-      ]);
+    const [
+      { auth },
+      { getRequest },
+      { db },
+      { and, asc, count, desc, eq, inArray, notInArray },
+      schema,
+    ] = await Promise.all([
+      import("@/server/auth"),
+      import("@tanstack/react-start/server"),
+      import("@/database"),
+      import("drizzle-orm"),
+      import("@/database/schema"),
+    ]);
     const session = await auth.api.getSession({ headers: getRequest().headers });
     // Staff powers only from the internal workspace (2026-08-27).
     const { effectiveHasPermission } = await import("@/server/workspace-guard");
@@ -239,7 +244,19 @@ export const getLinkedSuppliersFn = createServerFn({ method: "GET" }).handler(
         createdAt: schema.supplier.createdAt,
       })
       .from(schema.supplier)
-      .leftJoin(schema.match, eq(schema.match.supplierId, schema.supplier.id))
+      .leftJoin(
+        schema.match,
+        // Pack-flow requests are left out of the COUNT too. A supplier the
+        // buyer already knows from an earlier report would otherwise show
+        // "3 dossiers" where it showed 2 — which says, without naming
+        // anything, that this supplier is on the shortlist OSI is working.
+        packFlow.size > 0
+          ? and(
+              eq(schema.match.supplierId, schema.supplier.id),
+              notInArray(schema.match.requestId, [...packFlow]),
+            )
+          : eq(schema.match.supplierId, schema.supplier.id),
+      )
       .leftJoin(schema.request, eq(schema.match.requestId, schema.request.id))
       .where(inArray(schema.supplier.id, linkedIds))
       .groupBy(schema.supplier.id, schema.request.organizationId)

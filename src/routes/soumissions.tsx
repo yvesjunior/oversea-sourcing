@@ -19,6 +19,8 @@ import {
   getMyQuotesFn,
   recordQuoteFn,
   declineQuoteFn,
+  STAFF_DECLINE_REASONS,
+  type StaffDeclineReason,
   type QuoteListResult,
   type QuoteView,
   type RequestNeed,
@@ -140,7 +142,14 @@ function RecordForm({
   const [answeredAt, setAnsweredAt] = useState(initialAnsweredAt);
   const [refusal, setRefusal] = useState<string | null>(null);
   const [notes, setNotes] = useState(quote.notes ?? "");
-  const [declineReason, setDeclineReason] = useState<StaffDeclineReason>("no_response");
+  // On the pack flow "never answered" is the round's verdict, not a choice:
+  // the only thing a person can report there is that the supplier said no.
+  const declineReasons = STAFF_DECLINE_REASONS.filter(
+    (reason) => !(quote.onPackFlow && reason === "no_response"),
+  );
+  const [declineReason, setDeclineReason] = useState<StaffDeclineReason>(
+    quote.onPackFlow ? "supplier_declined" : "no_response",
+  );
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploaded, setUploaded] = useState(0);
@@ -395,7 +404,7 @@ function RecordForm({
               onChange={(e) => setDeclineReason(e.target.value as StaffDeclineReason)}
               className="h-9 rounded-lg border border-border bg-background px-2 text-sm"
             >
-              {STAFF_DECLINE_REASONS.map((reason) => (
+              {declineReasons.map((reason) => (
                 <option key={reason} value={reason}>
                   {t(`soumissions.declineReason.${reason}`)}
                 </option>
@@ -423,13 +432,6 @@ function RecordForm({
     </div>
   );
 }
-
-/** What staff can choose when closing an offer. `lost` is deliberately not
- *  here: it means "the buyer accepted someone else", which acceptQuoteFn
- *  writes for the siblings — offering it as a manual choice would invite the
- *  one value that must stay machine-written to stay trustworthy. */
-const STAFF_DECLINE_REASONS = ["no_response", "supplier_declined"] as const;
-type StaffDeclineReason = (typeof STAFF_DECLINE_REASONS)[number];
 
 function Soumissions() {
   const { t } = useTranslation();
@@ -795,19 +797,24 @@ function QuoteList({
                             only way in and it only appeared before the answer
                             was recorded. Frozen once accepted or declined —
                             offerEntryMode returns null and the button is gone. */}
-                        {canRecord && offerEntryMode(shownStatus(quote)) !== null && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setOpenForm(openForm === quote.id ? null : quote.id)}
-                          >
-                            {t(
-                              offerEntryMode(shownStatus(quote)) === "correct"
-                                ? "soumissions.correct"
-                                : "soumissions.record",
-                            )}
-                          </Button>
-                        )}
+                        {canRecord &&
+                          offerEntryMode(shownStatus(quote)) !== null &&
+                          // Pack flow: no offer before the RFQ has left — the
+                          // server refuses it (`rfq_not_sent`), so the button
+                          // is not offered either.
+                          !(quote.onPackFlow && quote.status === "requested" && !quote.sentAt) && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setOpenForm(openForm === quote.id ? null : quote.id)}
+                            >
+                              {t(
+                                offerEntryMode(shownStatus(quote)) === "correct"
+                                  ? "soumissions.correct"
+                                  : "soumissions.record",
+                              )}
+                            </Button>
+                          )}
                         {/* The late-keyed answer (V08): the round closed
                             and declined this supplier as silent, but an
                             answer that arrived in time can still be typed in
