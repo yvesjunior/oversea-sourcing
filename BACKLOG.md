@@ -1815,6 +1815,15 @@ partial, three do not exist. Verified against the code, not assumed:
   progress and counts only. So the Top-N the buyer reads today becomes OSI's
   internal shortlist, and *"the buyer picks who is asked"* — ADR-002's first
   acceptance decision, built as P2 — is retired: OSI picks. Phase V, V04–V05.
+- **The plan decides who enters the V6 flow** (2026-11-14).
+  `plan.quotes_enabled` stays the line: without it a request ends at the
+  Top-N report as today; with it, the request goes on to shortlist, RFQ and
+  pack. No new plan dimension, and the owner still moves the line from
+  Abonnements.
+- **Staff send the RFQs** (2026-11-14) — they confirm the KPI #1 shortlist
+  and the whole batch leaves in one act. Not automatic on KPI #1 finishing.
+  One send means one clock, which is what makes the window's two readings
+  agree.
 - **Suppliers get accounts.** Reverses Part II §2 and its two-audience
   guarantee, which every tenancy guard was written against. Partitioning
   becomes mandatory: a supplier must never see competitors' prices, rankings
@@ -4201,15 +4210,21 @@ below are built on:
 #### Decisions these tasks assume — the owner's to confirm or change
 
 None of these blocks starting. Each task is written against the default named
-here, and each default is the cheapest one to reverse. **Answered so far: D1**
-(2026-11-14). Nine remain.
+here, and each default is the cheapest one to reverse. **Answered so far: D1, D2,
+D3** (2026-11-14). Seven remain.
+
+**D1 and D2 read together.** D1 hides suppliers from the buyer until the
+pack; D2 keeps the Top-N report for plans without quotes. They do not
+conflict — D1 is the rule *inside* the V6 flow, and D2 says which plans
+enter it. A buyer on a plan without quotes still reads suppliers in the
+report, exactly as today, because that report is all they get.
 
 | # | Question | Default the tasks take | Bites at |
 |---|---|---|---|
 | ~~**D1**~~ | ~~Between steps 04 and 10 the buyer's lane is empty in the diagram. Does today's Top-N report (which the buyer sees at `report_ready`) disappear?~~ | ✅ **Decided 2026-11-14: yes.** The buyer sees progress and counts, not suppliers, until the pack is released. | V04, V05 |
-| **D2** | `plan.quotes_enabled` gates soumissions today. Is the V6 flow for every plan? | Unchanged: plans without quotes stop at the existing report; plans with quotes get the V6 flow. | V04 |
-| **D3** | Who presses send on the RFQs — staff, or the platform as soon as KPI #1 finishes? | Staff confirm the shortlist and send the whole batch in one act. | V05, V06 |
-| **D4** | The window is per request or per supplier (README §2c, still open). | Per round: one clock, started when the batch leaves. Batch send makes the two readings converge. | V06, V07 |
+| ~~**D2**~~ | ~~`plan.quotes_enabled` gates soumissions today. Is the V6 flow for every plan?~~ | ✅ **Decided 2026-11-14: no — the plan decides.** Plans without quotes stop at the existing report, as today; plans with quotes get the V6 flow. | V04, V05 |
+| ~~**D3**~~ | ~~Who presses send on the RFQs — staff, or the platform as soon as KPI #1 finishes?~~ | ✅ **Decided 2026-11-14: staff.** They confirm the shortlist and send the whole batch in one act. | V05, V06 |
+| **D4** | The window is per request or per supplier (README §2c, still open). | Per round: one clock, started when the batch leaves. With D3 decided the batch always leaves at once, so the two readings give the same answer — the question only returns if single RFQs are ever sent outside a batch. | V06, V07 |
 | **D5** | On relaunch, do offers already held survive, and whose clock restarts? | They survive; a new round has its own clock, for the suppliers newly asked only. | V11 |
 | **D6** | What does a supplier see of the buyer before a dossier opens? | The specification, never the buyer's name or workspace. Identity is disclosed when the deal opens. | V16 |
 | **D7** | Offers arrive in different currencies and money is never converted (ADR-002). What does KPI #2 compare? | Landed cost is compared only within one currency; across currencies the pack says so instead of ranking on a rate nobody stored. A rate entered by staff or supplied by the settlement partner is stored on the pack when one exists. | V09, V24 |
@@ -4419,11 +4434,13 @@ built in: **S** one, **M** two to three, **L** four or more.
       are the feature D1 retires — and D1 is decided (2026-11-14), so they go
       in this task. Nothing is left to call them on either side of D2: a plan
       with quotes gets the shortlist, and a plan without was already refused
-      with `plan_required`. What D2 still decides is only whether a plan
-      without quotes keeps reading the Top-N report; until it is answered,
-      leave that report and its upgrade prompt (`quotesPlanRequired`) exactly
-      as they are. This reverses ADR-002's first acceptance decision, *"the
-      BUYER picks"* — say so in the commit.
+      with `plan_required`. D2 is decided too: a plan without quotes keeps
+      reading the Top-N report, so leave that report and its upgrade prompt
+      (`quotesPlanRequired`) exactly as they are — the fork is
+      `plan.quotes_enabled`, read once when the pipeline finishes, and the
+      two branches share everything up to `validating`. This reverses
+      ADR-002's first acceptance decision, *"the BUYER picks"* — say so in
+      the commit.
 
 - [ ] **V06 · RFQ rounds and the batch send.** *Size L. Step 07. Depends on:
       V01, V02, V05. Blocks: V07.*
