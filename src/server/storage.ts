@@ -2,8 +2,7 @@
 // seam (README §4 — domain code never writes to local disk directly;
 // swap this module's internals for R2/S3/MinIO without touching callers).
 
-import { createReadStream } from "node:fs";
-import { mkdir, unlink, writeFile } from "node:fs/promises";
+import { mkdir, open, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { Readable } from "node:stream";
 
@@ -37,20 +36,57 @@ export async function putFile(data: Buffer, filename: string): Promise<string> {
   return key;
 }
 
-export function getFileStream(storageKey: string): Readable {
+/** Open a stored file for reading — `null` when its bytes are not there.
+ *
+ *  The file is opened HERE, before the caller holds a stream. A bare
+ *  `createReadStream` only finds out on its first read that there is nothing
+ *  to read, and by then a download route has sent its headers and can only
+ *  drop the connection (2026-11-14: `/api/files/:id` answered nothing at all
+ *  for a `file` row whose bytes were gone). Same shape as S3, where GetObject
+ *  refuses a missing key before any body exists. */
+export async function openFileStream(storageKey: string): Promise<Readable | null> {
   // Keys are server-generated UUIDs — resolve defensively anyway.
   const target = path.resolve(UPLOAD_DIR, storageKey);
   if (!target.startsWith(path.resolve(UPLOAD_DIR) + path.sep)) {
     throw new Error(`Invalid storage key: ${storageKey}`);
   }
-  return createReadStream(target);
+  let handle;
+  try {
+    handle = await open(target, "r");
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    // ENOTDIR: the key's <uuid> segment exists but is not a directory.
+    if (code !== "ENOENT" && code !== "ENOTDIR") throw error;
+    logMissing(storageKey);
+    return null;
+  }
+  // A directory opens fine and only fails on read — the very failure this
+  // function exists to keep out of the caller's stream.
+  if (!(await handle.stat()).isFile()) {
+    await handle.close();
+    logMissing(storageKey);
+    return null;
+  }
+  // The stream owns the handle from here and closes it when it ends or dies.
+  return handle.createReadStream();
+}
+
+/** Whoever recorded this key has outlived its bytes. Logged once, here, so
+ *  no caller can forget to. For a user file it should not happen: the
+ *  retention sweep (retention.ts) is the only thing that deletes one, and it
+ *  takes the row with the bytes. */
+function logMissing(storageKey: string): void {
+  console.error(`storage: no bytes for key ${storageKey} — a record points at a file that is gone`);
 }
 
 /** Whole-file read, for callers that must hand the bytes to something else
- *  (E4 reads attachments so the AI can use what the buyer uploaded). */
-export async function getFileBuffer(storageKey: string): Promise<Buffer> {
+ *  (E4 reads attachments so the AI can use what the buyer uploaded). `null`
+ *  when the bytes are not there, as `openFileStream`. */
+export async function getFileBuffer(storageKey: string): Promise<Buffer | null> {
+  const stream = await openFileStream(storageKey);
+  if (!stream) return null;
   const chunks: Buffer[] = [];
-  for await (const chunk of getFileStream(storageKey)) {
+  for await (const chunk of stream) {
     chunks.push(Buffer.from(chunk));
   }
   return Buffer.concat(chunks);

@@ -21,10 +21,17 @@ export function pickDecoder(sample: Uint8Array): TextDecoder {
 
 /** Stream a staff upload from the uploads volume into the workdir. */
 export async function landUpload(fileKey: string, targetPath: string): Promise<void> {
-  const { getFileStream } = await import("@/server/storage");
+  const { openFileStream } = await import("@/server/storage");
+  const upload = await openFileStream(fileKey);
+  // The run that consumes an upload deletes it (research.ts), so a second run
+  // on the same key finds nothing — said in words staff can act on, since
+  // this message is what the failed run shows.
+  if (!upload) {
+    throw new Error(`fichier téléversé introuvable (${fileKey}) — téléversez-le à nouveau`);
+  }
   await new Promise<void>((resolve, reject) => {
     const out = createWriteStream(targetPath);
-    getFileStream(fileKey)
+    upload
       .on("error", reject)
       .pipe(out)
       .on("finish", () => resolve())

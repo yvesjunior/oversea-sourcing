@@ -55,8 +55,14 @@ export const Route = createFileRoute("/api/files/$id")({
           }
         }
 
+        // The row can outlive its bytes; the adapter says so (and logs the key)
+        // BEFORE a response exists, so this is still a 404 and not a connection
+        // dropped halfway through the headers.
+        const bytes = await storage.openFileStream(row.storageKey);
+        if (!bytes) return Response.json({ error: "not found" }, { status: 404 });
+
         const { Readable } = await import("node:stream");
-        const stream = Readable.toWeb(storage.getFileStream(row.storageKey)) as ReadableStream;
+        const stream = Readable.toWeb(bytes) as ReadableStream;
         const encodedName = encodeURIComponent(row.filename);
         return new Response(stream, {
           headers: {

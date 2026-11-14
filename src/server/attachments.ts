@@ -82,11 +82,16 @@ export async function readAttachmentsText(requestId: string): Promise<Attachment
       continue;
     }
 
-    let bytes: Buffer;
+    let bytes: Buffer | null;
     try {
       bytes = await getFileBuffer(row.storageKey);
     } catch (error) {
       result.skipped.push({ filename: row.filename, reason: `unreadable (${String(error)})` });
+      continue;
+    }
+    if (!bytes) {
+      // The adapter has already logged the key.
+      result.skipped.push({ filename: row.filename, reason: "missing from storage" });
       continue;
     }
 

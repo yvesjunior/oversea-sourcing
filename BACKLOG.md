@@ -4305,8 +4305,35 @@ snapshots cover what must not move); the contact-primary invariant; the
 KPI #2 scorer; the labels (every key the new screens use exists in French
 and English — checked by script; the English screens themselves were never
 opened).
-**Noticed, outside this work:** a `file` row whose bytes are missing on disk
-drops the connection instead of answering 404 (`/api/files/:id`).
+**Noticed outside this work, then fixed the same day (not deployed):** a
+`file` row whose bytes are missing on disk dropped the connection instead of
+answering 404 (`/api/files/:id`). `storage.getFileStream` was a bare
+`createReadStream`, which learns on its first read that there is nothing to
+read — after the headers have left. The adapter now opens the file before it
+hands back a stream: `storage.openFileStream(key)` answers `null` when the
+bytes are not there (no file, or a key that lands on a directory) and logs
+the key (`storage: no bytes for key …`). `getFileStream` is gone, so nothing
+can read around the check. The three readers:
+`/api/files/:id` answers `404 {"error":"not found"}`; the worker's attachment
+read (`attachments.ts`) skips the file as "missing from storage" — it already
+survived a missing file, with the raw `ENOENT` as its reason; a file-fed
+source run whose upload is gone (`landUpload`) fails with « fichier téléversé
+introuvable … téléversez-le à nouveau » instead of a path on the volume.
+`contract-file.ts`, `quote-document.ts`, `upload.ts` and `source-upload.ts`
+only write.
+*Verified live in dev, then removed (two `file` rows in the buyer's
+workspace, one with no bytes, one with 300 000 random bytes):* on the code
+before the fix, curl got an empty reply (exit 52, HTTP 000) for the first;
+on a second web container running the fix against the same database and
+uploads volume, the same request answers 404 with the JSON body (curl and
+Python urllib) and the key is in the web log; the second file downloads
+identical (`cmp`), with the same headers; 75 requests — whole, missing,
+and cut off by the client — left no file handle open; `readAttachmentsText`
+and `landUpload`, called in the container against both rows, skip and
+refuse the missing one and read the other.
+**Not done:** nothing goes looking for `file` rows without bytes — the log
+line appears when someone asks for one. And the download's `content-length`
+is still the row's `size`, not what is on disk.
 
 #### How to read the Phase V tasks
 
