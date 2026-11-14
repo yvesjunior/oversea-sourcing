@@ -358,6 +358,13 @@
       "when": 1794682155995,
       "tag": "0050_curved_prism",
       "breakpoints": true
+    },
+    {
+      "idx": 51,
+      "version": "7",
+      "when": 1794683116532,
+      "tag": "0051_wise_absorbing_man",
+      "breakpoints": true
     }
   ]
 }

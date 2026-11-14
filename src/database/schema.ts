@@ -1339,6 +1339,79 @@ export const quote = pgTable(
   ],
 );
 
+/** What made a KPI #2 run happen. Stored so that a reader of the history can
+ *  tell a ranking that changed because an offer did from one a person asked
+ *  for. */
+export const KPI_RUN_TRIGGERS = [
+  /** The round closed — the first ranking. */
+  "round_closed",
+  /** A late-keyed answer joined the round (V08). */
+  "offer_added",
+  /** Staff corrected an offer's figures. */
+  "offer_corrected",
+  /** An offer left the round — staff declined it during the review. */
+  "offer_removed",
+  /** A staff member asked for a recomputation (e.g. after a verification
+   *  result landed). */
+  "manual",
+] as const;
+export type KpiRunTrigger = (typeof KPI_RUN_TRIGGERS)[number];
+
+/**
+ * KPI #2 results — the ranking of the OFFERS a round closed with (Phase V ·
+ * V09). One row per offer per run.
+ *
+ * APPEND-ONLY. A recomputation writes a new run (`run_id`) and never touches
+ * an earlier one, which is V6's "en conservant l'ancien ordre pour audit":
+ * the question "what order were these offers in before the correction?" is
+ * answered by rows, not by a log line. The CURRENT ranking of a round is its
+ * most recent run.
+ *
+ * KPI #1 is NOT here. It scores a supplier against a request before anyone
+ * is asked, so it has no offer to hang on; it lives where it always has, on
+ * `match` (`compatibility_score`, `score_breakdown`). A `kpi` discriminator
+ * column that only ever held 2 would have read as if it did.
+ */
+export const kpiResult = pgTable(
+  "kpi_result",
+  {
+    id: text("id").primaryKey(),
+    /** Groups the rows of one computation. */
+    runId: text("run_id").notNull(),
+    requestId: text("request_id")
+      .notNull()
+      .references(() => request.id, { onDelete: "cascade" }),
+    roundId: text("round_id")
+      .notNull()
+      .references(() => rfqRound.id, { onDelete: "cascade" }),
+    quoteId: text("quote_id")
+      .notNull()
+      .references(() => quote.id, { onDelete: "cascade" }),
+    /** 1 = best. Total within a run — no two offers share a rank. */
+    rank: integer("rank").notNull(),
+    /** Hundredths of a point: 8725 = 87.25 out of 100. An integer for the
+     *  same reason money is one. */
+    score: integer("score").notNull(),
+    /** `Kpi2Breakdown` (src/lib/kpi2.ts): per-factor state, points and
+     *  weight, the notes, and the offer EXACTLY as it was scored. */
+    breakdown: jsonb("breakdown").notNull(),
+    /** Which rules produced this — `KPI2_VERSION`. */
+    formulaVersion: text("formula_version").notNull(),
+    /** sha-256 of everything the run depended on (`kpi2Fingerprint`). Same
+     *  for every row of a run. A recomputation whose fingerprint equals the
+     *  latest run's writes nothing: identical inputs are not a new result. */
+    inputsHash: text("inputs_hash").notNull(),
+    trigger: text("trigger").$type<KpiRunTrigger>().notNull(),
+    /** Same instant on every row of a run. */
+    computedAt: timestamp("computed_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("kpi_result_run_quote_uq").on(table.runId, table.quoteId),
+    index("kpi_result_round_idx").on(table.roundId, table.computedAt),
+    index("kpi_result_request_idx").on(table.requestId),
+  ],
+);
+
 export const DEAL_STATUSES = [
   "open",
   "contracting",

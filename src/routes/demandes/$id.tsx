@@ -39,6 +39,8 @@ import { ShortlistPanel } from "@/components/osi/ShortlistPanel";
 import { getShortlistFn, type ShortlistData } from "@/lib/shortlist-fns";
 import { RfqPanel } from "@/components/osi/RfqPanel";
 import { getRfqPreviewFn, type RfqPreview } from "@/lib/rfq-fns";
+import { OfferRankingPanel } from "@/components/osi/OfferRankingPanel";
+import { getOfferRankingFn, type OfferRankingView } from "@/lib/kpi-fns";
 import type { Risque } from "@/data/osi";
 import type { RiskLevel } from "@/database/schema";
 import {
@@ -114,7 +116,10 @@ export const Route = createFileRoute("/demandes/$id")({
     // Who the RFQ would go to, what stops it, and the email itself (V06) —
     // same gate as the shortlist, so again never sent to the owning workspace.
     const rfq = shortlist ? await getRfqPreviewFn({ data: { requestId: params.id } }) : null;
-    return { demande, dossier, shortlist, rfq };
+    // The ranking of the offers the round closed with (V09) — same gate
+    // again, and null until a round has closed into the review.
+    const ranking = shortlist ? await getOfferRankingFn({ data: { requestId: params.id } }) : null;
+    return { demande, dossier, shortlist, rfq, ranking };
   },
   component: DemandeDetail,
 });
@@ -137,11 +142,12 @@ const STEP_ICONS: Record<StepKey, typeof FileText> = {
 function DemandeDetail() {
   const { t, i18n } = useTranslation();
   const router = useRouter();
-  const { demande, dossier, shortlist, rfq } = Route.useLoaderData() as {
+  const { demande, dossier, shortlist, rfq, ranking } = Route.useLoaderData() as {
     demande: RequestDetail;
     dossier: RequestDealStatus;
     shortlist: ShortlistData | null;
     rfq: RfqPreview | null;
+    ranking: OfferRankingView | null;
   };
   const [drafting, setDrafting] = useState(false);
   const dateLocale = i18n.language === "fr" ? fr : enUS;
@@ -571,6 +577,10 @@ function DemandeDetail() {
 
           {rfq && (
             <RfqPanel requestId={demande.id} rfq={rfq} onChanged={() => void router.invalidate()} />
+          )}
+
+          {ranking && (
+            <OfferRankingPanel ranking={ranking} onChanged={() => void router.invalidate()} />
           )}
 
           {showSuppliers && (

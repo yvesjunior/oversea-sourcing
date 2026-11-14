@@ -1116,7 +1116,8 @@
     "supplier_contact.added": "Supplier contact added",
     "supplier_contact.primary_set": "Primary contact set",
     "supplier_contact.removed": "Supplier contact removed",
-    "rfq.closed": "Response window closed"
+    "rfq.closed": "Response window closed",
+    "kpi.recomputed": "Offer ranking recomputed"
   },
   "twofa": {
     "title": "Two-step verification",
@@ -1445,5 +1446,63 @@
     "failed": "Restoring failed. Try again, or contact OSI.",
     "nothingToRecover": "Nothing to recover — your workspace is active.",
     "keptUntil": "Kept until {{date}}."
+  },
+  "ranking": {
+    "title": "Offer ranking (KPI #2)",
+    "subtitle": "The offers in when the round closed, ranked on what the suppliers stated. Internal: the customer sees nothing before the Decision Pack.",
+    "computed": "Computed {{date}} — {{trigger}} · {{version}}",
+    "recompute": "Recompute",
+    "recomputed": "Ranking recomputed. The previous one stays readable below.",
+    "unchanged": "Nothing has changed since the last computation: the ranking stands.",
+    "stale": "Some data has changed since this computation (a supplier verification, for instance). Recompute to bring the ranking up to date.",
+    "noOffers": "No offer to rank in this round.",
+    "notComputed": "The ranking has not been computed yet.",
+    "earlier_one": "{{count}} earlier computation",
+    "earlier_other": "{{count}} earlier computations",
+    "days": "{{count}} d",
+    "validUntil": "valid until {{date}}",
+    "moq": "MOQ: {{moq}} (not scored)",
+    "factor": {
+      "price": "Price",
+      "leadTime": "Lead time",
+      "kpi1": "KPI #1",
+      "verification": "Verification",
+      "incoterm": "Incoterm",
+      "validity": "Validity"
+    },
+    "state": {
+      "scored": "Compared: points out of 100 × the factor's weight.",
+      "missing": "Other offers state it, this one does not: 0 points.",
+      "unrecognised": "Stated, but in a form the scorer cannot read: 0 points.",
+      "not_comparable": "Not compared: the offers are not in one currency, and no amount is converted.",
+      "not_stated": "Not compared: no offer states it."
+    },
+    "stateShort": {
+      "scored": "",
+      "missing": "not stated",
+      "unrecognised": "not recognised",
+      "not_comparable": "not comparable",
+      "not_stated": "stated by no one"
+    },
+    "note": {
+      "mixed_currencies": "Prices not compared: the offers are in different currencies and no amount is converted. The ranking rests on the other factors.",
+      "mixed_incoterms": "Prices are compared although the incoterms differ: they do not cover the same costs.",
+      "validity_expired": "This offer's validity had already lapsed when the round closed.",
+      "verification_rejected": "This supplier's verification was rejected."
+    },
+    "trigger": {
+      "round_closed": "round closed",
+      "offer_added": "offer added after the close",
+      "offer_corrected": "offer corrected",
+      "offer_removed": "offer removed",
+      "manual": "recomputation requested"
+    },
+    "refusal": {
+      "forbidden": "Not allowed.",
+      "not_found": "This round no longer exists.",
+      "round_not_closed": "The round is not closed.",
+      "not_in_review": "The request is no longer in review: the ranking is not recomputed any more.",
+      "no_offers": "No offer to rank in this round."
+    }
   }
 }

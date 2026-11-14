@@ -789,6 +789,10 @@ export const recordQuoteFn = createServerFn({ method: "POST" })
         // The before/after of a money field is the whole point of the row.
         detail: { request: quote.requestId, changed },
       });
+      // A corrected figure can change the order of a round under review
+      // (V09). The earlier order stays in `kpi_result`; this appends.
+      const { refreshKpi2 } = await import("@/server/kpi");
+      await refreshKpi2(quote.roundId, "offer_corrected");
       return { ok: true };
     }
 
@@ -856,6 +860,9 @@ export const recordQuoteFn = createServerFn({ method: "POST" })
       ]);
       const offers = (await roundCounts([quote.roundId])).get(quote.roundId)?.offers ?? 0;
       await recordEvent(quote.requestId, quote.organizationId, "rfq.offer_added", { offers });
+      // …and the ranking computed at the close is missing this offer (V09).
+      const { refreshKpi2 } = await import("@/server/kpi");
+      await refreshKpi2(quote.roundId, "offer_added");
     }
 
     // The offer that fills the round closes it (V07). After the audit row and
@@ -1033,6 +1040,11 @@ export const declineQuoteFn = createServerFn({ method: "POST" })
       target: quote.supplierName,
       detail: { request: quote.requestId, reason: data.reason },
     });
+    // An offer taken out of a round under review leaves the ranking (V09).
+    if (quote.status === "received") {
+      const { refreshKpi2 } = await import("@/server/kpi");
+      await refreshKpi2(quote.roundId, "offer_removed");
+    }
     return { ok: true };
   });
 

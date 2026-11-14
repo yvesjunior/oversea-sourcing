@@ -24,7 +24,7 @@
 | **E9** Notifications | In-app + email | 🟡 bell, emitters, **prefs (2026-08-26)** live; Phase P types (`quote_received`, `contract_to_sign`, `contract_signed`) + staff alert on `quotes.requested` (2026-09-07) live; **the bell alerts (2026-09-14)** — count badge, 30 s poll, chime, per-browser mute |
 | **E10** Admin surfaces | Verification, imports, ops queue | 🟡 **verification LIVE (S5b/S5c, 2026-08-26)**; imports/ops queue placeholders |
 | **R** Custom staff roles | Roles as data + the matrix | ✅ **BUILT 2026-08-29** (migration 0039) — create/delete roles, dynamic matrix, `requests.all` |
-| **E13** V6 architecture | Supplier portal · KPI #2 · Partner Hub · Decision Pack | 🔵 **NEW 2026-10-21** — scope opened by the V6 document; diagrams validated 2026-11-14; **34 tasks in seven slices — [Phase V](#phase-v--the-v6-parcours-task-by-task-e13--written-2026-11-14)**; **V01, V02, V04–V08 built 2026-11-14** (settings, contacts, states, fork + shortlist, RFQ batch, window closing, typed answer time + channel — switch off), not deployed |
+| **E13** V6 architecture | Supplier portal · KPI #2 · Partner Hub · Decision Pack | 🔵 **NEW 2026-10-21** — scope opened by the V6 document; diagrams validated 2026-11-14; **34 tasks in seven slices — [Phase V](#phase-v--the-v6-parcours-task-by-task-e13--written-2026-11-14)**; **V01, V02, V04–V09 built 2026-11-14** (settings, contacts, states, fork + shortlist, RFQ batch, window closing, typed answer time + channel, KPI #2 v1 — switch off), not deployed |
 | **E11** Settings | Profile, sourcing rules | 🟡 Paramètres + notification prefs live; **password / 2FA / theme / rename (2026-08-27)** live; buyer Abonnement self-service waits for billing |
 
 **MVP1 = E0–E7 + E10.** Definition of done **restated 2026-08-29 by ADR-002**
@@ -4228,7 +4228,7 @@ report, exactly as today, because that report is all they get.
 | ~~**D4**~~ | ~~The window is per request or per supplier (README §2c).~~ | ✅ **Decided 2026-11-14: per round.** One clock, started when the batch leaves; every supplier in the round shares its deadline. | V06, V07 |
 | **D5** | On relaunch, do offers already held survive, and whose clock restarts? | They survive; a new round has its own clock, for the suppliers newly asked only. | V11 |
 | **D6** | What does a supplier see of the buyer before a dossier opens? | The specification, never the buyer's name or workspace. Identity is disclosed when the deal opens. | V16 |
-| **D7** | Offers arrive in different currencies and money is never converted (ADR-002). What does KPI #2 compare? | Landed cost is compared only within one currency; across currencies the pack says so instead of ranking on a rate nobody stored. A rate entered by staff or supplied by the settlement partner is stored on the pack when one exists. | V09, V24 |
+| **D7** | Offers arrive in different currencies and money is never converted (ADR-002). What does KPI #2 compare? | Landed cost is compared only within one currency; across currencies the pack says so instead of ranking on a rate nobody stored. A rate entered by staff or supplied by the settlement partner is stored on the pack when one exists. **Built as this default in V09 (2026-11-14), read strictly: with mixed currencies price is compared for no offer at all, and the ranking rests on the other factors.** Still the owner's to confirm. | V09, V24 |
 | **D8** | Who sets the KPIProfile weights? | The platform proposes them from the criteria; the buyer adjusts and validates them with the cahier des charges. | V19 |
 | **D9** | `quote.sent_at` is nullable. What does the window do with an RFQ nobody marked sent? | Such a quote is not in a round and has no clock; the batch send (V06) is the only thing that opens one. | V06 |
 | **D10** | Who assigns a partner to a case, and which partner kinds exist at launch? | Staff assign, per offer. Kinds: settlement, transport, inspection, customs, insurance. | V21, V22 |
@@ -4978,7 +4978,71 @@ built in: **S** one, **M** two to three, **L** four or more.
       the hour staff got round to typing is recorded as the supplier's speed,
       and the one signal nobody can scrape is corrupted at the source.
 
-- [ ] **V09 · KPI #2, first version, and the stored result.** *Size M. Step
+- [x] **V09 · KPI #2, version 1 — BUILT 2026-11-14** (migration **0051**,
+      not deployed). `src/lib/kpi2.ts` (pure: `rankOffers`,
+      `kpi2Fingerprint`, `readIncoterm`); `kpi_result`; `src/server/kpi.ts`
+      (`runKpi2`, `refreshKpi2`, `loadOfferRanking`); `getOfferRankingFn` /
+      `recomputeOfferRankingFn`; `OfferRankingPanel` on the dossier, staff
+      only. 564 tests (31 on the scorer).
+      **Factors and weights (v1):** price 40 · lead time 20 · KPI #1 score 20
+      · verification 10 · incoterm 5 · validity 5. Price and lead time are
+      scored against the best stated value; the weights are an argument, so a
+      per-request profile (D8, V19) changes a call, not the scorer.
+      **What is compared, decided by rule:**
+      • **D7 is implemented as its default, strictly.** When the priced
+        offers are not in one currency, price is compared for NOBODY — not
+        within each currency — and every breakdown says `not_comparable`.
+      • a factor nobody stated is dropped; one others stated and an offer did
+        not earns 0 (`missing`); an incoterm the scorer cannot read is
+        `unrecognised`, also 0. Dropped weight is redistributed.
+      • the order is total: score, then KPI #1, then who answered first,
+        then the quote id.
+      **Differs from the task as written:**
+      • **MOQ is not a factor.** `quote.moq` / `quote.quantity` are free text
+        ("not something to compute with", says the schema) and the quantity
+        needed is a free-text criterion. It is carried in the inputs and
+        shown, unscored. Scoring it needs a structured quantity on both
+        sides — its own task.
+      • **No `kpi` column.** KPI #1 scores a supplier before anyone is asked
+        and has no quote to hang on; it stays on `match`. A discriminator
+        that only ever held 2 would be a column nobody writes.
+      • **`inputs_version` became two columns**: `formula_version`
+        (`kpi2.v1`) and `inputs_hash` (sha-256 of the offers, weights,
+        reference instant and version). Plus `run_id` to group a
+        computation's rows and `trigger` to say what caused it.
+      • **A recomputation with identical inputs writes nothing.** Every
+        caller can ask without working out whether anything changed.
+      • **Validity is measured from the round's `closed_at`**, not from now —
+        otherwise the same inputs would not give the same order.
+      **When it runs:** on `closeRound` (before staff are notified); on a
+      late-keyed answer (`offer_added`), a correction (`offer_corrected`),
+      a received offer declined during the review (`offer_removed`); and on
+      demand from the panel (`manual`, audited) — for a supplier's
+      verification landing after the close, which nothing announces. The
+      panel compares fingerprints at read time and says when the ranking is
+      out of date. **Only while the request is in `pack_review`**: after
+      that the ranking is a record.
+      *Verified live in dev on request #3049, then restored (baseline
+      re-checked):* the worker's sweep closed a round holding two USD offers
+      and that close wrote the first run (worker log) — 80.08 and 74.83, both
+      re-derived by hand from the factors; the panel shows the order, each
+      factor's points × weight, and the note that prices are compared across
+      different incoterms. « Recalculer » with nothing changed wrote nothing
+      and said so. With one supplier set to `verified` by SQL the panel
+      flagged the ranking as out of date; recomputing reversed the order
+      (84.83 / 80.08) and the first run stayed under « calculs précédents ».
+      A price correction on `/soumissions` wrote a third run; a late-keyed
+      answer in EUR a fourth, in which price is `not_comparable` for all
+      three offers; declining an offer a fifth. With the request moved out
+      of review a recomputation was refused, the button and the out-of-date
+      warning are gone, and the history is still readable. As a buyer of the
+      owning workspace: nothing of the ranking and no supplier name in the
+      page.
+      **Not exercised:** the English panel; two recomputations arriving
+      together (both could write a run with the same fingerprint — a
+      duplicate, not a wrong order); a round whose last offer is declined
+      (the panel's "no offer" state).
+- [x] ~~**V09 · KPI #2, first version, and the stored result.**~~ *Size M. Step
       09. Depends on: V07. Blocks: V10.*
 
       **Left for this task by V08:** the set of offers in a closed round can
@@ -5024,6 +5088,12 @@ built in: **S** one, **M** two to three, **L** four or more.
       `closeRound` (`src/server/rfq-window.ts`), after the commit and only for
       a close that leads to the review (`leadsToReview`), never for
       `withdrawn`.
+      **Left for this task by V09:** the ranking is a RUN (`kpi_result.run_id`),
+      and a round can have several. A pack item points at the `kpi_result`
+      row it was built from; when a newer run appears while the pack is
+      `pending` (`runKpi2` returns `written: true`), the items are rebuilt
+      from it. Once the pack is released, `runKpi2` already refuses
+      (`not_in_review`).
       **Left for this task by V08:** a late-keyed answer adds an offer to a
       closed round while its pack is still `pending` — rebuild the pending
       pack's items when that happens. And each pack item should carry the

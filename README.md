@@ -1310,6 +1310,47 @@ reason is cleared, and the timeline says an offer was added after the close.
 That is the one `declined → received` path; everything else about a declined
 quote stays frozen.
 
+**The offers are ranked — KPI #2, version 1** (V09, 2026-11-14). When a round
+closes into the review, the offers it holds are ranked and the result is
+stored; staff see it on the dossier, with every factor of every offer. KPI #1
+scored *suppliers* (who is worth asking); this scores what they *answered*.
+
+| Factor         | Weight | How it is scored                                                        |
+| -------------- | -----: | ----------------------------------------------------------------------- |
+| Price          |     40 | against the best stated price — twice the best earns half               |
+| Lead time      |     20 | against the shortest stated lead time, same rule                        |
+| KPI #1 score   |     20 | the supplier's `match.compatibility_score`, as is                       |
+| Verification   |     10 | the supplier's status **as it stands now**: verified 100, pending 40    |
+| Incoterm       |      5 | how much the seller takes on, EXW (0) → DDP (100) — ordinal, not a cost |
+| Validity       |      5 | days left when the round closed: 30 or more = 100                       |
+
+Four rules decide what is compared, and they matter more than the weights:
+
+- **Money is never converted** (ADR-002; decision D7 as its default). If the
+  priced offers are not all in one currency, price is compared **for nobody**:
+  the factor is dropped from every score and each offer says *non comparable*.
+  Comparing it inside one currency only would still let price decide the
+  order between a USD offer and a EUR one.
+- **A factor nobody stated is dropped**; one that others stated and an offer
+  did not earns that offer 0. A dropped factor's weight is redistributed, so
+  the score is always out of 100 over what *was* compared.
+- **MOQ is not scored.** It is free text on the quote and the quantity needed
+  is a free-text criterion; scoring it would mean parsing prose. It is shown
+  beside the ranking.
+- **There is no landed cost.** Duties, freight, inspection and FX are what
+  partners supply (slice 4). Until then this ranks on what suppliers stated —
+  and when prices are compared across different incoterms, the panel says
+  they do not cover the same costs.
+
+`kpi_result` is **append-only**: each computation is a run, and a
+recomputation — an offer corrected, added late, or declined during the review,
+or a staff member asking for one after a verification result lands — writes a
+new run and leaves the earlier order readable. A recomputation whose inputs
+are identical to the latest run writes nothing. Validity is measured from the
+round's close, not from now, so the same inputs always give the same order.
+Once the request leaves the review the ranking is a record and is no longer
+recomputed. The scorer is a pure function, `src/lib/kpi2.ts`.
+
 Guarded transitions live in [`src/lib/request-status.ts`](src/lib/request-status.ts);
 illegal ones throw. Every change writes a `request_event` row, so timelines,
 activity feeds and dashboard stats are **pure read-models of the DB**.
@@ -2527,6 +2568,7 @@ erDiagram
 | `platform_permission` / `platform_role` | ✅ 2026-08-28/29 — the Rôles & accès matrix (feature × role) and the owner-created staff roles; the owner is never a row |
 | `rfq_round`          | ✅ 2026-11-14 (0048, Phase V · V06) — one round of solicitation: the RFQs that left together and the single deadline they share. `closes_at` is stored, and `window_hours` / `target_offers` are snapshots of the settings when it opened, so a later change never moves an open round. `quote.round_id` ties a solicitation to its round; a quote outside a round has no clock. **How it ended** (0049, V07): `closed_at` (null = open), `close_reason` (`target_reached` · `deadline` · `early` · `withdrawn`), `closed_by` + name snapshot (null on a closed round = the system) and `early_note` — written together by `closeRound`, in the conditional update that decides who closed it, and never rewritten |
 | `supplier_contact`   | ✅ 2026-11-14 (0047, Phase V · V02) — who to write to at a supplier: email, name, role, phone, the language to write in, `source` (`research` \| `staff`). **Exactly one PRIMARY per supplier that has any contact** — a partial unique index for "at most one", `ensurePrimary` for "at least one" — and the RFQ goes to it. Staff-only (`deals`): never returned by a buyer-facing fn, since the pool is platform-global. A researched address is kept only when it is on the supplier's own website domain (`acceptResearchedEmail`); it travels on `source_record.contact_email` and becomes a row here at promotion. Never from a paid provider |
+| `kpi_result`         | ✅ 2026-11-14 (0051, Phase V · V09) — KPI #2: one row per offer per run. `run_id` groups a computation; `rank`, `score` (hundredths of a point), `breakdown` (per-factor state, points and weight, the notes, and the offer exactly as it was scored), `formula_version`, `inputs_hash`, `trigger`, `computed_at`. **Append-only** — the current ranking of a round is its latest run. KPI #1 is not here: it scores a supplier before anyone is asked and stays on `match` |
 | `platform_setting`   | ✅ 2026-11-14 (0046, Phase V · V01) — platform-wide settings, ONE value per key for every client; a missing row means the default. Keys, types, ranges and defaults live in the registry `src/lib/platform-settings.ts`, so a new knob is a registry entry and not a migration. Edited from `/interne/parametres` (`settings` permission, owner by default); every change is in `audit_log` with the old and new value |
 | `plan` / `subscription` | limits as rows (daily, lifetime, seats, `quota_scope`, `audience`, `suppliers_returned`, `model_tier`); one subscription per workspace |
 | `notification` / `notification_pref` | ✅ E9 — in-app inbox (type + params, rendered in the viewer's language) and per-user channel preferences |

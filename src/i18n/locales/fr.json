@@ -1116,7 +1116,8 @@
     "supplier_contact.added": "Contact fournisseur ajouté",
     "supplier_contact.primary_set": "Contact principal défini",
     "supplier_contact.removed": "Contact fournisseur retiré",
-    "rfq.closed": "Fenêtre de réponse fermée"
+    "rfq.closed": "Fenêtre de réponse fermée",
+    "kpi.recomputed": "Classement des offres recalculé"
   },
   "twofa": {
     "title": "Vérification en deux étapes",
@@ -1445,5 +1446,63 @@
     "failed": "La restauration a échoué. Réessayez ou contactez OSI.",
     "nothingToRecover": "Rien à récupérer — votre espace est actif.",
     "keptUntil": "Conservé jusqu’au {{date}}."
+  },
+  "ranking": {
+    "title": "Classement des offres (KPI n° 2)",
+    "subtitle": "Les offres reçues à la fermeture du tour, classées sur ce que les fournisseurs ont déclaré. Interne : le client ne voit rien avant le Decision Pack.",
+    "computed": "Calculé le {{date}} — {{trigger}} · {{version}}",
+    "recompute": "Recalculer",
+    "recomputed": "Classement recalculé. Le précédent reste consultable ci-dessous.",
+    "unchanged": "Rien n'a changé depuis le dernier calcul : le classement tient.",
+    "stale": "Des données ont changé depuis ce calcul (par exemple une vérification de fournisseur). Recalculez pour mettre le classement à jour.",
+    "noOffers": "Aucune offre à classer dans ce tour.",
+    "notComputed": "Le classement n'a pas encore été calculé.",
+    "earlier_one": "{{count}} calcul précédent",
+    "earlier_other": "{{count}} calculs précédents",
+    "days": "{{count}} j",
+    "validUntil": "valide jusqu'au {{date}}",
+    "moq": "MOQ : {{moq}} (non noté)",
+    "factor": {
+      "price": "Prix",
+      "leadTime": "Délai",
+      "kpi1": "KPI n° 1",
+      "verification": "Vérification",
+      "incoterm": "Incoterm",
+      "validity": "Validité"
+    },
+    "state": {
+      "scored": "Comparé : points sur 100 × poids du facteur.",
+      "missing": "D'autres offres l'indiquent, pas celle-ci : 0 point.",
+      "unrecognised": "Indiqué, mais sous une forme que le calcul ne sait pas lire : 0 point.",
+      "not_comparable": "Non comparé : les offres ne sont pas dans la même devise, et aucun montant n'est converti.",
+      "not_stated": "Non comparé : aucune offre ne l'indique."
+    },
+    "stateShort": {
+      "scored": "",
+      "missing": "non indiqué",
+      "unrecognised": "non reconnu",
+      "not_comparable": "non comparable",
+      "not_stated": "indiqué par personne"
+    },
+    "note": {
+      "mixed_currencies": "Prix non comparés : les offres sont dans des devises différentes et aucun montant n'est converti. Le classement repose sur les autres facteurs.",
+      "mixed_incoterms": "Les prix sont comparés alors que les incoterms diffèrent : ils ne couvrent pas les mêmes frais.",
+      "validity_expired": "La validité de cette offre était déjà échue à la fermeture du tour.",
+      "verification_rejected": "La vérification de ce fournisseur a été rejetée."
+    },
+    "trigger": {
+      "round_closed": "fermeture du tour",
+      "offer_added": "offre ajoutée après la fermeture",
+      "offer_corrected": "offre corrigée",
+      "offer_removed": "offre retirée",
+      "manual": "recalcul demandé"
+    },
+    "refusal": {
+      "forbidden": "Action non autorisée.",
+      "not_found": "Ce tour n'existe plus.",
+      "round_not_closed": "Le tour n'est pas fermé.",
+      "not_in_review": "La demande n'est plus en revue : le classement n'est plus recalculé.",
+      "no_offers": "Aucune offre à classer dans ce tour."
+    }
   }
 }
