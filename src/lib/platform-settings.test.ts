@@ -122,8 +122,15 @@ describe("the RFQ reply address", () => {
   it("is read by the batch send, and so is the window", () => {
     expect(PLATFORM_SETTINGS["rfq.reply_to"].inert).toBe(false);
     expect(PLATFORM_SETTINGS["rfq.window_hours"].inert).toBe(false);
-    // Snapshotted onto the round, but nothing closes a round on it before V07.
-    expect(PLATFORM_SETTINGS["rfq.target_offers"].inert).toBe(true);
+  });
+
+  it("the offer target closes a round (V07), so it is live too", () => {
+    expect(PLATFORM_SETTINGS["rfq.target_offers"].inert).toBe(false);
+  });
+
+  it("what nothing reads yet still says so", () => {
+    expect(PLATFORM_SETTINGS["pack.release_mode"].inert).toBe(true);
+    expect(PLATFORM_SETTINGS["fee.rate_bps"].inert).toBe(true);
   });
 });
 

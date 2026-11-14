@@ -83,6 +83,15 @@ const COPY = {
       "If this is not something you can supply, a one-line reply saying so is appreciated — it helps us send you better-matched requests.",
     reference: (id: string) => `Reference: ${id} — please keep it in your reply.`,
     sign: "The OSI sourcing team",
+    withdrawnSubject: (id: string, title: string) =>
+      `Request for quotation ${id} withdrawn — ${title}`,
+    withdrawn:
+      "Our client has withdrawn the request below, so the request for quotation we sent you is closed.",
+    withdrawnSilent: "Please do not prepare or send an offer for it.",
+    withdrawnAnswered:
+      "Thank you for the offer you sent. It will not be taken further — for a reason that has nothing to do with the offer itself.",
+    withdrawnNeed: "The request",
+    withdrawnReference: (id: string) => `Reference: ${id}`,
   },
   fr: {
     subject: (id: string, title: string) => `Appel d'offres ${id} — ${title}`,
@@ -109,6 +118,14 @@ const COPY = {
       "Si ce produit n'entre pas dans votre offre, une réponse d'une ligne nous l'indiquant est appréciée : elle nous aide à mieux cibler nos prochaines demandes.",
     reference: (id: string) => `Référence : ${id} — merci de la conserver dans votre réponse.`,
     sign: "L'équipe d'approvisionnement OSI",
+    withdrawnSubject: (id: string, title: string) => `Appel d'offres ${id} retiré — ${title}`,
+    withdrawn:
+      "Notre client a retiré la demande ci-dessous : l'appel d'offres que nous vous avons transmis est donc clos.",
+    withdrawnSilent: "Merci de ne pas préparer ni transmettre d'offre pour cette demande.",
+    withdrawnAnswered:
+      "Merci pour l'offre que vous nous avez transmise. Elle n'aura pas de suite, pour une raison qui ne tient pas à l'offre elle-même.",
+    withdrawnNeed: "La demande",
+    withdrawnReference: (id: string) => `Référence : ${id}`,
   },
 } as const;
 
@@ -128,24 +145,11 @@ function criterionLine(criterion: RfqCriterion, locale: ContactLocale): string {
   return `${criterion.label}: ${value}${criterion.unit ? ` ${criterion.unit}` : ""}`;
 }
 
-export function buildRfqMail(input: RfqMailInput): RfqMail {
-  const copy = COPY[input.locale];
-  const reference = `#${input.requestId}`;
-  const deadline = formatDeadline(input.closesAt, input.locale);
-  const criteria = input.criteria.map((criterion) => criterionLine(criterion, input.locale));
-  const description = input.description.trim();
+type Block = { title?: string; lines: string[]; list?: string[] };
 
-  const blocks: { title?: string; lines: string[]; list?: string[] }[] = [
-    { lines: [copy.hello(input.greetingName), copy.intro] },
-    { title: copy.need, lines: [input.title] },
-    ...(criteria.length > 0 ? [{ title: copy.criteria, lines: [], list: criteria }] : []),
-    ...(description ? [{ lines: [copy.original, description] }] : []),
-    { title: copy.deadlineTitle, lines: [copy.deadline(deadline)] },
-    { title: copy.howTitle, lines: [copy.how], list: [...copy.fields] },
-    { lines: [copy.attach, copy.decline] },
-    { lines: [copy.reference(reference), copy.sign] },
-  ];
-
+/** One set of blocks, two renderings — so the plain text staff preview and the
+ *  HTML a mail client shows can never say different things. */
+function render(blocks: Block[]): { text: string; html: string } {
   const text = blocks
     .map((block) =>
       [
@@ -169,6 +173,57 @@ export function buildRfqMail(input: RfqMailInput): RfqMail {
       ].join(""),
     )
     .join("");
+  return { text, html };
+}
 
-  return { subject: copy.subject(reference, input.title), text, html };
+export function buildRfqMail(input: RfqMailInput): RfqMail {
+  const copy = COPY[input.locale];
+  const reference = `#${input.requestId}`;
+  const deadline = formatDeadline(input.closesAt, input.locale);
+  const criteria = input.criteria.map((criterion) => criterionLine(criterion, input.locale));
+  const description = input.description.trim();
+
+  const blocks: Block[] = [
+    { lines: [copy.hello(input.greetingName), copy.intro] },
+    { title: copy.need, lines: [input.title] },
+    ...(criteria.length > 0 ? [{ title: copy.criteria, lines: [], list: criteria }] : []),
+    ...(description ? [{ lines: [copy.original, description] }] : []),
+    { title: copy.deadlineTitle, lines: [copy.deadline(deadline)] },
+    { title: copy.howTitle, lines: [copy.how], list: [...copy.fields] },
+    { lines: [copy.attach, copy.decline] },
+    { lines: [copy.reference(reference), copy.sign] },
+  ];
+
+  return { subject: copy.subject(reference, input.title), ...render(blocks) };
+}
+
+export type RfqWithdrawnMailInput = {
+  locale: ContactLocale;
+  requestId: string;
+  title: string;
+  greetingName: string | null;
+  /** They had already sent an offer — thank them rather than tell them not
+   *  to bother. */
+  answered: boolean;
+};
+
+/**
+ * "The RFQ we sent you is withdrawn" (V07) — sent when a buyer cancels a
+ * request while its round is open.
+ *
+ * A supplier who was asked to quote and then hears nothing learns that OSI's
+ * requests can be ignored. This is the other half of the RFQ: whoever was
+ * written to is told when the question no longer stands. It says WHY in one
+ * true clause (the client withdrew) and nothing about the client.
+ */
+export function buildRfqWithdrawnMail(input: RfqWithdrawnMailInput): RfqMail {
+  const copy = COPY[input.locale];
+  const reference = `#${input.requestId}`;
+  const blocks: Block[] = [
+    { lines: [copy.hello(input.greetingName), copy.withdrawn] },
+    { title: copy.withdrawnNeed, lines: [input.title] },
+    { lines: [input.answered ? copy.withdrawnAnswered : copy.withdrawnSilent] },
+    { lines: [copy.withdrawnReference(reference), copy.sign] },
+  ];
+  return { subject: copy.withdrawnSubject(reference, input.title), ...render(blocks) };
 }

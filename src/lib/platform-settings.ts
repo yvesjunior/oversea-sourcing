@@ -133,8 +133,8 @@ export const PLATFORM_SETTINGS: {
    * NOT `plan.suppliers_returned` and not the `SUPPLIERS_RETURNED` env var:
    * those say how many suppliers the search ranks. All three default to 5,
    * which is exactly why they will be confused. Snapshotted onto the round
-   * since V06; nothing ACTS on it until V07 closes a round on it — so it is
-   * still marked inert.
+   * when it opens (V06) and acted on by `closeRound` (V07): the count is the
+   * ROUND's snapshot, so changing this never closes a round already open.
    */
   "rfq.target_offers": {
     kind: "integer",
@@ -143,9 +143,12 @@ export const PLATFORM_SETTINGS: {
     max: 20,
     default: 5,
     unit: "offers",
-    inert: true,
+    inert: false,
   },
-  /** Read by V07 (manual) and V14 (automatic). */
+  /** Inert until something behaves differently because of it: V10 stores the
+   *  mode on each pack it builds, V14 implements `automatic`. Closing a round
+   *  (V07) always hands the request to a person, whatever this says — with
+   *  one selectable value there is nothing to read yet. */
   "pack.release_mode": {
     kind: "choice",
     group: "pack",

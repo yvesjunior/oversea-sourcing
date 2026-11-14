@@ -24,7 +24,7 @@
 | **E9** Notifications | In-app + email | 🟡 bell, emitters, **prefs (2026-08-26)** live; Phase P types (`quote_received`, `contract_to_sign`, `contract_signed`) + staff alert on `quotes.requested` (2026-09-07) live; **the bell alerts (2026-09-14)** — count badge, 30 s poll, chime, per-browser mute |
 | **E10** Admin surfaces | Verification, imports, ops queue | 🟡 **verification LIVE (S5b/S5c, 2026-08-26)**; imports/ops queue placeholders |
 | **R** Custom staff roles | Roles as data + the matrix | ✅ **BUILT 2026-08-29** (migration 0039) — create/delete roles, dynamic matrix, `requests.all` |
-| **E13** V6 architecture | Supplier portal · KPI #2 · Partner Hub · Decision Pack | 🔵 **NEW 2026-10-21** — scope opened by the V6 document; diagrams validated 2026-11-14; **34 tasks in seven slices — [Phase V](#phase-v--the-v6-parcours-task-by-task-e13--written-2026-11-14)**; **V01, V02, V04, V05, V06 built 2026-11-14** (settings, contacts, states, fork + shortlist, RFQ batch — switch off), not deployed |
+| **E13** V6 architecture | Supplier portal · KPI #2 · Partner Hub · Decision Pack | 🔵 **NEW 2026-10-21** — scope opened by the V6 document; diagrams validated 2026-11-14; **34 tasks in seven slices — [Phase V](#phase-v--the-v6-parcours-task-by-task-e13--written-2026-11-14)**; **V01, V02, V04, V05, V06, V07 built 2026-11-14** (settings, contacts, states, fork + shortlist, RFQ batch, window closing — switch off), not deployed |
 | **E11** Settings | Profile, sourcing rules | 🟡 Paramètres + notification prefs live; **password / 2FA / theme / rename (2026-08-27)** live; buyer Abonnement self-service waits for billing |
 
 **MVP1 = E0–E7 + E10.** Definition of done **restated 2026-08-29 by ADR-002**
@@ -4233,6 +4233,7 @@ report, exactly as today, because that report is all they get.
 | **D9** | `quote.sent_at` is nullable. What does the window do with an RFQ nobody marked sent? | Such a quote is not in a round and has no clock; the batch send (V06) is the only thing that opens one. | V06 |
 | **D10** | Who assigns a partner to a case, and which partner kinds exist at launch? | Staff assign, per offer. Kinds: settlement, transport, inspection, customs, insurance. | V21, V22 |
 | **D11** | The shortlist is the Top-N the search ranks — 5 by default — and the window closes on 5 offers. Asking five suppliers will rarely bring five answers. Should the pack flow rank more than it needs? | Unchanged: the shortlist is what `SUPPLIERS_RETURNED` ranks. Staff relaunch (V11) when a round comes back short. Ranking more costs a supplier row and a verification run per extra candidate. | V05, V07 |
+| **D12** | A round where nobody is left to answer — every supplier asked has either sent an offer or declined — but the offer target is not reached. Three asked, three answered, target five: the round stays open until its deadline, waiting for no one. Should it close by itself? | **Not closed automatically** (V07 as built): README §2c names three conditions and this would be a fourth. The dossier shows « 0 fournisseur(s) sans réponse à ce jour », and staff close early with a reason. | V07 |
 
 #### How to read the Phase V tasks
 
@@ -4277,7 +4278,11 @@ built in: **S** one, **M** two to three, **L** four or more.
         reads it, and the page shows « Pas encore appliqué ». All four are
         inert today. **The task that makes a key real flips its flag in the
         same commit**: `rfq.window_hours` in V06, `rfq.target_offers` in V07,
-        `pack.release_mode` in V07, `fee.rate_bps` in V32.
+        `pack.release_mode` in V10, `fee.rate_bps` in V32. *(Corrected
+        2026-11-14, when V07 was built: this line said `pack.release_mode` in
+        V07. Closing a round always hands the request to a person, so V07
+        reads nothing from it — its first reader is the pack that stores the
+        mode, V10.)*
       • **`unavailable`** — `automatic` is in the type and refused on write
         until V14, so the mode cannot be selected before its reader exists.
         A stored value is still read back if an option is later withdrawn.
@@ -4744,7 +4749,92 @@ built in: **S** one, **M** two to three, **L** four or more.
       a real send, so do not fall back to `requested_at` for any quote that
       belongs to a round.
 
-- [ ] **V07 · The window closes: three conditions, one handler.** *Size L.
+- [x] **V07 · The window closes — BUILT 2026-11-14** (migration **0049**,
+      not deployed). `rfq_round` gains `closed_at`, `close_reason`,
+      `closed_by` + name, `early_note`; `src/lib/rfq-round.ts` (the rules,
+      pure); `src/server/rfq-window.ts` (`closeRound`, `closeRoundIfTargetReached`,
+      `withdrawOpenRounds`, `sweepRounds`, `roundCounts`); `closeRoundEarlyFn`;
+      the notification `rfq_window_closed`; the RFQ panel shows the round's
+      count while open, the early close with its mandatory reason, and how
+      the round ended. 513 tests (32 new).
+      **`closeRound` is the only function that closes a round.** One
+      conditional update (`WHERE closed_at IS NULL`) is the gate; the stamp,
+      the declines, `soliciting → pack_review` and the `rfq.closed` event are
+      one transaction (`transitionRequest` / `recordEvent` now take an
+      executor for this). The notification, the emails and the audit row come
+      after the commit. The audit row is written by `closeRound` itself, with
+      no actor on a system close.
+      **Four reasons, not three.** The task named `target_reached`,
+      `deadline`, `early`. The buyer's cancel — left to this task by V06 —
+      needed a way to close a round that is not one of them, so there is a
+      fourth, **`withdrawn`**: no pack review, no staff notification; the
+      suppliers who were written to are emailed that the RFQ no longer stands
+      (`buildRfqWithdrawnMail`; a supplier who had already answered is
+      thanked instead of told not to bother). `cancelRequestFn` withdraws the
+      open round after the transition, and **the sweep withdraws the round of
+      any request that is over**, so a cancel that dies half way is finished
+      within the minute.
+      **Three decline reasons, not two.** The task named `no_response`
+      (deadline) and `closed_before_deadline` (early, target). Added:
+      **`not_reached`**, for a supplier in the round whose RFQ never left
+      (`sent_at` null) — whatever closed the round, deadline included.
+      Recording them as `no_response` would repeat the `sent_at` mistake, and
+      `closed_before_deadline` is not true of a round that ran its full time.
+      Neither of the two new reasons can be chosen by hand: `declineQuoteFn`
+      refuses them.
+      **The sweep** runs once a minute on the pipeline worker and is the
+      deadline's only trigger. It also re-checks the target, so an offer
+      whose trigger was lost still closes its round.
+      **Settings.** `rfq.target_offers` is live (`inert: false`); the count is
+      the round's own snapshot. `pack.release_mode` stays inert — see the
+      correction under V01.
+      *Verified live in dev on request #3049, then restored (baseline
+      re-checked):*
+      • **deadline** — a round past `closes_at` was closed by the worker's
+        sweep within the minute: the supplier written to and silent carries
+        `no_response`, the one never reached `not_reached`, the request is in
+        `pack_review`, owner and manager were notified (not the accountant,
+        who does not hold `deals`), the audit row has no actor.
+      • **target** — with the round's target at 2 and one offer in, recording
+        a second offer on `/soumissions` closed the round at once
+        (`target_reached`, by the system); the remaining supplier was
+        declined; both staff were notified, the person who keyed the offer
+        included.
+      • **early** — from the dossier: the confirm button is disabled on an
+        empty reason; with one, the round closed, the note and the author are
+        on the round and shown in the panel, the silent supplier carries
+        `closed_before_deadline`, and only the manager was notified.
+      • **by direct call** — no note and a blank note are refused
+        (`note_required`) and leave the round open; three closes fired
+        together produced exactly one close, one event, one notification, one
+        audit row; closing again is a no-op.
+      • **zero offers** — a round with no answer at all closed on `deadline`
+        and the request reached `pack_review`.
+      • **cancel** — as a buyer of the owning workspace, « Annuler la
+        demande » during the open round: request `cancelled`, round
+        `withdrawn` by that person, the two suppliers written to received the
+        notice (logged — dev mail is silent), the one never reached did not,
+        no staff notification, « Appel d'offres retiré auprès de 2
+        fournisseur(s) » on the timeline. Setting the request to `cancelled`
+        by SQL under an open round was picked up and withdrawn by the sweep.
+      **Not exercised:** a real delivery of the withdrawal notice or the
+      staff email through Resend; the English panel; a buyer's cancel racing
+      a close; and the guard that turns ANY close of a round whose request is
+      already over into `withdrawn` — added after the runs above and reached
+      by none of them (the sweep asks for `withdrawn` itself).
+      **Limits to know:**
+      • **An answer keyed in late is refused.** Staff type what a supplier
+        emailed; if the round closes first, the quote is `declined` and its
+        form is frozen — a supplier who answered in time is then recorded as
+        `no_response`. Nothing in V07 reopens it. **V08 must** (see there).
+      • The withdrawal notice goes to the supplier's primary contact *as it
+        is at that moment* — the address an RFQ was sent to is not kept.
+      • A buyer who cancels from `pack_review` (round already closed) tells
+        no supplier anything, including those whose offers are in. Left to
+        V11, which has the same need when staff refuse.
+      • A round nobody can answer any more stays open until its deadline
+        unless staff close it — decision D12.
+- [x] ~~**V07 · The window closes: three conditions, one handler.**~~ *Size L.
       Step 07 → 10. Depends on: V06. Blocks: V10, V11.*
 
       **Left for this task by V06:** the round's closing columns
@@ -4794,6 +4884,21 @@ built in: **S** one, **M** two to three, **L** four or more.
 
 - [ ] **V08 · The staff-mediated route says what it is.** *Size S. Step 07.
       Depends on: nothing. Blocks: V16.*
+
+      **Left for this task by V07 — the late-keyed answer.** A round closes
+      on its own (deadline sweep, target) and declines every quote still
+      `requested`. But on this route the offer reaches the platform when
+      staff type it, not when the supplier sends it: an answer emailed on
+      Tuesday and typed on Thursday, after the round closed on Wednesday,
+      finds its quote `declined` / `no_response` and its form frozen — the
+      supplier who answered in time is recorded as silent, which is the exact
+      signal `no_response` exists to keep clean. With `respondedAt` this task
+      has what it takes to fix it: let staff record an offer on a quote
+      declined **by a round closing** (`no_response`,
+      `closed_before_deadline`) when `respondedAt` is before the round's
+      `closed_at`, while the request is still in `pack_review` — which needs
+      a `declined → received` path that `QUOTE_TRANSITIONS` does not have
+      today, and a decision on whether the offer then joins the pack.
 
       **What it does.** Keeps the hand-entered route honest now that it is one
       of two routes rather than the only one.
@@ -4851,6 +4956,13 @@ built in: **S** one, **M** two to three, **L** four or more.
 - [ ] **V10 · The Decision Pack — a read-model with a memory.** *Size M. Step
       10. Depends on: V09. Blocks: V11, V12.*
 
+      **Left for this task by V07:** flip `pack.release_mode` to
+      `inert: false` — this is its first reader (the pack stores the mode in
+      force when it was built). `buildPack(roundId)` is called from
+      `closeRound` (`src/server/rfq-window.ts`), after the commit and only for
+      a close that leads to the review (`leadsToReview`), never for
+      `withdrawn`.
+
       **What it does.** Records what a buyer was shown: which offers, in
       which order, built from which versions, released when and by whom. The
       pack has no content of its own — it points at offers, enrichments and
@@ -4878,6 +4990,18 @@ built in: **S** one, **M** two to three, **L** four or more.
 
 - [ ] **V11 · The release queue and its four actions.** *Size L. Step 10.
       Depends on: V10. Blocks: V12, V14.*
+
+      **Left for this task by V07:**
+      • **the relaunch opens round N+1.** `sendRfqBatch` refuses when the
+        latest round is closed (`nothing_to_send`) and always opens round 1;
+        the relaunch must open the next one — and open it in the same act as
+        `pack_review → soliciting`, because the round sweep treats "latest
+        round closed" as final.
+      • **tell the suppliers when a request ends in review.** A buyer's
+        cancel during an open round emails every supplier written to
+        (`withdrawn`). A cancel from `pack_review`, and a refusal
+        (`unfulfilled`), tell nobody — including suppliers whose offers are
+        in. `buildRfqWithdrawnMail` exists; decide the wording for a refusal.
 
       **What it does.** The desk the diagram's step 10 happens at: every pack
       awaiting a decision, whose it is, and how long it has waited — with the

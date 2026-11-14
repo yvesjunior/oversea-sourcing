@@ -31,6 +31,11 @@ export const NOTIFICATION_TYPES = [
    *  `quotes_requested`, a delay here is a delay in the product itself —
    *  nothing reaches a supplier until a person has looked. */
   { type: "shortlist_ready", hasEmail: true },
+  /** STAFF-facing (Phase V · V07): an RFQ round closed — on its target, its
+   *  deadline or a colleague's decision — and the request now waits in the
+   *  pack review. Sent whatever the count, zero included: a round that came
+   *  back empty is exactly the one a person has to decide about. */
+  { type: "rfq_window_closed", hasEmail: true },
   /** A contract went out and the buyer's signature is what it waits on (P6). */
   { type: "contract_to_sign", hasEmail: true },
   /** Every mandatory signature is in — the contract is complete (P6). */

@@ -127,7 +127,8 @@
       "contract_signed": "Contract signed (every signature is in)",
       "quotes_requested": "Quotes to send out (a customer picked their suppliers) — OSI staff",
       "shortlist_ready": "Shortlists to confirm (a search finished) — OSI staff",
-      "mail_backlog": "Outbound mail failing (messages are waiting to be sent) — OSI staff"
+      "mail_backlog": "Outbound mail failing (messages are waiting to be sent) — OSI staff",
+      "rfq_window_closed": "Response windows closed (a request awaits review) — OSI staff"
     },
     "tabOrganisation": "Organisation",
     "orgInfoTitle": "Organisation information",
@@ -617,7 +618,9 @@
     "status_delivered": "Delivered",
     "status_reviewed": "Reviewed by the client",
     "research_rerun": "Web research re-run",
-    "quote_accepted": "Quote accepted — transaction file opened"
+    "quote_accepted": "Quote accepted — transaction file opened",
+    "rfq_closed": "Response window closed — {{offers}} offer(s) received",
+    "rfq_withdrawn": "RFQ withdrawn from {{count}} supplier(s)"
   },
   "stepsDemande": {
     "received": {
@@ -749,6 +752,30 @@
       "no_reply_address": "No reply address is set: the RFQ cannot be sent.",
       "missing_contact": "At least one supplier has no contact: add an address or take it off the shortlist.",
       "missing_contact_named": "No contact: {{suppliers}}. Add an address or take them off the shortlist."
+    },
+    "roundProgress": "{{offers}} offer(s) received of {{target}} targeted · {{awaiting}} supplier(s) yet to answer.",
+    "roundClosed": "Round {{no}} — closed {{closed}}.",
+    "roundOutcome": "{{offers}} offer(s) received.",
+    "closedBy": "Closed by {{name}}.",
+    "closedBySystem": "Closed automatically.",
+    "earlyNote": "Reason:",
+    "closeReason": {
+      "target_reached": "Target number of offers reached",
+      "deadline": "Deadline passed",
+      "early": "Closed before the deadline",
+      "withdrawn": "Request cancelled by the customer"
+    },
+    "closeEarly": {
+      "open": "Close the window now",
+      "title": "Close the window before the deadline",
+      "warning": "{{count}} supplier(s) whose offer has not come in will be dropped from this round. This is not recorded as them failing to respond: it is OSI that stops waiting.",
+      "noteLabel": "Why close now?",
+      "notePlaceholder": "E.g. three complete offers are in and the customer has a Friday deadline.",
+      "confirm": "Close the window",
+      "cancel": "Cancel",
+      "note_required": "Say why the window is being closed before the deadline.",
+      "not_found": "This round no longer exists.",
+      "forbidden": "Not allowed."
     }
   },
   "provenance": {
@@ -944,7 +971,8 @@
     "contract_signed": "Contract fully signed",
     "quotes_requested": "{{count}} supplier(s) to solicit — request #{{id}}",
     "shortlist_ready": "Shortlist to confirm — request #{{id}}",
-    "mail_backlog": "Outbound mail is failing — {{count}} message(s) waiting to be sent"
+    "mail_backlog": "Outbound mail is failing — {{count}} message(s) waiting to be sent",
+    "rfq_window_closed": "Response window closed — request #{{id}}: {{offers}} offer(s) received"
   },
   "verificationAdmin": {
     "title": "Supplier verification",
@@ -1086,7 +1114,8 @@
     "user.reset_link_issued": "Password-reset link issued by staff",
     "supplier_contact.added": "Supplier contact added",
     "supplier_contact.primary_set": "Primary contact set",
-    "supplier_contact.removed": "Supplier contact removed"
+    "supplier_contact.removed": "Supplier contact removed",
+    "rfq.closed": "Response window closed"
   },
   "twofa": {
     "title": "Two-step verification",
@@ -1184,7 +1213,9 @@
     "declineReason": {
       "no_response": "No response",
       "supplier_declined": "The supplier declined",
-      "lost": "The customer chose another supplier"
+      "lost": "The customer chose another supplier",
+      "closed_before_deadline": "Window closed before the deadline",
+      "not_reached": "RFQ never reached the supplier"
     },
     "sentAt": "Sent on",
     "responseFromRequested": "measured from the customer's request — the send was never timestamped",

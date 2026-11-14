@@ -23,10 +23,12 @@
 import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import { db } from "@/database";
 import * as schema from "@/database/schema";
+import type { RoundCloseReason } from "@/database/schema";
 import { buildRfqMail, type RfqMail } from "@/lib/rfq-mail";
 import { sendMail } from "@/server/mail";
 import { getSetting } from "@/server/platform-settings";
 import { recordEvent, transitionRequest } from "@/server/requests";
+import { roundCounts } from "@/server/rfq-window";
 import { primaryContactsFor, type PrimaryContact } from "@/server/supplier-contacts";
 
 type QuoteRow = typeof schema.quote.$inferSelect;
@@ -38,20 +40,39 @@ function isUniqueViolation(error: unknown): boolean {
 }
 
 export type RoundView = {
+  id: string;
   roundNo: number;
   openedAt: string;
   closesAt: string;
   windowHours: number;
   targetOffers: number;
+  /** Offers in so far — what `targetOffers` is counted against. */
+  offers: number;
+  /** Written to and still silent. Always 0 once the round is closed. */
+  awaiting: number;
+  /** How it ended (V07); all null while the round is open. */
+  closedAt: string | null;
+  closeReason: RoundCloseReason | null;
+  /** Null on a closed round = the system closed it (target or deadline). */
+  closedByName: string | null;
+  earlyNote: string | null;
 };
 
-function toRoundView(round: RoundRow): RoundView {
+async function toRoundView(round: RoundRow): Promise<RoundView> {
+  const counts = (await roundCounts([round.id])).get(round.id);
   return {
+    id: round.id,
     roundNo: round.roundNo,
     openedAt: round.openedAt.toISOString(),
     closesAt: round.closesAt.toISOString(),
     windowHours: round.windowHours,
     targetOffers: round.targetOffers,
+    offers: counts?.offers ?? 0,
+    awaiting: counts?.awaiting ?? 0,
+    closedAt: round.closedAt ? round.closedAt.toISOString() : null,
+    closeReason: round.closeReason ?? null,
+    closedByName: round.closedByName ?? null,
+    earlyNote: round.earlyNote ?? null,
   };
 }
 
@@ -134,7 +155,8 @@ export async function previewRfq(requestId: string): Promise<RfqPreview | null> 
     email: (quote.supplierId && contacts.get(quote.supplierId)?.email) || null,
   }));
 
-  const sendable = request.status === "shortlisted" || request.status === "soliciting";
+  const sendable =
+    (request.status === "shortlisted" || request.status === "soliciting") && !round?.closedAt;
   const blockedBy: RfqBlocker | null = !sendable
     ? "wrong_state"
     : quotes.length === 0
@@ -153,7 +175,7 @@ export async function previewRfq(requestId: string): Promise<RfqPreview | null> 
   const sampleMail = firstContact ? await mailFor(request, firstContact, closesAt) : null;
 
   return {
-    round: round ? toRoundView(round) : null,
+    round: round ? await toRoundView(round) : null,
     recipients,
     blockedBy,
     replyTo,
@@ -191,6 +213,11 @@ export async function sendRfqBatch(
   }
 
   let round = await latestRound(requestId);
+  // A closed round takes no more mail. `closeRound` declines everyone still
+  // unanswered in the same transaction, so there is normally nobody left to
+  // find — this is for the send that was already under way when it closed.
+  // (Opening the NEXT round is the relaunch, V11.)
+  if (round?.closedAt) return { ok: false, reason: "nothing_to_send" };
   const opening = round === null;
   const batch = await pendingQuotes(requestId, round);
   if (batch.length === 0) return { ok: false, reason: "nothing_to_send" };
@@ -304,5 +331,5 @@ export async function sendRfqBatch(
     // five suppliers and when it closes, never to whom.
     await recordEvent(requestId, request.organizationId, "rfq.sent", { count: sent });
   }
-  return { ok: true, round: toRoundView(round), sent, failed };
+  return { ok: true, round: await toRoundView(round), sent, failed };
 }

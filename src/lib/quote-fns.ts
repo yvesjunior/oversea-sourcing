@@ -715,6 +715,18 @@ export const recordQuoteFn = createServerFn({ method: "POST" })
       },
     });
 
+    // The offer that fills the round closes it (V07). After the audit row and
+    // never instead of it: the offer is recorded whether or not this works,
+    // and the sweep runs the same check within the minute if it does not.
+    if (quote.roundId) {
+      try {
+        const { closeRoundIfTargetReached } = await import("@/server/rfq-window");
+        await closeRoundIfTargetReached(quote.roundId);
+      } catch (error) {
+        console.error(`recordQuote: target check failed for round ${quote.roundId}`, error);
+      }
+    }
+
     const request = await db.query.request.findFirst({
       where: eq(schema.request.id, quote.requestId),
     });
@@ -836,7 +848,10 @@ export const declineQuoteFn = createServerFn({ method: "POST" })
   .inputValidator(
     z.object({
       quoteId: z.string().min(1),
-      reason: z.enum(QUOTE_DECLINE_REASONS),
+      // Not the two reasons a round closing writes (`closeRound`): they are
+      // never chosen — a person picking one would be recording a close that
+      // did not happen.
+      reason: z.enum(QUOTE_DECLINE_REASONS).exclude(["closed_before_deadline", "not_reached"]),
       note: z.string().trim().max(300).optional(),
     }),
   )

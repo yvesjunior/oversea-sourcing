@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { buildRfqMail, formatDeadline, type RfqMailInput } from "@/lib/rfq-mail";
+import {
+  buildRfqMail,
+  buildRfqWithdrawnMail,
+  formatDeadline,
+  type RfqMailInput,
+} from "@/lib/rfq-mail";
 
 const base: RfqMailInput = {
   locale: "en",
@@ -117,5 +122,49 @@ describe("what it must not contain", () => {
     expect(mail.text).not.toContain("SPECIFICATIONS");
     expect(mail.text).not.toContain("own description");
     expect(mail.html).not.toContain("<ul></ul>");
+  });
+});
+
+describe("the withdrawal notice", () => {
+  const base = {
+    requestId: "3049",
+    title: "Roulements à billes",
+    greetingName: "Mei",
+  } as const;
+
+  it("tells a supplier who had not answered to stop", () => {
+    const mail = buildRfqWithdrawnMail({ ...base, locale: "en", answered: false });
+    expect(mail.subject).toBe("Request for quotation #3049 withdrawn — Roulements à billes");
+    expect(mail.text).toContain("Hello Mei,");
+    expect(mail.text).toContain("has withdrawn the request");
+    expect(mail.text).toContain("do not prepare or send an offer");
+    expect(mail.text).not.toContain("Thank you for the offer");
+  });
+
+  it("thanks a supplier who had, and does not tell them not to bother", () => {
+    const mail = buildRfqWithdrawnMail({ ...base, locale: "fr", answered: true });
+    expect(mail.subject).toBe("Appel d'offres #3049 retiré — Roulements à billes");
+    expect(mail.text).toContain("Merci pour l'offre");
+    expect(mail.text).not.toContain("ne pas préparer");
+  });
+
+  it("asks for nothing: no deadline, no reply instructions", () => {
+    for (const locale of ["en", "fr"] as const) {
+      const mail = buildRfqWithdrawnMail({ ...base, locale, answered: false });
+      expect(mail.text).not.toMatch(/UTC/);
+      expect(mail.text).not.toMatch(/WHAT IS NEEDED|LE BESOIN/);
+      expect(mail.text).not.toMatch(/Reply to this email|Répondez à ce courriel/);
+      expect(mail.text).not.toMatch(/keep it in your reply|conserver dans votre réponse/);
+    }
+  });
+
+  it("escapes the title in the HTML version", () => {
+    const mail = buildRfqWithdrawnMail({
+      ...base,
+      title: "Vis <M8> & écrous",
+      locale: "fr",
+      answered: false,
+    });
+    expect(mail.html).toContain("Vis &lt;M8&gt; &amp; écrous");
   });
 });

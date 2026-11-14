@@ -1252,6 +1252,38 @@ by a later change to the configured delay. Three rules worth knowing:
 Until the supplier portal exists, the supplier answers by email and staff key
 the offer in, as on the report flow.
 
+**The window closes** (V07, 2026-11-14). A round ends one of four ways, and
+`closeRound` (`src/server/rfq-window.ts`) is the only function that ends one:
+
+| Reason           | What triggers it                                              | Closed by      |
+| ---------------- | ------------------------------------------------------------- | -------------- |
+| `target_reached` | the offer that brings the count to the round's `target_offers` | the system     |
+| `deadline`       | the worker's sweep, once a minute, past `closes_at`            | the system     |
+| `early`          | a staff member, from the dossier — **a written reason is required** | that person |
+| `withdrawn`      | the buyer cancels the request while the round is open          | the buyer      |
+
+The first three hand the request to `pack_review` and notify staff holding
+`deals` (`rfq_window_closed`, in-app and email — not the person who closed it
+early). A round that closes with **no offer at all** goes to the review like
+any other: relaunching or refusing is a person's decision. `withdrawn` leads
+nowhere — the request is cancelled — and instead every supplier who was
+written to gets a notice that the RFQ no longer stands.
+
+One conditional update (`WHERE closed_at IS NULL`) decides who closed the
+round; the stamp, the declines, the status change and the timeline event are
+one transaction. Two closes arriving together — the fifth offer keyed in as
+the sweep runs — end as one close, one notification, one journal row.
+
+**What a close records about a supplier who had not answered** is the part
+that matters for the graph, and it is three different facts:
+
+- `no_response` — written to, and the whole window ran out. The only one of
+  the three that says something about the supplier.
+- `closed_before_deadline` — written to, but the round was cut short (target,
+  early close, withdrawal). They still had time.
+- `not_reached` — the RFQ never got to them. Whatever closed the round,
+  deadline included: silence from someone who was not asked is not silence.
+
 Guarded transitions live in [`src/lib/request-status.ts`](src/lib/request-status.ts);
 illegal ones throw. Every change writes a `request_event` row, so timelines,
 activity feeds and dashboard stats are **pure read-models of the DB**.
@@ -1989,9 +2021,11 @@ things follow, and they are design constraints rather than preferences:
   since: `flow.pack_enabled` (V05, the pack-flow switch) and `rfq.reply_to`
   (V06, where suppliers' answers arrive — no default, on purpose).
   **Two honesty rules are built into it.** Every key is marked *not applied
-  yet* on the page for as long as nothing reads it — which today is all four,
-  because the rounds and packs that will read them are not built — so the
-  page cannot suggest a number does something it does not. And `automatic`
+  yet* on the page for as long as nothing reads it — today the release mode
+  and the fee rate, because the packs and the settlement that will read them
+  are not built; the window became live with the batch send (V06) and the
+  offer target with the round closing on it (V07) — so the page cannot
+  suggest a number does something it does not. And `automatic`
   exists as a release mode but is **refused by the server** until the code
   that honours it ships: a mode selectable before its reader exists would
   switch itself on the day that reader is deployed, with nobody having
@@ -2465,7 +2499,7 @@ erDiagram
 | `supplier_verification` / `sanction_entry` | ✅ 2026-08-26 (S5b) — one evidence row per supplier × check, and the local OFAC SDN copy. `verification_status` is DERIVED from these rows and written only by `src/server/verification.ts` |
 | `translation_memory` | ✅ 2026-08-29 — platform-wide cache of criterion translations (`request_criterion.value_en`); deliberately not workspace-scoped |
 | `platform_permission` / `platform_role` | ✅ 2026-08-28/29 — the Rôles & accès matrix (feature × role) and the owner-created staff roles; the owner is never a row |
-| `rfq_round`          | ✅ 2026-11-14 (0048, Phase V · V06) — one round of solicitation: the RFQs that left together and the single deadline they share. `closes_at` is stored, and `window_hours` / `target_offers` are snapshots of the settings when it opened, so a later change never moves an open round. `quote.round_id` ties a solicitation to its round; a quote outside a round has no clock. No closing columns yet — they arrive with the task that closes a round (V07) |
+| `rfq_round`          | ✅ 2026-11-14 (0048, Phase V · V06) — one round of solicitation: the RFQs that left together and the single deadline they share. `closes_at` is stored, and `window_hours` / `target_offers` are snapshots of the settings when it opened, so a later change never moves an open round. `quote.round_id` ties a solicitation to its round; a quote outside a round has no clock. **How it ended** (0049, V07): `closed_at` (null = open), `close_reason` (`target_reached` · `deadline` · `early` · `withdrawn`), `closed_by` + name snapshot (null on a closed round = the system) and `early_note` — written together by `closeRound`, in the conditional update that decides who closed it, and never rewritten |
 | `supplier_contact`   | ✅ 2026-11-14 (0047, Phase V · V02) — who to write to at a supplier: email, name, role, phone, the language to write in, `source` (`research` \| `staff`). **Exactly one PRIMARY per supplier that has any contact** — a partial unique index for "at most one", `ensurePrimary` for "at least one" — and the RFQ goes to it. Staff-only (`deals`): never returned by a buyer-facing fn, since the pool is platform-global. A researched address is kept only when it is on the supplier's own website domain (`acceptResearchedEmail`); it travels on `source_record.contact_email` and becomes a row here at promotion. Never from a paid provider |
 | `platform_setting`   | ✅ 2026-11-14 (0046, Phase V · V01) — platform-wide settings, ONE value per key for every client; a missing row means the default. Keys, types, ranges and defaults live in the registry `src/lib/platform-settings.ts`, so a new knob is a registry entry and not a migration. Edited from `/interne/parametres` (`settings` permission, owner by default); every change is in `audit_log` with the old and new value |
 | `plan` / `subscription` | limits as rows (daily, lifetime, seats, `quota_scope`, `audience`, `suppliers_returned`, `model_tier`); one subscription per workspace |

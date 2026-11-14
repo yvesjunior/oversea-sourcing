@@ -7,6 +7,11 @@ import * as schema from "@/database/schema";
 import type { RequestStatus } from "@/database/schema";
 import { canTransition, isTerminal } from "@/lib/request-status";
 
+/** The pool, or a transaction on it. Both helpers below take one so that a
+ *  caller holding a transaction (closing an RFQ round, V07) can move the
+ *  request and write its event inside it — all of it happens, or none. */
+export type Executor = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0];
+
 /** Append an activity event; params are JSON-stringified into `message` and
  *  parsed at render time for i18n interpolation (e.g. {"count": 6}). */
 export async function recordEvent(
@@ -14,8 +19,9 @@ export async function recordEvent(
   organizationId: string,
   type: string,
   params?: Record<string, unknown>,
+  executor: Executor = db,
 ): Promise<void> {
-  await db.insert(schema.requestEvent).values({
+  await executor.insert(schema.requestEvent).values({
     id: crypto.randomUUID(),
     requestId,
     organizationId,
@@ -32,12 +38,13 @@ export async function transitionRequest(
   organizationId: string,
   from: RequestStatus,
   to: RequestStatus,
+  executor: Executor = db,
 ): Promise<void> {
   if (!canTransition(from, to)) {
     throw new Error(`Illegal request transition ${from} → ${to} (request ${requestId})`);
   }
   const now = new Date();
-  await db
+  await executor
     .update(schema.request)
     .set({
       status: to,
@@ -53,5 +60,5 @@ export async function transitionRequest(
       ...(to === "searching" || to === "soliciting" ? { completedAt: null } : {}),
     })
     .where(eq(schema.request.id, requestId));
-  await recordEvent(requestId, organizationId, `status.${to}`);
+  await recordEvent(requestId, organizationId, `status.${to}`, undefined, executor);
 }

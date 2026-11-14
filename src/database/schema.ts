@@ -1112,6 +1112,19 @@ export const match = pgTable(
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
+ * Why a round closed.
+ *
+ * `target_reached` — enough offers came in (`target_offers`); nobody waited.
+ * `deadline`       — `closes_at` passed.
+ * `early`          — staff decided not to wait; `early_note` says why.
+ * `withdrawn`      — the buyer cancelled the request while the round was
+ *                    open. The only reason that does NOT lead to the pack
+ *                    review: there is no request left to review offers for.
+ */
+export const ROUND_CLOSE_REASONS = ["target_reached", "deadline", "early", "withdrawn"] as const;
+export type RoundCloseReason = (typeof ROUND_CLOSE_REASONS)[number];
+
+/**
  * One round of solicitation for a request (Phase V · V06, 2026-11-14).
  *
  * A round is a BATCH and a CLOCK: the RFQs that left together, and the single
@@ -1124,9 +1137,10 @@ export const match = pgTable(
  * A relaunch (V11) opens round 2, 3… with a clock of its own; offers held from
  * an earlier round stay on their quotes.
  *
- * What is NOT here yet, on purpose: how a round ended (`closed_at`, the
- * reason, who, the early-close note). Nothing closes a round before V07, and
- * a column nobody writes reads as a capability.
+ * HOW IT ENDED (V07). `closed_at` null = the round is open. Everything that
+ * closes one goes through `closeRound` (src/server/rfq-window.ts), which
+ * writes the closing columns in the one conditional update that decides who
+ * closed it — so they are always set together, and never rewritten.
  */
 export const rfqRound = pgTable(
   "rfq_round",
@@ -1144,6 +1158,16 @@ export const rfqRound = pgTable(
     targetOffers: integer("target_offers").notNull(),
     openedBy: text("opened_by").references(() => user.id, { onDelete: "set null" }),
     openedByName: text("opened_by_name"),
+    /** Null while the round is open. */
+    closedAt: timestamp("closed_at"),
+    closeReason: text("close_reason").$type<RoundCloseReason>(),
+    /** Who closed it — staff for `early`, the buyer who cancelled for
+     *  `withdrawn`. Null with a non-null `closed_at` means THE SYSTEM did:
+     *  the deadline sweep, or the offer that reached the target. */
+    closedBy: text("closed_by").references(() => user.id, { onDelete: "set null" }),
+    closedByName: text("closed_by_name"),
+    /** Why staff stopped waiting. Required for `early`, null otherwise. */
+    earlyNote: text("early_note"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (table) => [
@@ -1169,7 +1193,26 @@ export type QuoteStatus = (typeof QUOTE_STATUSES)[number];
  * can own, and it cannot be scraped from anywhere. Folding them together
  * poisons the data the whole demand-pull strategy rests on, at the source.
  */
-export const QUOTE_DECLINE_REASONS = ["supplier_declined", "no_response", "lost"] as const;
+export const QUOTE_DECLINE_REASONS = [
+  "supplier_declined",
+  "no_response",
+  "lost",
+  /**
+   * The round closed before this supplier's deadline did (V07): staff stopped
+   * waiting, enough offers were already in, or the buyer withdrew. That is a
+   * fact about OSI's side, NOT about the supplier — they may well have been
+   * about to answer — so it must never be counted with `no_response`.
+   */
+  "closed_before_deadline",
+  /**
+   * The round closed and the RFQ had never reached this supplier (V07): a
+   * refused address, a batch that died half way. Whatever closed the round,
+   * deadline included — silence from someone who was not asked is not
+   * silence. Also OSI's side, and the one a person should look at: it means
+   * a confirmed shortlist entry was never actually solicited.
+   */
+  "not_reached",
+] as const;
 export type QuoteDeclineReason = (typeof QUOTE_DECLINE_REASONS)[number];
 
 /** A soumission: one supplier asked for one request. The buyer picks WHO is

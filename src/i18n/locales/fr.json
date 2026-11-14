@@ -127,7 +127,8 @@
       "contract_signed": "Contrat signé (toutes les signatures sont réunies)",
       "quotes_requested": "Soumissions à envoyer (un client a choisi ses fournisseurs) — équipe OSI",
       "shortlist_ready": "Présélections à confirmer (une recherche est terminée) — équipe OSI",
-      "mail_backlog": "Envoi d'e-mails en échec (des messages attendent) — équipe OSI"
+      "mail_backlog": "Envoi d'e-mails en échec (des messages attendent) — équipe OSI",
+      "rfq_window_closed": "Fenêtres de réponse fermées (une demande attend la revue) — équipe OSI"
     },
     "tabOrganisation": "Organisation",
     "orgInfoTitle": "Informations de l’organisation",
@@ -617,7 +618,9 @@
     "status_delivered": "Livré",
     "status_reviewed": "Évalué par le client",
     "research_rerun": "Recherche web relancée",
-    "quote_accepted": "Soumission acceptée — dossier ouvert"
+    "quote_accepted": "Soumission acceptée — dossier ouvert",
+    "rfq_closed": "Fenêtre de réponse fermée — {{offers}} offre(s) reçue(s)",
+    "rfq_withdrawn": "Appel d'offres retiré auprès de {{count}} fournisseur(s)"
   },
   "stepsDemande": {
     "received": {
@@ -749,6 +752,30 @@
       "no_reply_address": "Aucune adresse de réponse n'est définie : l'appel d'offres ne peut pas partir.",
       "missing_contact": "Au moins un fournisseur n'a aucun contact : ajoutez une adresse ou retirez-le de la présélection.",
       "missing_contact_named": "Sans contact : {{suppliers}}. Ajoutez une adresse ou retirez-les de la présélection."
+    },
+    "roundProgress": "{{offers}} offre(s) reçue(s) sur {{target}} visée(s) · {{awaiting}} fournisseur(s) sans réponse à ce jour.",
+    "roundClosed": "Tour n° {{no}} — fermé le {{closed}}.",
+    "roundOutcome": "{{offers}} offre(s) reçue(s).",
+    "closedBy": "Fermé par {{name}}.",
+    "closedBySystem": "Fermé automatiquement.",
+    "earlyNote": "Motif :",
+    "closeReason": {
+      "target_reached": "Nombre d'offres visé atteint",
+      "deadline": "Délai écoulé",
+      "early": "Fermé avant le délai",
+      "withdrawn": "Demande annulée par le client"
+    },
+    "closeEarly": {
+      "open": "Fermer la fenêtre maintenant",
+      "title": "Fermer la fenêtre avant le délai",
+      "warning": "{{count}} fournisseur(s) dont l'offre n'est pas arrivée seront écarté(s) de ce tour. Ce n'est pas enregistré comme une absence de réponse de leur part : c'est OSI qui cesse d'attendre.",
+      "noteLabel": "Pourquoi fermer maintenant ?",
+      "notePlaceholder": "Ex. : trois offres complètes reçues, le client a une échéance vendredi.",
+      "confirm": "Fermer la fenêtre",
+      "cancel": "Annuler",
+      "note_required": "Indiquez pourquoi la fenêtre est fermée avant le délai.",
+      "not_found": "Ce tour n'existe plus.",
+      "forbidden": "Action non autorisée."
     }
   },
   "provenance": {
@@ -944,7 +971,8 @@
     "contract_signed": "Contrat entièrement signé",
     "quotes_requested": "{{count}} fournisseur(s) à solliciter — demande #{{id}}",
     "shortlist_ready": "Présélection à confirmer — demande #{{id}}",
-    "mail_backlog": "L'envoi d'e-mails est en échec — {{count}} message(s) en attente"
+    "mail_backlog": "L'envoi d'e-mails est en échec — {{count}} message(s) en attente",
+    "rfq_window_closed": "Fenêtre de réponse fermée — demande #{{id}} : {{offers}} offre(s) reçue(s)"
   },
   "verificationAdmin": {
     "title": "Vérification des fournisseurs",
@@ -1086,7 +1114,8 @@
     "user.reset_link_issued": "Lien de réinitialisation généré par l'équipe",
     "supplier_contact.added": "Contact fournisseur ajouté",
     "supplier_contact.primary_set": "Contact principal défini",
-    "supplier_contact.removed": "Contact fournisseur retiré"
+    "supplier_contact.removed": "Contact fournisseur retiré",
+    "rfq.closed": "Fenêtre de réponse fermée"
   },
   "twofa": {
     "title": "Vérification en deux étapes",
@@ -1184,7 +1213,9 @@
     "declineReason": {
       "no_response": "Sans réponse",
       "supplier_declined": "Le fournisseur a refusé",
-      "lost": "Le client a choisi un autre fournisseur"
+      "lost": "Le client a choisi un autre fournisseur",
+      "closed_before_deadline": "Fenêtre fermée avant le délai",
+      "not_reached": "Appel d'offres jamais parvenu au fournisseur"
     },
     "sentAt": "Envoyée le",
     "responseFromRequested": "délai mesuré depuis la demande du client — l’envoi n’a pas été horodaté",

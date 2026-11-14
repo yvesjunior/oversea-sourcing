@@ -819,6 +819,18 @@ export const cancelRequestFn = createServerFn({ method: "POST" })
     const { transitionRequest } = await import("@/server/requests");
     await transitionRequest(row.id, workspaceId, row.status, "cancelled");
 
+    // Cancelled while suppliers were quoting (V07): the round closes and
+    // whoever was written to is told the RFQ no longer stands. AFTER the
+    // transition, so nothing can walk the request into the pack review in
+    // between; and if this dies half way, the round sweep withdraws the round
+    // of any request that is over. Never allowed to fail the cancel itself.
+    try {
+      const { withdrawOpenRounds } = await import("@/server/rfq-window");
+      await withdrawOpenRounds(row.id, { id: session.user.id, name: session.user.name });
+    } catch (error) {
+      console.error(`cancelRequest: could not withdraw the open round of ${row.id}`, error);
+    }
+
     const { logAudit, actorOf } = await import("@/server/audit");
     await logAudit({
       ...actorOf(session),

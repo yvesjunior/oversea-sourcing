@@ -30,9 +30,15 @@ import { createMatchesForRequest } from "@/server/matching";
 import { researchEnabled } from "@/server/ai/flags";
 import { evaluateStoreCoverage, runAdminRefresh, runResearchForRequest } from "@/server/research";
 import { sweepDocumentRetention } from "@/server/retention";
+import { sweepRounds } from "@/server/rfq-window";
 
 const STAGE_MS = 8_000;
 const SWEEP_INTERVAL_MS = 60_000;
+/** How often open RFQ rounds are checked against their deadline (V07). The
+ *  window is counted in hours, so a round closing up to a minute after its
+ *  `closes_at` is noise — and `closed_at` records when it actually closed,
+ *  not when it was due. */
+const ROUND_SWEEP_INTERVAL_MS = 60_000;
 /** How often the retention policy is applied. Six-hourly against a 36-month
  *  window (DOCUMENT_RETENTION_MONTHS): the cadence decides latency, never
  *  outcome. */
@@ -308,6 +314,7 @@ async function main() {
   let sweepTimer: ReturnType<typeof setInterval> | null = null;
   let retentionTimer: ReturnType<typeof setInterval> | null = null;
   let mailTimer: ReturnType<typeof setInterval> | null = null;
+  let roundTimer: ReturnType<typeof setInterval> | null = null;
   if (SERVED_QUEUES.includes("pipeline")) {
     await sweepStranded(enqueue).catch((error) => console.error("sweep failed:", error));
     sweepTimer = setInterval(() => {
@@ -330,6 +337,19 @@ async function main() {
       void flushMail().catch((error) => console.error("mail flush failed:", error));
     mail();
     mailTimer = setInterval(mail, MAIL_FLUSH_INTERVAL_MS);
+
+    // RFQ rounds past their deadline (V07). On this worker for the same
+    // reason again — and here two sweepers would not even double anything:
+    // `closeRound` lets exactly one caller close a round. One is still the
+    // right number.
+    const rounds = () =>
+      void sweepRounds()
+        .then((closed) => {
+          if (closed > 0) console.log(`rfq: sweep closed ${closed} round(s)`);
+        })
+        .catch((error) => console.error("rfq sweep failed:", error));
+    rounds();
+    roundTimer = setInterval(rounds, ROUND_SWEEP_INTERVAL_MS);
   }
 
   console.log(
@@ -342,6 +362,7 @@ async function main() {
     if (sweepTimer) clearInterval(sweepTimer);
     if (retentionTimer) clearInterval(retentionTimer);
     if (mailTimer) clearInterval(mailTimer);
+    if (roundTimer) clearInterval(roundTimer);
     await boss.stop();
     process.exit(0);
   };
