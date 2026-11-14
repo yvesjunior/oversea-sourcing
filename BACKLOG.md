@@ -1921,9 +1921,10 @@ partial, three do not exist. Verified against the code, not assumed:
   **Decided 2026-10-22: from `quote.sent_at`.** Not `requested_at`, which
   would spend the supplier's window before anyone wrote to them — the same
   reasoning that put `sent_at` in the schema on 2026-09-12. Leaves two
-  details: what the window does when `sent_at` is null (it is nullable), and
-  whether the clock is per supplier or per request, which only matters while
-  RFQs go out by hand at different times.
+  details: what the window does when `sent_at` is null (it is nullable —
+  Phase V, D9), and ~~whether the clock is per supplier or per request~~ —
+  **decided 2026-11-14: per round.** One clock per batch, shared by every
+  supplier in it; `rfq_round.closes_at` is the only deadline (V06).
 - ~~Can escrow.com pay a third party (OSI's fee) from the same transaction?~~
   **Answered 2026-10-25: it collects the fee and remits it**, as Globex does.
   What stays open is the legal half, and only that: whether the partner can
@@ -4211,7 +4212,7 @@ below are built on:
 
 None of these blocks starting. Each task is written against the default named
 here, and each default is the cheapest one to reverse. **Answered so far: D1, D2,
-D3** (2026-11-14). Seven remain.
+D3, D4** (2026-11-14). Six remain.
 
 **D1 and D2 read together.** D1 hides suppliers from the buyer until the
 pack; D2 keeps the Top-N report for plans without quotes. They do not
@@ -4224,7 +4225,7 @@ report, exactly as today, because that report is all they get.
 | ~~**D1**~~ | ~~Between steps 04 and 10 the buyer's lane is empty in the diagram. Does today's Top-N report (which the buyer sees at `report_ready`) disappear?~~ | ✅ **Decided 2026-11-14: yes.** The buyer sees progress and counts, not suppliers, until the pack is released. | V04, V05 |
 | ~~**D2**~~ | ~~`plan.quotes_enabled` gates soumissions today. Is the V6 flow for every plan?~~ | ✅ **Decided 2026-11-14: no — the plan decides.** Plans without quotes stop at the existing report, as today; plans with quotes get the V6 flow. | V04, V05 |
 | ~~**D3**~~ | ~~Who presses send on the RFQs — staff, or the platform as soon as KPI #1 finishes?~~ | ✅ **Decided 2026-11-14: staff.** They confirm the shortlist and send the whole batch in one act. | V05, V06 |
-| **D4** | The window is per request or per supplier (README §2c, still open). | Per round: one clock, started when the batch leaves. With D3 decided the batch always leaves at once, so the two readings give the same answer — the question only returns if single RFQs are ever sent outside a batch. | V06, V07 |
+| ~~**D4**~~ | ~~The window is per request or per supplier (README §2c).~~ | ✅ **Decided 2026-11-14: per round.** One clock, started when the batch leaves; every supplier in the round shares its deadline. | V06, V07 |
 | **D5** | On relaunch, do offers already held survive, and whose clock restarts? | They survive; a new round has its own clock, for the suppliers newly asked only. | V11 |
 | **D6** | What does a supplier see of the buyer before a dossier opens? | The specification, never the buyer's name or workspace. Identity is disclosed when the deal opens. | V16 |
 | **D7** | Offers arrive in different currencies and money is never converted (ADR-002). What does KPI #2 compare? | Landed cost is compared only within one currency; across currencies the pack says so instead of ranking on a rate nobody stored. A rate entered by staff or supplied by the settlement partner is stored on the pack when one exists. | V09, V24 |

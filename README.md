@@ -2005,21 +2005,28 @@ fortieth for a familiar one will be reviewed identically. If that ever needs
 to differ, widening a global value into a default-plus-override is a
 migration — the shape `sourcing_rules` already uses — not a redesign.
 
-### The window is per request or per supplier — still to settle
+### The window is per round — decided 2026-11-14
 
-`sent_at` lives on `quote`, one row per supplier asked, so "72 h from the RFQ
-being sent" has two readings and they behave differently when the RFQs do not
-all leave together:
+**One clock per round, started when the batch leaves; every supplier in the
+round shares its deadline** (owner, 2026-11-14). It follows from the batch
+send decided the same day: staff send every RFQ in one act, so there is one
+send time to count from.
 
-- **Per supplier** — each gets a full 72 h from their own send. Fair to a
+The question existed because `sent_at` lives on `quote`, one row per supplier,
+and "72 h from the RFQ being sent" had two readings while RFQs left by hand at
+different times:
+
+- ~~**Per supplier**~~ — each gets a full 72 h from their own send. Fair to a
   supplier added late, but the request cannot close until the last window
-  expires, so staggered sends stretch the buyer's wait.
-- **Per request** — one clock, started when the batch goes out. Predictable
-  for the buyer, and a supplier contacted a day later gets less than 72 h.
+  expires, so staggered sends stretch the buyer's wait. **Not retained.**
+- **Per round** — one clock. Predictable for the buyer: the deadline is a
+  single date the dossier can show.
 
-Automating the invitations makes them converge, since the batch would leave at
-once. Until then they differ, and the five-offer condition hides it: the
-question only bites when fewer than five answer.
+What it costs, stated once: a supplier brought in by a **relaunch** does not
+inherit the first round's clock — a relaunch opens a new round with its own
+(BACKLOG Phase V, D5, still open). And the deadline is stored on the round
+(`rfq_round.closes_at`), not recomputed from each quote's `sent_at`, so a
+later change to the configured delay never moves a round already open.
 
 ### Everything here is provisional
 
