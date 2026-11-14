@@ -3,6 +3,7 @@ import { z } from "zod";
 import { eventParams, type EventParams } from "@/lib/event-params";
 import { canSeeAllRequests } from "@/lib/roles";
 import type { CriteriaCategory, RequestStatus } from "@/database/schema";
+import { ownerSeesMatches, requestFlow, type RequestFlow } from "@/lib/request-status";
 
 /** Shape the UI consumes; E3 will extend (criteria, pipeline progress…). */
 export type RequestSummary = {
@@ -196,7 +197,17 @@ export type RequestDetail = RequestSummary & {
   messages: ChatMessage[];
   events: RequestEventView[];
   attachments: AttachmentView[];
-  /** Top-5 supplier candidates, ranked (empty until the search stage ran). */
+  /** Which flow this request is on — derived from where it has been
+   *  (`requestFlow`), never stored. Decides the stages the dossier draws. */
+  flow: RequestFlow;
+  /**
+   * Top-5 supplier candidates, ranked (empty until the search stage ran).
+   *
+   * ALSO empty for the owning workspace on the PACK flow, at every state: the
+   * ranking is then OSI's internal shortlist, and the buyer sees no supplier
+   * before the Decision Pack (owner, 2026-11-14). Withheld here, on the
+   * server — not hidden by the page. Staff reading across workspaces get it.
+   */
   matches: MatchView[];
   /** Size of the supplier pool scored for this request (matches.created event). */
   suppliersAnalyzed: number | null;
@@ -535,6 +546,12 @@ export const getRequestDetailFn = createServerFn({ method: "GET" })
         .orderBy(asc(schema.match.rank)),
     ]);
 
+    const flow = requestFlow(
+      row.status,
+      events.map((event) => event.type),
+    );
+    const shownMatches = isOwn && !ownerSeesMatches(flow) ? [] : matches;
+
     const matchesCreated = [...events].reverse().find((event) => event.type === "matches.created");
     let suppliersAnalyzed: number | null = null;
     if (matchesCreated?.message) {
@@ -628,7 +645,8 @@ export const getRequestDetailFn = createServerFn({ method: "GET" })
       })),
       attachments,
       aiChatEnabled,
-      matches: matches.map((m) => ({
+      flow,
+      matches: shownMatches.map((m) => ({
         id: m.id,
         rank: m.rank,
         compatibilityScore: m.compatibilityScore,

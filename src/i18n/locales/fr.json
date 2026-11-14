@@ -476,7 +476,11 @@
     "analyzing": "En analyse",
     "searching": "Recherche mondiale",
     "validating": "Validation fournisseur",
+    "shortlisted": "Présélection des fournisseurs",
+    "soliciting": "Appel d'offres en cours",
+    "pack_review": "Offres en revue chez OSI",
     "report_ready": "Rapport prêt",
+    "unfulfilled": "Sans suite",
     "closed": "Clôturée",
     "cancelled": "Annulée"
   },
@@ -553,13 +557,19 @@
     "researchFailedBody": "La collecte de fournisseurs a échoué pour cette demande — le rapport a donc été produit sans elle. Relancer la recherche reprend la collecte là où elle s'est arrêtée.",
     "rerunResearch": "Relancer la recherche",
     "rerunRunning": "Relance en cours…",
-    "rerunRefused": "La recherche n'est plus en échec — rien à relancer."
+    "rerunRefused": "La recherche n'est plus en échec — rien à relancer.",
+    "unfulfilledTitle": "Cette demande est classée sans suite",
+    "unfulfilledText": "L'équipe OSI n'a pas pu constituer un Decision Pack pour cette demande. Aucune offre ne vous sera transmise. Vous pouvez déposer une nouvelle demande à tout moment."
   },
   "stepsFlux": {
     "received": "Demande reçue",
     "search": "Recherche mondiale",
     "validation": "Validation",
-    "report": "Rapport"
+    "report": "Rapport",
+    "shortlist": "Présélection",
+    "rfq": "Appel d'offres",
+    "review": "Revue OSI",
+    "pack": "Decision Pack"
   },
   "criteriaCategories": {
     "material": "Matériau",
@@ -577,6 +587,10 @@
     "status_searching": "Recherche mondiale lancée",
     "status_validating": "Validation des fournisseurs",
     "status_report_ready": "Rapport disponible",
+    "status_shortlisted": "Fournisseurs présélectionnés",
+    "status_soliciting": "Appel d'offres envoyé aux fournisseurs",
+    "status_pack_review": "Offres reçues — en revue chez OSI",
+    "status_unfulfilled": "Demande classée sans suite",
     "status_closed": "Demande clôturée",
     "status_cancelled": "Demande annulée",
     "criteria_extracted_one": "{{count}} critère identifié",
@@ -614,6 +628,18 @@
     },
     "report": {
       "title": "Rapport final"
+    },
+    "shortlist": {
+      "title": "Présélection des fournisseurs"
+    },
+    "rfq": {
+      "title": "Appel d'offres aux fournisseurs"
+    },
+    "review": {
+      "title": "Revue des offres par OSI"
+    },
+    "pack": {
+      "title": "Decision Pack"
     }
   },
   "fournisseurs": {

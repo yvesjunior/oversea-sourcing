@@ -17,6 +17,7 @@ import { and, eq, inArray, lt } from "drizzle-orm";
 import { db } from "@/database";
 import * as schema from "@/database/schema";
 import type { RequestStatus } from "@/database/schema";
+import { IN_FLIGHT_STATUSES } from "@/lib/request-status";
 import {
   QUEUES,
   type PipelineJob,
@@ -186,7 +187,9 @@ async function sweepStranded(enqueue: Enqueue): Promise<void> {
   const cutoff = new Date(Date.now() - STRANDED_AFTER_MS);
   const stranded = await db.query.request.findMany({
     where: and(
-      inArray(schema.request.status, ["received", "searching", "validating"]),
+      // The SAME list the dossier page polls on — see IN_FLIGHT_STATUSES for
+      // why the pack flow's resting states must never be in it.
+      inArray(schema.request.status, [...IN_FLIGHT_STATUSES]),
       lt(schema.request.updatedAt, cutoff),
     ),
   });

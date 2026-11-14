@@ -1187,6 +1187,33 @@ draft → received → searching → validating → report_ready → closed
                               (cancelled)
 ```
 
+**Two flows since 2026-11-14** (BACKLOG Phase V · V04). The line above is the
+**report flow**, and it is still the only one any request takes today. The
+validated V6 parcours adds a **pack flow**, which forks off when `validating`
+finishes — for workspaces whose plan includes quotes (`plan.quotes_enabled`):
+
+```
+… → validating → shortlisted → soliciting → pack_review → report_ready → closed
+                                    ↑             │  │
+                                    └── relaunch ─┘  └→ unfulfilled
+```
+
+`shortlisted` (KPI #1 done, staff confirm who is asked), `soliciting` (an RFQ
+round is open) and `pack_review` (the round closed, staff decide) are
+**resting states**: the first and last wait on a person, the middle one on a
+clock, so none is polled by the page or re-adopted by the worker's sweep.
+`unfulfilled` is that flow's own ending — staff refused to send a pack — and is
+neither `report_ready` (the buyer received nothing) nor `cancelled` (which
+means the buyer withdrew). `report_ready` keeps its name on both flows; on the
+pack flow it means the Decision Pack has been released.
+
+**The machine exists; the fork does not.** Nothing moves a request into
+`shortlisted` until V05, so this changes no behaviour yet. What it does
+guarantee already: a request's flow is *derived* from where it has been, and
+**the workspace that owns a pack-flow request never reads its ranked
+suppliers** — on that flow the ranking is OSI's internal shortlist, and the
+buyer sees no supplier before the Decision Pack.
+
 Guarded transitions live in [`src/lib/request-status.ts`](src/lib/request-status.ts);
 illegal ones throw. Every change writes a `request_event` row, so timelines,
 activity feeds and dashboard stats are **pure read-models of the DB**.

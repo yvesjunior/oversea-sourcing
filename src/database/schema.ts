@@ -175,7 +175,30 @@ export const REQUEST_STATUSES = [
   "analyzing",
   "searching",
   "validating",
+  // ── the V6 parcours (Phase V · V04, 2026-11-14) ──────────────────────────
+  // The stretch between "candidates found" and "the buyer has something to
+  // decide on". Three RESTING states — none moves on its own, so none is
+  // swept or polled — and one new ending. The machine, the two flows and what
+  // each state shows live in src/lib/request-status.ts.
+  /** KPI #1 has ranked the candidates; staff confirm who is asked. */
+  "shortlisted",
+  /** An RFQ round is open: suppliers have been written to and a clock runs. */
+  "soliciting",
+  /** The round closed; staff decide — approve, correct, relaunch, refuse. */
+  "pack_review",
+  /**
+   * On the report flow: the Top-N report is ready (what it has always meant).
+   * On the pack flow: the Decision Pack has been released to the buyer.
+   * The name is kept because renaming it is a migration across every reader
+   * for no change in behaviour.
+   */
   "report_ready",
+  /**
+   * Terminal: staff refused to send a pack. Neither `report_ready` — the buyer
+   * received nothing — nor `cancelled`, which means the BUYER withdrew. The
+   * reason and its author are stored by the task that writes them (V11).
+   */
+  "unfulfilled",
   "closed",
   "cancelled",
 ] as const;

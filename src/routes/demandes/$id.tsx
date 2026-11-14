@@ -6,12 +6,16 @@ import {
   AlertTriangle,
   ArrowLeft,
   Ban,
+  ClipboardCheck,
   ExternalLink,
   FileText,
   Globe,
   Info,
+  ListChecks,
+  Package,
   RefreshCw,
   ScanSearch,
+  Send,
   ShieldCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -39,7 +43,15 @@ import {
   rerunResearchFn,
   type RequestDetail,
 } from "@/lib/requests-fns";
-import { isInFlight, PIPELINE_ORDER, pipelineIndex, progressPct } from "@/lib/request-status";
+import {
+  criteriaEditable,
+  isInFlight,
+  isTerminal,
+  pipelineFor,
+  pipelineIndex,
+  progressPct,
+  type StepKey,
+} from "@/lib/request-status";
 import { formatDayTime } from "@/lib/instant";
 import { cn } from "@/lib/utils";
 
@@ -95,12 +107,20 @@ export const Route = createFileRoute("/demandes/$id")({
   component: DemandeDetail,
 });
 
-const etapesFlux = [
-  { key: "received", icone: FileText },
-  { key: "search", icone: Globe },
-  { key: "validation", icone: ShieldCheck },
-  { key: "report", icone: FileText },
-];
+/** One icon per stage, for both flows — keyed by the pipeline's `StepKey`, so
+ *  a stage added to request-status.ts without an icon fails to compile here
+ *  rather than rendering a hole. */
+const STEP_ICONS: Record<StepKey, typeof FileText> = {
+  received: FileText,
+  search: Globe,
+  validation: ShieldCheck,
+  report: FileText,
+  // Pack flow (Phase V · V04).
+  shortlist: ListChecks,
+  rfq: Send,
+  review: ClipboardCheck,
+  pack: Package,
+};
 
 function DemandeDetail() {
   const { t, i18n } = useTranslation();
@@ -112,8 +132,15 @@ function DemandeDetail() {
   const [drafting, setDrafting] = useState(false);
   const dateLocale = i18n.language === "fr" ? fr : enUS;
 
-  const stepIndex = pipelineIndex(demande.status);
+  // The stages follow the flow the request is actually ON (derived server-side
+  // from where it has been), so a pack-flow dossier draws seven and a
+  // report-flow one keeps its four.
+  const steps = pipelineFor(demande.flow);
+  const stepIndex = pipelineIndex(demande.status, demande.flow);
   const finished = demande.status === "report_ready" || demande.status === "closed";
+  // Ended without a pack: staff refused to send one. Terminal, and NOT
+  // "finished" — there is nothing to read.
+  const unfulfilled = demande.status === "unfulfilled";
   // Poll while the pipeline moves on its own — plus legacy "analyzing" rows
   // whose search was just launched but not yet picked up by the worker.
   const searchLaunched = demande.events.some((event) => event.type === "search.launched");
@@ -130,7 +157,7 @@ function DemandeDetail() {
     const event = demande.events.find((e) => e.type === `status.${status}`);
     return event ? formatDayTime(event.createdAt, i18n.language) : null;
   };
-  const etapesTimeline: Etape[] = PIPELINE_ORDER.map((step, index) => {
+  const etapesTimeline: Etape[] = steps.map((step, index) => {
     const date = statusEventDate(step.status);
     const etat =
       index < stepIndex || (finished && date) || (index === stepIndex && finished)
@@ -205,9 +232,9 @@ function DemandeDetail() {
     }
   };
 
-  const pct = progressPct(demande.status);
+  const pct = progressPct(demande.status, demande.flow);
   const canCancel =
-    demande.canEdit && !finished && demande.status !== "cancelled" && demande.status !== "draft";
+    demande.canEdit && !finished && !isTerminal(demande.status) && demande.status !== "draft";
 
   const activity = [...demande.events].reverse();
 
@@ -245,7 +272,10 @@ function DemandeDetail() {
               <Ban className="size-4" /> {t("detail.cancelRequest")}
             </Button>
           )}
-          {finished && (
+          {/* The printable report is the REPORT flow's answer. A pack-flow
+              dossier has no Top-N to print — its answer is the Decision Pack,
+              which gets its own view (Phase V · V12). */}
+          {finished && demande.flow === "report" && (
             <Button variant="gold" size="sm" asChild>
               <Link to="/demandes/$id/rapport" params={{ id: demande.id }}>
                 <FileText className="size-4" /> {t("detail.viewReport")}
@@ -256,12 +286,24 @@ function DemandeDetail() {
       </header>
 
       <section className="card-surface overflow-x-auto p-6">
-        <ol className="flex min-w-[620px] items-start justify-between">
-          {etapesFlux.map((etape, i) => {
+        <ol
+          className={cn(
+            "flex items-start justify-between",
+            steps.length > 4 ? "min-w-[900px]" : "min-w-[620px]",
+          )}
+        >
+          {steps.map((step, i) => {
+            const Icone = STEP_ICONS[step.stepKey];
             const done = i < stepIndex || (i === stepIndex && finished);
-            const active = i === stepIndex && !finished;
+            // A refused request stopped AT the review stage: it is neither
+            // done nor still in progress there.
+            const stopped = unfulfilled && i === stepIndex;
+            const active = i === stepIndex && !finished && !unfulfilled;
             return (
-              <li key={etape.key} className="flex flex-1 flex-col items-center gap-2 text-center">
+              <li
+                key={step.stepKey}
+                className="flex flex-1 flex-col items-center gap-2 text-center"
+              >
                 <div className="flex w-full items-center">
                   <span className={cn("h-px flex-1", i === 0 ? "bg-transparent" : "bg-border")} />
                   <span
@@ -269,17 +311,19 @@ function DemandeDetail() {
                       "grid size-9 shrink-0 place-items-center rounded-full border",
                       active
                         ? "border-gold bg-gold-soft text-gold"
-                        : done
-                          ? "border-success/60 bg-success/10 text-success"
-                          : "border-border bg-secondary text-muted-foreground",
+                        : stopped
+                          ? "border-destructive/60 bg-destructive/10 text-destructive"
+                          : done
+                            ? "border-success/60 bg-success/10 text-success"
+                            : "border-border bg-secondary text-muted-foreground",
                     )}
                   >
-                    <etape.icone className="size-4" />
+                    <Icone className="size-4" />
                   </span>
                   <span
                     className={cn(
                       "h-px flex-1",
-                      i === etapesFlux.length - 1 ? "bg-transparent" : "bg-border",
+                      i === steps.length - 1 ? "bg-transparent" : "bg-border",
                     )}
                   />
                 </div>
@@ -288,18 +332,36 @@ function DemandeDetail() {
                     "text-xs",
                     active
                       ? "font-semibold text-gold"
-                      : done
-                        ? "text-success"
-                        : "text-muted-foreground",
+                      : stopped
+                        ? "font-semibold text-destructive"
+                        : done
+                          ? "text-success"
+                          : "text-muted-foreground",
                   )}
                 >
-                  {t(`stepsFlux.${etape.key}`)}
+                  {t(`stepsFlux.${step.stepKey}`)}
                 </span>
               </li>
             );
           })}
         </ol>
       </section>
+
+      {/* A buyer who waited through an RFQ window and a review has to be
+          told something (README §2c) — silence is the one outcome that cannot
+          be defended. Staff's reason joins this notice with V11. */}
+      {unfulfilled && (
+        <section
+          role="status"
+          className="flex items-start gap-3 rounded-xl border border-destructive/40 bg-destructive/5 p-4"
+        >
+          <AlertTriangle className="mt-0.5 size-5 shrink-0 text-destructive" />
+          <div className="min-w-0">
+            <h2 className="text-sm font-semibold">{t("detail.unfulfilledTitle")}</h2>
+            <p className="mt-1 text-sm text-muted-foreground">{t("detail.unfulfilledText")}</p>
+          </div>
+        </section>
+      )}
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,340px)_minmax(0,1fr)]">
         <section className="card-surface p-6">
@@ -325,15 +387,20 @@ function DemandeDetail() {
           <CriteriaPanel
             requestId={demande.id}
             criteria={demande.criteria}
-            editable={demande.canEdit && !finished && demande.status !== "cancelled"}
+            editable={demande.canEdit && criteriaEditable(demande.status)}
             showLaunch={demande.canEdit && demande.status === "analyzing" && !searchLaunched}
           />
 
-          {demande.status !== "draft" && demande.status !== "cancelled" && !finished && (
+          {demande.status !== "draft" && !isTerminal(demande.status) && !finished && (
             <div className="mt-4">
               <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
                 <span className="truncate text-xs text-muted-foreground">
-                  {t("detail.analysisOngoing")}
+                  {/* "Analysis in progress" is true while the pipeline runs.
+                      On the pack flow's resting states it is not — staff or
+                      suppliers hold the next move — so say which stage. */}
+                  {isInFlight(demande.status) || demande.status === "analyzing"
+                    ? t("detail.analysisOngoing")
+                    : t(`statuses.${demande.status}`)}
                 </span>
                 <span className="text-sm font-semibold">{pct}%</span>
               </div>

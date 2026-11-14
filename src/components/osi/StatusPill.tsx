@@ -8,7 +8,13 @@ const couleurs: Record<RequestStatus, string> = {
   analyzing: "bg-success",
   searching: "bg-warning",
   validating: "bg-warning",
+  // Pack flow: work in hand on OSI's side or the suppliers' — same amber as
+  // the other "not done yet" states.
+  shortlisted: "bg-warning",
+  soliciting: "bg-warning",
+  pack_review: "bg-warning",
   report_ready: "bg-success",
+  unfulfilled: "bg-destructive",
   closed: "bg-muted-foreground",
   cancelled: "bg-destructive",
 };

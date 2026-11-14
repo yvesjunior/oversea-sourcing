@@ -24,7 +24,7 @@
 | **E9** Notifications | In-app + email | 🟡 bell, emitters, **prefs (2026-08-26)** live; Phase P types (`quote_received`, `contract_to_sign`, `contract_signed`) + staff alert on `quotes.requested` (2026-09-07) live; **the bell alerts (2026-09-14)** — count badge, 30 s poll, chime, per-browser mute |
 | **E10** Admin surfaces | Verification, imports, ops queue | 🟡 **verification LIVE (S5b/S5c, 2026-08-26)**; imports/ops queue placeholders |
 | **R** Custom staff roles | Roles as data + the matrix | ✅ **BUILT 2026-08-29** (migration 0039) — create/delete roles, dynamic matrix, `requests.all` |
-| **E13** V6 architecture | Supplier portal · KPI #2 · Partner Hub · Decision Pack | 🔵 **NEW 2026-10-21** — scope opened by the V6 document; diagrams validated 2026-11-14; **34 tasks in seven slices — [Phase V](#phase-v--the-v6-parcours-task-by-task-e13--written-2026-11-14)**; **V01 + V02 built 2026-11-14** (platform settings, supplier contacts), not deployed |
+| **E13** V6 architecture | Supplier portal · KPI #2 · Partner Hub · Decision Pack | 🔵 **NEW 2026-10-21** — scope opened by the V6 document; diagrams validated 2026-11-14; **34 tasks in seven slices — [Phase V](#phase-v--the-v6-parcours-task-by-task-e13--written-2026-11-14)**; **V01, V02, V04 built 2026-11-14** (platform settings, supplier contacts, request states), not deployed |
 | **E11** Settings | Profile, sourcing rules | 🟡 Paramètres + notification prefs live; **password / 2FA / theme / rename (2026-08-27)** live; buyer Abonnement self-service waits for billing |
 
 **MVP1 = E0–E7 + E10.** Definition of done **restated 2026-08-29 by ADR-002**
@@ -4449,7 +4449,45 @@ built in: **S** one, **M** two to three, **L** four or more.
 
 #### Slice 1 — The decision flow, staff-mediated (steps 05–12)
 
-- [ ] **V04 · Request states for the V6 flow.** *Size M. Steps 06–10.
+- [x] **V04 · Request states for the V6 flow — BUILT 2026-11-14** (no
+      migration: `request.status` is text). `shortlisted`, `soliciting`,
+      `pack_review`, `unfulfilled` in `REQUEST_STATUSES`; the machine, the
+      two flows and their stages in `src/lib/request-status.ts`; 24 unit
+      tests, including all 144 from→to pairs against a written table.
+      **Nothing can enter the new states yet** — V05 adds the fork. Until
+      then every request behaves exactly as before; this task only makes
+      sure a pack-flow request is drawn and guarded correctly once one exists.
+      Contracts a later task must not re-derive differently:
+      • **A request's flow is DERIVED** (`requestFlow`): pack if it is in a
+        pack-only state or ever entered `shortlisted`, report otherwise. It
+        does not predict — a request still in `validating` is on the report
+        flow, even on a plan that will fork it a moment later.
+      • **The owner of a pack-flow request never reads its `match` rows**
+        (`ownerSeesMatches`) — by flow, not by state: the shortlist is OSI's,
+        and after release the buyer reads the pack, not the shortlist.
+        Withheld in `getRequestDetailFn`, on the server.
+      • **One list of in-flight states** (`IN_FLIGHT_STATUSES`), read by both
+        the dossier's polling and the worker's stranded sweep, so the two
+        cannot drift. The three resting states are not in it.
+      • **`criteriaEditable` is an allow list** — draft through validating.
+      • `completedAt` is stamped on `report_ready` and every terminal state,
+        and cleared when a request reopens to `searching` or `soliciting`.
+      • The buyer may cancel from any of the three resting states.
+      **Differences from the task as written:** the `unfulfilled_reason` /
+      `_at` / `_by` columns are NOT created — nothing writes them before
+      V11, and a column nobody writes reads as a capability. The dossier
+      shows a generic notice for `unfulfilled`; staff's reason joins it in
+      V11. And "ends at `report_ready` on a plan without quotes" is simply
+      today's behaviour, untouched.
+      *Verified live in dev, as the workspace that owns request #3049* (moved
+      through each state by hand, then restored): on the pack flow the page
+      draws seven stages, names no supplier in any state, offers no report
+      button, lets the buyer cancel while it rests and not once it ended, and
+      shows the notice when refused; back on the report flow it draws four
+      stages, the suppliers and the report button, as before. Staff reading
+      the same dossier across workspaces still see the ranking.
+      **Found while verifying — carried into V05 and V06, see there.**
+- [x] ~~**V04 · Request states for the V6 flow.**~~ *Size M. Steps 06–10.
       Depends on: nothing. Blocks: V05–V13.*
 
       **What it does.** Gives the request machine the stretch the diagram adds
@@ -4505,7 +4543,27 @@ built in: **S** one, **M** two to three, **L** four or more.
       staff holding `deals`. Staff exclude one supplier and add a lower-ranked
       one → exactly those `quote` rows exist. The breakdown shows, per
       criterion, what matched and what did not. The buyer sees no supplier
-      (D1).
+      (D1) — **on every surface, not only the dossier** (see below).
+
+      **D1 has four more doors than the dossier** (checked 2026-11-14, as the
+      owning workspace). V04 closed `getRequestDetailFn`. Still open, and each
+      names suppliers to the buyer the moment a pack-flow request has quotes:
+      • `getMyQuotesFn` → `/soumissions` lists every quote by supplier name.
+      • `getQuotesForRequestFn` → the dossier's own soumissions panel.
+      • `getLinkedSuppliersFn` → `/fournisseurs`: matched and quoted suppliers.
+      • the `quote_received` notification, sent to the buyer each time staff
+        record an offer — by email, with the supplier in it.
+      `getDocumentsFn` should be checked the same way once an offer document
+      exists on a pack-flow quote. Write the test first: as the owning
+      workspace, with a pack-flow request that has quotes, no page and no
+      notification names a supplier before the pack is released.
+
+      **Do not ship the fork alone.** A request that reaches `shortlisted`
+      has no way forward until V06–V12 exist — it would sit there for ever,
+      for every paying customer. Either slice 1 is deployed as a unit, or the
+      fork sits behind a platform setting (V01 makes that a registry entry)
+      that stays off until V12 is in. The second is safer: it lets each task
+      deploy and be exercised by staff on a chosen request first.
 
       **Gotcha.** `requestQuotesFn` and the checkboxes on the buyer's Top-N
       are the feature D1 retires — and D1 is decided (2026-11-14), so they go
@@ -4545,6 +4603,15 @@ built in: **S** one, **M** two to three, **L** four or more.
       hours. A supplier without a contact cannot be in the batch. Sending
       twice does not open a second round or a second email (idempotency key =
       round + quote). `sent_by` is the staff member who pressed send.
+
+      **Freeze the specification server-side.** `criteria-fns.ts` has no
+      status guard at all — the page is the only thing that stops a criterion
+      being edited, through `criteriaEditable`. Once a round is open, a direct
+      call would change the spec under suppliers already quoting against it.
+      Refuse criteria writes on the server from `shortlisted` onwards, in this
+      task. And decide what a buyer's **cancel** does to an open round: the
+      machine allows it (V04), so the round must close and the suppliers who
+      were written to must be told.
 
       **Gotcha.** The schema comment on `quote.sent_at` calls it "a human act,
       by email, outside the platform". That stops being true here — rewrite
@@ -4683,7 +4750,10 @@ built in: **S** one, **M** two to three, **L** four or more.
       awaiting a decision, whose it is, and how long it has waited — with the
       four powers the owner named on 2026-10-25.
 
-      **Schema.** `decision_pack.assigned_to` + name snapshot.
+      **Schema.** `decision_pack.assigned_to` + name snapshot. Also
+      `request.unfulfilled_reason`, `unfulfilled_at`, `unfulfilled_by` + name
+      snapshot — deferred from V04 to here, where `refusePackFn` writes them;
+      the dossier's `unfulfilled` notice then shows the reason.
       `decision_pack_event` — `pack_id`, `action` (`approved | corrected |
       relaunched | refused | assigned`), `actor` + name, `payload` (what
       changed, and why), `created_at`. Permanent, beside the pack — not

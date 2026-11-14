@@ -200,7 +200,18 @@ export const getAnalyticsFn = createServerFn({ method: "GET" }).handler(
     return {
       requests: {
         total: requestsByStatus.reduce((t, r) => t + r.value, 0),
-        active: sum(["received", "analyzing", "searching", "validating"]),
+        // "Active" = somebody still owes this request something — the
+        // pipeline, staff, or the suppliers. `unfulfilled` is in neither
+        // bucket: it ended, and not with a result.
+        active: sum([
+          "received",
+          "analyzing",
+          "searching",
+          "validating",
+          "shortlisted",
+          "soliciting",
+          "pack_review",
+        ]),
         completed: sum(["report_ready", "closed"]),
       },
       suppliers: {

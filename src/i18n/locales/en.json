@@ -476,7 +476,11 @@
     "analyzing": "In analysis",
     "searching": "Global search",
     "validating": "Supplier validation",
+    "shortlisted": "Supplier shortlist",
+    "soliciting": "Request for quotation open",
+    "pack_review": "Offers under OSI review",
     "report_ready": "Report ready",
+    "unfulfilled": "Closed without offers",
     "closed": "Closed",
     "cancelled": "Cancelled"
   },
@@ -553,13 +557,19 @@
     "researchFailedBody": "Supplier collection failed for this request, so the report was produced without it. Re-running picks the collection back up.",
     "rerunResearch": "Re-run the research",
     "rerunRunning": "Re-running…",
-    "rerunRefused": "This research is no longer failed — nothing to re-run."
+    "rerunRefused": "This research is no longer failed — nothing to re-run.",
+    "unfulfilledTitle": "This request was closed without offers",
+    "unfulfilledText": "The OSI team could not put together a Decision Pack for this request. No offer will be sent to you. You can file a new request at any time."
   },
   "stepsFlux": {
     "received": "Request received",
     "search": "Global search",
     "validation": "Validation",
-    "report": "Report"
+    "report": "Report",
+    "shortlist": "Shortlist",
+    "rfq": "RFQ",
+    "review": "OSI review",
+    "pack": "Decision Pack"
   },
   "criteriaCategories": {
     "material": "Material",
@@ -577,6 +587,10 @@
     "status_searching": "Global search launched",
     "status_validating": "Supplier validation",
     "status_report_ready": "Report available",
+    "status_shortlisted": "Suppliers shortlisted",
+    "status_soliciting": "RFQ sent to suppliers",
+    "status_pack_review": "Offers received — under OSI review",
+    "status_unfulfilled": "Request closed without offers",
     "status_closed": "Request closed",
     "status_cancelled": "Request cancelled",
     "criteria_extracted_one": "{{count}} criterion identified",
@@ -614,6 +628,18 @@
     },
     "report": {
       "title": "Final report"
+    },
+    "shortlist": {
+      "title": "Supplier shortlist"
+    },
+    "rfq": {
+      "title": "Request for quotation to suppliers"
+    },
+    "review": {
+      "title": "Offers reviewed by OSI"
+    },
+    "pack": {
+      "title": "Decision Pack"
     }
   },
   "fournisseurs": {
