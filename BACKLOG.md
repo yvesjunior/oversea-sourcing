@@ -1810,6 +1810,11 @@ partial, three do not exist. Verified against the code, not assumed:
 
 **The decisions taken on 2026-10-21**, each with what it costs us:
 
+- **The buyer sees no supplier before the Decision Pack** (2026-11-14).
+  Between validating the cahier and receiving the pack, the dossier shows
+  progress and counts only. So the Top-N the buyer reads today becomes OSI's
+  internal shortlist, and *"the buyer picks who is asked"* — ADR-002's first
+  acceptance decision, built as P2 — is retired: OSI picks. Phase V, V04–V05.
 - **Suppliers get accounts.** Reverses Part II §2 and its two-audience
   guarantee, which every tenancy guard was written against. Partitioning
   becomes mandatory: a supplier must never see competitors' prices, rankings
@@ -3617,6 +3622,9 @@ owner 2026-08-29**, with four decisions taken at acceptance:
 
 - **The BUYER picks** which of their Top-N are asked for a quote; OSI does the
   sending. (P2 therefore carries a buyer-facing selection surface.)
+  **⚠️ Superseded 2026-11-14** by the validated V6 parcours: OSI picks from
+  the KPI #1 shortlist, and the buyer sees no supplier before the Decision
+  Pack. Still how the code behaves until Phase V task V05 ships.
 - **Contracts v1 = two types only**: mandat OSI↔client and the buyer↔supplier
   order. The other five follow once the machinery is proven.
 - **Signing is a permission key** (`contracts.sign`) assigned per role from
@@ -4193,11 +4201,12 @@ below are built on:
 #### Decisions these tasks assume — the owner's to confirm or change
 
 None of these blocks starting. Each task is written against the default named
-here, and each default is the cheapest one to reverse.
+here, and each default is the cheapest one to reverse. **Answered so far: D1**
+(2026-11-14). Nine remain.
 
 | # | Question | Default the tasks take | Bites at |
 |---|---|---|---|
-| **D1** | Between steps 04 and 10 the buyer's lane is empty in the diagram. Does today's Top-N report (which the buyer sees at `report_ready`) disappear? | The buyer sees progress and counts, not suppliers, until the pack is released. | V04, V05 |
+| ~~**D1**~~ | ~~Between steps 04 and 10 the buyer's lane is empty in the diagram. Does today's Top-N report (which the buyer sees at `report_ready`) disappear?~~ | ✅ **Decided 2026-11-14: yes.** The buyer sees progress and counts, not suppliers, until the pack is released. | V04, V05 |
 | **D2** | `plan.quotes_enabled` gates soumissions today. Is the V6 flow for every plan? | Unchanged: plans without quotes stop at the existing report; plans with quotes get the V6 flow. | V04 |
 | **D3** | Who presses send on the RFQs — staff, or the platform as soon as KPI #1 finishes? | Staff confirm the shortlist and send the whole batch in one act. | V05, V06 |
 | **D4** | The window is per request or per supplier (README §2c, still open). | Per round: one clock, started when the batch leaves. Batch send makes the two readings converge. | V06, V07 |
@@ -4407,9 +4416,14 @@ built in: **S** one, **M** two to three, **L** four or more.
       (D1).
 
       **Gotcha.** `requestQuotesFn` and the checkboxes on the buyer's Top-N
-      are the feature D1 retires. Do not delete them in this task: put the
-      buyer path behind the plan fork so D2's default holds, and remove it
-      only once the owner has answered D1.
+      are the feature D1 retires — and D1 is decided (2026-11-14), so they go
+      in this task. Nothing is left to call them on either side of D2: a plan
+      with quotes gets the shortlist, and a plan without was already refused
+      with `plan_required`. What D2 still decides is only whether a plan
+      without quotes keeps reading the Top-N report; until it is answered,
+      leave that report and its upgrade prompt (`quotesPlanRequired`) exactly
+      as they are. This reverses ADR-002's first acceptance decision, *"the
+      BUYER picks"* — say so in the commit.
 
 - [ ] **V06 · RFQ rounds and the batch send.** *Size L. Step 07. Depends on:
       V01, V02, V05. Blocks: V07.*

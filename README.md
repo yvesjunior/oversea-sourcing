@@ -1893,6 +1893,7 @@ which is the one moment they act together.
 
 | Decision | Consequence |
 |---|---|
+| **The buyer sees no supplier before the Decision Pack** (2026-11-14) | Between validating the cahier and receiving the pack, the buyer sees progress and counts only. Today's Top-N becomes OSI's internal shortlist, and Part II's *"the buyer picks who to solicit"* (parcours steps 04–05, built as P2) is retired — OSI picks from KPI #1. Still how the code behaves until BACKLOG Phase V task V05. |
 | **Suppliers are invited by email to create an account and answer the RFQ** | Reverses Part II §2. Two more audiences — supplier and transit agent — and strict partitioning becomes mandatory. |
 | **The RFQ window closes on 5 offers, OR the delay (72 h default), OR staff releasing early** (2026-10-24) | Three conditions, not two: staff need not wait out the clock when the offers in hand are enough. Nothing of the sort exists — no window, no deadline, no reminder, no setting. `SUPPLIERS_RETURNED` already defaults to 5. |
 | **Release is a POLICY whose default is manual** (2026-10-22) | Staff validate and send the pack today; automatic release is built for from the start and switched on later. So it is a mode, not a hardcoded step — see the note below. |
