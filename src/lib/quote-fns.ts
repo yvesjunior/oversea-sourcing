@@ -823,9 +823,10 @@ export const recordQuoteFn = createServerFn({ method: "POST" })
         detail: { request: quote.requestId, changed },
       });
       // A corrected figure can change the order of a round under review
-      // (V09). The earlier order stays in `kpi_result`; this appends.
-      const { refreshKpi2 } = await import("@/server/kpi");
-      await refreshKpi2(quote.roundId, "offer_corrected");
+      // (V09) and what its pending pack holds (V10). The earlier order stays
+      // in `kpi_result`; this appends.
+      const { refreshPack } = await import("@/server/decision-pack");
+      await refreshPack(quote.roundId, "offer_corrected");
       return { ok: true };
     }
 
@@ -893,9 +894,10 @@ export const recordQuoteFn = createServerFn({ method: "POST" })
       ]);
       const offers = (await roundCounts([quote.roundId])).get(quote.roundId)?.offers ?? 0;
       await recordEvent(quote.requestId, quote.organizationId, "rfq.offer_added", { offers });
-      // …and the ranking computed at the close is missing this offer (V09).
-      const { refreshKpi2 } = await import("@/server/kpi");
-      await refreshKpi2(quote.roundId, "offer_added");
+      // …and the ranking computed at the close is missing this offer (V09),
+      // as is the pending pack built from it (V10).
+      const { refreshPack } = await import("@/server/decision-pack");
+      await refreshPack(quote.roundId, "offer_added");
     }
 
     // The offer that fills the round closes it (V07). After the audit row and
@@ -1082,10 +1084,11 @@ export const declineQuoteFn = createServerFn({ method: "POST" })
       target: quote.supplierName,
       detail: { request: quote.requestId, reason: data.reason },
     });
-    // An offer taken out of a round under review leaves the ranking (V09).
+    // An offer taken out of a round under review leaves the ranking (V09)
+    // and the pending pack (V10).
     if (quote.status === "received") {
-      const { refreshKpi2 } = await import("@/server/kpi");
-      await refreshKpi2(quote.roundId, "offer_removed");
+      const { refreshPack } = await import("@/server/decision-pack");
+      await refreshPack(quote.roundId, "offer_removed");
     }
     return { ok: true };
   });

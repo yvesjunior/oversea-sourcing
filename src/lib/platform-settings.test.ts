@@ -128,8 +128,11 @@ describe("the RFQ reply address", () => {
     expect(PLATFORM_SETTINGS["rfq.target_offers"].inert).toBe(false);
   });
 
+  it("the release mode is stored on every pack built (V10), so it is live too", () => {
+    expect(PLATFORM_SETTINGS["pack.release_mode"].inert).toBe(false);
+  });
+
   it("what nothing reads yet still says so", () => {
-    expect(PLATFORM_SETTINGS["pack.release_mode"].inert).toBe(true);
     expect(PLATFORM_SETTINGS["fee.rate_bps"].inert).toBe(true);
   });
 });

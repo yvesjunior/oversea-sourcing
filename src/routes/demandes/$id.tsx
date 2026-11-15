@@ -41,6 +41,8 @@ import { RfqPanel } from "@/components/osi/RfqPanel";
 import { getRfqPreviewFn, type RfqPreview } from "@/lib/rfq-fns";
 import { OfferRankingPanel } from "@/components/osi/OfferRankingPanel";
 import { getOfferRankingFn, type OfferRankingView } from "@/lib/kpi-fns";
+import { DecisionPackPanel } from "@/components/osi/DecisionPackPanel";
+import { getPackForRequestFn, type RequestPackView } from "@/lib/pack-fns";
 import type { Risque } from "@/data/osi";
 import type { RiskLevel } from "@/database/schema";
 import {
@@ -119,7 +121,10 @@ export const Route = createFileRoute("/demandes/$id")({
     // The ranking of the offers the round closed with (V09) — same gate
     // again, and null until a round has closed into the review.
     const ranking = shortlist ? await getOfferRankingFn({ data: { requestId: params.id } }) : null;
-    return { demande, dossier, shortlist, rfq, ranking };
+    // The pack built from that ranking (V10) — the same gate once more: a
+    // pending pack is OSI's draft, and the owning workspace gets none of it.
+    const pack = shortlist ? await getPackForRequestFn({ data: { requestId: params.id } }) : null;
+    return { demande, dossier, shortlist, rfq, ranking, pack };
   },
   component: DemandeDetail,
 });
@@ -142,12 +147,13 @@ const STEP_ICONS: Record<StepKey, typeof FileText> = {
 function DemandeDetail() {
   const { t, i18n } = useTranslation();
   const router = useRouter();
-  const { demande, dossier, shortlist, rfq, ranking } = Route.useLoaderData() as {
+  const { demande, dossier, shortlist, rfq, ranking, pack } = Route.useLoaderData() as {
     demande: RequestDetail;
     dossier: RequestDealStatus;
     shortlist: ShortlistData | null;
     rfq: RfqPreview | null;
     ranking: OfferRankingView | null;
+    pack: RequestPackView | null;
   };
   const [drafting, setDrafting] = useState(false);
   const dateLocale = i18n.language === "fr" ? fr : enUS;
@@ -582,6 +588,8 @@ function DemandeDetail() {
           {ranking && (
             <OfferRankingPanel ranking={ranking} onChanged={() => void router.invalidate()} />
           )}
+
+          {pack && <DecisionPackPanel data={pack} />}
 
           {showSuppliers && (
             <section className="card-surface p-6">

@@ -1505,5 +1505,23 @@
       "not_in_review": "The request is no longer in review: the ranking is not recomputed any more.",
       "no_offers": "No offer to rank in this round."
     }
+  },
+  "pack": {
+    "title": "Decision Pack",
+    "subtitle": {
+      "pending": "What the customer will see once the pack is sent. While it is pending it follows the ranking above; none of it is visible to the customer.",
+      "released": "Sent to the customer: this is what they saw, and it no longer changes.",
+      "refused": "Refused by staff: nothing was sent to the customer."
+    },
+    "status": {
+      "pending": "Pending",
+      "released": "Sent",
+      "refused": "Refused"
+    },
+    "built": "Built {{date}}",
+    "mode": "{{mode}} release",
+    "empty": "No offer in this pack: none came in, or all were set aside. It is for staff to relaunch or refuse.",
+    "capped": "{{left}} other offer(s) received are not in the pack: it holds the {{target}} best ranked.",
+    "movedFrom": "Ranked #{{rank}} by the computation — moved by staff."
   }
 }

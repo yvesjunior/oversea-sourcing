@@ -12,6 +12,10 @@ import {
   timestamp,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
+// Type-only, so erased at compile time: the schema still pulls in no runtime
+// code from src/lib.
+import type { PackOfferSnapshot } from "@/lib/decision-pack";
+import type { ReleaseMode } from "@/lib/platform-settings";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Identity & tenancy — better-auth core tables + organization plugin.
@@ -1409,6 +1413,103 @@ export const kpiResult = pgTable(
     uniqueIndex("kpi_result_run_quote_uq").on(table.runId, table.quoteId),
     index("kpi_result_round_idx").on(table.roundId, table.computedAt),
     index("kpi_result_request_idx").on(table.requestId),
+  ],
+);
+
+export const PACK_STATUSES = ["pending", "released", "refused"] as const;
+export type PackStatus = (typeof PACK_STATUSES)[number];
+
+/**
+ * The Decision Pack — what a buyer is SHOWN (Phase V · V10).
+ *
+ * It has no content of its own: it points at offers (`quote`) and at the
+ * ranking they were ordered by (`kpi_result`). What it adds is MEMORY — which
+ * offers, in which order, built from which run — so that "what did the buyer
+ * see when they chose?" is answered by rows that do not move, not by
+ * re-reading tables that do.
+ *
+ * `pending` while staff review it: its items are rebuilt whenever the round's
+ * offers or their ranking change (a late-keyed answer, a correction, a
+ * decline). Releasing it (V11) is what freezes it; nothing rebuilds a pack
+ * that is no longer pending.
+ *
+ * One pending pack per request at a time (`decision_pack_one_pending_uq`). A
+ * request can collect several over its life — a released pack whose offer
+ * expired sends it back to a new round, which builds a new one.
+ *
+ * NOT here yet, on purpose: who released it and when, why it was refused,
+ * whose desk it is on. Nothing releases, refuses or assigns a pack before
+ * V11, and a column nobody writes reads as a capability.
+ */
+export const decisionPack = pgTable(
+  "decision_pack",
+  {
+    id: text("id").primaryKey(),
+    requestId: text("request_id")
+      .notNull()
+      .references(() => request.id, { onDelete: "cascade" }),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    /** The round whose close last built it. */
+    roundId: text("round_id")
+      .notNull()
+      .references(() => rfqRound.id, { onDelete: "cascade" }),
+    status: text("status").$type<PackStatus>().notNull().default("pending"),
+    /** `pack.release_mode` AS IT STOOD when the pack was created — a later
+     *  change to the setting must not change how a pack already waiting is
+     *  released. */
+    releaseMode: text("release_mode").$type<ReleaseMode>().notNull(),
+    /** The KPI #2 run (`kpi_result.run_id`) the items were built from. Null
+     *  when the round holds no offer: the pack exists all the same, because
+     *  a person still has to decide between relaunching and refusing. */
+    kpiRunId: text("kpi_run_id"),
+    /** When the items were last (re)built. */
+    builtAt: timestamp("built_at").notNull().defaultNow(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => [
+    index("decision_pack_request_idx").on(table.requestId),
+    index("decision_pack_org_idx").on(table.organizationId),
+    // Also what settles two builds arriving together: the second insert is
+    // refused and that caller rebuilds the pack the first one made.
+    uniqueIndex("decision_pack_one_pending_uq")
+      .on(table.requestId)
+      .where(sql`${table.status} = 'pending'`),
+  ],
+);
+
+/**
+ * One offer in a pack.
+ *
+ * `rank_computed` is where KPI #2 put it; `rank_shown` is where the buyer
+ * sees it. They are equal until a person corrects the order (V11) — and the
+ * pair is the point: with only one, "would the automatic release have shown
+ * the same thing?" cannot be asked.
+ *
+ * `offer` is a FROZEN COPY of the figures and of what was known about the
+ * supplier when the item was built. The quote row can be corrected, expire
+ * or lose its supplier afterwards; the pack must still read as it did.
+ */
+export const decisionPackItem = pgTable(
+  "decision_pack_item",
+  {
+    id: text("id").primaryKey(),
+    packId: text("pack_id")
+      .notNull()
+      .references(() => decisionPack.id, { onDelete: "cascade" }),
+    /** Null once the quote row is gone — `offer` carries on. */
+    quoteId: text("quote_id").references(() => quote.id, { onDelete: "set null" }),
+    /** The ranking row this item was built from — the "why" of its rank. */
+    kpiResultId: text("kpi_result_id").references(() => kpiResult.id, { onDelete: "set null" }),
+    rankComputed: integer("rank_computed").notNull(),
+    rankShown: integer("rank_shown").notNull(),
+    offer: jsonb("offer").$type<PackOfferSnapshot>().notNull(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => [
+    index("decision_pack_item_pack_idx").on(table.packId),
+    uniqueIndex("decision_pack_item_pack_quote_uq").on(table.packId, table.quoteId),
   ],
 );
 

@@ -1212,10 +1212,10 @@ finishes, the worker sends a request to `shortlisted` only if the workspace's
 plan includes quotes **and** the platform setting `flow.pack_enabled` is `on`.
 It ships `off`, and `on` cannot be selected from the product. Since 2026-11-14
 a pack-flow request can travel as far as `pack_review` — shortlist, RFQ batch,
-the window closing, the offers ranked (BACKLOG Phase V, V05–V09) — and stops
-there: the Decision Pack, its release and the buyer's acceptance are not built
-(V10–V13). Turning it on early would strand every paying customer's request
-in review. In development it is exercised by writing the setting's row
+the window closing, the offers ranked, the Decision Pack built (BACKLOG Phase
+V, V05–V10) — and stops there: releasing the pack, the buyer reading it and
+choosing from it are not built (V11–V13). Turning it on early would strand
+every paying customer's request in review. In development it is exercised by writing the setting's row
 directly.
 
 What is already true on the pack flow, and tested as the owning workspace:
@@ -1360,6 +1360,36 @@ are identical to the latest run writes nothing. Validity is measured from the
 round's close, not from now, so the same inputs always give the same order.
 Once the request leaves the review the ranking is a record and is no longer
 recomputed. The scorer is a pure function, `src/lib/kpi2.ts`.
+
+**The Decision Pack is built** (V10, 2026-11-14). When a round closes into the
+review, a `pending` pack is created for the request: the best
+`target_offers` of the ranking, in the ranking's order. It has no content of
+its own — each item points at its offer and at the ranking row that placed
+it — and what it adds is memory:
+
+- **Each item holds a frozen copy of the offer** (figures, validity, channel,
+  the supplier's name, country and verification as they stood). The quote can
+  be corrected, expire or lose its supplier afterwards; the pack still reads
+  as it did. Staff's own notes on an offer are not copied — they were never
+  written for the buyer.
+- **Two ranks per item:** `rank_computed` (KPI #2) and `rank_shown` (what the
+  buyer sees). Equal until a person corrects the order (V11); the pair is
+  what lets "would the automatic release have shown the same?" be asked.
+- **While pending it follows the round.** Every event that re-ranks the
+  offers rebuilds the items; a rebuild that would change nothing writes
+  nothing. Once the request leaves the review, nothing rebuilds it.
+- **A round that closes with no offer still gets a pack — an empty one.** It
+  is what puts that round in front of a person, who alone decides between
+  relaunching and refusing.
+- **The release mode is stored on the pack when it is created**, so changing
+  the setting never alters how a pack already waiting is released.
+
+One pending pack per request at a time. Staff read it on the dossier; **the
+workspace that owns the request reads nothing of a pending pack** — the
+projection that decides what each audience gets (`projectPack`,
+`src/lib/decision-pack.ts`) gives the buyer a *released* pack only, in the
+order shown, without the computed order. Releasing, correcting, relaunching
+and refusing are the release queue's (V11).
 
 Guarded transitions live in [`src/lib/request-status.ts`](src/lib/request-status.ts);
 illegal ones throw. So do **stale** ones (since 2026-11-14): `transitionRequest`
@@ -2102,11 +2132,11 @@ things follow, and they are design constraints rather than preferences:
   since: `flow.pack_enabled` (V05, the pack-flow switch) and `rfq.reply_to`
   (V06, where suppliers' answers arrive — no default, on purpose).
   **Two honesty rules are built into it.** Every key is marked *not applied
-  yet* on the page for as long as nothing reads it — today the release mode
-  and the fee rate, because the packs and the settlement that will read them
-  are not built; the window became live with the batch send (V06) and the
-  offer target with the round closing on it (V07) — so the page cannot
-  suggest a number does something it does not. And `automatic`
+  yet* on the page for as long as nothing reads it — today the fee rate
+  only, because the settlement that will read it is not built; the window
+  became live with the batch send (V06), the offer target with the round
+  closing on it (V07) and the release mode with the pack that stores it
+  (V10) — so the page cannot suggest a number does something it does not. And `automatic`
   exists as a release mode but is **refused by the server** until the code
   that honours it ships: a mode selectable before its reader exists would
   switch itself on the day that reader is deployed, with nobody having
@@ -2582,6 +2612,8 @@ erDiagram
 | `platform_permission` / `platform_role` | ✅ 2026-08-28/29 — the Rôles & accès matrix (feature × role) and the owner-created staff roles; the owner is never a row |
 | `rfq_round`          | ✅ 2026-11-14 (0048, Phase V · V06) — one round of solicitation: the RFQs that left together and the single deadline they share. `closes_at` is stored, and `window_hours` / `target_offers` are snapshots of the settings when it opened, so a later change never moves an open round. `quote.round_id` ties a solicitation to its round; a quote outside a round has no clock. **How it ended** (0049, V07): `closed_at` (null = open), `close_reason` (`target_reached` · `deadline` · `early` · `withdrawn`), `closed_by` + name snapshot (null on a closed round = the system) and `early_note` — written together by `closeRound`, in the conditional update that decides who closed it, and never rewritten |
 | `supplier_contact`   | ✅ 2026-11-14 (0047, Phase V · V02) — who to write to at a supplier: email, name, role, phone, the language to write in, `source` (`research` \| `staff`). **Exactly one PRIMARY per supplier that has any contact** — a partial unique index for "at most one", `ensurePrimary` for "at least one" — and the RFQ goes to it. Staff-only (`deals`): never returned by a buyer-facing fn, since the pool is platform-global. A researched address is kept only when it is on the supplier's own website domain (`acceptResearchedEmail`) — and never when that domain is one many companies share (a marketplace storefront, a site builder: `SHARED_HOSTS`), where the address would be the platform's and not the supplier's; it travels on `source_record.contact_email` and becomes a row here at promotion. Never from a paid provider |
+| `decision_pack`      | ✅ 2026-11-14 (0052, Phase V · V10) — what a buyer is shown, as a record: `request_id`, `round_id`, `status` (`pending` · `released` · `refused`), `release_mode` (the setting when the pack was created), `kpi_run_id` (the ranking it was built from; null for an empty pack), `built_at`. **At most one `pending` pack per request** (partial unique index). Who released or refused it, and whose desk it is on, arrive with the release queue (V11) |
+| `decision_pack_item` | ✅ 2026-11-14 (0052, Phase V · V10) — one offer in a pack: `quote_id`, `kpi_result_id`, `rank_computed` and `rank_shown`, and `offer` — a frozen copy of the figures and of the supplier as they stood, so the pack outlives changes to the quote |
 | `kpi_result`         | ✅ 2026-11-14 (0051, Phase V · V09) — KPI #2: one row per offer per run. `run_id` groups a computation; `rank`, `score` (hundredths of a point), `breakdown` (per-factor state, points and weight, the notes, and the offer exactly as it was scored), `formula_version`, `inputs_hash`, `trigger`, `computed_at`. **Append-only** — the current ranking of a round is its latest run. KPI #1 is not here: it scores a supplier before anyone is asked and stays on `match` |
 | `platform_setting`   | ✅ 2026-11-14 (0046, Phase V · V01) — platform-wide settings, ONE value per key for every client; a missing row means the default. Keys, types, ranges and defaults live in the registry `src/lib/platform-settings.ts`, so a new knob is a registry entry and not a migration. Edited from `/interne/parametres` (`settings` permission, owner by default); every change is in `audit_log` with the old and new value |
 | `plan` / `subscription` | limits as rows (daily, lifetime, seats, `quota_scope`, `audience`, `suppliers_returned`, `model_tier`); one subscription per workspace |

@@ -150,19 +150,6 @@ export async function runKpi2(roundId: string, trigger: KpiRunTrigger): Promise<
   return { ok: true, written: true, runId, offers: results.length };
 }
 
-/** `runKpi2` for callers that are side effects of something else: an offer
- *  was entered, corrected or declined, and IF its round is one under review,
- *  the ranking should follow. Swallows everything — the offer is saved
- *  whether or not the ranking could be refreshed. */
-export async function refreshKpi2(roundId: string | null, trigger: KpiRunTrigger): Promise<void> {
-  if (!roundId) return;
-  try {
-    await runKpi2(roundId, trigger);
-  } catch (error) {
-    console.error(`kpi2: could not refresh the ranking of round ${roundId} (${trigger}) —`, error);
-  }
-}
-
 export type RankedOfferView = {
   quoteId: string;
   supplierName: string;

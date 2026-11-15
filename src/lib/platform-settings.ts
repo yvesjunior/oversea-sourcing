@@ -145,17 +145,16 @@ export const PLATFORM_SETTINGS: {
     unit: "offers",
     inert: false,
   },
-  /** Inert until something behaves differently because of it: V10 stores the
-   *  mode on each pack it builds, V14 implements `automatic`. Closing a round
-   *  (V07) always hands the request to a person, whatever this says — with
-   *  one selectable value there is nothing to read yet. */
+  /** Read when a pack is CREATED (V10) and stored on it, so a later change
+   *  never alters how a pack already waiting is released. `automatic` is
+   *  refused on write until V14 implements it. */
   "pack.release_mode": {
     kind: "choice",
     group: "pack",
     options: RELEASE_MODES,
     default: "manual",
     unavailable: ["automatic"],
-    inert: true,
+    inert: false,
   },
   /**
    * OSI's fee, in basis points of the transaction amount, added on top

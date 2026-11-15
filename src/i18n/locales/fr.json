@@ -1505,5 +1505,23 @@
       "not_in_review": "La demande n'est plus en revue : le classement n'est plus recalculé.",
       "no_offers": "Aucune offre à classer dans ce tour."
     }
+  },
+  "pack": {
+    "title": "Decision Pack",
+    "subtitle": {
+      "pending": "Ce que le client verra une fois le pack envoyé. Tant qu'il est en attente, il suit le classement ci-dessus ; rien n'en est visible côté client.",
+      "released": "Envoyé au client : c'est ce qu'il a vu, et cela ne change plus.",
+      "refused": "Refusé par l'équipe : rien n'a été envoyé au client."
+    },
+    "status": {
+      "pending": "En attente",
+      "released": "Envoyé",
+      "refused": "Refusé"
+    },
+    "built": "Constitué le {{date}}",
+    "mode": "envoi {{mode}}",
+    "empty": "Aucune offre dans ce pack : aucune n'a été reçue, ou toutes ont été écartées. Il revient à l'équipe de relancer ou de refuser.",
+    "capped": "{{left}} autre(s) offre(s) reçue(s) ne figurent pas dans le pack : il retient les {{target}} mieux classées.",
+    "movedFrom": "Classée n° {{rank}} par le calcul — déplacée par l'équipe."
   }
 }

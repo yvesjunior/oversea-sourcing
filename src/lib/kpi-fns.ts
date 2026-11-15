@@ -48,6 +48,14 @@ export const recomputeOfferRankingFn = createServerFn({ method: "POST" })
     if (!session) return { ok: false, reason: "forbidden" };
     const { runKpi2 } = await import("@/server/kpi");
     const outcome = await runKpi2(data.roundId, "manual");
+    // A new ranking, or none: either way the pending pack follows what the
+    // round now holds (V10). Never allowed to fail the recomputation.
+    try {
+      const { syncPack } = await import("@/server/decision-pack");
+      await syncPack(data.roundId);
+    } catch (error) {
+      console.error(`pack: could not follow the recomputation of round ${data.roundId} —`, error);
+    }
     if (outcome.ok && outcome.written) {
       const [{ logAudit, actorOf }, { db }, { eq }, schema] = await Promise.all([
         import("@/server/audit"),

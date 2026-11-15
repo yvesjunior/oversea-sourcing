@@ -200,12 +200,14 @@ export async function closeRound(
 
   // ── After the commit: what cannot be rolled back ──────────────────────────
 
-  // Rank what the window closed with (V09) — before anyone is told, so the
-  // person who opens the request on the notification finds the ranking there.
-  // Never allowed to undo a close that is already committed.
-  if (leadsToReview(reason) && offers > 0) {
-    const { refreshKpi2 } = await import("@/server/kpi");
-    await refreshKpi2(round.id, "round_closed");
+  // Rank what the window closed with (V09) and build the pack (V10) — before
+  // anyone is told, so the person who opens the request on the notification
+  // finds both there. With NO offer too: an empty pack is how a round that
+  // came back with nothing reaches a person. Never allowed to undo a close
+  // that is already committed.
+  if (leadsToReview(reason)) {
+    const { refreshPack } = await import("@/server/decision-pack");
+    await refreshPack(round.id, "round_closed");
   }
 
   let told = 0;

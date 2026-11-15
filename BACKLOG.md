@@ -24,7 +24,7 @@
 | **E9** Notifications | In-app + email | 🟡 bell, emitters, **prefs (2026-08-26)** live; Phase P types (`quote_received`, `contract_to_sign`, `contract_signed`) + staff alert on `quotes.requested` (2026-09-07) live; **the bell alerts (2026-09-14)** — count badge, 30 s poll, chime, per-browser mute |
 | **E10** Admin surfaces | Verification, imports, ops queue | 🟡 **verification LIVE (S5b/S5c, 2026-08-26)**; imports/ops queue placeholders |
 | **R** Custom staff roles | Roles as data + the matrix | ✅ **BUILT 2026-08-29** (migration 0039) — create/delete roles, dynamic matrix, `requests.all` |
-| **E13** V6 architecture | Supplier portal · KPI #2 · Partner Hub · Decision Pack | 🔵 **NEW 2026-10-21** — scope opened by the V6 document; diagrams validated 2026-11-14; **34 tasks in seven slices — [Phase V](#phase-v--the-v6-parcours-task-by-task-e13--written-2026-11-14)**; **V01, V02, V04–V09 built 2026-11-14** (settings, contacts, states, fork + shortlist, RFQ batch, window closing, typed answer time + channel, KPI #2 v1), **live on prod since deploy #45 (2026-11-14) with the pack-flow switch OFF** |
+| **E13** V6 architecture | Supplier portal · KPI #2 · Partner Hub · Decision Pack | 🔵 **NEW 2026-10-21** — scope opened by the V6 document; diagrams validated 2026-11-14; **34 tasks in seven slices — [Phase V](#phase-v--the-v6-parcours-task-by-task-e13--written-2026-11-14)**; **V01, V02, V04–V10 built 2026-11-14** (settings, contacts, states, fork + shortlist, RFQ batch, window closing, typed answer time + channel, KPI #2 v1, the Decision Pack record); V01–V09 **live on prod since deploy #45 (2026-11-14) with the pack-flow switch OFF**, V10 on `main`, not deployed |
 | **E11** Settings | Profile, sourcing rules | 🟡 Paramètres + notification prefs live; **password / 2FA / theme / rename (2026-08-27)** live; buyer Abonnement self-service waits for billing |
 
 **MVP1 = E0–E7 + E10.** Definition of done **restated 2026-08-29 by ADR-002**
@@ -40,7 +40,8 @@ tracked to delivery** — with the PDF report available throughout.
 
 **Prod = `04b5019` (deploy #46, 2026-11-14)** — Phase V tasks V01–V09 with
 the pack-flow switch off, the fixes from the review of those nine tasks, and
-the missing-file fix. `main` is one commit ahead: this record.
+the missing-file fix. **`main` is ahead of prod and NOT deployed:** the
+deploy #46 record, then V10 (the Decision Pack record, migration 0052).
 
 **Deploy #46 verification** — backup `osi-20261114-191920.sql.gz` + its
 uploads archive (85 B) taken first. Build gate passed locally (573 tests).
@@ -5191,7 +5192,68 @@ built in: **S** one, **M** two to three, **L** four or more.
       make the two scorers look different. The honest version 1 is a ranking
       of offers on what suppliers stated.
 
-- [ ] **V10 · The Decision Pack — a read-model with a memory.** *Size M. Step
+- [x] **V10 · The Decision Pack record — BUILT 2026-11-14** (migration
+      **0052**, not deployed). `decision_pack`, `decision_pack_item`;
+      `src/lib/decision-pack.ts` (pure: `selectPackItems`, `samePackItems`,
+      `projectPack`); `src/server/decision-pack.ts` (`syncPack`,
+      `refreshPack`, `getPackView`, `loadPackForRequest`);
+      `getPackForRequestFn`; `DecisionPackPanel` on the dossier, staff only.
+      588 tests (14 on the pack's rules).
+      **One entry point for "the round's offers changed":** `refreshPack`
+      ranks (KPI #2) and then brings the pack in line. The close, a
+      late-keyed answer, a correction and a decline all call it; the manual
+      recomputation calls `syncPack` after its own run. `refreshKpi2` is
+      gone — nothing should rank without the pack following.
+      **Differs from the task as written:**
+      • **The release columns are not here.** `released_at`, `released_by` +
+        name and `refused_reason` are written by releasing and refusing,
+        which are V11's — a column nobody writes reads as a capability (the
+        same call as V06's closing columns). `status` exists with its three
+        values; only `pending` is ever written by this task.
+      • **Added:** `organization_id` (every buyer-facing table is
+        workspace-scoped), `kpi_run_id` (the run the items came from),
+        `built_at`, and **one pending pack per request**
+        (`decision_pack_one_pending_uq`) — which is what a relaunch needs
+        (D5: the same pack, rebuilt).
+      • **A pack is built even with no offer in it.** The task said "of at
+        most `target_offers` items"; a round that came back empty needs a
+        row for the queue to show, or nothing puts it in front of a person.
+      • **`release_mode` is stored when the pack is CREATED**, not when it is
+        released: V14 reads it right after the build to decide between
+        queueing and releasing.
+      • **The frozen copy leaves out `quote.notes`** — staff's own remark on
+        the offer, never written for the buyer. It holds the figures,
+        validity, answer time, channel, and the supplier's name, country and
+        verification as they stood.
+      • **`getPackView(packId, "buyer")` has no caller yet.** The buyer's
+        page is V12. The rule it will rely on — a buyer reads a *released*
+        pack only, in the order shown, without the computed order or the
+        internals — is `projectPack`, pure and tested now.
+      **The acceptance, as far as it can go before a release exists:** a
+      pack is a set of frozen copies, and nothing rebuilds it once the
+      request has left `pack_review` (checked below). "Reads the same a
+      month later" is V11's to demonstrate on a released pack.
+      `pack.release_mode` is live (`inert: false`).
+      *Verified live in dev on request #3049, then restored (baseline
+      re-checked):* the worker's sweep closed a round with two offers and
+      built a pending pack — `manual`, two items in the ranking's order,
+      each pointing at the run; the panel shows them with their channel. A
+      price correction rebuilt the items from the new run (order reversed,
+      the copy's amount updated). A late-keyed answer brought a third item.
+      With the round's target set to 2 the pack kept the two best and the
+      panel says one more offer is not in it. With the setting changed to
+      `automatic` by SQL, that pack stayed `manual` through further
+      rebuilds, and the next pack created took `automatic`. Declining the
+      offers one by one shrank the pack to **empty**, and both panels say
+      so. A round closed with no answer at all got an empty pending pack.
+      With the request out of review, `syncPack` refused and the pack did
+      not move although an offer had changed. As a buyer of the owning
+      workspace: nothing of the pack and no supplier name in the page.
+      **Not exercised:** two rebuilds arriving together (the row lock and
+      the unique index are there for it); a change the ranking does not
+      depend on — payment terms, quantity — rebuilding the copy (unit-tested
+      only: the offer form has no such field); the English panel.
+- [x] ~~**V10 · The Decision Pack — a read-model with a memory.**~~ *Size M. Step
       10. Depends on: V09. Blocks: V11, V12.*
 
       **Left for this task by V07:** flip `pack.release_mode` to
@@ -5252,6 +5314,26 @@ built in: **S** one, **M** two to three, **L** four or more.
         (`unfulfilled`), tell nobody — including suppliers whose offers are
         in. `buildRfqWithdrawnMail` exists; decide the wording for a refusal.
 
+      **Left for this task by V10:**
+      • **the release columns** — `released_at`, `released_by` + name
+        snapshot (null = the system, and nothing else), `refused_reason` —
+        deferred here with the acts that write them. Releasing is what
+        FREEZES a pack: `syncPack` already refuses anything that is not
+        `pending`, and `runKpi2` anything outside `pack_review`.
+      • **a correction writes `rank_shown` and never `rank_computed`**; the
+        panel already shows « classée n° X par le calcul » when they differ.
+      • **an EMPTY pending pack exists for a round that came back with
+        nothing** — the queue must list it, and approving it must be
+        refused: there is nothing to send.
+      • **one pending pack per request** (`decision_pack_one_pending_uq`).
+        A relaunch keeps it; `syncPack(roundId)` moves its `round_id` to the
+        round that last closed, and reads that round's ranking only — so
+        "offers already held stay in the pack" (D5) needs the ranking to
+        span rounds, which `kpi_result` (keyed by round) does not do yet.
+      • the acceptance V10 could not show: **a released pack reads the same
+        a month later** — after a correction to the quote, an expired
+        validity, a supplier renamed.
+
       **What it does.** The desk the diagram's step 10 happens at: every pack
       awaiting a decision, whose it is, and how long it has waited — with the
       four powers the owner named on 2026-10-25.
@@ -5292,6 +5374,15 @@ built in: **S** one, **M** two to three, **L** four or more.
 
 - [ ] **V12 · The buyer reads the pack — or is told there will be none.**
       *Size L. Steps 10–11. Depends on: V11. Blocks: V13.*
+
+      **Left for this task by V10:** the buyer's reader exists —
+      `getPackView(packId, "buyer")`, through `projectPack`: a *released*
+      pack only, items in `rank_shown` order, no `rank_computed`, no
+      internals, and for each item the KPI #2 factors and notes (not the
+      scorer's raw inputs). This task wires it to a route and a server fn
+      scoped to the owning workspace. The file download route refuses a
+      supplier's quotation to the owner on the pack flow (review R4) — it
+      must start allowing the documents of offers IN a released pack.
 
       **What it does.** The buyer's side of step 10: the released pack, and
       the card the diagram puts in the buyer's lane when staff refuse.
