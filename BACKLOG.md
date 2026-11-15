@@ -38,14 +38,25 @@ tracked to delivery** — with the PDF report available throughout.
 
 ### START HERE — handoff, 2026-09-14 (read this first)
 
-**Prod = `7cfd46f` (deploy #45, 2026-11-14)** — Phase V tasks V01–V09, with
-the pack-flow switch off. **`main` is ahead of prod and NOT deployed:** the
-deploy record, then the review of V01–V09 and its fixes (see "Review of
-V01–V09" under Phase V). Prod therefore still has the issues that review
-found — none can occur while the pack flow is off, except the stale-write on
-a request's status, which is as old as the pipeline.
-*(This line read "Prod = `8f40d1e` (deploy #40)" until 2026-11-14; deploys
-#41–#44 are in the table further down and were never reflected here.)*
+**Prod = `04b5019` (deploy #46, 2026-11-14)** — Phase V tasks V01–V09 with
+the pack-flow switch off, the fixes from the review of those nine tasks, and
+the missing-file fix. `main` is one commit ahead: this record.
+
+**Deploy #46 verification** — backup `osi-20261114-191920.sql.gz` + its
+uploads archive (85 B) taken first. Build gate passed locally (573 tests).
+Code-only, no migration. On the VM: `git log` at `04b5019`; `web` / `worker`
+/ `worker-research` all 12 s old; `__drizzle_migrations` still 52. **Data
+unchanged across the deploy:** 14 requests, all `report_ready`; 3 quotes, all
+`requested`; 129 request events. Zero `__exportAll` / `TypeError` / `Error:`
+lines in the web log and zero `failed` / `fatal` lines in either worker's;
+the pipeline worker is listening. Over the tunnel: origin 200, `/demandes`
+and `/soumissions` 307, `/api/files/<unknown id>` 401 without a session. The
+web bundle carries `StaleTransitionError`, `openFileStream` and
+`rfq_not_sent`, and no `getFileStream`; the worker containers' source carries
+the request lock in `closeRound` and the shared-hosts list.
+**Not checked on prod:** signing in; a real request through the pipeline
+since status changes became conditional (it needs a research run); a
+download of a file whose bytes are missing (prod holds no file at all).
 
 **Deploy #45 verification** — backup `osi-20261114-180556.sql.gz` (31 M) + its
 uploads archive (85 B) taken first. Build gate passed locally. Six migrations
@@ -281,6 +292,7 @@ deploy failed mid-session and prod was rolled back; see #24.
 | 23 | `5b90649` | — | **the platform workspace can no longer be deleted** — the org-plugin's own `POST /organization/delete` bypassed `destroyWorkspace`; guard moved into a `beforeDeleteOrganization` hook |
 | 24 | `95b825a` | — | **filters on all four ops lists** (multi-account + week/month/year/custom period) · **the global supplier directory is staff-only** · the DB cleared for fresh testing. *First attempt (`77d37b0`) took prod down — see the chunk-cycle note* |
 | 25 | `b7481d6` | — | **"linked supplier" widened to four traces** (matched · quoted · dealt · contract party) · **a session opens in your PERSONAL workspace** when you have one · the discovery store cleared for a cold research test |
+| 46 | `04b5019` | — | **The review of Phase V, and a download that answered nothing.** Request status changes are conditional (a buyer's cancel is no longer overwritten by the pipeline, the fork or an RFQ send) · a round on a cancelled request is always withdrawn · the research re-run is refused on the pack flow · two leaks of "the buyer sees no supplier" closed (the supplier-list count, the file download) · a marketplace's address is no longer taken for a supplier's own · three things staff could do on the pack flow against the round's rules are refused · `/api/files/:id` answers 404 when a file's bytes are missing instead of dropping the connection. Code-only |
 | 45 | `7cfd46f` | 0046–0051 | **Phase V, tasks V01–V09 — the pack flow is built up to the ranked offers and SWITCHED OFF** (`flow.pack_enabled` = off, and `on` cannot be selected until slice 1 is complete). Platform settings and `/interne/parametres` · supplier contacts · the two request flows and their states · the fork and OSI's internal shortlist · RFQ rounds and the batch send · the window closing (target, deadline, early, withdrawal) · KPI #2 v1. **What changes for today's users with the switch off:** the offer form asks when the supplier answered (« Réponse reçue le ») and shows why an entry is refused; each offer shows its channel; criteria are frozen server-side once the search has answered; research keeps a supplier's contact address when it is on the supplier's own domain |
 | 44 | `a520006` | — | **SendGrid removed** — Resend is the only provider. The dual dispatch existed to make the cutover safe; once Resend was proven it was a second contract (202 vs 200, two error vocabularies) guarding a path that cannot work, since the account is dead rather than dormant. Dead `SENDGRID_API_KEY` also removed from both prod `.env` files (this project and prestigelocations) |
 | 43 | `f288716` | — | **email is no longer a single point of failure for ACCESS** — staff can mark an address verified and issue a real one-hour password-reset link to hand over by phone, from `/interne/utilisateurs`. Both gated on `users`, both audited. Neither weakens the rule it rescues: a human vouches instead of a link that cannot arrive, and the person still chooses their own password |
@@ -4268,8 +4280,8 @@ report, exactly as today, because that report is all they get.
 #### Review of V01–V09 — 2026-11-14, after deploy #45
 
 Every file Phase V added or changed was re-read once the nine tasks were on
-prod. What was found, what was done, and what was checked. **Fixed on `main`,
-not deployed** — prod is still `7cfd46f`.
+prod. What was found, what was done, and what was checked. **Live since
+deploy #46** (2026-11-14).
 
 | # | Found | Fix |
 |---|---|---|
@@ -4305,7 +4317,8 @@ snapshots cover what must not move); the contact-primary invariant; the
 KPI #2 scorer; the labels (every key the new screens use exists in French
 and English — checked by script; the English screens themselves were never
 opened).
-**Noticed outside this work, then fixed the same day (not deployed):** a
+**Noticed outside this work, then fixed the same day (live since deploy
+#46):** a
 `file` row whose bytes are missing on disk dropped the connection instead of
 answering 404 (`/api/files/:id`). `storage.getFileStream` was a bare
 `createReadStream`, which learns on its first read that there is nothing to
