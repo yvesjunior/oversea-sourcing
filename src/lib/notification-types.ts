@@ -36,6 +36,10 @@ export const NOTIFICATION_TYPES = [
    *  pack review. Sent whatever the count, zero included: a round that came
    *  back empty is exactly the one a person has to decide about. */
   { type: "rfq_window_closed", hasEmail: true },
+  /** Staff refused to send a Decision Pack and the request ended
+   *  `unfulfilled` (Phase V · V11). The one outcome of the pack flow in
+   *  which the buyer receives nothing — so they are told, with the reason. */
+  { type: "request_unfulfilled", hasEmail: true },
   /** A contract went out and the buyer's signature is what it waits on (P6). */
   { type: "contract_to_sign", hasEmail: true },
   /** Every mandatory signature is in — the contract is complete (P6). */

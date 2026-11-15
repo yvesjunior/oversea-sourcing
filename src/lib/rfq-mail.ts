@@ -92,6 +92,11 @@ const COPY = {
       "Thank you for the offer you sent. It will not be taken further — for a reason that has nothing to do with the offer itself.",
     withdrawnNeed: "The request",
     withdrawnReference: (id: string) => `Reference: ${id}`,
+    closedSubject: (id: string, title: string) => `Request for quotation ${id} closed — ${title}`,
+    closed:
+      "Thank you for the offer you sent us for the request below. The request is now closed and no order will follow from it.",
+    closedNext:
+      "Your details stay on file, and we will come back to you when a request matches what you supply.",
   },
   fr: {
     subject: (id: string, title: string) => `Appel d'offres ${id} — ${title}`,
@@ -126,6 +131,11 @@ const COPY = {
       "Merci pour l'offre que vous nous avez transmise. Elle n'aura pas de suite, pour une raison qui ne tient pas à l'offre elle-même.",
     withdrawnNeed: "La demande",
     withdrawnReference: (id: string) => `Référence : ${id}`,
+    closedSubject: (id: string, title: string) => `Appel d'offres ${id} clos — ${title}`,
+    closed:
+      "Merci pour l'offre que vous nous avez transmise pour la demande ci-dessous. Cette demande est maintenant close et ne donnera pas lieu à une commande.",
+    closedNext:
+      "Vos coordonnées restent dans nos dossiers : nous reviendrons vers vous lorsqu'une demande correspondra à votre offre.",
   },
 } as const;
 
@@ -226,4 +236,35 @@ export function buildRfqWithdrawnMail(input: RfqWithdrawnMailInput): RfqMail {
     { lines: [copy.withdrawnReference(reference), copy.sign] },
   ];
   return { subject: copy.withdrawnSubject(reference, input.title), ...render(blocks) };
+}
+
+export type RfqClosedMailInput = {
+  locale: ContactLocale;
+  requestId: string;
+  title: string;
+  greetingName: string | null;
+};
+
+/**
+ * "The request you quoted for is closed" (V11) — sent to the suppliers whose
+ * offers are in hand when staff refuse to send a Decision Pack.
+ *
+ * Not the withdrawal notice: nobody withdrew anything, and the refusal may
+ * well be about the offers themselves, so this says neither "the client
+ * changed their mind" nor "it has nothing to do with your offer". It says
+ * the two things that are true whatever the reason — the request is closed,
+ * no order follows — and nothing about why, which is OSI's and the buyer's.
+ * Only to suppliers who ANSWERED: one who stayed silent was never owed a
+ * follow-up (a silent supplier is excluded, not chased).
+ */
+export function buildRfqClosedMail(input: RfqClosedMailInput): RfqMail {
+  const copy = COPY[input.locale];
+  const reference = `#${input.requestId}`;
+  const blocks: Block[] = [
+    { lines: [copy.hello(input.greetingName), copy.closed] },
+    { title: copy.withdrawnNeed, lines: [input.title] },
+    { lines: [copy.closedNext] },
+    { lines: [copy.withdrawnReference(reference), copy.sign] },
+  ];
+  return { subject: copy.closedSubject(reference, input.title), ...render(blocks) };
 }

@@ -25,7 +25,8 @@
     "settings": "Paramètres plateforme",
     "users": "Utilisateurs",
     "logging": "Logging",
-    "sources": "Sources de données"
+    "sources": "Sources de données",
+    "deals": "Decision Packs"
   },
   "platformRoles": {
     "owner": "Propriétaire plateforme",
@@ -128,7 +129,8 @@
       "quotes_requested": "Soumissions à envoyer (un client a choisi ses fournisseurs) — équipe OSI",
       "shortlist_ready": "Présélections à confirmer (une recherche est terminée) — équipe OSI",
       "mail_backlog": "Envoi d'e-mails en échec (des messages attendent) — équipe OSI",
-      "rfq_window_closed": "Fenêtres de réponse fermées (une demande attend la revue) — équipe OSI"
+      "rfq_window_closed": "Fenêtres de réponse fermées (une demande attend la revue) — équipe OSI",
+      "request_unfulfilled": "Demande classée sans suite (aucun Decision Pack ne sera transmis)"
     },
     "tabOrganisation": "Organisation",
     "orgInfoTitle": "Informations de l’organisation",
@@ -561,7 +563,8 @@
     "rerunRunning": "Relance en cours…",
     "rerunRefused": "La recherche n'est plus en échec — rien à relancer.",
     "unfulfilledTitle": "Cette demande est classée sans suite",
-    "unfulfilledText": "L'équipe OSI n'a pas pu constituer un Decision Pack pour cette demande. Aucune offre ne vous sera transmise. Vous pouvez déposer une nouvelle demande à tout moment."
+    "unfulfilledText": "L'équipe OSI n'a pas pu constituer un Decision Pack pour cette demande. Aucune offre ne vous sera transmise. Vous pouvez déposer une nouvelle demande à tout moment.",
+    "unfulfilledReason": "Motif :"
   },
   "stepsFlux": {
     "received": "Demande reçue",
@@ -621,7 +624,8 @@
     "quote_accepted": "Soumission acceptée — dossier ouvert",
     "rfq_closed": "Fenêtre de réponse fermée — {{offers}} offre(s) reçue(s)",
     "rfq_withdrawn": "Appel d'offres retiré auprès de {{count}} fournisseur(s)",
-    "rfq_offer_added": "Offre arrivée dans le délai, saisie après la fermeture — {{offers}} offre(s) au total"
+    "rfq_offer_added": "Offre arrivée dans le délai, saisie après la fermeture — {{offers}} offre(s) au total",
+    "rfq_holders_told": "{{count}} fournisseur(s) informé(s) que la demande est close"
   },
   "stepsDemande": {
     "received": {
@@ -973,7 +977,8 @@
     "quotes_requested": "{{count}} fournisseur(s) à solliciter — demande #{{id}}",
     "shortlist_ready": "Présélection à confirmer — demande #{{id}}",
     "mail_backlog": "L'envoi d'e-mails est en échec — {{count}} message(s) en attente",
-    "rfq_window_closed": "Fenêtre de réponse fermée — demande #{{id}} : {{offers}} offre(s) reçue(s)"
+    "rfq_window_closed": "Fenêtre de réponse fermée — demande #{{id}} : {{offers}} offre(s) reçue(s)",
+    "request_unfulfilled": "Votre demande #{{id}} est classée sans suite"
   },
   "verificationAdmin": {
     "title": "Vérification des fournisseurs",
@@ -1117,7 +1122,12 @@
     "supplier_contact.primary_set": "Contact principal défini",
     "supplier_contact.removed": "Contact fournisseur retiré",
     "rfq.closed": "Fenêtre de réponse fermée",
-    "kpi.recomputed": "Classement des offres recalculé"
+    "kpi.recomputed": "Classement des offres recalculé",
+    "pack.approved": "Decision Pack approuvé et envoyé",
+    "pack.corrected": "Decision Pack corrigé et envoyé",
+    "pack.relaunched": "Decision Pack relancé",
+    "pack.refused": "Decision Pack refusé",
+    "pack.assigned": "Decision Pack attribué"
   },
   "twofa": {
     "title": "Vérification en deux étapes",
@@ -1511,17 +1521,113 @@
     "subtitle": {
       "pending": "Ce que le client verra une fois le pack envoyé. Tant qu'il est en attente, il suit le classement ci-dessus ; rien n'en est visible côté client.",
       "released": "Envoyé au client : c'est ce qu'il a vu, et cela ne change plus.",
-      "refused": "Refusé par l'équipe : rien n'a été envoyé au client."
+      "refused": "Refusé par l'équipe : rien n'a été envoyé au client.",
+      "withdrawn": "Le client a annulé sa demande avant l'envoi : rien ne lui a été transmis."
     },
     "status": {
       "pending": "En attente",
       "released": "Envoyé",
-      "refused": "Refusé"
+      "refused": "Refusé",
+      "withdrawn": "Retiré"
     },
     "built": "Constitué le {{date}}",
     "mode": "envoi {{mode}}",
     "empty": "Aucune offre dans ce pack : aucune n'a été reçue, ou toutes ont été écartées. Il revient à l'équipe de relancer ou de refuser.",
     "capped": "{{left}} autre(s) offre(s) reçue(s) ne figurent pas dans le pack : il retient les {{target}} mieux classées.",
-    "movedFrom": "Classée n° {{rank}} par le calcul — déplacée par l'équipe."
+    "movedFrom": "Classée n° {{rank}} par le calcul — déplacée par l'équipe.",
+    "releasedOn": "envoyé le {{date}} par {{name}}",
+    "bySystem": "le système",
+    "refusedBecause": "Motif du refus :",
+    "onDeskOf": "Sur le bureau de {{name}}",
+    "unassigned": "Personne ne l'a pris",
+    "take": "Le prendre",
+    "putBackAction": "Le remettre",
+    "withheld": "Retirée par l'équipe — classée n° {{rank}} par le calcul, non montrée au client.",
+    "relaunchOpen": "Une relance est en cours : le pack sera reconstitué, avec les offres déjà reçues, à la fermeture du nouveau tour.",
+    "approve": "Approuver et envoyer",
+    "correct": "Corriger…",
+    "relaunch": "Relancer…",
+    "refuse": "Refuser…",
+    "cancel": "Annuler",
+    "correctTitle": "Corriger ce que le client verra",
+    "correctHint": "Changez l'ordre ou retirez des offres. L'ordre calculé reste enregistré à côté de l'ordre montré ; le client ne voit que ce dernier. L'envoi est définitif.",
+    "moveUp": "Monter {{supplier}}",
+    "moveDown": "Descendre {{supplier}}",
+    "withhold": "Retirer",
+    "willBeWithheld": "ne sera pas montrée au client",
+    "putBackIn": "Remettre",
+    "correctNote": "Pourquoi cette correction ? (obligatoire)",
+    "correctConfirm": "Envoyer avec ces corrections",
+    "relaunchTitle": "Demander à d'autres fournisseurs",
+    "relaunchHint": "Un nouveau tour s'ouvre pour les fournisseurs cochés, avec son propre délai. Les offres déjà reçues restent dans le pack.",
+    "noCandidates": "Aucun autre fournisseur de la présélection ne peut être sollicité.",
+    "candidate": {
+      "never_asked": "jamais sollicité",
+      "closed_before_deadline": "fenêtre fermée avant le délai",
+      "not_reached": "appel d'offres jamais parvenu",
+      "no_response": "sans réponse au tour précédent"
+    },
+    "candidateNoContact": "aucun contact — à ajouter depuis Fournisseurs",
+    "noResponseWarning": "Un fournisseur coché a déjà eu une fenêtre complète sans répondre. Le relancer est possible ; c'est une décision.",
+    "relaunchNote": "Pourquoi cette relance ? (obligatoire)",
+    "relaunchConfirm": "Relancer ({{count}})",
+    "refuseTitle": "Refuser d'envoyer un pack",
+    "refuseHint": "La demande sera classée sans suite. Le motif est transmis au client tel quel, sur sa demande et par courriel. Les fournisseurs ayant répondu sont informés que la demande est close.",
+    "refuseReason": "Motif, tel que le client le lira (obligatoire)",
+    "refuseConfirm": "Refuser et informer le client",
+    "history_one": "{{count}} action sur ce pack",
+    "history_other": "{{count}} actions sur ce pack",
+    "event": {
+      "approved": "Approuvé et envoyé",
+      "corrected": "Corrigé et envoyé",
+      "relaunched": "Relancé",
+      "refused": "Refusé",
+      "assigned": "Attribution"
+    },
+    "assignedTo": "Pris par {{name}}.",
+    "putBack": "Remis dans la file.",
+    "move": "{{supplier}} : n° {{from}} → n° {{to}}",
+    "moveWithheld": "{{supplier}} : n° {{from}} → retirée",
+    "round": "Tour n° {{no}}",
+    "done": {
+      "approved": "Pack envoyé au client.",
+      "corrected": "Pack corrigé et envoyé au client.",
+      "relaunched": "Relance envoyée : un nouveau tour est ouvert.",
+      "refused": "Pack refusé : le client est informé.",
+      "taken": "Ce pack est sur votre bureau.",
+      "putBack": "Ce pack est remis dans la file."
+    },
+    "refusal": {
+      "forbidden": "Action non autorisée.",
+      "not_found": "Ce pack n'existe plus.",
+      "not_pending": "Ce pack n'est plus en attente : il a déjà été traité, ou la demande a changé d'état.",
+      "empty": "Ce pack ne contient aucune offre : relancez ou refusez.",
+      "note_required": "Un motif est obligatoire.",
+      "unknown_item": "Une offre indiquée ne fait pas partie de ce pack.",
+      "incomplete_order": "Chaque offre du pack doit être soit classée, soit retirée.",
+      "nothing_shown": "Toutes les offres sont retirées : c'est un refus, pas une correction.",
+      "nothing_changed": "Rien n'est modifié : pour envoyer le pack tel quel, approuvez-le.",
+      "no_suppliers": "Cochez au moins un fournisseur.",
+      "not_eligible": "Un fournisseur coché ne peut plus être sollicité.",
+      "missing_contact": "Un fournisseur coché n'a aucun contact",
+      "no_reply_address": "Aucune adresse de réponse n'est définie : la relance ne peut pas partir.",
+      "partly_sent": "Le tour est ouvert, mais l'appel d'offres n'a pas pu partir pour certains fournisseurs — renvoyez-le depuis le panneau « Appel d'offres »"
+    }
+  },
+  "packQueue": {
+    "title": "Decision Packs",
+    "subtitle": "Les packs en attente d'une décision. Rien n'est transmis à un client tant qu'une personne n'a pas approuvé, corrigé, relancé ou refusé.",
+    "review_one": "{{count}} pack attend une décision",
+    "review_other": "{{count}} packs attendent une décision",
+    "none": "Aucun pack n'attend de décision.",
+    "items_one": "{{count}} offre",
+    "items_other": "{{count}} offres",
+    "empty": "aucune offre — à relancer ou à refuser",
+    "waiting": "En attente depuis {{age}}",
+    "since": "depuis le {{date}}",
+    "relaunched": "Relance en cours — en attente des fournisseurs",
+    "relaunchedTitle_one": "{{count}} relance en cours",
+    "relaunchedTitle_other": "{{count}} relances en cours",
+    "relaunchedHint": "Ces packs n'attendent pas une personne : ils reviendront ici à la fermeture de leur nouveau tour."
   }
 }

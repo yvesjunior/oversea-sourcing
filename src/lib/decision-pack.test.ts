@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  planCorrection,
   projectPack,
+  relaunchState,
   samePackItems,
   selectPackItems,
   type PackItemRow,
@@ -120,6 +122,11 @@ describe("projectPack", () => {
     kpiRunId: "run-1",
     builtAt: "2026-11-18T12:00:01.000Z",
     createdAt: "2026-11-18T12:00:00.000Z",
+    releasedAt: status === "released" ? "2026-11-19T09:00:00.000Z" : null,
+    releasedByName: status === "released" ? "Dana" : null,
+    refusedReason: status === "refused" ? "hors spécification" : null,
+    assignedTo: "u1",
+    assignedToName: "Dana",
   });
   // Corrected: the second by KPI #2 is shown first.
   const items: PackItemRow[] = [
@@ -156,6 +163,40 @@ describe("projectPack", () => {
     for (const item of view?.items ?? []) expect(item).not.toHaveProperty("rankComputed");
     expect(JSON.stringify(view)).not.toContain("run-1");
     expect(JSON.stringify(view)).not.toContain("manual");
+    // Who released it and whose desk it was on are OSI's.
+    expect(JSON.stringify(view)).not.toContain("Dana");
+    expect(view?.releasedAt).toBe("2026-11-19T09:00:00.000Z");
+  });
+
+  it("does not give the buyer an offer a person took out — nor a hint that one was", () => {
+    const withheld: PackItemRow[] = [
+      {
+        quoteId: "a",
+        rankComputed: 1,
+        rankShown: null,
+        offer: snapshot({ supplierName: "A" }),
+        reason: null,
+      },
+      {
+        quoteId: "b",
+        rankComputed: 2,
+        rankShown: 1,
+        offer: snapshot({ supplierName: "B" }),
+        reason: null,
+      },
+    ];
+    const buyer = projectPack(pack("released"), withheld, "buyer");
+    expect(buyer?.items.map((item) => item.offer.supplierName)).toEqual(["B"]);
+    expect(buyer?.items.map((item) => item.rank)).toEqual([1]);
+    const staff = projectPack(pack("released"), withheld, "staff");
+    expect(staff?.items.map((item) => [item.offer.supplierName, item.rank])).toEqual([
+      ["B", 1],
+      ["A", null],
+    ]);
+  });
+
+  it("gives the buyer nothing of a pack withdrawn with its request", () => {
+    expect(projectPack(pack("withdrawn"), items, "buyer")).toBeNull();
   });
 
   it("gives staff every state, both orders and the internals", () => {
@@ -163,16 +204,124 @@ describe("projectPack", () => {
       const view = projectPack(pack(status), items, "staff");
       expect(view?.status).toBe(status);
       expect(view?.items.map((item) => item.rankComputed)).toEqual([2, 1]);
-      expect(view?.internal).toEqual({
+      expect(view?.internal).toMatchObject({
         roundId: "r1",
         releaseMode: "manual",
         kpiRunId: "run-1",
         createdAt: "2026-11-18T12:00:00.000Z",
+        assignedToName: "Dana",
       });
     }
   });
 
   it("reads an empty pack as an empty pack", () => {
     expect(projectPack(pack("pending"), [], "staff")?.items).toEqual([]);
+  });
+});
+
+describe("planCorrection", () => {
+  const items = [
+    { quoteId: "a", rankComputed: 1 },
+    { quoteId: "b", rankComputed: 2 },
+    { quoteId: "c", rankComputed: 3 },
+  ];
+
+  it("reorders, and says what moved", () => {
+    const plan = planCorrection(items, ["b", "a", "c"], []);
+    expect(plan.ok).toBe(true);
+    if (!plan.ok) return;
+    expect([...plan.ranks.entries()]).toEqual([
+      ["b", 1],
+      ["a", 2],
+      ["c", 3],
+    ]);
+    expect(plan.moves).toEqual([
+      { quoteId: "a", from: 1, to: 2 },
+      { quoteId: "b", from: 2, to: 1 },
+    ]);
+  });
+
+  it("withholds an offer and closes the gap it leaves", () => {
+    const plan = planCorrection(items, ["a", "c"], ["b"]);
+    expect(plan.ok).toBe(true);
+    if (!plan.ok) return;
+    expect(plan.ranks.get("b")).toBeNull();
+    expect(plan.ranks.get("c")).toBe(2);
+    expect(plan.moves).toEqual([
+      { quoteId: "b", from: 2, to: null },
+      { quoteId: "c", from: 3, to: 2 },
+    ]);
+  });
+
+  it("refuses the computed order with nothing removed — that is an approval", () => {
+    expect(planCorrection(items, ["a", "b", "c"], [])).toEqual({
+      ok: false,
+      reason: "nothing_changed",
+    });
+  });
+
+  it("refuses to leave an offer out of both lists", () => {
+    expect(planCorrection(items, ["a", "b"], [])).toEqual({
+      ok: false,
+      reason: "incomplete_order",
+    });
+  });
+
+  it("refuses an offer named twice, or named in both lists", () => {
+    expect(planCorrection(items, ["a", "a", "b"], ["c"]).ok).toBe(false);
+    expect(planCorrection(items, ["a", "b", "c"], ["c"])).toEqual({
+      ok: false,
+      reason: "incomplete_order",
+    });
+  });
+
+  it("refuses an offer that is not in the pack", () => {
+    expect(planCorrection(items, ["a", "b", "x"], [])).toEqual({
+      ok: false,
+      reason: "unknown_item",
+    });
+  });
+
+  it("refuses to remove everything — that is a refusal, with its own reason", () => {
+    expect(planCorrection(items, [], ["a", "b", "c"])).toEqual({
+      ok: false,
+      reason: "nothing_shown",
+    });
+  });
+
+  it("judges 'unchanged' on order, not on rank numbers", () => {
+    // A pack capped after a decline: computed ranks 1 and 3.
+    const gapped = [
+      { quoteId: "a", rankComputed: 1 },
+      { quoteId: "c", rankComputed: 3 },
+    ];
+    expect(planCorrection(gapped, ["a", "c"], [])).toEqual({
+      ok: false,
+      reason: "nothing_changed",
+    });
+    expect(planCorrection(gapped, ["c", "a"], []).ok).toBe(true);
+  });
+});
+
+describe("relaunchState", () => {
+  it("lets a supplier never asked be asked", () => {
+    expect(relaunchState(null)).toBe("never_asked");
+  });
+
+  it("lets a supplier the round cut short, missed or timed out on be asked again", () => {
+    for (const reason of ["closed_before_deadline", "not_reached", "no_response"] as const) {
+      expect(relaunchState({ status: "declined", declineReason: reason })).toBe(reason);
+    }
+  });
+
+  it("does not re-ask a supplier whose offer is in hand", () => {
+    expect(relaunchState({ status: "received", declineReason: null })).toBeNull();
+  });
+
+  it("does not re-ask one who said no, lost, or is still being asked", () => {
+    expect(relaunchState({ status: "declined", declineReason: "supplier_declined" })).toBeNull();
+    expect(relaunchState({ status: "declined", declineReason: "lost" })).toBeNull();
+    expect(relaunchState({ status: "requested", declineReason: null })).toBeNull();
+    expect(relaunchState({ status: "accepted", declineReason: null })).toBeNull();
   });
 });

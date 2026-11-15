@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildRfqClosedMail,
   buildRfqMail,
   buildRfqWithdrawnMail,
   formatDeadline,
@@ -166,5 +167,32 @@ describe("the withdrawal notice", () => {
       answered: false,
     });
     expect(mail.html).toContain("Vis &lt;M8&gt; &amp; écrous");
+  });
+});
+
+describe("the closing notice after a refusal", () => {
+  const base = { requestId: "3049", title: "Roulements à billes", greetingName: "Mei" } as const;
+
+  it("thanks the supplier and says no order will follow", () => {
+    const mail = buildRfqClosedMail({ ...base, locale: "en" });
+    expect(mail.subject).toBe("Request for quotation #3049 closed — Roulements à billes");
+    expect(mail.text).toContain("Thank you for the offer");
+    expect(mail.text).toContain("no order will follow");
+  });
+
+  it("claims neither that the client withdrew nor that the offer was not the reason", () => {
+    for (const locale of ["en", "fr"] as const) {
+      const { text } = buildRfqClosedMail({ ...base, locale });
+      expect(text).not.toMatch(/withdrawn|retiré/i);
+      expect(text).not.toMatch(/nothing to do with|ne tient pas à/i);
+    }
+  });
+
+  it("asks for nothing", () => {
+    const { text } = buildRfqClosedMail({ ...base, locale: "fr" });
+    expect(text).not.toMatch(/UTC|Répondez à ce courriel/);
+    expect(buildRfqClosedMail({ ...base, locale: "fr" }).subject).toBe(
+      "Appel d'offres #3049 clos — Roulements à billes",
+    );
   });
 });

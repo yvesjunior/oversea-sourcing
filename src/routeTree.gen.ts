@@ -33,6 +33,7 @@ import { Route as DemandesIdRouteImport } from './routes/demandes/$id'
 import { Route as InterneClientsRouteImport } from './routes/interne/clients'
 import { Route as InterneFinanceRouteImport } from './routes/interne/finance'
 import { Route as InterneLoggingRouteImport } from './routes/interne/logging'
+import { Route as InternePacksRouteImport } from './routes/interne/packs'
 import { Route as InterneParametresRouteImport } from './routes/interne/parametres'
 import { Route as InternePlansRouteImport } from './routes/interne/plans'
 import { Route as InterneSourcesRouteImport } from './routes/interne/sources'
@@ -163,6 +164,11 @@ const InterneLoggingRoute = InterneLoggingRouteImport.update({
   path: '/interne/logging',
   getParentRoute: () => rootRouteImport,
 } as any)
+const InternePacksRoute = InternePacksRouteImport.update({
+  id: '/interne/packs',
+  path: '/interne/packs',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const InterneParametresRoute = InterneParametresRouteImport.update({
   id: '/interne/parametres',
   path: '/interne/parametres',
@@ -232,6 +238,7 @@ export interface FileRoutesByFullPath {
   '/interne/clients': typeof InterneClientsRoute
   '/interne/finance': typeof InterneFinanceRoute
   '/interne/logging': typeof InterneLoggingRoute
+  '/interne/packs': typeof InternePacksRoute
   '/interne/parametres': typeof InterneParametresRoute
   '/interne/plans': typeof InternePlansRoute
   '/interne/sources': typeof InterneSourcesRoute
@@ -267,6 +274,7 @@ export interface FileRoutesByTo {
   '/interne/clients': typeof InterneClientsRoute
   '/interne/finance': typeof InterneFinanceRoute
   '/interne/logging': typeof InterneLoggingRoute
+  '/interne/packs': typeof InternePacksRoute
   '/interne/parametres': typeof InterneParametresRoute
   '/interne/plans': typeof InternePlansRoute
   '/interne/sources': typeof InterneSourcesRoute
@@ -303,6 +311,7 @@ export interface FileRoutesById {
   '/interne/clients': typeof InterneClientsRoute
   '/interne/finance': typeof InterneFinanceRoute
   '/interne/logging': typeof InterneLoggingRoute
+  '/interne/packs': typeof InternePacksRoute
   '/interne/parametres': typeof InterneParametresRoute
   '/interne/plans': typeof InternePlansRoute
   '/interne/sources': typeof InterneSourcesRoute
@@ -340,6 +349,7 @@ export interface FileRouteTypes {
     | '/interne/clients'
     | '/interne/finance'
     | '/interne/logging'
+    | '/interne/packs'
     | '/interne/parametres'
     | '/interne/plans'
     | '/interne/sources'
@@ -375,6 +385,7 @@ export interface FileRouteTypes {
     | '/interne/clients'
     | '/interne/finance'
     | '/interne/logging'
+    | '/interne/packs'
     | '/interne/parametres'
     | '/interne/plans'
     | '/interne/sources'
@@ -410,6 +421,7 @@ export interface FileRouteTypes {
     | '/interne/clients'
     | '/interne/finance'
     | '/interne/logging'
+    | '/interne/packs'
     | '/interne/parametres'
     | '/interne/plans'
     | '/interne/sources'
@@ -446,6 +458,7 @@ export interface RootRouteChildren {
   InterneClientsRoute: typeof InterneClientsRoute
   InterneFinanceRoute: typeof InterneFinanceRoute
   InterneLoggingRoute: typeof InterneLoggingRoute
+  InternePacksRoute: typeof InternePacksRoute
   InterneParametresRoute: typeof InterneParametresRoute
   InternePlansRoute: typeof InternePlansRoute
   InterneSourcesRoute: typeof InterneSourcesRoute
@@ -628,6 +641,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof InterneLoggingRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/interne/packs': {
+      id: '/interne/packs'
+      path: '/interne/packs'
+      fullPath: '/interne/packs'
+      preLoaderRoute: typeof InternePacksRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/interne/parametres': {
       id: '/interne/parametres'
       path: '/interne/parametres'
@@ -729,6 +749,7 @@ const rootRouteChildren: RootRouteChildren = {
   InterneClientsRoute: InterneClientsRoute,
   InterneFinanceRoute: InterneFinanceRoute,
   InterneLoggingRoute: InterneLoggingRoute,
+  InternePacksRoute: InternePacksRoute,
   InterneParametresRoute: InterneParametresRoute,
   InternePlansRoute: InternePlansRoute,
   InterneSourcesRoute: InterneSourcesRoute,

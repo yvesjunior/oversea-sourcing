@@ -242,6 +242,18 @@ export const request = pgTable(
     compatibilityScore: integer("compatibility_score"),
     launchedAt: timestamp("launched_at"),
     completedAt: timestamp("completed_at"),
+    /**
+     * Why staff refused to send a Decision Pack (Phase V · V11) — set
+     * together, by `refusePack`, when the request goes `unfulfilled`. The
+     * reason is REQUIRED and is shown to the buyer: a request that ends with
+     * nothing owes them the why. On the request and not only on the pack,
+     * because this is the request's own ending and the dossier reads it
+     * without knowing packs exist.
+     */
+    unfulfilledReason: text("unfulfilled_reason"),
+    unfulfilledAt: timestamp("unfulfilled_at"),
+    unfulfilledBy: text("unfulfilled_by").references(() => user.id, { onDelete: "set null" }),
+    unfulfilledByName: text("unfulfilled_by_name"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
@@ -1416,7 +1428,16 @@ export const kpiResult = pgTable(
   ],
 );
 
-export const PACK_STATUSES = ["pending", "released", "refused"] as const;
+export const PACK_STATUSES = [
+  "pending",
+  /** Sent to the buyer — frozen from that instant. */
+  "released",
+  /** Staff refused to send it; the request is `unfulfilled`. */
+  "refused",
+  /** The buyer cancelled the request while the pack was still pending.
+   *  Not `refused`: nobody at OSI decided anything. */
+  "withdrawn",
+] as const;
 export type PackStatus = (typeof PACK_STATUSES)[number];
 
 /**
@@ -1437,9 +1458,10 @@ export type PackStatus = (typeof PACK_STATUSES)[number];
  * request can collect several over its life — a released pack whose offer
  * expired sends it back to a new round, which builds a new one.
  *
- * NOT here yet, on purpose: who released it and when, why it was refused,
- * whose desk it is on. Nothing releases, refuses or assigns a pack before
- * V11, and a column nobody writes reads as a capability.
+ * RELEASE IS THE IRREVERSIBLE ACT (V11). `released_by` null on a released
+ * pack means the SYSTEM released it (automatic mode, V14) and nothing else:
+ * a staff member whose account was later deleted is told apart by
+ * `released_by_name`, which is why the name is a snapshot and not a join.
  */
 export const decisionPack = pgTable(
   "decision_pack",
@@ -1466,6 +1488,15 @@ export const decisionPack = pgTable(
     kpiRunId: text("kpi_run_id"),
     /** When the items were last (re)built. */
     builtAt: timestamp("built_at").notNull().defaultNow(),
+    // ── the desk (V11) ───────────────────────────────────────────────────
+    /** Whose desk it is on. Null = nobody has taken it — shown as such. */
+    assignedTo: text("assigned_to").references(() => user.id, { onDelete: "set null" }),
+    assignedToName: text("assigned_to_name"),
+    releasedAt: timestamp("released_at"),
+    releasedBy: text("released_by").references(() => user.id, { onDelete: "set null" }),
+    releasedByName: text("released_by_name"),
+    /** Why it was refused — required, and what the buyer is told. */
+    refusedReason: text("refused_reason"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (table) => [
@@ -1485,7 +1516,9 @@ export const decisionPack = pgTable(
  * `rank_computed` is where KPI #2 put it; `rank_shown` is where the buyer
  * sees it. They are equal until a person corrects the order (V11) — and the
  * pair is the point: with only one, "would the automatic release have shown
- * the same thing?" cannot be asked.
+ * the same thing?" cannot be asked. `rank_shown` NULL = a person took the
+ * offer OUT of what the buyer is shown; the row stays, so the pack still
+ * says what was computed and what was withheld.
  *
  * `offer` is a FROZEN COPY of the figures and of what was known about the
  * supplier when the item was built. The quote row can be corrected, expire
@@ -1503,7 +1536,7 @@ export const decisionPackItem = pgTable(
     /** The ranking row this item was built from — the "why" of its rank. */
     kpiResultId: text("kpi_result_id").references(() => kpiResult.id, { onDelete: "set null" }),
     rankComputed: integer("rank_computed").notNull(),
-    rankShown: integer("rank_shown").notNull(),
+    rankShown: integer("rank_shown"),
     offer: jsonb("offer").$type<PackOfferSnapshot>().notNull(),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
@@ -1511,6 +1544,48 @@ export const decisionPackItem = pgTable(
     index("decision_pack_item_pack_idx").on(table.packId),
     uniqueIndex("decision_pack_item_pack_quote_uq").on(table.packId, table.quoteId),
   ],
+);
+
+export const PACK_EVENT_ACTIONS = [
+  /** Released as built. */
+  "approved",
+  /** Released after a person changed the order or took offers out. */
+  "corrected",
+  /** A new round was opened for more suppliers; the pack stays pending. */
+  "relaunched",
+  "refused",
+  /** Taken, handed over or put back — `payload.to` is null when put back. */
+  "assigned",
+] as const;
+export type PackEventAction = (typeof PACK_EVENT_ACTIONS)[number];
+
+/**
+ * What was DONE to a pack, by whom, and why (Phase V · V11).
+ *
+ * Permanent, beside the pack — NOT `audit_log`, which is purged at three
+ * months. These rows are how "how often did review change the pack?" is
+ * answered a year later (V14), and how a correction's reason is still
+ * readable when someone asks why the buyer saw that order.
+ *
+ * `payload` holds what changed: the correction's note and moves, the
+ * relaunch's suppliers and what each had been closed as, the refusal's
+ * reason, the assignee.
+ */
+export const decisionPackEvent = pgTable(
+  "decision_pack_event",
+  {
+    id: text("id").primaryKey(),
+    packId: text("pack_id")
+      .notNull()
+      .references(() => decisionPack.id, { onDelete: "cascade" }),
+    action: text("action").$type<PackEventAction>().notNull(),
+    /** Null actor = the system (an automatic release, V14). */
+    actorId: text("actor_id").references(() => user.id, { onDelete: "set null" }),
+    actorName: text("actor_name"),
+    payload: jsonb("payload"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => [index("decision_pack_event_pack_idx").on(table.packId, table.createdAt)],
 );
 
 export const DEAL_STATUSES = [

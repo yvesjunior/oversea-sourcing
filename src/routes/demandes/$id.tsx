@@ -147,6 +147,7 @@ const STEP_ICONS: Record<StepKey, typeof FileText> = {
 function DemandeDetail() {
   const { t, i18n } = useTranslation();
   const router = useRouter();
+  const { session } = Route.useRouteContext();
   const { demande, dossier, shortlist, rfq, ranking, pack } = Route.useLoaderData() as {
     demande: RequestDetail;
     dossier: RequestDealStatus;
@@ -386,7 +387,7 @@ function DemandeDetail() {
 
       {/* A buyer who waited through an RFQ window and a review has to be
           told something (README §2c) — silence is the one outcome that cannot
-          be defended. Staff's reason joins this notice with V11. */}
+          be defended. */}
       {unfulfilled && (
         <section
           role="status"
@@ -396,6 +397,15 @@ function DemandeDetail() {
           <div className="min-w-0">
             <h2 className="text-sm font-semibold">{t("detail.unfulfilledTitle")}</h2>
             <p className="mt-1 text-sm text-muted-foreground">{t("detail.unfulfilledText")}</p>
+            {/* Staff's reason, written for the buyer (V11) — required when a
+                pack is refused, so it is only ever absent on a request that
+                reached this state before the reason existed. */}
+            {demande.unfulfilledReason && (
+              <p className="mt-2 text-sm">
+                <span className="font-semibold">{t("detail.unfulfilledReason")}</span>{" "}
+                <span className="whitespace-pre-wrap">{demande.unfulfilledReason}</span>
+              </p>
+            )}
           </div>
         </section>
       )}
@@ -589,7 +599,13 @@ function DemandeDetail() {
             <OfferRankingPanel ranking={ranking} onChanged={() => void router.invalidate()} />
           )}
 
-          {pack && <DecisionPackPanel data={pack} />}
+          {pack && (
+            <DecisionPackPanel
+              data={pack}
+              me={session?.user.id ?? null}
+              onChanged={() => void router.invalidate()}
+            />
+          )}
 
           {showSuppliers && (
             <section className="card-surface p-6">

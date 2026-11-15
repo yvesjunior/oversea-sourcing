@@ -110,9 +110,11 @@ function sameSnapshot(a: PackOfferSnapshot, b: PackOfferSnapshot): boolean {
 
 /** An item as the table holds it: its references can have been nulled by a
  *  deleted quote or ranking row. */
-export type StoredPackItem = Omit<PackItemDraft, "quoteId" | "kpiResultId"> & {
+export type StoredPackItem = Omit<PackItemDraft, "quoteId" | "kpiResultId" | "rankShown"> & {
   quoteId: string | null;
   kpiResultId: string | null;
+  /** Null once a person has taken the offer out of what the buyer sees. */
+  rankShown: number | null;
 };
 
 /** Would rebuilding change anything? Compared field by field, not as JSON:
@@ -151,7 +153,8 @@ export type PackRankingReason = {
 export type PackItemRow = {
   quoteId: string | null;
   rankComputed: number;
-  rankShown: number;
+  /** Null = taken out of what the buyer is shown (a correction, V11). */
+  rankShown: number | null;
   offer: PackOfferSnapshot;
   reason: PackRankingReason | null;
 };
@@ -165,12 +168,18 @@ export type PackRow = {
   kpiRunId: string | null;
   builtAt: string;
   createdAt: string;
+  releasedAt: string | null;
+  releasedByName: string | null;
+  refusedReason: string | null;
+  assignedTo: string | null;
+  assignedToName: string | null;
 };
 
 export type PackItemView = {
   quoteId: string | null;
-  /** The order the buyer is shown. */
-  rank: number;
+  /** The order the buyer is shown. For staff, null on an item a person took
+   *  out; the buyer never receives such an item at all. */
+  rank: number | null;
   /** STAFF ONLY — where KPI #2 put it. Absent for the buyer. */
   rankComputed?: number;
   offer: PackOfferSnapshot;
@@ -182,6 +191,8 @@ export type PackView = {
   requestId: string;
   status: PackStatus;
   builtAt: string;
+  /** When it was sent — the buyer may know that; who sent it is staff's. */
+  releasedAt: string | null;
   items: PackItemView[];
   /** STAFF ONLY. */
   internal?: {
@@ -189,6 +200,10 @@ export type PackView = {
     releaseMode: ReleaseMode;
     kpiRunId: string | null;
     createdAt: string;
+    releasedByName: string | null;
+    refusedReason: string | null;
+    assignedTo: string | null;
+    assignedToName: string | null;
   };
 };
 
@@ -197,8 +212,9 @@ export type PackView = {
  * all.
  *
  * The buyer reads a RELEASED pack and nothing else: a pending one is OSI's
- * working draft (its items still move), and a refused one was never sent.
- * Items come back in the order shown.
+ * working draft (its items still move), and a refused or withdrawn one was
+ * never sent. Items come back in the order shown, and an item a person took
+ * out is not among them: the buyer cannot tell that anything was withheld.
  */
 export function projectPack(
   pack: PackRow,
@@ -206,15 +222,23 @@ export function projectPack(
   audience: PackAudience,
 ): PackView | null {
   if (audience === "buyer" && pack.status !== "released") return null;
-  const ordered = [...items].sort(
-    (a, b) => a.rankShown - b.rankShown || a.rankComputed - b.rankComputed,
-  );
+  const shown = items
+    .filter((item) => item.rankShown !== null)
+    .sort((a, b) => (a.rankShown as number) - (b.rankShown as number));
+  // Staff see the withheld ones too, after the shown ones, in computed order.
+  const withheld =
+    audience === "staff"
+      ? items
+          .filter((item) => item.rankShown === null)
+          .sort((a, b) => a.rankComputed - b.rankComputed)
+      : [];
   return {
     id: pack.id,
     requestId: pack.requestId,
     status: pack.status,
     builtAt: pack.builtAt,
-    items: ordered.map((item) => ({
+    releasedAt: pack.releasedAt,
+    items: [...shown, ...withheld].map((item) => ({
       quoteId: item.quoteId,
       rank: item.rankShown,
       ...(audience === "staff" ? { rankComputed: item.rankComputed } : {}),
@@ -228,8 +252,109 @@ export function projectPack(
             releaseMode: pack.releaseMode,
             kpiRunId: pack.kpiRunId,
             createdAt: pack.createdAt,
+            releasedByName: pack.releasedByName,
+            refusedReason: pack.refusedReason,
+            assignedTo: pack.assignedTo,
+            assignedToName: pack.assignedToName,
           },
         }
       : {}),
   };
+}
+
+// ── the four powers (V11) ───────────────────────────────────────────────────
+
+export type CorrectionRefusal =
+  /** An id in `order` or `removals` that is not an item of this pack. */
+  | "unknown_item"
+  /** `order` and `removals` together do not cover every item exactly once. */
+  | "incomplete_order"
+  /** Everything was removed: that is a refusal, and has its own door. */
+  | "nothing_shown"
+  /** The order asked for IS the computed one, with nothing removed: that is
+   *  an approval. Recording it as a correction would count a pack staff left
+   *  alone among the ones they changed. */
+  | "nothing_changed";
+
+export type CorrectionPlan =
+  | {
+      ok: true;
+      /** quoteId → the rank the buyer will see; null = withheld. */
+      ranks: Map<string, number | null>;
+      /** What moved, for the record: computed place → shown place. */
+      moves: { quoteId: string; from: number; to: number | null }[];
+    }
+  | { ok: false; reason: CorrectionRefusal };
+
+/**
+ * Check a correction and work out what it does — without touching anything.
+ *
+ * `order` is the offers the buyer will see, best first; `removals` the ones
+ * withheld. Together they must name every item of the pack exactly once: a
+ * correction that silently dropped an offer by leaving it out of both lists
+ * would withhold it with no trace of anyone having decided to.
+ */
+export function planCorrection(
+  items: readonly { quoteId: string | null; rankComputed: number }[],
+  order: readonly string[],
+  removals: readonly string[],
+): CorrectionPlan {
+  const known = new Map<string, number>();
+  for (const item of items) if (item.quoteId) known.set(item.quoteId, item.rankComputed);
+  const named = [...order, ...removals];
+  if (named.some((id) => !known.has(id))) return { ok: false, reason: "unknown_item" };
+  if (new Set(named).size !== named.length || named.length !== known.size) {
+    return { ok: false, reason: "incomplete_order" };
+  }
+  if (order.length === 0) return { ok: false, reason: "nothing_shown" };
+
+  const ranks = new Map<string, number | null>();
+  order.forEach((id, index) => ranks.set(id, index + 1));
+  for (const id of removals) ranks.set(id, null);
+
+  // "Unchanged" = nothing removed and the order is the computed order. The
+  // computed ranks need not be 1..n (a pack capped at its target after a
+  // decline), so the test is on ORDER, not on rank values.
+  const computedOrder = [...known.entries()].sort((a, b) => a[1] - b[1]).map(([id]) => id);
+  const unchanged = removals.length === 0 && computedOrder.every((id, i) => order[i] === id);
+  if (unchanged) return { ok: false, reason: "nothing_changed" };
+
+  const position = new Map(computedOrder.map((id, index) => [id, index + 1]));
+  const moves = named
+    .map((id) => ({ quoteId: id, from: position.get(id) as number, to: ranks.get(id) ?? null }))
+    .filter((move) => move.from !== move.to)
+    .sort((a, b) => a.from - b.from);
+  return { ok: true, ranks, moves };
+}
+
+/**
+ * May this supplier be asked (again) in a relaunch — and what were they?
+ *
+ *  • `never_asked` — on the shortlist, never solicited;
+ *  • `closed_before_deadline` — written to, cut short by OSI: they still had
+ *    time, and asking again is only fair;
+ *  • `not_reached` — the RFQ never got to them;
+ *  • `no_response` — they had a full window and said nothing. Asking again
+ *    is ALLOWED, but it is a decision, and the page says so.
+ *
+ * Not eligible (null): a supplier whose offer is in hand (it stays in the
+ * pack — an answer already held is never thrown away), one who said no
+ * (`supplier_declined`), one still being asked, and anything else.
+ */
+export type RelaunchState =
+  "never_asked" | "closed_before_deadline" | "not_reached" | "no_response";
+
+export function relaunchState(
+  quote: { status: string; declineReason: string | null } | null,
+): RelaunchState | null {
+  if (!quote) return "never_asked";
+  if (quote.status !== "declined") return null;
+  if (
+    quote.declineReason === "closed_before_deadline" ||
+    quote.declineReason === "not_reached" ||
+    quote.declineReason === "no_response"
+  ) {
+    return quote.declineReason;
+  }
+  return null;
 }

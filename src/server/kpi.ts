@@ -14,12 +14,16 @@
 // working out whether anything changed, and a correction that touched only a
 // note does not manufacture a "new ranking" that is the old one.
 //
+// The ranking spans the request's ROUNDS (V11): after a relaunch, the offers
+// held from an earlier round are ranked with the new ones. A run is filed
+// under the round whose close (or whose review) triggered it.
+//
 // Validity is measured from the round's `closed_at`, never from now: the
 // offers are judged as of the moment the window closed, and a ranking that
 // drifted with the clock would not be the same inputs giving the same order.
 
 import { createHash } from "node:crypto";
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, isNotNull, ne } from "drizzle-orm";
 import { db } from "@/database";
 import * as schema from "@/database/schema";
 import type { KpiRunTrigger } from "@/database/schema";
@@ -49,7 +53,16 @@ export type Kpi2RunOutcome =
         | "no_offers";
     };
 
-async function gatherOffers(roundId: string, requestId: string): Promise<Kpi2Offer[]> {
+/**
+ * Every offer the REQUEST holds — across all its rounds (V11).
+ *
+ * A relaunch opens a second round for more suppliers, and the offers already
+ * in hand from the first are not thrown away (decision D5): they are ranked
+ * together with the new ones. With one round this is that round's offers,
+ * exactly as before. Only quotes that belong to a round: a report-flow quote
+ * has none and is never ranked.
+ */
+async function gatherOffers(requestId: string): Promise<Kpi2Offer[]> {
   const rows = await db
     .select({
       quote: schema.quote,
@@ -67,7 +80,13 @@ async function gatherOffers(roundId: string, requestId: string): Promise<Kpi2Off
         eq(schema.match.supplierId, schema.quote.supplierId),
       ),
     )
-    .where(and(eq(schema.quote.roundId, roundId), eq(schema.quote.status, "received")))
+    .where(
+      and(
+        eq(schema.quote.requestId, requestId),
+        isNotNull(schema.quote.roundId),
+        eq(schema.quote.status, "received"),
+      ),
+    )
     .orderBy(asc(schema.quote.id));
   return rows.map(({ quote, verification, kpi1Score }) => ({
     quoteId: quote.id,
@@ -110,14 +129,16 @@ export async function runKpi2(roundId: string, trigger: KpiRunTrigger): Promise<
   if (!request) return { ok: false, reason: "not_found" };
   if (request.status !== "pack_review") return { ok: false, reason: "not_in_review" };
 
-  const offers = await gatherOffers(roundId, request.id);
+  const offers = await gatherOffers(request.id);
   if (offers.length === 0) return { ok: false, reason: "no_offers" };
 
   const weights = KPI2_DEFAULT_WEIGHTS;
   const inputsHash = hashInputs(offers, round.closedAt);
 
+  // The latest run of the REQUEST, whichever round triggered it: after a
+  // relaunch the previous ranking lives under the earlier round's id.
   const latest = await db.query.kpiResult.findFirst({
-    where: eq(schema.kpiResult.roundId, roundId),
+    where: eq(schema.kpiResult.requestId, request.id),
     orderBy: [desc(schema.kpiResult.computedAt)],
     columns: { runId: true, inputsHash: true },
   });
@@ -199,21 +220,30 @@ export async function loadOfferRanking(requestId: string): Promise<OfferRankingV
     columns: { status: true },
   });
   if (!request) return null;
+  // The latest round that CLOSED INTO A REVIEW — not simply the latest round:
+  // while a relaunched round is open, the ranking the last review worked from
+  // is still what there is to read.
   const round = await db.query.rfqRound.findFirst({
-    where: eq(schema.rfqRound.requestId, requestId),
+    where: and(
+      eq(schema.rfqRound.requestId, requestId),
+      isNotNull(schema.rfqRound.closedAt),
+      ne(schema.rfqRound.closeReason, "withdrawn"),
+    ),
     orderBy: [desc(schema.rfqRound.roundNo)],
   });
-  if (!round?.closedAt || round.closeReason === "withdrawn") return null;
+  if (!round?.closedAt) return null;
 
   const rows = await db
     .select({ result: schema.kpiResult, supplierName: schema.quote.supplierName })
     .from(schema.kpiResult)
     .innerJoin(schema.quote, eq(schema.quote.id, schema.kpiResult.quoteId))
-    .where(eq(schema.kpiResult.roundId, round.id))
+    // Every run of the request — a relaunch does not hide the rankings
+    // computed under the round before it.
+    .where(eq(schema.kpiResult.requestId, requestId))
     .orderBy(desc(schema.kpiResult.computedAt), asc(schema.kpiResult.rank));
 
   const inReview = request.status === "pack_review";
-  const offers = await gatherOffers(round.id, requestId);
+  const offers = await gatherOffers(requestId);
   const hashNow = offers.length > 0 ? hashInputs(offers, round.closedAt) : null;
   const latestHash = rows[0]?.result.inputsHash ?? null;
 

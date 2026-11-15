@@ -1212,10 +1212,10 @@ finishes, the worker sends a request to `shortlisted` only if the workspace's
 plan includes quotes **and** the platform setting `flow.pack_enabled` is `on`.
 It ships `off`, and `on` cannot be selected from the product. Since 2026-11-14
 a pack-flow request can travel as far as `pack_review` — shortlist, RFQ batch,
-the window closing, the offers ranked, the Decision Pack built (BACKLOG Phase
-V, V05–V10) — and stops there: releasing the pack, the buyer reading it and
-choosing from it are not built (V11–V13). Turning it on early would strand
-every paying customer's request in review. In development it is exercised by writing the setting's row
+the window closing, the offers ranked, the Decision Pack built and released
+(BACKLOG Phase V, V05–V11) — and stops there: the buyer reading the pack and
+choosing from it are not built (V12–V13). Turning it on early would release
+packs no customer can open. In development it is exercised by writing the setting's row
 directly.
 
 What is already true on the pack flow, and tested as the owning workspace:
@@ -1352,6 +1352,9 @@ Four rules decide what is compared, and they matter more than the weights:
   and when prices are compared across different incoterms, the panel says
   they do not cover the same costs.
 
+The ranking covers **every offer the request holds, across its rounds**: after
+a relaunch, the offers kept from the first round are ranked with the new ones.
+
 `kpi_result` is **append-only**: each computation is a run, and a
 recomputation — an offer corrected, added late, or declined during the review,
 or a staff member asking for one after a verification result lands — writes a
@@ -1388,8 +1391,50 @@ One pending pack per request at a time. Staff read it on the dossier; **the
 workspace that owns the request reads nothing of a pending pack** — the
 projection that decides what each audience gets (`projectPack`,
 `src/lib/decision-pack.ts`) gives the buyer a *released* pack only, in the
-order shown, without the computed order. Releasing, correcting, relaunching
-and refusing are the release queue's (V11).
+order shown, without the computed order.
+
+**The release queue, and the four things staff can do with a pack** (V11,
+2026-11-14). `/interne/packs` lists every pack awaiting a decision, the one
+that has waited longest first, with whose desk it is on — an unassigned pack
+looks unassigned. The acts themselves are on the dossier, beside the offers:
+
+| Act          | What it does                                                                                              | Requires            |
+| ------------ | --------------------------------------------------------------------------------------------------------- | ------------------- |
+| **Approve**  | releases the pack as built; request `pack_review → report_ready`                                           | at least one offer  |
+| **Correct**  | changes the order shown or withholds offers, then releases                                                 | a written reason    |
+| **Relaunch** | opens a new round for more suppliers of the shortlist; the pack stays pending; request back to `soliciting` | a written reason    |
+| **Refuse**   | sends nothing; request `unfulfilled`; the buyer is told why                                                | a reason, for the buyer |
+
+- **Release is the irreversible act.** From that instant nothing rebuilds the
+  pack: change the quote, let it expire, rename the supplier — the pack reads
+  as it did. `released_by` null means the system released it, and nothing
+  else; a person's name is kept as a snapshot.
+- **A correction never rewrites the computed order.** It writes `rank_shown`
+  (null for an offer withheld) and leaves `rank_computed`. Asking for the
+  computed order with nothing withheld is refused: that is an approval, and
+  recording it as a correction would count an untouched pack among the
+  changed ones.
+- **A relaunch keeps what is in hand** (decision D5, built as its default).
+  The offers already received stay; the new round has its own deadline; when
+  it closes, the *same* pack is rebuilt from all of them. So the ranking and
+  the offer count span the request's rounds: two offers held and three new
+  ones are five, and that is what closes a window on its target. A supplier
+  who was cut short, never reached or never answered may be asked again — the
+  last being a decision the page spells out; one who said no may not.
+- **A refusal tells everyone who was waiting.** The buyer, in the app and by
+  email, with the reason as staff wrote it. And the suppliers whose offers
+  are in hand, with a notice that says the request is closed and no order
+  follows — and nothing about why.
+- **A buyer who cancels during the review** withdraws the pack (`withdrawn`,
+  not `refused`: nobody at OSI decided anything) and the suppliers holding
+  offers are told.
+- **Two people deciding at once end as one decision**: every act locks the
+  request, then the pack, and checks under the lock that the pack is still
+  pending and the request still in review.
+
+What was done to a pack — by whom, when, and the reason — is kept in
+`decision_pack_event`, beside the pack and permanently; `audit_log`, which is
+purged at three months, carries a copy for the journal.
 
 Guarded transitions live in [`src/lib/request-status.ts`](src/lib/request-status.ts);
 illegal ones throw. So do **stale** ones (since 2026-11-14): `transitionRequest`
@@ -2160,6 +2205,8 @@ desk unaccounted for.
 
 **Four powers at that moment, not one** (owner, 2026-10-25): approve and send,
 **correct**, **relaunch**, or **refuse**. Each costs something different.
+**Built 2026-11-14** (BACKLOG Phase V, V11) — what follows is the reasoning;
+§2 says how it behaves.
 
 - **Correct.** V6 already requires that KPI #2 *"peut reclasser les offres tout
   en conservant l'ancien ordre pour audit"*. A human override is the same
@@ -2594,7 +2641,7 @@ erDiagram
 | `user`               | email (uq), name, locale, **`platform_role`** `user\|owner\|manager\|accountant`                                                          |
 | `organization`       | name, slug — **the workspace** (better-auth organization plugin)                                                                         |
 | `member`             | organization_id, user_id, role `owner\|admin\|buyer\|viewer`                                                                             |
-| `request`            | organization_id, created_by, title, description_raw, **status**, locale, compatibility_score, launched_at, completed_at                   |
+| `request`            | organization_id, created_by, title, description_raw, **status**, locale, compatibility_score, launched_at, completed_at; `unfulfilled_reason` / `_at` / `_by` + name (0053, V11 — why staff refused to send a pack, written for the buyer) |
 | `request_criterion`  | request_id, category `material\|flow\|pressure\|certification\|quantity\|lead_time\|other`, label, value, unit, required, source `ai\|user` |
 | `request_event`      | request_id, organization_id, type (`status.*`, `research.*`, `criteria.*`), message (JSON params)                                        |
 | `supplier`           | name, descriptor, country_code, website, description, **provenance**, **verification_status**, confidence_score, risk_level, source_ref, **`dedup_key` (uq)**, **`discovered_by_request_id`** |
@@ -2612,8 +2659,9 @@ erDiagram
 | `platform_permission` / `platform_role` | ✅ 2026-08-28/29 — the Rôles & accès matrix (feature × role) and the owner-created staff roles; the owner is never a row |
 | `rfq_round`          | ✅ 2026-11-14 (0048, Phase V · V06) — one round of solicitation: the RFQs that left together and the single deadline they share. `closes_at` is stored, and `window_hours` / `target_offers` are snapshots of the settings when it opened, so a later change never moves an open round. `quote.round_id` ties a solicitation to its round; a quote outside a round has no clock. **How it ended** (0049, V07): `closed_at` (null = open), `close_reason` (`target_reached` · `deadline` · `early` · `withdrawn`), `closed_by` + name snapshot (null on a closed round = the system) and `early_note` — written together by `closeRound`, in the conditional update that decides who closed it, and never rewritten |
 | `supplier_contact`   | ✅ 2026-11-14 (0047, Phase V · V02) — who to write to at a supplier: email, name, role, phone, the language to write in, `source` (`research` \| `staff`). **Exactly one PRIMARY per supplier that has any contact** — a partial unique index for "at most one", `ensurePrimary` for "at least one" — and the RFQ goes to it. Staff-only (`deals`): never returned by a buyer-facing fn, since the pool is platform-global. A researched address is kept only when it is on the supplier's own website domain (`acceptResearchedEmail`) — and never when that domain is one many companies share (a marketplace storefront, a site builder: `SHARED_HOSTS`), where the address would be the platform's and not the supplier's; it travels on `source_record.contact_email` and becomes a row here at promotion. Never from a paid provider |
-| `decision_pack`      | ✅ 2026-11-14 (0052, Phase V · V10) — what a buyer is shown, as a record: `request_id`, `round_id`, `status` (`pending` · `released` · `refused`), `release_mode` (the setting when the pack was created), `kpi_run_id` (the ranking it was built from; null for an empty pack), `built_at`. **At most one `pending` pack per request** (partial unique index). Who released or refused it, and whose desk it is on, arrive with the release queue (V11) |
-| `decision_pack_item` | ✅ 2026-11-14 (0052, Phase V · V10) — one offer in a pack: `quote_id`, `kpi_result_id`, `rank_computed` and `rank_shown`, and `offer` — a frozen copy of the figures and of the supplier as they stood, so the pack outlives changes to the quote |
+| `decision_pack`      | ✅ 2026-11-14 (0052, Phase V · V10; 0053, V11) — what a buyer is shown, as a record: `request_id`, `round_id`, `status` (`pending` · `released` · `refused` · `withdrawn`), `release_mode` (the setting when the pack was created), `kpi_run_id` (the ranking it was built from; null for an empty pack), `built_at`; `assigned_to` + name (whose desk), `released_at`, `released_by` + name (null = the system), `refused_reason`. **At most one `pending` pack per request** (partial unique index) |
+| `decision_pack_item` | ✅ 2026-11-14 (0052, V10; 0053, V11) — one offer in a pack: `quote_id`, `kpi_result_id`, `rank_computed` and `rank_shown` (**null = withheld by a person**), and `offer` — a frozen copy of the figures and of the supplier as they stood, so the pack outlives changes to the quote |
+| `decision_pack_event`| ✅ 2026-11-14 (0053, Phase V · V11) — what was done to a pack: `action` (`approved` · `corrected` · `relaunched` · `refused` · `assigned`), actor + name, `payload` (the note, the moves, the suppliers relaunched and what each had been closed as, the reason). Permanent — not `audit_log` |
 | `kpi_result`         | ✅ 2026-11-14 (0051, Phase V · V09) — KPI #2: one row per offer per run. `run_id` groups a computation; `rank`, `score` (hundredths of a point), `breakdown` (per-factor state, points and weight, the notes, and the offer exactly as it was scored), `formula_version`, `inputs_hash`, `trigger`, `computed_at`. **Append-only** — the current ranking of a round is its latest run. KPI #1 is not here: it scores a supplier before anyone is asked and stays on `match` |
 | `platform_setting`   | ✅ 2026-11-14 (0046, Phase V · V01) — platform-wide settings, ONE value per key for every client; a missing row means the default. Keys, types, ranges and defaults live in the registry `src/lib/platform-settings.ts`, so a new knob is a registry entry and not a migration. Edited from `/interne/parametres` (`settings` permission, owner by default); every change is in `audit_log` with the old and new value |
 | `plan` / `subscription` | limits as rows (daily, lifetime, seats, `quota_scope`, `audience`, `suppliers_returned`, `model_tier`); one subscription per workspace |

@@ -372,6 +372,13 @@
       "when": 1794702735670,
       "tag": "0052_supreme_sunfire",
       "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "7",
+      "when": 1794703568464,
+      "tag": "0053_slow_micromax",
+      "breakpoints": true
     }
   ]
 }

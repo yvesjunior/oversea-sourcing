@@ -200,6 +200,9 @@ export type RequestDetail = RequestSummary & {
   /** Which flow this request is on — derived from where it has been
    *  (`requestFlow`), never stored. Decides the stages the dossier draws. */
   flow: RequestFlow;
+  /** Why staff refused to send a Decision Pack (V11) — set only on an
+   *  `unfulfilled` request, and written FOR the buyer. */
+  unfulfilledReason: string | null;
   /**
    * Top-5 supplier candidates, ranked (empty until the search stage ran).
    *
@@ -650,6 +653,7 @@ export const getRequestDetailFn = createServerFn({ method: "GET" })
       attachments,
       aiChatEnabled,
       flow,
+      unfulfilledReason: row.status === "unfulfilled" ? row.unfulfilledReason : null,
       matches: shownMatches.map((m) => ({
         id: m.id,
         rank: m.rank,
@@ -843,8 +847,15 @@ export const cancelRequestFn = createServerFn({ method: "POST" })
     // between; and if this dies half way, the round sweep withdraws the round
     // of any request that is over. Never allowed to fail the cancel itself.
     try {
-      const { withdrawOpenRounds } = await import("@/server/rfq-window");
+      const { withdrawOpenRounds, tellOfferHolders } = await import("@/server/rfq-window");
       await withdrawOpenRounds(row.id, { id: session.user.id, name: session.user.name });
+      // Cancelled while the pack was IN REVIEW (V11): no round is open, but
+      // suppliers are holding offers, and a pack is waiting on staff's desk.
+      // The suppliers are told; the pack leaves the queue as `withdrawn` —
+      // not `refused`, since nobody at OSI decided anything.
+      if (row.status === "pack_review") await tellOfferHolders(row.id, "withdrawn");
+      const { withdrawPendingPack } = await import("@/server/decision-pack");
+      await withdrawPendingPack(row.id);
     } catch (error) {
       console.error(`cancelRequest: could not withdraw the open round of ${row.id}`, error);
     }

@@ -24,7 +24,7 @@
 | **E9** Notifications | In-app + email | 🟡 bell, emitters, **prefs (2026-08-26)** live; Phase P types (`quote_received`, `contract_to_sign`, `contract_signed`) + staff alert on `quotes.requested` (2026-09-07) live; **the bell alerts (2026-09-14)** — count badge, 30 s poll, chime, per-browser mute |
 | **E10** Admin surfaces | Verification, imports, ops queue | 🟡 **verification LIVE (S5b/S5c, 2026-08-26)**; imports/ops queue placeholders |
 | **R** Custom staff roles | Roles as data + the matrix | ✅ **BUILT 2026-08-29** (migration 0039) — create/delete roles, dynamic matrix, `requests.all` |
-| **E13** V6 architecture | Supplier portal · KPI #2 · Partner Hub · Decision Pack | 🔵 **NEW 2026-10-21** — scope opened by the V6 document; diagrams validated 2026-11-14; **34 tasks in seven slices — [Phase V](#phase-v--the-v6-parcours-task-by-task-e13--written-2026-11-14)**; **V01, V02, V04–V10 built 2026-11-14** (settings, contacts, states, fork + shortlist, RFQ batch, window closing, typed answer time + channel, KPI #2 v1, the Decision Pack record); V01–V09 **live on prod since deploy #45 (2026-11-14) with the pack-flow switch OFF**, V10 on `main`, not deployed |
+| **E13** V6 architecture | Supplier portal · KPI #2 · Partner Hub · Decision Pack | 🔵 **NEW 2026-10-21** — scope opened by the V6 document; diagrams validated 2026-11-14; **34 tasks in seven slices — [Phase V](#phase-v--the-v6-parcours-task-by-task-e13--written-2026-11-14)**; **V01, V02, V04–V11 built 2026-11-14** (settings, contacts, states, fork + shortlist, RFQ batch, window closing, typed answer time + channel, KPI #2 v1, the Decision Pack record, the release queue); V01–V09 **live on prod since deploy #45 (2026-11-14) with the pack-flow switch OFF**, V10–V11 on `main`, not deployed |
 | **E11** Settings | Profile, sourcing rules | 🟡 Paramètres + notification prefs live; **password / 2FA / theme / rename (2026-08-27)** live; buyer Abonnement self-service waits for billing |
 
 **MVP1 = E0–E7 + E10.** Definition of done **restated 2026-08-29 by ADR-002**
@@ -41,7 +41,8 @@ tracked to delivery** — with the PDF report available throughout.
 **Prod = `04b5019` (deploy #46, 2026-11-14)** — Phase V tasks V01–V09 with
 the pack-flow switch off, the fixes from the review of those nine tasks, and
 the missing-file fix. **`main` is ahead of prod and NOT deployed:** the
-deploy #46 record, then V10 (the Decision Pack record, migration 0052).
+deploy #46 record, then V10 (the Decision Pack record, migration 0052) and
+V11 (the release queue, migration 0053).
 
 **Deploy #46 verification** — backup `osi-20261114-191920.sql.gz` + its
 uploads archive (85 B) taken first. Build gate passed locally (573 tests).
@@ -4268,7 +4269,7 @@ report, exactly as today, because that report is all they get.
 | ~~**D2**~~ | ~~`plan.quotes_enabled` gates soumissions today. Is the V6 flow for every plan?~~ | ✅ **Decided 2026-11-14: no — the plan decides.** Plans without quotes stop at the existing report, as today; plans with quotes get the V6 flow. | V04, V05 |
 | ~~**D3**~~ | ~~Who presses send on the RFQs — staff, or the platform as soon as KPI #1 finishes?~~ | ✅ **Decided 2026-11-14: staff.** They confirm the shortlist and send the whole batch in one act. | V05, V06 |
 | ~~**D4**~~ | ~~The window is per request or per supplier (README §2c).~~ | ✅ **Decided 2026-11-14: per round.** One clock, started when the batch leaves; every supplier in the round shares its deadline. | V06, V07 |
-| **D5** | On relaunch, do offers already held survive, and whose clock restarts? | They survive; a new round has its own clock, for the suppliers newly asked only. | V11 |
+| **D5** | On relaunch, do offers already held survive, and whose clock restarts? | They survive; a new round has its own clock, for the suppliers newly asked only. **Built as this default in V11 (2026-11-14)** — and one thing follows from it that is worth confirming: the offer TARGET counts what the request holds across rounds, so two offers kept plus three new ones close the new window. Still the owner's to confirm. | V11 |
 | **D6** | What does a supplier see of the buyer before a dossier opens? | The specification, never the buyer's name or workspace. Identity is disclosed when the deal opens. | V16 |
 | **D7** | Offers arrive in different currencies and money is never converted (ADR-002). What does KPI #2 compare? | Landed cost is compared only within one currency; across currencies the pack says so instead of ranking on a rate nobody stored. A rate entered by staff or supplied by the settlement partner is stored on the pack when one exists. **Built as this default in V09 (2026-11-14), read strictly: with mixed currencies price is compared for no offer at all, and the ranking rests on the other factors.** Still the owner's to confirm. | V09, V24 |
 | **D8** | Who sets the KPIProfile weights? | The platform proposes them from the criteria; the buyer adjusts and validates them with the cahier des charges. | V19 |
@@ -5299,7 +5300,93 @@ built in: **S** one, **M** two to three, **L** four or more.
       null must mean "automatic" and nothing else; a staff member whose
       account was later deleted is told apart by the name snapshot.
 
-- [ ] **V11 · The release queue and its four actions.** *Size L. Step 10.
+- [x] **V11 · The release queue and its four actions — BUILT 2026-11-14**
+      (migration **0053**, not deployed). `decision_pack` gains
+      `assigned_to`, `released_at`, `released_by`, `refused_reason` (+ names);
+      `decision_pack_item.rank_shown` becomes nullable; `decision_pack_event`;
+      `request.unfulfilled_*`. `src/server/decision-pack.ts` — `approvePack`,
+      `correctPack`, `relaunchPack`, `refusePack`, `assignPack`,
+      `withdrawPendingPack`, `listPackQueue`; `planCorrection` and
+      `relaunchState` in `src/lib/decision-pack.ts` (pure); the six fns in
+      `src/lib/pack-fns.ts`; `/interne/packs`; the acts on the dossier's pack
+      panel. 621 tests.
+      **Every act** locks the request, then the pack, in one transaction, and
+      checks under the lock that the pack is pending and the request in
+      review. Each writes a `decision_pack_event` in that transaction and an
+      `audit_log` row after it.
+      **Differs from the task as written:**
+      • **The acts are on the dossier, not on the queue page.** The queue is
+        the desk — what waits, since when, on whose desk — and its one act
+        is taking a pack. Approving or correcting needs the offers in front
+        of the person, and they are on the dossier.
+      • **Assignment is "take it" / "put it back".** Nobody assigns a pack
+        to someone else: it lands on a desk because its owner took it.
+      • **A withheld offer keeps its row** — `rank_shown` NULL — instead of
+        being removed from the pack. The pack still says what was computed
+        and what was withheld; the buyer's projection drops it without a
+        trace.
+      • **A correction that changes nothing is refused** (`nothing_changed`),
+        and so is approving an empty pack (`empty`). Withholding everything
+        is refused too: that is a refusal, with its own reason.
+      • **A fourth pack status, `withdrawn`**: the buyer cancelled during
+        the review. Not `refused` — nobody at OSI decided anything.
+      • **The buyer is notified of a refusal HERE** (`request_unfulfilled`,
+        in-app + email, with the reason) rather than in V12: its destination
+        — the dossier's notice — already exists. `pack_ready` stays with
+        V12, because its destination does not.
+      • **Suppliers are told** (left to this task by V07): on a refusal,
+        those whose offers are in hand get a closing notice
+        (`buildRfqClosedMail`: the request is closed, no order follows —
+        nothing about why); on a cancel from review, the withdrawal notice.
+      **D5, built as its default — and what it took.** The offers in hand
+      survive a relaunch; the new round has its own clock. So:
+      • the relaunch opens round N+1 and moves the request in one
+        transaction, then RESUMES the batch send (`sendRfqBatch`) for the
+        quotes tied to the new round;
+      • a supplier asked again keeps one quote row, reopened into the new
+        round; what it had been closed as is written to the event's payload
+        before the row forgets it;
+      • **the ranking and the offer count now span the request's rounds**
+        (`gatherOffers`, `roundCounts`, `closeRound`'s offers): the same pack
+        is rebuilt from the held offers and the new ones together, and the
+        target counts both.
+      • eligible: never asked, `closed_before_deadline`, `not_reached`,
+        `no_response` (the page says asking again is a decision). Not
+        eligible: an offer in hand, `supplier_declined`.
+      *Verified live in dev on request #3049, then restored (baseline
+      re-checked):* the queue lists the pack with its age and « Personne ne
+      l'a pris »; taking it shows on both pages. **Correct:** the form
+      refused the computed order unchanged; with the two offers swapped and
+      a reason, the pack was released, the request went `report_ready`, both
+      ranks are stored (2→1, 1→2), and the buyer's projection returns the
+      shown order with no computed rank, staff name or internals.
+      **Frozen:** after the release the quotes were repriced, expired and
+      declined and the supplier renamed and rejected by SQL — ranking and
+      rebuild both refused, and the pack read exactly as before.
+      **Approve vs refuse fired together:** one succeeded, the other got
+      `not_pending`. **Empty pack:** listed in the queue with a warning;
+      approve and correct are disabled and refused by the server; a blank
+      refusal reason is refused. **Relaunch:** candidates listed with their
+      state, the two without a contact disabled, the warning shown for the
+      supplier who had not answered; round 2 opened, its RFQ logged, the
+      request back in `soliciting`, the queue showing a relaunch under way;
+      its offer recorded (« 3 offre(s) reçue(s) sur 5 »); round 2 closed
+      early → the same pack rebuilt with three items, ranked together.
+      **Refuse:** request `unfulfilled` with the reason; the buyer notified
+      in the app and by email; the three suppliers holding offers sent the
+      closing notice in their language; as a buyer, the dossier shows the
+      notice and the reason and nothing of the pack, no supplier and no
+      staff name. **Cancel from review**, as a buyer: pack `withdrawn`, the
+      two suppliers holding offers told, and the pack gone from the queue
+      (checked with the queue's own filter, in SQL).
+      **Not exercised:** a relaunch whose RFQ fails for some suppliers
+      (`partly_sent`); two relaunches clicked together; a late-keyed answer
+      landing between the candidates list and the relaunch
+      (`RelaunchConflict`); the English screens; real mail.
+      **Limit to know:** a released pack has no page for the buyer yet —
+      after an approval the dossier shows the last stage as done and nothing
+      to open. That is V12, and why the switch stays off.
+- [x] ~~**V11 · The release queue and its four actions.**~~ *Size L. Step 10.
       Depends on: V10. Blocks: V12, V14.*
 
       **Left for this task by V07:**
@@ -5375,6 +5462,12 @@ built in: **S** one, **M** two to three, **L** four or more.
 - [ ] **V12 · The buyer reads the pack — or is told there will be none.**
       *Size L. Steps 10–11. Depends on: V11. Blocks: V13.*
 
+      **Left for this task by V11:** `pack_ready` — the notification an
+      approval or a correction should send, withheld until there is a page
+      to send the buyer to (today a release tells them nothing). The
+      `unfulfilled` notice, its reason and `request_unfulfilled` are built.
+      A withheld offer (`rank_shown` null) is already absent from the
+      buyer's projection.
       **Left for this task by V10:** the buyer's reader exists —
       `getPackView(packId, "buyer")`, through `projectPack`: a *released*
       pack only, items in `rank_shown` order, no `rank_computed`, no
@@ -5431,6 +5524,16 @@ built in: **S** one, **M** two to three, **L** four or more.
 
 - [ ] **V14 · Automatic release, built and switched off.** *Size M. Step 10.
       Depends on: V01, V11.*
+
+      **Left for this task by V10 and V11:** the mode to read is the one
+      STORED ON THE PACK (`decision_pack.release_mode`, set when the pack is
+      created), not the setting again. `release()` in
+      `src/server/decision-pack.ts` takes a person today — the automatic
+      path passes none, so `released_by` and the event's actor are null,
+      which must mean "the system" and nothing else. The report's raw
+      material exists: `decision_pack_event` (approved · corrected ·
+      relaunched · refused, with notes) and `rfq_round` (`close_reason`,
+      `early_note`, `closed_at`).
 
       **What it does.** The other value of `pack.release_mode`. When it is
       `automatic`, a closing round releases its pack without a person —

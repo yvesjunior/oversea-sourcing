@@ -27,7 +27,7 @@ import { db } from "@/database";
 import * as schema from "@/database/schema";
 import type { RoundCloseReason } from "@/database/schema";
 import { isTerminal } from "@/lib/request-status";
-import { buildRfqWithdrawnMail } from "@/lib/rfq-mail";
+import { buildRfqClosedMail, buildRfqWithdrawnMail } from "@/lib/rfq-mail";
 import { dueClose, leadsToReview, silentDeclineReason } from "@/lib/rfq-round";
 import { logAudit } from "@/server/audit";
 import { sendMail } from "@/server/mail";
@@ -37,9 +37,14 @@ import { recordEvent, transitionRequest } from "@/server/requests";
 import { primaryContactsFor } from "@/server/supplier-contacts";
 
 export type RoundCounts = {
-  /** Offers in — what the target is counted against. */
+  /**
+   * Offers in — what the target is counted against. The offers the REQUEST
+   * holds, across its rounds (V11): after a relaunch, two offers kept from
+   * the first round and three new ones make five, and that is what "the
+   * window closes on five offers" means to the buyer waiting for a pack.
+   */
   offers: number;
-  /** Written to and still silent. */
+  /** Written to in THIS round and still silent. */
   awaiting: number;
 };
 
@@ -49,17 +54,45 @@ export async function roundCounts(roundIds: readonly string[]): Promise<Map<stri
     roundIds.map((id) => [id, { offers: 0, awaiting: 0 }]),
   );
   if (roundIds.length === 0) return counts;
-  const rows = await db
-    .select({
-      roundId: schema.quote.roundId,
-      offers: sql<number>`count(*) filter (where ${schema.quote.status} = 'received')::int`,
-      awaiting: sql<number>`count(*) filter (where ${schema.quote.status} = 'requested' and ${schema.quote.sentAt} is not null)::int`,
-    })
-    .from(schema.quote)
-    .where(inArray(schema.quote.roundId, [...roundIds]))
-    .groupBy(schema.quote.roundId);
-  for (const row of rows) {
-    if (row.roundId) counts.set(row.roundId, { offers: row.offers, awaiting: row.awaiting });
+  const [rounds, awaiting] = await Promise.all([
+    db
+      .select({ id: schema.rfqRound.id, requestId: schema.rfqRound.requestId })
+      .from(schema.rfqRound)
+      .where(inArray(schema.rfqRound.id, [...roundIds])),
+    db
+      .select({ roundId: schema.quote.roundId, n: sql<number>`count(*)::int` })
+      .from(schema.quote)
+      .where(
+        and(
+          inArray(schema.quote.roundId, [...roundIds]),
+          eq(schema.quote.status, "requested"),
+          isNotNull(schema.quote.sentAt),
+        ),
+      )
+      .groupBy(schema.quote.roundId),
+  ]);
+  const requestIds = [...new Set(rounds.map((round) => round.requestId))];
+  const held =
+    requestIds.length === 0
+      ? []
+      : await db
+          .select({ requestId: schema.quote.requestId, n: sql<number>`count(*)::int` })
+          .from(schema.quote)
+          .where(
+            and(
+              inArray(schema.quote.requestId, requestIds),
+              isNotNull(schema.quote.roundId),
+              eq(schema.quote.status, "received"),
+            ),
+          )
+          .groupBy(schema.quote.requestId);
+  const offersByRequest = new Map(held.map((row) => [row.requestId, row.n]));
+  const awaitingByRound = new Map(awaiting.map((row) => [row.roundId, row.n]));
+  for (const round of rounds) {
+    counts.set(round.id, {
+      offers: offersByRequest.get(round.requestId) ?? 0,
+      awaiting: awaitingByRound.get(round.id) ?? 0,
+    });
   }
   return counts;
 }
@@ -166,10 +199,20 @@ export async function closeRound(
       silent.push(...rows.map((row) => ({ ...row, sent })));
     }
 
+    // Every offer the request holds, whichever round it came in (V11): the
+    // count the review starts from, and — on a withdrawal — everyone who is
+    // owed the notice, including a supplier whose offer dates from a round
+    // before this one.
     const answered = await tx
       .select({ supplierId: schema.quote.supplierId, supplierName: schema.quote.supplierName })
       .from(schema.quote)
-      .where(and(eq(schema.quote.roundId, roundId), eq(schema.quote.status, "received")));
+      .where(
+        and(
+          eq(schema.quote.requestId, request.id),
+          isNotNull(schema.quote.roundId),
+          eq(schema.quote.status, "received"),
+        ),
+      );
 
     if (leadsToReview(reason)) {
       if (current.status === "soliciting") {
@@ -212,10 +255,14 @@ export async function closeRound(
 
   let told = 0;
   if (reason === "withdrawn") {
-    told = await tellWithdrawn(request, [
-      ...silent.filter((s) => s.sent).map((s) => ({ ...s, answered: false })),
-      ...answered.map((a) => ({ ...a, answered: true })),
-    ]);
+    told = await tellSuppliers(
+      request,
+      [
+        ...silent.filter((s) => s.sent).map((s) => ({ ...s, answered: false })),
+        ...answered.map((a) => ({ ...a, answered: true })),
+      ],
+      "withdrawn",
+    );
     if (told > 0) {
       await recordEvent(request.id, request.organizationId, "rfq.withdrawn", { count: told });
     }
@@ -287,16 +334,20 @@ const CLOSE_SENTENCES: Record<
 };
 
 /**
- * Tell the suppliers who were written to that the RFQ no longer stands.
+ * Tell suppliers that the RFQ they were sent no longer stands.
+ *
+ * Two notices, by what happened: `withdrawn` — the buyer cancelled; `closed`
+ * — staff refused to send a pack (only ever sent to suppliers who answered).
  *
  * Goes to each supplier's PRIMARY contact as it is now — the address an RFQ
  * was sent to is not kept on the quote, so a contact changed since the send
  * means the notice goes to the new one. A supplier left with no contact at
  * all cannot be told, and is not counted.
  */
-async function tellWithdrawn(
-  request: typeof schema.request.$inferSelect,
+async function tellSuppliers(
+  request: { id: string; title: string },
   suppliers: { supplierId: string | null; supplierName: string; answered: boolean }[],
+  notice: "withdrawn" | "closed",
 ): Promise<number> {
   if (suppliers.length === 0) return 0;
   const [contacts, replyTo] = await Promise.all([
@@ -308,17 +359,20 @@ async function tellWithdrawn(
     const contact = supplier.supplierId ? contacts.get(supplier.supplierId) : undefined;
     if (!contact) {
       console.error(
-        `rfq: ${supplier.supplierName} could not be told request ${request.id} was withdrawn — no contact`,
+        `rfq: ${supplier.supplierName} could not be told request ${request.id} is ${notice} — no contact`,
       );
       continue;
     }
-    const mail = buildRfqWithdrawnMail({
+    const common = {
       locale: contact.locale,
       requestId: request.id,
       title: request.title,
       greetingName: contact.name,
-      answered: supplier.answered,
-    });
+    };
+    const mail =
+      notice === "withdrawn"
+        ? buildRfqWithdrawnMail({ ...common, answered: supplier.answered })
+        : buildRfqClosedMail(common);
     try {
       const result = await sendMail({
         to: contact.email,
@@ -329,10 +383,50 @@ async function tellWithdrawn(
       });
       if (result.ok || result.queued) told += 1;
     } catch (error) {
-      // The round is closed and committed; one refused address must not stop
-      // the others being told.
-      console.error(`rfq: withdrawal notice to ${supplier.supplierName} failed —`, error);
+      // What caused the notice is already committed; one refused address
+      // must not stop the others being told.
+      console.error(`rfq: ${notice} notice to ${supplier.supplierName} failed —`, error);
     }
+  }
+  return told;
+}
+
+/**
+ * The request ended while it was IN REVIEW — no round is open, but suppliers
+ * are holding offers (V11). Tell them, and put the count on the timeline.
+ *
+ * `withdrawn`: the buyer cancelled from `pack_review`. `closed`: staff
+ * refused the pack. Either way only the suppliers whose offers are in hand —
+ * the silent ones were closed out when their round ended.
+ */
+export async function tellOfferHolders(
+  requestId: string,
+  notice: "withdrawn" | "closed",
+): Promise<number> {
+  const request = await db.query.request.findFirst({ where: eq(schema.request.id, requestId) });
+  if (!request) return 0;
+  const holders = await db
+    .select({ supplierId: schema.quote.supplierId, supplierName: schema.quote.supplierName })
+    .from(schema.quote)
+    .where(
+      and(
+        eq(schema.quote.requestId, requestId),
+        isNotNull(schema.quote.roundId),
+        eq(schema.quote.status, "received"),
+      ),
+    );
+  const told = await tellSuppliers(
+    request,
+    holders.map((holder) => ({ ...holder, answered: true })),
+    notice,
+  );
+  if (told > 0) {
+    await recordEvent(
+      requestId,
+      request.organizationId,
+      notice === "withdrawn" ? "rfq.withdrawn" : "rfq.holders_told",
+      { count: told },
+    );
   }
   return told;
 }

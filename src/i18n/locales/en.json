@@ -25,7 +25,8 @@
     "settings": "Platform settings",
     "users": "Users",
     "logging": "Logging",
-    "sources": "Data sources"
+    "sources": "Data sources",
+    "deals": "Decision Packs"
   },
   "platformRoles": {
     "owner": "Platform owner",
@@ -128,7 +129,8 @@
       "quotes_requested": "Quotes to send out (a customer picked their suppliers) — OSI staff",
       "shortlist_ready": "Shortlists to confirm (a search finished) — OSI staff",
       "mail_backlog": "Outbound mail failing (messages are waiting to be sent) — OSI staff",
-      "rfq_window_closed": "Response windows closed (a request awaits review) — OSI staff"
+      "rfq_window_closed": "Response windows closed (a request awaits review) — OSI staff",
+      "request_unfulfilled": "Request closed without a result (no Decision Pack will be sent)"
     },
     "tabOrganisation": "Organisation",
     "orgInfoTitle": "Organisation information",
@@ -561,7 +563,8 @@
     "rerunRunning": "Re-running…",
     "rerunRefused": "This research is no longer failed — nothing to re-run.",
     "unfulfilledTitle": "This request was closed without offers",
-    "unfulfilledText": "The OSI team could not put together a Decision Pack for this request. No offer will be sent to you. You can file a new request at any time."
+    "unfulfilledText": "The OSI team could not put together a Decision Pack for this request. No offer will be sent to you. You can file a new request at any time.",
+    "unfulfilledReason": "Reason:"
   },
   "stepsFlux": {
     "received": "Request received",
@@ -621,7 +624,8 @@
     "quote_accepted": "Quote accepted — transaction file opened",
     "rfq_closed": "Response window closed — {{offers}} offer(s) received",
     "rfq_withdrawn": "RFQ withdrawn from {{count}} supplier(s)",
-    "rfq_offer_added": "Offer that arrived in time, entered after the close — {{offers}} offer(s) in total"
+    "rfq_offer_added": "Offer that arrived in time, entered after the close — {{offers}} offer(s) in total",
+    "rfq_holders_told": "{{count}} supplier(s) told the request is closed"
   },
   "stepsDemande": {
     "received": {
@@ -973,7 +977,8 @@
     "quotes_requested": "{{count}} supplier(s) to solicit — request #{{id}}",
     "shortlist_ready": "Shortlist to confirm — request #{{id}}",
     "mail_backlog": "Outbound mail is failing — {{count}} message(s) waiting to be sent",
-    "rfq_window_closed": "Response window closed — request #{{id}}: {{offers}} offer(s) received"
+    "rfq_window_closed": "Response window closed — request #{{id}}: {{offers}} offer(s) received",
+    "request_unfulfilled": "Your request #{{id}} has been closed without a result"
   },
   "verificationAdmin": {
     "title": "Supplier verification",
@@ -1117,7 +1122,12 @@
     "supplier_contact.primary_set": "Primary contact set",
     "supplier_contact.removed": "Supplier contact removed",
     "rfq.closed": "Response window closed",
-    "kpi.recomputed": "Offer ranking recomputed"
+    "kpi.recomputed": "Offer ranking recomputed",
+    "pack.approved": "Decision Pack approved and sent",
+    "pack.corrected": "Decision Pack corrected and sent",
+    "pack.relaunched": "Decision Pack relaunched",
+    "pack.refused": "Decision Pack refused",
+    "pack.assigned": "Decision Pack assigned"
   },
   "twofa": {
     "title": "Two-step verification",
@@ -1511,17 +1521,113 @@
     "subtitle": {
       "pending": "What the customer will see once the pack is sent. While it is pending it follows the ranking above; none of it is visible to the customer.",
       "released": "Sent to the customer: this is what they saw, and it no longer changes.",
-      "refused": "Refused by staff: nothing was sent to the customer."
+      "refused": "Refused by staff: nothing was sent to the customer.",
+      "withdrawn": "The customer cancelled the request before it was sent: nothing was passed on."
     },
     "status": {
       "pending": "Pending",
       "released": "Sent",
-      "refused": "Refused"
+      "refused": "Refused",
+      "withdrawn": "Withdrawn"
     },
     "built": "Built {{date}}",
     "mode": "{{mode}} release",
     "empty": "No offer in this pack: none came in, or all were set aside. It is for staff to relaunch or refuse.",
     "capped": "{{left}} other offer(s) received are not in the pack: it holds the {{target}} best ranked.",
-    "movedFrom": "Ranked #{{rank}} by the computation — moved by staff."
+    "movedFrom": "Ranked #{{rank}} by the computation — moved by staff.",
+    "releasedOn": "sent {{date}} by {{name}}",
+    "bySystem": "the system",
+    "refusedBecause": "Reason for refusal:",
+    "onDeskOf": "On {{name}}'s desk",
+    "unassigned": "Nobody has taken it",
+    "take": "Take it",
+    "putBackAction": "Put it back",
+    "withheld": "Withheld by staff — ranked #{{rank}} by the computation, not shown to the customer.",
+    "relaunchOpen": "A relaunch is under way: the pack will be rebuilt, with the offers already in, when the new round closes.",
+    "approve": "Approve and send",
+    "correct": "Correct…",
+    "relaunch": "Relaunch…",
+    "refuse": "Refuse…",
+    "cancel": "Cancel",
+    "correctTitle": "Correct what the customer will see",
+    "correctHint": "Change the order or withhold offers. The computed order stays on record beside the order shown; the customer sees only the latter. Sending is final.",
+    "moveUp": "Move {{supplier}} up",
+    "moveDown": "Move {{supplier}} down",
+    "withhold": "Withhold",
+    "willBeWithheld": "will not be shown to the customer",
+    "putBackIn": "Put back",
+    "correctNote": "Why this correction? (required)",
+    "correctConfirm": "Send with these corrections",
+    "relaunchTitle": "Ask more suppliers",
+    "relaunchHint": "A new round opens for the suppliers ticked, with its own deadline. The offers already in stay in the pack.",
+    "noCandidates": "No other supplier on the shortlist can be asked.",
+    "candidate": {
+      "never_asked": "never asked",
+      "closed_before_deadline": "window closed before the deadline",
+      "not_reached": "RFQ never reached them",
+      "no_response": "no response in the previous round"
+    },
+    "candidateNoContact": "no contact — add one from Suppliers",
+    "noResponseWarning": "A supplier ticked already had a full window and did not answer. Asking again is possible; it is a decision.",
+    "relaunchNote": "Why this relaunch? (required)",
+    "relaunchConfirm": "Relaunch ({{count}})",
+    "refuseTitle": "Refuse to send a pack",
+    "refuseHint": "The request will be closed without a result. The reason is passed to the customer as written, on their request and by email. Suppliers who answered are told the request is closed.",
+    "refuseReason": "Reason, as the customer will read it (required)",
+    "refuseConfirm": "Refuse and tell the customer",
+    "history_one": "{{count}} action on this pack",
+    "history_other": "{{count}} actions on this pack",
+    "event": {
+      "approved": "Approved and sent",
+      "corrected": "Corrected and sent",
+      "relaunched": "Relaunched",
+      "refused": "Refused",
+      "assigned": "Assignment"
+    },
+    "assignedTo": "Taken by {{name}}.",
+    "putBack": "Put back in the queue.",
+    "move": "{{supplier}}: #{{from}} → #{{to}}",
+    "moveWithheld": "{{supplier}}: #{{from}} → withheld",
+    "round": "Round {{no}}",
+    "done": {
+      "approved": "Pack sent to the customer.",
+      "corrected": "Pack corrected and sent to the customer.",
+      "relaunched": "Relaunch sent: a new round is open.",
+      "refused": "Pack refused: the customer has been told.",
+      "taken": "This pack is on your desk.",
+      "putBack": "This pack is back in the queue."
+    },
+    "refusal": {
+      "forbidden": "Not allowed.",
+      "not_found": "This pack no longer exists.",
+      "not_pending": "This pack is no longer pending: it has been dealt with, or the request has moved on.",
+      "empty": "This pack holds no offer: relaunch or refuse.",
+      "note_required": "A reason is required.",
+      "unknown_item": "An offer named is not part of this pack.",
+      "incomplete_order": "Every offer in the pack must be either ranked or withheld.",
+      "nothing_shown": "Every offer is withheld: that is a refusal, not a correction.",
+      "nothing_changed": "Nothing is changed: to send the pack as it is, approve it.",
+      "no_suppliers": "Tick at least one supplier.",
+      "not_eligible": "A supplier ticked can no longer be asked.",
+      "missing_contact": "A supplier ticked has no contact",
+      "no_reply_address": "No reply address is set: the relaunch cannot be sent.",
+      "partly_sent": "The round is open, but the RFQ could not be sent to some suppliers — send it again from the RFQ panel"
+    }
+  },
+  "packQueue": {
+    "title": "Decision Packs",
+    "subtitle": "Packs awaiting a decision. Nothing reaches a customer until a person has approved, corrected, relaunched or refused.",
+    "review_one": "{{count}} pack awaits a decision",
+    "review_other": "{{count}} packs await a decision",
+    "none": "No pack is awaiting a decision.",
+    "items_one": "{{count}} offer",
+    "items_other": "{{count}} offers",
+    "empty": "no offer — relaunch or refuse",
+    "waiting": "Waiting for {{age}}",
+    "since": "since {{date}}",
+    "relaunched": "Relaunch under way — waiting on suppliers",
+    "relaunchedTitle_one": "{{count}} relaunch under way",
+    "relaunchedTitle_other": "{{count}} relaunches under way",
+    "relaunchedHint": "These packs are not waiting on a person: they come back here when their new round closes."
   }
 }

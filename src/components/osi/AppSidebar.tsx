@@ -16,6 +16,7 @@ import {
   ScrollText,
   Settings,
   ShieldCheck,
+  PackageCheck,
   SlidersHorizontal,
   UserCog,
   Users,
@@ -103,6 +104,9 @@ const itemsInterne: {
   { key: "finance", url: "/interne/finance", icone: Wallet },
   // Real screen, not a placeholder — so it stays live for managers.
   { key: "plans", url: "/interne/plans", icone: CreditCard },
+  // The release queue (Phase V · V11): every Decision Pack awaiting a
+  // decision. Keyed on `deals` — the permission that lets someone act on one.
+  { key: "deals", url: "/interne/packs", icone: PackageCheck },
   // One value per key, for every client (Phase V · V01). Not the buyer's
   // "Paramètres" — that one is /parametres, in the client block above.
   { key: "settings", url: "/interne/parametres", icone: SlidersHorizontal },

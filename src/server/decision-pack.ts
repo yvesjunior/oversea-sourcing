@@ -18,24 +18,33 @@
 // the buyer was shown is then a record, and a record that kept following
 // the quote rows would not be one.
 
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull, isNull } from "drizzle-orm";
 import { db } from "@/database";
 import * as schema from "@/database/schema";
-import type { KpiRunTrigger } from "@/database/schema";
+import type { KpiRunTrigger, PackEventAction } from "@/database/schema";
 import {
+  planCorrection,
   projectPack,
+  relaunchState,
   samePackItems,
   selectPackItems,
+  type CorrectionRefusal,
   type PackAudience,
   type PackItemRow,
   type PackOfferSnapshot,
   type PackRow,
   type PackView,
   type RankedOffer,
+  type RelaunchState,
 } from "@/lib/decision-pack";
 import type { Kpi2Breakdown } from "@/lib/kpi2";
 import { runKpi2 } from "@/server/kpi";
+import { notifyUser } from "@/server/notify";
 import { getSetting } from "@/server/platform-settings";
+import { transitionRequest } from "@/server/requests";
+import { sendRfqBatch } from "@/server/rfq";
+import { tellOfferHolders } from "@/server/rfq-window";
+import { primaryContactsFor } from "@/server/supplier-contacts";
 
 function isUniqueViolation(error: unknown): boolean {
   const code = (error as { code?: string; cause?: { code?: string } } | null) ?? null;
@@ -99,12 +108,12 @@ async function ensurePendingPack(
 /** The latest ranking of the round, joined to what a pack item copies. Only
  *  offers still `received`: a run can outlive an offer staff have since
  *  declined, and a declined offer is not shown to anyone. */
-async function latestRanking(roundId: string): Promise<{
+async function latestRanking(requestId: string): Promise<{
   runId: string | null;
   ranked: RankedOffer[];
 }> {
   const latest = await db.query.kpiResult.findFirst({
-    where: eq(schema.kpiResult.roundId, roundId),
+    where: eq(schema.kpiResult.requestId, requestId),
     orderBy: [desc(schema.kpiResult.computedAt)],
     columns: { runId: true },
   });
@@ -182,7 +191,7 @@ export async function syncPack(roundId: string): Promise<SyncPackOutcome> {
 
     // Read under the lock, so the items written are the ranking as it is
     // once every earlier rebuild has finished.
-    const { runId, ranked } = await latestRanking(roundId);
+    const { runId, ranked } = await latestRanking(request.id);
     const desired = selectPackItems(ranked, round.targetOffers);
     const current = await tx.query.decisionPackItem.findMany({
       where: eq(schema.decisionPackItem.packId, pack.id),
@@ -266,6 +275,11 @@ async function loadPack(pack: PackRecord, audience: PackAudience): Promise<PackV
     kpiRunId: pack.kpiRunId,
     builtAt: pack.builtAt.toISOString(),
     createdAt: pack.createdAt.toISOString(),
+    releasedAt: pack.releasedAt ? pack.releasedAt.toISOString() : null,
+    releasedByName: pack.releasedByName,
+    refusedReason: pack.refusedReason,
+    assignedTo: pack.assignedTo,
+    assignedToName: pack.assignedToName,
   };
   const items: PackItemRow[] = rows.map(({ item, breakdown }) => {
     const reason = breakdown as Kpi2Breakdown | null;
@@ -292,16 +306,121 @@ export async function getPackView(
   return pack ? await loadPack(pack, audience) : null;
 }
 
+/** One thing done to a pack, shaped for the page. `payload` is jsonb written
+ *  by the action of its day — read defensively, and never passed through as
+ *  it is. */
+export type PackEventView = {
+  action: PackEventAction;
+  actorName: string | null;
+  at: string;
+  /** The correction's or relaunch's note, or the refusal's reason. */
+  note: string | null;
+  /** A correction: computed place → shown place (null = withheld). */
+  moves: { supplier: string | null; from: number; to: number | null }[];
+  /** A relaunch: who was asked, and what each had been closed as. */
+  suppliers: { name: string; was: string }[];
+  round: number | null;
+  /** An assignment: to whom — null when it was put back. */
+  toName: string | null;
+};
+
+function readEvent(event: typeof schema.decisionPackEvent.$inferSelect): PackEventView {
+  const payload = (event.payload ?? {}) as Record<string, unknown>;
+  const text = (value: unknown) => (typeof value === "string" ? value : null);
+  const list = (value: unknown) => (Array.isArray(value) ? (value as unknown[]) : []);
+  return {
+    action: event.action,
+    actorName: event.actorName,
+    at: event.createdAt.toISOString(),
+    note: text(payload["note"]) ?? text(payload["reason"]),
+    moves: list(payload["moves"]).flatMap((entry) => {
+      const move = (entry ?? {}) as Record<string, unknown>;
+      return typeof move["from"] === "number"
+        ? [
+            {
+              supplier: text(move["supplier"]),
+              from: move["from"],
+              to: typeof move["to"] === "number" ? move["to"] : null,
+            },
+          ]
+        : [];
+    }),
+    suppliers: list(payload["suppliers"]).flatMap((entry) => {
+      const supplier = (entry ?? {}) as Record<string, unknown>;
+      const name = text(supplier["name"]);
+      return name ? [{ name, was: text(supplier["was"]) ?? "" }] : [];
+    }),
+    round: typeof payload["round"] === "number" ? payload["round"] : null,
+    toName: text(payload["toName"]),
+  };
+}
+
+export type RelaunchCandidate = {
+  supplierId: string;
+  name: string;
+  /** KPI #1's rank — the order the shortlist was in. */
+  rank: number;
+  state: RelaunchState;
+  /** No primary contact = cannot be written to; add one first. */
+  hasContact: boolean;
+};
+
 export type RequestPackView = {
   pack: PackView;
-  /** Offers the round holds right now. More than the pack's items when the
+  /** Offers the request holds right now. More than the pack's items when the
    *  round's target capped it. */
   offersInRound: number;
   targetOffers: number;
+  /** The four powers apply: the pack is pending AND the request is in
+   *  review. False while a relaunched round is open — nothing to decide
+   *  until it closes. */
+  canAct: boolean;
+  /** Since when it has been waiting on a person — the close of the round
+   *  that last built it. */
+  waitingSince: string | null;
+  /** Suppliers of the shortlist a relaunch could ask. */
+  candidates: RelaunchCandidate[];
+  /** A relaunch writes to suppliers, so it needs somewhere for them to
+   *  answer — the same rule as the first batch. */
+  replyToSet: boolean;
+  /** What was done to this pack, oldest first. */
+  events: PackEventView[];
 };
 
+/** The shortlist suppliers who could be asked in a relaunch, in KPI #1 order. */
+async function relaunchCandidates(requestId: string): Promise<RelaunchCandidate[]> {
+  const [ranked, quotes] = await Promise.all([
+    db
+      .select({ id: schema.supplier.id, name: schema.supplier.name, rank: schema.match.rank })
+      .from(schema.match)
+      .innerJoin(schema.supplier, eq(schema.supplier.id, schema.match.supplierId))
+      .where(eq(schema.match.requestId, requestId))
+      .orderBy(asc(schema.match.rank)),
+    db.query.quote.findMany({ where: eq(schema.quote.requestId, requestId) }),
+  ]);
+  const quoteBySupplier = new Map(quotes.map((quote) => [quote.supplierId, quote]));
+  const contacts = await primaryContactsFor(ranked.map((supplier) => supplier.id));
+  return ranked.flatMap((supplier) => {
+    const quote = quoteBySupplier.get(supplier.id) ?? null;
+    const state = relaunchState(
+      quote ? { status: quote.status, declineReason: quote.declineReason ?? null } : null,
+    );
+    return state
+      ? [
+          {
+            supplierId: supplier.id,
+            name: supplier.name,
+            rank: supplier.rank,
+            state,
+            hasContact: contacts.has(supplier.id),
+          },
+        ]
+      : [];
+  });
+}
+
 /** The request's most recent pack, for staff — with what the page needs to
- *  say why it may hold fewer offers than came in. */
+ *  act on it and to say why it may hold fewer offers than came in. */
 export async function loadPackForRequest(requestId: string): Promise<RequestPackView | null> {
   const pack = await db.query.decisionPack.findFirst({
     where: eq(schema.decisionPack.requestId, requestId),
@@ -310,15 +429,520 @@ export async function loadPackForRequest(requestId: string): Promise<RequestPack
   if (!pack) return null;
   const view = await loadPack(pack, "staff");
   if (!view) return null;
-  const [round, offers] = await Promise.all([
+  const [request, round, offers, events, replyTo] = await Promise.all([
+    db.query.request.findFirst({
+      where: eq(schema.request.id, requestId),
+      columns: { status: true },
+    }),
     db.query.rfqRound.findFirst({
       where: eq(schema.rfqRound.id, pack.roundId),
-      columns: { targetOffers: true },
+      columns: { targetOffers: true, closedAt: true },
     }),
     db
       .select({ id: schema.quote.id })
       .from(schema.quote)
-      .where(and(eq(schema.quote.roundId, pack.roundId), eq(schema.quote.status, "received"))),
+      .where(
+        and(
+          eq(schema.quote.requestId, requestId),
+          isNotNull(schema.quote.roundId),
+          eq(schema.quote.status, "received"),
+        ),
+      ),
+    db.query.decisionPackEvent.findMany({
+      where: eq(schema.decisionPackEvent.packId, pack.id),
+      orderBy: [asc(schema.decisionPackEvent.createdAt)],
+    }),
+    getSetting("rfq.reply_to"),
   ]);
-  return { pack: view, offersInRound: offers.length, targetOffers: round?.targetOffers ?? 0 };
+  const canAct = pack.status === "pending" && request?.status === "pack_review";
+  return {
+    pack: view,
+    offersInRound: offers.length,
+    targetOffers: round?.targetOffers ?? 0,
+    canAct,
+    waitingSince: round?.closedAt ? round.closedAt.toISOString() : null,
+    // Only worth computing when a relaunch is possible.
+    candidates: canAct ? await relaunchCandidates(requestId) : [],
+    replyToSet: replyTo !== "",
+    events: events.map(readEvent),
+  };
+}
+
+// ── the four powers, and the desk (V11) ─────────────────────────────────────
+//
+// Approve, correct, relaunch, refuse (owner, 2026-10-25) — and assign.
+//
+// RELEASE IS THE IRREVERSIBLE ACT. Approving and correcting both end in it:
+// the pack goes `released`, the request `pack_review → report_ready`, and
+// from that instant nothing rebuilds the pack — `syncPack` refuses anything
+// that is not pending, `runKpi2` anything outside the review. What the buyer
+// was shown is then exactly these rows.
+//
+// Every act locks the REQUEST first, then the pack, in one transaction, and
+// checks under the lock that the request is still in review and the pack
+// still pending: two people deciding at once, or a decision racing a buyer's
+// cancel, end as one decision.
+
+type Actor = { id: string; name: string };
+
+export type PackActionRefusal =
+  | "not_found"
+  /** Already released, refused or withdrawn — or the request has moved on. */
+  | "not_pending"
+  /** Nothing in it that the buyer could be shown. */
+  | "empty"
+  | "note_required"
+  | CorrectionRefusal
+  | "no_suppliers"
+  /** A supplier named is not one a relaunch may ask (see `relaunchState`). */
+  | "not_eligible"
+  | "missing_contact"
+  | "no_reply_address";
+
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+/** Lock the request, then the pack; null unless the pack is pending and the
+ *  request in review. */
+async function lockForDecision(tx: Tx, packId: string) {
+  const found = await tx.query.decisionPack.findFirst({
+    where: eq(schema.decisionPack.id, packId),
+    columns: { requestId: true },
+  });
+  if (!found) return { refusal: "not_found" as const };
+  const [request] = await tx
+    .select()
+    .from(schema.request)
+    .where(eq(schema.request.id, found.requestId))
+    .for("update");
+  const [pack] = await tx
+    .select()
+    .from(schema.decisionPack)
+    .where(eq(schema.decisionPack.id, packId))
+    .for("update");
+  if (!request || !pack) return { refusal: "not_found" as const };
+  if (pack.status !== "pending" || request.status !== "pack_review") {
+    return { refusal: "not_pending" as const };
+  }
+  return { request, pack };
+}
+
+async function recordPackEvent(
+  tx: Tx,
+  packId: string,
+  action: PackEventAction,
+  actor: Actor | null,
+  payload: Record<string, unknown> | null,
+): Promise<void> {
+  await tx.insert(schema.decisionPackEvent).values({
+    id: crypto.randomUUID(),
+    packId,
+    action,
+    actorId: actor?.id ?? null,
+    actorName: actor?.name ?? null,
+    payload,
+  });
+}
+
+/** The irreversible half, shared by approve and correct. */
+async function release(
+  tx: Tx,
+  pack: PackRecord,
+  request: { id: string; organizationId: string },
+  actor: Actor,
+): Promise<void> {
+  const now = new Date();
+  await tx
+    .update(schema.decisionPack)
+    .set({ status: "released", releasedAt: now, releasedBy: actor.id, releasedByName: actor.name })
+    .where(eq(schema.decisionPack.id, pack.id));
+  await transitionRequest(request.id, request.organizationId, "pack_review", "report_ready", tx);
+}
+
+export type PackActionResult =
+  { ok: true; requestId: string; items: number } | { ok: false; reason: PackActionRefusal };
+
+/** Release the pack exactly as it was built. */
+export async function approvePack(packId: string, actor: Actor): Promise<PackActionResult> {
+  return await db.transaction(async (tx) => {
+    const locked = await lockForDecision(tx, packId);
+    if ("refusal" in locked) return { ok: false as const, reason: locked.refusal };
+    const items = await tx.query.decisionPackItem.findMany({
+      where: eq(schema.decisionPackItem.packId, packId),
+    });
+    // An empty pack is a round that came back with nothing. Sending the
+    // buyer "here are your zero offers" is not an approval; relaunch or
+    // refuse.
+    if (items.length === 0) return { ok: false as const, reason: "empty" as const };
+    await release(tx, locked.pack, locked.request, actor);
+    await recordPackEvent(tx, packId, "approved", actor, { items: items.length });
+    return { ok: true as const, requestId: locked.request.id, items: items.length };
+  });
+}
+
+/**
+ * Change what the buyer is shown — the order, or which offers — and release.
+ *
+ * Writes `rank_shown` and NEVER `rank_computed`: the pair is what lets "would
+ * the automatic release have shown the same?" be asked afterwards. The note
+ * is required and stays with the pack, in `decision_pack_event`.
+ */
+export async function correctPack(
+  packId: string,
+  actor: Actor,
+  input: { order: readonly string[]; removals: readonly string[]; note: string },
+): Promise<PackActionResult> {
+  const note = input.note.trim();
+  if (note === "") return { ok: false, reason: "note_required" };
+  return await db.transaction(async (tx) => {
+    const locked = await lockForDecision(tx, packId);
+    if ("refusal" in locked) return { ok: false as const, reason: locked.refusal };
+    const items = await tx.query.decisionPackItem.findMany({
+      where: eq(schema.decisionPackItem.packId, packId),
+    });
+    if (items.length === 0) return { ok: false as const, reason: "empty" as const };
+    const plan = planCorrection(items, input.order, input.removals);
+    if (!plan.ok) return { ok: false as const, reason: plan.reason };
+
+    for (const item of items) {
+      if (!item.quoteId) continue;
+      await tx
+        .update(schema.decisionPackItem)
+        .set({ rankShown: plan.ranks.get(item.quoteId) ?? null })
+        .where(eq(schema.decisionPackItem.id, item.id));
+    }
+    await release(tx, locked.pack, locked.request, actor);
+    const nameOf = new Map(items.map((item) => [item.quoteId, item.offer.supplierName]));
+    await recordPackEvent(tx, packId, "corrected", actor, {
+      note,
+      // Names beside the ids: the record must still read when a quote is gone.
+      moves: plan.moves.map((move) => ({ ...move, supplier: nameOf.get(move.quoteId) ?? null })),
+    });
+    return { ok: true as const, requestId: locked.request.id, items: input.order.length };
+  });
+}
+
+export type RefusePackResult =
+  { ok: true; requestId: string; holdersTold: number } | { ok: false; reason: PackActionRefusal };
+
+/**
+ * Refuse to send a pack: the request ends `unfulfilled`, and the buyer is
+ * told why. The reason is required — it is the only thing the buyer gets for
+ * having waited through a window and a review.
+ */
+export async function refusePack(
+  packId: string,
+  actor: Actor,
+  rawReason: string,
+): Promise<RefusePackResult> {
+  const reason = rawReason.trim();
+  if (reason === "") return { ok: false, reason: "note_required" };
+  const outcome = await db.transaction(async (tx) => {
+    const locked = await lockForDecision(tx, packId);
+    if ("refusal" in locked) return { ok: false as const, reason: locked.refusal };
+    const { request, pack } = locked;
+    const now = new Date();
+    await tx
+      .update(schema.decisionPack)
+      .set({ status: "refused", refusedReason: reason })
+      .where(eq(schema.decisionPack.id, pack.id));
+    await transitionRequest(request.id, request.organizationId, "pack_review", "unfulfilled", tx);
+    await tx
+      .update(schema.request)
+      .set({
+        unfulfilledReason: reason,
+        unfulfilledAt: now,
+        unfulfilledBy: actor.id,
+        unfulfilledByName: actor.name,
+      })
+      .where(eq(schema.request.id, request.id));
+    await recordPackEvent(tx, packId, "refused", actor, { reason });
+    return { ok: true as const, request };
+  });
+  if (!outcome.ok) return outcome;
+  const { request } = outcome;
+
+  // ── After the commit: the people who were waiting ─────────────────────────
+  if (request.createdBy) {
+    const link = `/demandes/${request.id}`;
+    const base = process.env["BETTER_AUTH_URL"] ?? "http://localhost:3010";
+    await notifyUser({
+      userId: request.createdBy,
+      organizationId: request.organizationId,
+      type: "request_unfulfilled",
+      params: { id: request.id },
+      link,
+      email: {
+        subjectFr: `Votre demande OSI #${request.id} est classée sans suite`,
+        subjectEn: `Your OSI request #${request.id} has been closed without a result`,
+        bodyFr: `Notre équipe n'a pas pu vous transmettre de Decision Pack pour la demande #${request.id}.\nMotif : ${reason}\nAucune offre ne vous sera transmise pour cette demande. Vous pouvez en déposer une nouvelle à tout moment : ${base}${link}`,
+        bodyEn: `Our team could not send you a Decision Pack for request #${request.id}.\nReason: ${reason}\nNo offer will be passed on for this request. You can submit a new one at any time: ${base}${link}`,
+      },
+    });
+  }
+  let holdersTold = 0;
+  try {
+    holdersTold = await tellOfferHolders(request.id, "closed");
+  } catch (error) {
+    console.error(`pack: could not tell the suppliers of ${request.id} it is closed —`, error);
+  }
+  return { ok: true, requestId: request.id, holdersTold };
+}
+
+export type RelaunchPackResult =
+  | {
+      ok: true;
+      requestId: string;
+      roundNo: number;
+      sent: number;
+      /** Suppliers the RFQ could not be handed over for — still unsent, and
+       *  written to again by « Renvoyer » on the dossier. */
+      failed: string[];
+    }
+  | { ok: false; reason: PackActionRefusal; suppliers?: string[] };
+
+/**
+ * Ask more suppliers: a NEW round opens for the ones named, and the request
+ * goes back to `soliciting`. The pack stays pending, and the offers already
+ * in hand stay where they are — when the new round closes, the pack is
+ * rebuilt from all of them together (decision D5 as its default: an answer
+ * already held is never thrown away; the new round has its own clock).
+ *
+ * A supplier asked again keeps ONE quote row (`quote_request_supplier_uq`):
+ * it is reopened and moved to the new round, so what it had been closed as
+ * is recorded HERE, in the event's payload, before the row forgets it.
+ */
+export async function relaunchPack(
+  packId: string,
+  actor: Actor,
+  input: { supplierIds: readonly string[]; note: string },
+): Promise<RelaunchPackResult> {
+  const note = input.note.trim();
+  if (note === "") return { ok: false, reason: "note_required" };
+  const supplierIds = [...new Set(input.supplierIds)];
+  if (supplierIds.length === 0) return { ok: false, reason: "no_suppliers" };
+  // Refused before anything is opened, like the first batch: an RFQ whose
+  // replies vanish, or with nobody to send it to, is worse than none.
+  if ((await getSetting("rfq.reply_to")) === "") return { ok: false, reason: "no_reply_address" };
+
+  const found = await db.query.decisionPack.findFirst({
+    where: eq(schema.decisionPack.id, packId),
+    columns: { requestId: true },
+  });
+  if (!found) return { ok: false, reason: "not_found" };
+  const candidates = await relaunchCandidates(found.requestId);
+  const byId = new Map(candidates.map((candidate) => [candidate.supplierId, candidate]));
+  const chosen = supplierIds.map((id) => byId.get(id));
+  if (chosen.some((candidate) => !candidate)) return { ok: false, reason: "not_eligible" };
+  const asked = chosen as RelaunchCandidate[];
+  const unreachable = asked.filter((candidate) => !candidate.hasContact);
+  if (unreachable.length > 0) {
+    return { ok: false, reason: "missing_contact", suppliers: unreachable.map((c) => c.name) };
+  }
+  const [windowHours, targetOffers] = await Promise.all([
+    getSetting("rfq.window_hours"),
+    getSetting("rfq.target_offers"),
+  ]);
+
+  let opened;
+  try {
+    opened = await db.transaction(async (tx) => {
+      const locked = await lockForDecision(tx, packId);
+      if ("refusal" in locked) return { ok: false as const, reason: locked.refusal };
+      const { request } = locked;
+      const [last] = await tx
+        .select({ roundNo: schema.rfqRound.roundNo })
+        .from(schema.rfqRound)
+        .where(eq(schema.rfqRound.requestId, request.id))
+        .orderBy(desc(schema.rfqRound.roundNo))
+        .limit(1);
+      const openedAt = new Date();
+      const [round] = await tx
+        .insert(schema.rfqRound)
+        .values({
+          id: crypto.randomUUID(),
+          requestId: request.id,
+          roundNo: (last?.roundNo ?? 0) + 1,
+          openedAt,
+          closesAt: new Date(openedAt.getTime() + windowHours * 3_600_000),
+          windowHours,
+          targetOffers,
+          openedBy: actor.id,
+          openedByName: actor.name,
+        })
+        .returning();
+
+      // Under the lock: what each supplier's quote is NOW decides whether it
+      // is reopened or created, whatever the candidates list said a moment ago.
+      const existing = await tx.query.quote.findMany({
+        where: and(
+          eq(schema.quote.requestId, request.id),
+          inArray(schema.quote.supplierId, supplierIds),
+        ),
+      });
+      const quoteBySupplier = new Map(existing.map((quote) => [quote.supplierId, quote]));
+      for (const candidate of asked) {
+        const quote = quoteBySupplier.get(candidate.supplierId);
+        if (quote) {
+          const reopened = await tx
+            .update(schema.quote)
+            .set({
+              status: "requested",
+              declineReason: null,
+              sentAt: null,
+              sentBy: null,
+              respondedAt: null,
+              channel: null,
+              roundId: round!.id,
+              requestedAt: openedAt,
+              requestedBy: actor.id,
+              updatedAt: openedAt,
+            })
+            // Still declined: an offer keyed in since (a late answer) must
+            // not be thrown away by a relaunch that was planned before it.
+            .where(and(eq(schema.quote.id, quote.id), eq(schema.quote.status, "declined")))
+            .returning({ id: schema.quote.id });
+          if (reopened.length === 0) throw new RelaunchConflict();
+        } else {
+          await tx.insert(schema.quote).values({
+            id: crypto.randomUUID(),
+            requestId: request.id,
+            organizationId: request.organizationId,
+            supplierId: candidate.supplierId,
+            supplierName: candidate.name,
+            status: "requested",
+            requestedBy: actor.id,
+            roundId: round!.id,
+          });
+        }
+      }
+      await transitionRequest(request.id, request.organizationId, "pack_review", "soliciting", tx);
+      await recordPackEvent(tx, packId, "relaunched", actor, {
+        note,
+        round: round!.roundNo,
+        suppliers: asked.map((c) => ({ supplierId: c.supplierId, name: c.name, was: c.state })),
+      });
+      return { ok: true as const, requestId: request.id, roundNo: round!.roundNo };
+    });
+  } catch (error) {
+    if (error instanceof RelaunchConflict) return { ok: false, reason: "not_eligible" };
+    throw error;
+  }
+  if (!opened.ok) return opened;
+
+  // The round is open and the quotes are tied to it, unsent: from here this
+  // is exactly a batch that has not left yet, and `sendRfqBatch` RESUMES it —
+  // one email each, `sent_at` stamped only for a message that left.
+  const sent = await sendRfqBatch(opened.requestId, actor);
+  return {
+    ok: true,
+    requestId: opened.requestId,
+    roundNo: opened.roundNo,
+    sent: sent.ok ? sent.sent : 0,
+    failed: sent.ok ? sent.failed.map((f) => f.supplier) : asked.map((c) => c.name),
+  };
+}
+
+class RelaunchConflict extends Error {}
+
+/** Take a pack, hand it over, or put it back (`to` null). Only while it is
+ *  pending — a decided pack is nobody's desk. */
+export async function assignPack(
+  packId: string,
+  actor: Actor,
+  to: Actor | null,
+): Promise<{ ok: true } | { ok: false; reason: "not_found" | "not_pending" }> {
+  return await db.transaction(async (tx) => {
+    const [pack] = await tx
+      .select()
+      .from(schema.decisionPack)
+      .where(eq(schema.decisionPack.id, packId))
+      .for("update");
+    if (!pack) return { ok: false as const, reason: "not_found" as const };
+    if (pack.status !== "pending") return { ok: false as const, reason: "not_pending" as const };
+    if (pack.assignedTo === (to?.id ?? null)) return { ok: true as const };
+    await tx
+      .update(schema.decisionPack)
+      .set({ assignedTo: to?.id ?? null, assignedToName: to?.name ?? null })
+      .where(eq(schema.decisionPack.id, packId));
+    await recordPackEvent(tx, packId, "assigned", actor, {
+      to: to?.id ?? null,
+      toName: to?.name ?? null,
+    });
+    return { ok: true as const };
+  });
+}
+
+/** The buyer cancelled the request: its pending pack, if any, is withdrawn
+ *  with it. Not a refusal — nobody at OSI decided anything — and it leaves
+ *  the queue. Safe to call when there is none. */
+export async function withdrawPendingPack(requestId: string): Promise<boolean> {
+  const withdrawn = await db
+    .update(schema.decisionPack)
+    .set({ status: "withdrawn" })
+    .where(
+      and(eq(schema.decisionPack.requestId, requestId), eq(schema.decisionPack.status, "pending")),
+    )
+    .returning({ id: schema.decisionPack.id });
+  return withdrawn.length > 0;
+}
+
+export type QueuedPack = {
+  packId: string;
+  requestId: string;
+  requestTitle: string;
+  organizationName: string;
+  /** `review` = waiting on a person. `relaunched` = a new round is open and
+   *  the pack waits on suppliers; listed so it is not lost sight of. */
+  state: "review" | "relaunched";
+  items: number;
+  /** Since when it waits — the close of the round that last built it. */
+  waitingSince: string | null;
+  assignedTo: string | null;
+  assignedToName: string | null;
+};
+
+/** Every pack awaiting a decision, the one that has waited longest first. */
+export async function listPackQueue(): Promise<QueuedPack[]> {
+  const rows = await db
+    .select({
+      pack: schema.decisionPack,
+      title: schema.request.title,
+      status: schema.request.status,
+      organizationName: schema.organization.name,
+      closedAt: schema.rfqRound.closedAt,
+    })
+    .from(schema.decisionPack)
+    .innerJoin(schema.request, eq(schema.request.id, schema.decisionPack.requestId))
+    .innerJoin(schema.organization, eq(schema.organization.id, schema.decisionPack.organizationId))
+    .innerJoin(schema.rfqRound, eq(schema.rfqRound.id, schema.decisionPack.roundId))
+    .where(
+      and(
+        eq(schema.decisionPack.status, "pending"),
+        inArray(schema.request.status, ["pack_review", "soliciting"]),
+      ),
+    );
+  const counts = await db
+    .select({ packId: schema.decisionPackItem.packId, id: schema.decisionPackItem.id })
+    .from(schema.decisionPackItem)
+    .where(inArray(schema.decisionPackItem.packId, rows.map((row) => row.pack.id).concat("-")));
+  const itemsByPack = new Map<string, number>();
+  for (const row of counts) itemsByPack.set(row.packId, (itemsByPack.get(row.packId) ?? 0) + 1);
+  return rows
+    .map((row) => ({
+      packId: row.pack.id,
+      requestId: row.pack.requestId,
+      requestTitle: row.title,
+      organizationName: row.organizationName,
+      state: row.status === "pack_review" ? ("review" as const) : ("relaunched" as const),
+      items: itemsByPack.get(row.pack.id) ?? 0,
+      waitingSince: row.closedAt ? row.closedAt.toISOString() : null,
+      assignedTo: row.pack.assignedTo,
+      assignedToName: row.pack.assignedToName,
+    }))
+    .sort(
+      (a, b) =>
+        // Packs waiting on a person first; among them, the oldest wait first.
+        Number(a.state === "relaunched") - Number(b.state === "relaunched") ||
+        (a.waitingSince ?? "").localeCompare(b.waitingSince ?? ""),
+    );
 }
