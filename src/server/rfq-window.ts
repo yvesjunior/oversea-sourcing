@@ -248,9 +248,20 @@ export async function closeRound(
   // finds both there. With NO offer too: an empty pack is how a round that
   // came back with nothing reaches a person. Never allowed to undo a close
   // that is already committed.
+  //
+  // Then the other release mode (V14): a pack whose stored mode is
+  // `automatic` leaves here, without a person — unless the round brought no
+  // offer. Like the build, it can fail without undoing the close: the pack
+  // then simply waits in the queue, as a manual one would.
+  let autoReleased = false;
   if (leadsToReview(reason)) {
-    const { refreshPack } = await import("@/server/decision-pack");
+    const { refreshPack, releaseAutomatically } = await import("@/server/decision-pack");
     await refreshPack(round.id, "round_closed");
+    try {
+      autoReleased = (await releaseAutomatically(round.id)).released;
+    } catch (error) {
+      console.error(`pack: automatic release failed for round ${round.id} —`, error);
+    }
   }
 
   let told = 0;
@@ -266,6 +277,25 @@ export async function closeRound(
     if (told > 0) {
       await recordEvent(request.id, request.organizationId, "rfq.withdrawn", { count: told });
     }
+  } else if (autoReleased) {
+    // Nobody is being asked to do anything — which is exactly why it is
+    // said: a pack that reached a client without a person is the one event
+    // of this flow staff would otherwise never see.
+    const link = `/demandes/${request.id}`;
+    const base = process.env["BETTER_AUTH_URL"] ?? "http://localhost:3010";
+    const why = CLOSE_SENTENCES[reason];
+    await notifyStaff("deals", {
+      type: "pack_auto_released",
+      params: { id: request.id, offers },
+      link,
+      exceptUserId: null,
+      email: {
+        subjectFr: `Decision Pack envoyé automatiquement — demande #${request.id}`,
+        subjectEn: `Decision Pack sent automatically — request #${request.id}`,
+        bodyFr: `${why.fr}\nOffres reçues : ${offers}. L'envoi du Decision Pack est réglé sur « automatique » : il a été transmis au client tel que classé, sans revue.\nLa demande et le pack envoyé : ${base}${link}`,
+        bodyEn: `${why.en}\nOffers received: ${offers}. Decision Pack release is set to "automatic": it was sent to the client as ranked, without review.\nThe request and the pack that was sent: ${base}${link}`,
+      },
+    });
   } else {
     const link = `/demandes/${request.id}`;
     const base = process.env["BETTER_AUTH_URL"] ?? "http://localhost:3010";
@@ -307,6 +337,7 @@ export async function closeRound(
       unreached: silent.filter((s) => !s.sent).length,
       ...(reason === "early" ? { note: earlyNote } : {}),
       ...(reason === "withdrawn" ? { told } : {}),
+      ...(autoReleased ? { autoReleased: true } : {}),
     },
   });
   console.log(

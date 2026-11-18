@@ -131,7 +131,8 @@
       "mail_backlog": "Envoi d'e-mails en échec (des messages attendent) — équipe OSI",
       "rfq_window_closed": "Fenêtres de réponse fermées (une demande attend la revue) — équipe OSI",
       "request_unfulfilled": "Demande classée sans suite (aucun Decision Pack ne sera transmis)",
-      "pack_ready": "Decision Pack prêt (les offres reçues ont été revues)"
+      "pack_ready": "Decision Pack prêt (les offres reçues vous sont présentées)",
+      "pack_auto_released": "Decision Packs envoyés automatiquement, sans revue — équipe OSI"
     },
     "tabOrganisation": "Organisation",
     "orgInfoTitle": "Informations de l’organisation",
@@ -503,7 +504,8 @@
     "IT": "Italie",
     "FR": "France",
     "ES": "Espagne",
-    "JP": "Japon"
+    "JP": "Japon",
+    "IN": "Inde"
   },
   "dossier": {
     "status": "Statut",
@@ -784,8 +786,10 @@
       "cancel": "Annuler",
       "note_required": "Indiquez pourquoi la fenêtre est fermée avant le délai.",
       "not_found": "Ce tour n'existe plus.",
-      "forbidden": "Action non autorisée."
-    }
+      "forbidden": "Action non autorisée.",
+      "automatic": "Envoi automatique : fermer la fenêtre envoie aussitôt le Decision Pack au client, sans revue. Cela ne s'annule pas."
+    },
+    "automaticRelease": "Envoi automatique : à la fermeture de cette fenêtre, le Decision Pack partira au client tel que classé, sans revue — sauf si le tour se ferme sans offre."
   },
   "provenance": {
     "imported": "Importé",
@@ -937,11 +941,11 @@
       "fee.rate_bps": "Taux des honoraires"
     },
     "hints": {
-      "flow.pack_enabled": "Activé : les demandes des abonnements avec soumissions passent par la présélection OSI, l'appel d'offres puis le Decision Pack. Désactivé : toutes les demandes s'arrêtent au rapport, comme aujourd'hui. Reste désactivé tant que le parcours n'est pas entièrement construit.",
+      "flow.pack_enabled": "Activé : les demandes des abonnements avec soumissions passent par la présélection OSI, l'appel d'offres puis le Decision Pack. Désactivé : toutes les demandes s'arrêtent au rapport. S'applique aux recherches qui se terminent après le changement ; une demande déjà engagée dans le parcours y reste.",
       "rfq.reply_to": "Où arrivent les réponses des fournisseurs. La plateforme envoie depuis une adresse « no-reply » : sans adresse de réponse, un fournisseur qui répond écrirait dans une boîte que personne ne lit. Aucun appel d'offres ne part tant que ce champ est vide.",
       "rfq.window_hours": "Compté à partir de l'envoi du lot de RFQ. Une fenêtre déjà ouverte garde le délai avec lequel elle a été ouverte.",
       "rfq.target_offers": "La fenêtre se ferme dès que ce nombre d'offres est reçu, sans attendre le délai. À ne pas confondre avec le nombre de fournisseurs classés par la recherche, qui se règle par abonnement.",
-      "pack.release_mode": "Manuel : l'équipe valide et envoie chaque pack. Automatique : le pack part à la fermeture de la fenêtre, sans intervention.",
+      "pack.release_mode": "Manuel : l'équipe valide et envoie chaque pack. Automatique : le pack part chez le client à la fermeture de sa fenêtre, sans revue ; un tour fermé sans offre revient toujours à une personne. S'applique aux packs créés après le changement. Avant de passer en automatique, consultez « Ce que la revue a changé » dans Decision Packs.",
       "fee.rate_bps": "En points de base du montant de la transaction, ajoutés en sus : 300 = 3 %. Les frais propres du partenaire de règlement s'y ajoutent. Rien ne l'applique tant que le circuit de l'argent n'a pas reçu son avis juridique."
     },
     "units": {
@@ -983,7 +987,8 @@
     "mail_backlog": "L'envoi d'e-mails est en échec — {{count}} message(s) en attente",
     "rfq_window_closed": "Fenêtre de réponse fermée — demande #{{id}} : {{offers}} offre(s) reçue(s)",
     "request_unfulfilled": "Votre demande #{{id}} est classée sans suite",
-    "pack_ready": "Votre Decision Pack #{{id}} est prêt"
+    "pack_ready": "Votre Decision Pack #{{id}} est prêt",
+    "pack_auto_released": "Decision Pack #{{id}} envoyé automatiquement au client — {{offers}} offre(s) reçue(s)"
   },
   "verificationAdmin": {
     "title": "Vérification des fournisseurs",
@@ -1133,7 +1138,8 @@
     "pack.relaunched": "Decision Pack relancé",
     "pack.refused": "Decision Pack refusé",
     "pack.assigned": "Decision Pack attribué",
-    "pack.offer_reasked": "Offre expirée redemandée depuis le Decision Pack"
+    "pack.offer_reasked": "Offre expirée redemandée depuis le Decision Pack",
+    "pack.auto_released": "Decision Pack envoyé automatiquement"
   },
   "twofa": {
     "title": "Vérification en deux étapes",
@@ -1589,7 +1595,9 @@
       "corrected": "Corrigé et envoyé",
       "relaunched": "Relancé",
       "refused": "Refusé",
-      "assigned": "Attribution"
+      "assigned": "Attribution",
+      "auto_released": "Envoyé automatiquement",
+      "held": "Retenu pour décision — tour fermé sans offre"
     },
     "assignedTo": "Pris par {{name}}.",
     "putBack": "Remis dans la file.",
@@ -1619,11 +1627,12 @@
       "missing_contact": "Un fournisseur coché n'a aucun contact",
       "no_reply_address": "Aucune adresse de réponse n'est définie : la relance ne peut pas partir.",
       "partly_sent": "Le tour est ouvert, mais l'appel d'offres n'a pas pu partir pour certains fournisseurs — renvoyez-le depuis le panneau « Appel d'offres »"
-    }
+    },
+    "autoHeld": "Ce pack était en envoi automatique et n'est pas parti : un tour fermé sans offre revient toujours à une personne, et un pack arrivé chez une personne ne part plus tout seul."
   },
   "packQueue": {
     "title": "Decision Packs",
-    "subtitle": "Les packs en attente d'une décision. Rien n'est transmis à un client tant qu'une personne n'a pas approuvé, corrigé, relancé ou refusé.",
+    "subtitle": "Les packs en attente d'une décision : approuver, corriger, relancer ou refuser.",
     "review_one": "{{count}} pack attend une décision",
     "review_other": "{{count}} packs attendent une décision",
     "none": "Aucun pack n'attend de décision.",
@@ -1635,7 +1644,12 @@
     "relaunched": "Relance en cours — en attente des fournisseurs",
     "relaunchedTitle_one": "{{count}} relance en cours",
     "relaunchedTitle_other": "{{count}} relances en cours",
-    "relaunchedHint": "Ces packs n'attendent pas une personne : ils reviendront ici à la fermeture de leur nouveau tour."
+    "relaunchedHint": "Ces packs n'attendent pas une personne : ils reviendront ici à la fermeture de leur nouveau tour.",
+    "mode": {
+      "manual": "Envoi manuel : rien n'est transmis à un client tant qu'une personne n'a pas décidé.",
+      "automatic": "Envoi automatique : un pack part chez le client à la fermeture de sa fenêtre, sans revue. N'arrivent ici que les tours fermés sans offre et les packs créés avant le changement de réglage."
+    },
+    "tabQueue": "File d'attente"
   },
   "packView": {
     "kicker": "Decision Pack — demande #{{id}}",
@@ -1730,6 +1744,68 @@
       "not_expired": "Cette offre est encore valable : vous pouvez l'accepter.",
       "pack_reopened": "L'appel d'offres est déjà rouvert, ou une offre a déjà été acceptée.",
       "cannot_send": "Nous ne pouvons pas écrire à ce fournisseur pour le moment. Contactez OSI."
+    },
+    "introAutomatic_one": "{{count}} offre obtenue par OSI pour votre demande, présentée dans l'ordre de notre classement.",
+    "introAutomatic_other": "{{count}} offres obtenues par OSI pour votre demande, présentées dans l'ordre de notre classement."
+  },
+  "packReport": {
+    "tab": "Ce que la revue a changé",
+    "subtitle": "Ce que le passage par une personne a changé aux packs, et ce qu'il a coûté au client en attente. Compté sur les packs décidés pendant la période.",
+    "period": "Période",
+    "periods": {
+      "30": "30 jours",
+      "90": "90 jours",
+      "365": "12 mois"
+    },
+    "outcomesTitle": "Packs décidés",
+    "none": "Aucun pack n'a été décidé sur cette période.",
+    "noneReviewed": "Aucun pack n'est passé par une personne sur cette période : tous sont partis automatiquement.",
+    "answer_one": "Un seul pack est passé par une personne ; la revue en a changé {{changed}} ({{percent}} %).",
+    "answer_other": "La revue a changé {{changed}} des {{count}} packs passés par une personne ({{percent}} %).",
+    "outcome": {
+      "untouched": "Envoyés tels quels",
+      "corrected": "Corrigés",
+      "relaunched": "Relancés puis envoyés",
+      "refused": "Refusés",
+      "automatic": "Envoyés automatiquement"
+    },
+    "outcomeHint": {
+      "untouched": "la revue n'a rien changé",
+      "corrected": "ordre modifié ou offre retirée",
+      "relaunched": "un tour de plus avant l'envoi",
+      "refused": "rien n'a été transmis",
+      "automatic": "sans passage par une personne"
+    },
+    "relaunchesSent_one": "{{count}} relance envoyée sur la période, packs encore en cours compris.",
+    "relaunchesSent_other": "{{count}} relances envoyées sur la période, packs encore en cours compris.",
+    "heldForPerson_one": "{{count}} pack en envoi automatique retenu pour une personne (tour fermé sans offre).",
+    "heldForPerson_other": "{{count}} packs en envoi automatique retenus pour une personne (tour fermé sans offre).",
+    "waitsTitle": "L'attente du client",
+    "waitsHint": "Du départ du premier appel d'offres à la décision sur le pack. Moyennes sur les packs décidés pendant la période.",
+    "window": "Fenêtre",
+    "windowHint": "tours ouverts — les fournisseurs répondent",
+    "desk": "Bureau",
+    "deskHint": "tours fermés — une personne décide",
+    "total": "Total",
+    "totalHint_one": "sur {{count}} pack · le plus long : {{longest}}",
+    "totalHint_other": "sur {{count}} packs · le plus long : {{longest}}",
+    "noWaits": "Aucune attente à mesurer sur cette période.",
+    "col": {
+      "request": "Demande",
+      "outcome": "Issue",
+      "decided": "Décidé le"
+    },
+    "relaunches_one": "{{count}} relance",
+    "relaunches_other": "{{count}} relances",
+    "earlyTitle_one": "{{count}} fenêtre fermée avant son délai",
+    "earlyTitle_other": "{{count}} fenêtres fermées avant leur délai",
+    "earlyHint": "Chaque fermeture anticipée, avec le motif saisi par la personne qui a fermé.",
+    "outcomeOne": {
+      "untouched": "Envoyé tel quel",
+      "corrected": "Corrigé",
+      "relaunched": "Relancé puis envoyé",
+      "refused": "Refusé",
+      "automatic": "Envoyé automatiquement"
     }
   }
 }

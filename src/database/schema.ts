@@ -1556,6 +1556,13 @@ export const PACK_EVENT_ACTIONS = [
   "refused",
   /** Taken, handed over or put back — `payload.to` is null when put back. */
   "assigned",
+  /** Released as built by the SYSTEM, the moment its round closed (V14):
+   *  the pack's stored mode was `automatic`. Never has an actor. */
+  "auto_released",
+  /** An `automatic` pack the system did NOT release — its round closed with
+   *  no offer (`payload.reason`). Never has an actor. From this row on the
+   *  pack is a person's: no later close releases it by itself. */
+  "held",
 ] as const;
 export type PackEventAction = (typeof PACK_EVENT_ACTIONS)[number];
 

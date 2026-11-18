@@ -23,12 +23,14 @@ import { db } from "@/database";
 import * as schema from "@/database/schema";
 import type { KpiRunTrigger, PackEventAction } from "@/database/schema";
 import {
+  autoReleaseHold,
   packOfferState,
   planCorrection,
   projectPack,
   relaunchState,
   samePackItems,
   selectPackItems,
+  type AutoReleaseHold,
   type CorrectionRefusal,
   type PackAudience,
   type PackItemRow,
@@ -40,6 +42,7 @@ import {
   type RelaunchState,
 } from "@/lib/decision-pack";
 import type { Kpi2Breakdown } from "@/lib/kpi2";
+import { logAudit } from "@/server/audit";
 import { runKpi2 } from "@/server/kpi";
 import { notifyUser } from "@/server/notify";
 import { getSetting } from "@/server/platform-settings";
@@ -545,17 +548,25 @@ async function recordPackEvent(
   });
 }
 
-/** The irreversible half, shared by approve and correct. */
+/** The irreversible half, shared by approve, correct and the automatic
+ *  release. `actor` null = the system released it (V14): `released_by` AND
+ *  its name stay null, and that pair means nothing else — a person whose
+ *  account is later deleted keeps their name here. */
 async function release(
   tx: Tx,
   pack: PackRecord,
   request: { id: string; organizationId: string },
-  actor: Actor,
+  actor: Actor | null,
 ): Promise<void> {
   const now = new Date();
   await tx
     .update(schema.decisionPack)
-    .set({ status: "released", releasedAt: now, releasedBy: actor.id, releasedByName: actor.name })
+    .set({
+      status: "released",
+      releasedAt: now,
+      releasedBy: actor?.id ?? null,
+      releasedByName: actor?.name ?? null,
+    })
     .where(eq(schema.decisionPack.id, pack.id));
   await transitionRequest(request.id, request.organizationId, "pack_review", "report_ready", tx);
 }
@@ -579,7 +590,7 @@ export async function approvePack(packId: string, actor: Actor): Promise<PackAct
     await recordPackEvent(tx, packId, "approved", actor, { items: items.length });
     return { ok: true as const, requestId: locked.request.id, items: items.length };
   });
-  if (result.ok) await tellBuyerPackReady(result.requestId);
+  if (result.ok) await tellBuyerPackReady(result.requestId, true);
   return result;
 }
 
@@ -623,7 +634,7 @@ export async function correctPack(
     });
     return { ok: true as const, requestId: locked.request.id, items: input.order.length };
   });
-  if (result.ok) await tellBuyerPackReady(result.requestId);
+  if (result.ok) await tellBuyerPackReady(result.requestId, true);
   return result;
 }
 
@@ -631,11 +642,13 @@ export async function correctPack(
  * The pack is released: tell the person who filed the request (V12).
  *
  * After the commit, and never allowed to undo it — `notifyUser` swallows its
- * own failures. Says nothing about HOW it was released: approved as built or
- * corrected by a person is OSI's working, and the buyer's message is the
- * same either way.
+ * own failures. Says nothing about HOW a person released it: approved as
+ * built or corrected is OSI's working, and the buyer's message is the same
+ * either way. The one difference it does carry is `reviewed` (V14): a pack
+ * the system released was not looked at by anyone, so the message must not
+ * say it was.
  */
-async function tellBuyerPackReady(requestId: string): Promise<void> {
+async function tellBuyerPackReady(requestId: string, reviewed: boolean): Promise<void> {
   const request = await db.query.request.findFirst({
     where: eq(schema.request.id, requestId),
     columns: { id: true, createdBy: true, organizationId: true },
@@ -654,10 +667,115 @@ async function tellBuyerPackReady(requestId: string): Promise<void> {
     email: {
       subjectFr: `Votre Decision Pack OSI #${request.id} est prêt`,
       subjectEn: `Your OSI Decision Pack #${request.id} is ready`,
-      bodyFr: `Les offres reçues pour votre demande #${request.id} ont été revues par notre équipe : votre Decision Pack est disponible.\nConsultez-le : ${base}${link}`,
-      bodyEn: `The offers received for your request #${request.id} have been reviewed by our team: your Decision Pack is available.\nView it: ${base}${link}`,
+      bodyFr: `${reviewed ? `Les offres reçues pour votre demande #${request.id} ont été revues par notre équipe` : `Les offres reçues pour votre demande #${request.id} ont été classées`} : votre Decision Pack est disponible.\nConsultez-le : ${base}${link}`,
+      bodyEn: `${reviewed ? `The offers received for your request #${request.id} have been reviewed by our team` : `The offers received for your request #${request.id} have been ranked`}: your Decision Pack is available.\nView it: ${base}${link}`,
     },
   });
+}
+
+export type AutoReleaseOutcome =
+  | { released: true; packId: string; requestId: string; items: number }
+  | {
+      released: false;
+      reason:
+        | AutoReleaseHold
+        | "no_pack"
+        /** Decided, or the request left the review, while this was on its way. */
+        | "not_pending"
+        /** The pack was not rebuilt for this close — the refresh failed. */
+        | "not_built";
+    };
+
+/**
+ * The other release mode (V14): a round just closed — does its pack leave
+ * without a person?
+ *
+ * Reads the mode STORED ON THE PACK, never the setting: flipping the setting
+ * changes the packs created afterwards and none that already exist. The rule
+ * itself is `autoReleaseHold`; this is its transaction. An `automatic` pack
+ * that is held for want of an offer gets a `held` event, which is what makes
+ * it a person's from then on — and what the review report counts.
+ *
+ * Called by `closeRound` only, after `refreshPack`. Not by a late answer, a
+ * correction or a recomputation: those happen to a pack already in review.
+ */
+export async function releaseAutomatically(roundId: string): Promise<AutoReleaseOutcome> {
+  const round = await db.query.rfqRound.findFirst({
+    where: eq(schema.rfqRound.id, roundId),
+    columns: { requestId: true, roundNo: true },
+  });
+  if (!round) return { released: false, reason: "no_pack" };
+  const pending = await db.query.decisionPack.findFirst({
+    where: and(
+      eq(schema.decisionPack.requestId, round.requestId),
+      eq(schema.decisionPack.status, "pending"),
+    ),
+    columns: { id: true, releaseMode: true },
+  });
+  if (!pending) return { released: false, reason: "no_pack" };
+  // The mode never changes once the pack exists, so this needs no lock —
+  // and it is every pack there is while the setting stays on `manual`.
+  if (pending.releaseMode !== "automatic") return { released: false, reason: "manual" };
+
+  const outcome = await db.transaction(async (tx): Promise<AutoReleaseOutcome> => {
+    const locked = await lockForDecision(tx, pending.id);
+    if ("refusal" in locked) return { released: false, reason: "not_pending" };
+    const { pack, request } = locked;
+    if (pack.roundId !== roundId) return { released: false, reason: "not_built" };
+    const items = await tx.query.decisionPackItem.findMany({
+      where: eq(schema.decisionPackItem.packId, pack.id),
+      columns: { id: true },
+    });
+    const events = await tx.query.decisionPackEvent.findMany({
+      where: eq(schema.decisionPackEvent.packId, pack.id),
+      columns: { id: true },
+    });
+    const inRound = await tx
+      .select({ id: schema.quote.id })
+      .from(schema.quote)
+      .where(and(eq(schema.quote.roundId, roundId), eq(schema.quote.status, "received")));
+    const hold = autoReleaseHold({
+      releaseMode: pack.releaseMode,
+      events: events.length,
+      offersInRound: inRound.length,
+      items: items.length,
+    });
+    if (hold) {
+      if (hold === "no_offers") {
+        // `cause`, not `reason` or `note`: those two are a person's words,
+        // and `readEvent` prints them as such.
+        await recordPackEvent(tx, pack.id, "held", null, {
+          cause: "no_offers",
+          round: round.roundNo,
+        });
+      }
+      return { released: false, reason: hold };
+    }
+    await release(tx, pack, request, null);
+    await recordPackEvent(tx, pack.id, "auto_released", null, { items: items.length });
+    return { released: true, packId: pack.id, requestId: request.id, items: items.length };
+  });
+
+  if (outcome.released) {
+    await tellBuyerPackReady(outcome.requestId, false);
+    const request = await db.query.request.findFirst({
+      where: eq(schema.request.id, outcome.requestId),
+      columns: { organizationId: true },
+    });
+    await logAudit({
+      // No actor: the rule ran, nobody acted (as on a deadline close).
+      actorId: null,
+      actorName: null,
+      organizationId: request?.organizationId ?? null,
+      action: "pack.auto_released",
+      target: `#${outcome.requestId}`,
+      detail: { pack: outcome.packId, items: outcome.items, round: round.roundNo },
+    });
+    console.log(
+      `pack: ${outcome.packId} released automatically — ${outcome.items} item(s), request ${outcome.requestId}`,
+    );
+  }
+  return outcome;
 }
 
 export type RefusePackResult =

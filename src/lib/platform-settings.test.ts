@@ -5,6 +5,7 @@ import {
   bpsToPercent,
   defaultSetting,
   isSettingKey,
+  isUnavailableOption,
   parseSettingValue,
   PLATFORM_SETTINGS,
   resolveSetting,
@@ -62,30 +63,40 @@ describe("storing a value", () => {
     expect(parseSettingValue("pack.release_mode", "weekly").ok).toBe(false);
   });
 
-  // The mode exists in the type so the code can be written for it, but nothing
-  // releases a pack automatically yet (Phase V · V14). A mode that could be
-  // selected before its reader ships would switch itself on the day it does.
-  it("refuses an option nothing implements yet", () => {
+  // `automatic` was refused on write until something released a pack that
+  // way (Phase V · V14). It is selectable now — and still not the default:
+  // shipping the code must switch nothing on.
+  it("accepts both release modes, and defaults to a person", () => {
     expect(parseSettingValue("pack.release_mode", "manual")).toEqual({ ok: true, value: "manual" });
-    expect(parseSettingValue("pack.release_mode", "automatic").ok).toBe(false);
+    expect(parseSettingValue("pack.release_mode", "automatic")).toEqual({
+      ok: true,
+      value: "automatic",
+    });
+    expect(defaultSetting("pack.release_mode")).toBe("manual");
+  });
+
+  // The mechanism stays for the next option that exists before its reader.
+  it("still knows how to withhold an option nothing implements", () => {
+    expect(isUnavailableOption({ unavailable: ["later"] }, "later")).toBe(true);
+    expect(isUnavailableOption({ unavailable: ["later"] }, "now")).toBe(false);
+    expect(isUnavailableOption({ unavailable: [] }, "now")).toBe(false);
   });
 });
 
-// Switching the pack flow on before slice 1 is complete would strand every
-// paying customer's request in `shortlisted` — nothing can move it on yet.
+// `on` was unavailable while slice 1 was being built: a request reaching
+// `shortlisted` had no way forward. The slice is complete (V14).
 describe("the pack-flow switch", () => {
   it("is off unless a row says otherwise", () => {
     expect(defaultSetting("flow.pack_enabled")).toBe("off");
     expect(resolveSetting("flow.pack_enabled", undefined)).toBe("off");
   });
 
-  it("cannot be switched on from the page or the server fn", () => {
+  it("can be switched on and off from the page", () => {
     expect(parseSettingValue("flow.pack_enabled", "off")).toEqual({ ok: true, value: "off" });
-    expect(parseSettingValue("flow.pack_enabled", "on").ok).toBe(false);
+    expect(parseSettingValue("flow.pack_enabled", "on")).toEqual({ ok: true, value: "on" });
   });
 
-  // How it is exercised in development: by writing the row.
-  it("is honoured when the stored row already says on", () => {
+  it("is honoured when the stored row says on", () => {
     expect(resolveSetting("flow.pack_enabled", "on")).toBe("on");
   });
 

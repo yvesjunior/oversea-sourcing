@@ -131,7 +131,8 @@
       "mail_backlog": "Outbound mail failing (messages are waiting to be sent) — OSI staff",
       "rfq_window_closed": "Response windows closed (a request awaits review) — OSI staff",
       "request_unfulfilled": "Request closed without a result (no Decision Pack will be sent)",
-      "pack_ready": "Decision Pack ready (the offers received have been reviewed)"
+      "pack_ready": "Decision Pack ready (the offers received are there to read)",
+      "pack_auto_released": "Decision Packs sent automatically, without review — OSI staff"
     },
     "tabOrganisation": "Organisation",
     "orgInfoTitle": "Organisation information",
@@ -503,7 +504,8 @@
     "IT": "Italy",
     "FR": "France",
     "ES": "Spain",
-    "JP": "Japan"
+    "JP": "Japan",
+    "IN": "India"
   },
   "dossier": {
     "status": "Status",
@@ -784,8 +786,10 @@
       "cancel": "Cancel",
       "note_required": "Say why the window is being closed before the deadline.",
       "not_found": "This round no longer exists.",
-      "forbidden": "Not allowed."
-    }
+      "forbidden": "Not allowed.",
+      "automatic": "Automatic release: closing the window sends the Decision Pack to the client at once, without review. This cannot be undone."
+    },
+    "automaticRelease": "Automatic release: when this window closes, the Decision Pack goes to the client as ranked, without review — unless the round closes with no offer."
   },
   "provenance": {
     "imported": "Imported",
@@ -937,11 +941,11 @@
       "fee.rate_bps": "Fee rate"
     },
     "hints": {
-      "flow.pack_enabled": "On: requests on plans with quotes go through OSI's shortlist, the RFQ and then the Decision Pack. Off: every request ends at the report, as today. Stays off until the flow is fully built.",
+      "flow.pack_enabled": "On: requests from plans that include quotes go through OSI's shortlist, the RFQ and then the Decision Pack. Off: every request ends at the report. Applies to searches finishing after the change; a request already on the pack flow stays on it.",
       "rfq.reply_to": "Where suppliers' replies arrive. The platform sends from a no-reply address: without a reply address, a supplier who answers would be writing into a mailbox nobody reads. No RFQ leaves while this field is empty.",
       "rfq.window_hours": "Counted from the moment the RFQ batch is sent. A window already open keeps the delay it was opened with.",
       "rfq.target_offers": "The window closes as soon as this many offers are in, without waiting for the delay. Not the number of suppliers the search ranks — that is set per plan.",
-      "pack.release_mode": "Manual: staff validate and send each pack. Automatic: the pack goes out when the window closes, with no one involved.",
+      "pack.release_mode": "Manual: staff validate and send each pack. Automatic: the pack goes to the client when its window closes, without review; a round closed with no offer always goes to a person. Applies to packs created after the change. Before switching to automatic, read \"What review changed\" under Decision Packs.",
       "fee.rate_bps": "In basis points of the transaction amount, added on top: 300 = 3%. The settlement partner's own fees come on top of it. Nothing applies it until the money circuit has its legal opinion."
     },
     "units": {
@@ -983,7 +987,8 @@
     "mail_backlog": "Outbound mail is failing — {{count}} message(s) waiting to be sent",
     "rfq_window_closed": "Response window closed — request #{{id}}: {{offers}} offer(s) received",
     "request_unfulfilled": "Your request #{{id}} has been closed without a result",
-    "pack_ready": "Your Decision Pack #{{id}} is ready"
+    "pack_ready": "Your Decision Pack #{{id}} is ready",
+    "pack_auto_released": "Decision Pack #{{id}} sent to the client automatically — {{offers}} offer(s) received"
   },
   "verificationAdmin": {
     "title": "Supplier verification",
@@ -1133,7 +1138,8 @@
     "pack.relaunched": "Decision Pack relaunched",
     "pack.refused": "Decision Pack refused",
     "pack.assigned": "Decision Pack assigned",
-    "pack.offer_reasked": "Expired offer asked again from the Decision Pack"
+    "pack.offer_reasked": "Expired offer asked again from the Decision Pack",
+    "pack.auto_released": "Decision Pack sent automatically"
   },
   "twofa": {
     "title": "Two-step verification",
@@ -1589,7 +1595,9 @@
       "corrected": "Corrected and sent",
       "relaunched": "Relaunched",
       "refused": "Refused",
-      "assigned": "Assignment"
+      "assigned": "Assignment",
+      "auto_released": "Sent automatically",
+      "held": "Held for a decision — round closed with no offer"
     },
     "assignedTo": "Taken by {{name}}.",
     "putBack": "Put back in the queue.",
@@ -1619,11 +1627,12 @@
       "missing_contact": "A supplier ticked has no contact",
       "no_reply_address": "No reply address is set: the relaunch cannot be sent.",
       "partly_sent": "The round is open, but the RFQ could not be sent to some suppliers — send it again from the RFQ panel"
-    }
+    },
+    "autoHeld": "This pack was set to automatic release and did not leave: a round closed with no offer always goes to a person, and a pack that has reached a person no longer leaves by itself."
   },
   "packQueue": {
     "title": "Decision Packs",
-    "subtitle": "Packs awaiting a decision. Nothing reaches a customer until a person has approved, corrected, relaunched or refused.",
+    "subtitle": "Packs awaiting a decision: approve, correct, relaunch or refuse.",
     "review_one": "{{count}} pack awaits a decision",
     "review_other": "{{count}} packs await a decision",
     "none": "No pack is awaiting a decision.",
@@ -1635,7 +1644,12 @@
     "relaunched": "Relaunch under way — waiting on suppliers",
     "relaunchedTitle_one": "{{count}} relaunch under way",
     "relaunchedTitle_other": "{{count}} relaunches under way",
-    "relaunchedHint": "These packs are not waiting on a person: they come back here when their new round closes."
+    "relaunchedHint": "These packs are not waiting on a person: they come back here when their new round closes.",
+    "mode": {
+      "manual": "Manual release: nothing reaches a client until a person has decided.",
+      "automatic": "Automatic release: a pack goes to the client when its window closes, without review. Only rounds closed with no offer, and packs created before the setting changed, arrive here."
+    },
+    "tabQueue": "Queue"
   },
   "packView": {
     "kicker": "Decision Pack — request #{{id}}",
@@ -1730,6 +1744,68 @@
       "not_expired": "This offer is still valid: you can accept it.",
       "pack_reopened": "The RFQ is already reopened, or an offer has already been accepted.",
       "cannot_send": "We cannot write to this supplier at the moment. Please contact OSI."
+    },
+    "introAutomatic_one": "{{count}} offer obtained by OSI for your request, in the order of our ranking.",
+    "introAutomatic_other": "{{count}} offers obtained by OSI for your request, in the order of our ranking."
+  },
+  "packReport": {
+    "tab": "What review changed",
+    "subtitle": "What going through a person changed in the packs, and what it cost the client in waiting. Counted over the packs decided in the period.",
+    "period": "Period",
+    "periods": {
+      "30": "30 days",
+      "90": "90 days",
+      "365": "12 months"
+    },
+    "outcomesTitle": "Packs decided",
+    "none": "No pack was decided in this period.",
+    "noneReviewed": "No pack went through a person in this period: all were sent automatically.",
+    "answer_one": "Only one pack went through a person; review changed {{changed}} ({{percent}}%).",
+    "answer_other": "Review changed {{changed}} of the {{count}} packs that went through a person ({{percent}}%).",
+    "outcome": {
+      "untouched": "Sent as built",
+      "corrected": "Corrected",
+      "relaunched": "Relaunched, then sent",
+      "refused": "Refused",
+      "automatic": "Sent automatically"
+    },
+    "outcomeHint": {
+      "untouched": "review changed nothing",
+      "corrected": "order changed or an offer taken out",
+      "relaunched": "one more round before sending",
+      "refused": "nothing was sent",
+      "automatic": "no person involved"
+    },
+    "relaunchesSent_one": "{{count}} relaunch sent in the period, packs still in progress included.",
+    "relaunchesSent_other": "{{count}} relaunches sent in the period, packs still in progress included.",
+    "heldForPerson_one": "{{count}} automatic pack held for a person (round closed with no offer).",
+    "heldForPerson_other": "{{count}} automatic packs held for a person (round closed with no offer).",
+    "waitsTitle": "The client's wait",
+    "waitsHint": "From the first RFQ leaving to the decision on the pack. Means over the packs decided in the period.",
+    "window": "Window",
+    "windowHint": "rounds open — suppliers answering",
+    "desk": "Desk",
+    "deskHint": "rounds closed — a person deciding",
+    "total": "Total",
+    "totalHint_one": "over {{count}} pack · longest: {{longest}}",
+    "totalHint_other": "over {{count}} packs · longest: {{longest}}",
+    "noWaits": "No wait to measure in this period.",
+    "col": {
+      "request": "Request",
+      "outcome": "Outcome",
+      "decided": "Decided"
+    },
+    "relaunches_one": "{{count}} relaunch",
+    "relaunches_other": "{{count}} relaunches",
+    "earlyTitle_one": "{{count}} window closed before its deadline",
+    "earlyTitle_other": "{{count}} windows closed before their deadline",
+    "earlyHint": "Every early close, with the reason given by the person who closed it.",
+    "outcomeOne": {
+      "untouched": "Sent as built",
+      "corrected": "Corrected",
+      "relaunched": "Relaunched, then sent",
+      "refused": "Refused",
+      "automatic": "Sent automatically"
     }
   }
 }

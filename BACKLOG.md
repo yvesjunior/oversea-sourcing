@@ -24,7 +24,7 @@
 | **E9** Notifications | In-app + email | 🟡 bell, emitters, **prefs (2026-08-26)** live; Phase P types (`quote_received`, `contract_to_sign`, `contract_signed`) + staff alert on `quotes.requested` (2026-09-07) live; **the bell alerts (2026-09-14)** — count badge, 30 s poll, chime, per-browser mute |
 | **E10** Admin surfaces | Verification, imports, ops queue | 🟡 **verification LIVE (S5b/S5c, 2026-08-26)**; imports/ops queue placeholders |
 | **R** Custom staff roles | Roles as data + the matrix | ✅ **BUILT 2026-08-29** (migration 0039) — create/delete roles, dynamic matrix, `requests.all` |
-| **E13** V6 architecture | Supplier portal · KPI #2 · Partner Hub · Decision Pack | 🔵 **NEW 2026-10-21** — scope opened by the V6 document; diagrams validated 2026-11-14; **34 tasks in seven slices — [Phase V](#phase-v--the-v6-parcours-task-by-task-e13--written-2026-11-14)**; **V01, V02, V04–V11 built 2026-11-14** (settings, contacts, states, fork + shortlist, RFQ batch, window closing, typed answer time + channel, KPI #2 v1, the Decision Pack record, the release queue); V01–V11 **live on prod — V01–V09 since deploy #45 (2026-11-14), V10–V11 since deploy #47 (2026-11-18) — with the pack-flow switch OFF**; **V12–V13 built 2026-11-18** (the buyer's pack page, choosing from it), on `main`, not deployed |
+| **E13** V6 architecture | Supplier portal · KPI #2 · Partner Hub · Decision Pack | 🔵 **NEW 2026-10-21** — scope opened by the V6 document; diagrams validated 2026-11-14; **34 tasks in seven slices — [Phase V](#phase-v--the-v6-parcours-task-by-task-e13--written-2026-11-14)**; **V01, V02, V04–V11 built 2026-11-14** (settings, contacts, states, fork + shortlist, RFQ batch, window closing, typed answer time + channel, KPI #2 v1, the Decision Pack record, the release queue); V01–V11 **live on prod — V01–V09 since deploy #45 (2026-11-14), V10–V11 since deploy #47 (2026-11-18) — with the pack-flow switch OFF**; **V12–V14 built 2026-11-18** (the buyer's pack page, choosing from it, automatic release built and switched off + the review report) — **slice 1 (V04–V14) is complete** — on `main`, not deployed |
 | **E11** Settings | Profile, sourcing rules | 🟡 Paramètres + notification prefs live; **password / 2FA / theme / rename (2026-08-27)** live; buyer Abonnement self-service waits for billing |
 
 **MVP1 = E0–E7 + E10.** Definition of done **restated 2026-08-29 by ADR-002**
@@ -40,8 +40,13 @@ tracked to delivery** — with the PDF report available throughout.
 
 **Prod = `b146484` (deploy #47, 2026-11-18)** — Phase V tasks V01–V11, with
 the pack-flow switch off. **`main` is ahead of prod and NOT deployed:** the
-deploy #47 record, then V12 (the buyer's pack page) and V13 (choosing from
-the pack, migration 0054). V12 also carries a
+deploy #47 record, then V12 (the buyer's pack page), V13 (choosing from
+the pack, migration 0054) and V14 (automatic release, built and switched off,
+and the report « Ce que la revue a changé » — no migration). **V14 completes
+slice 1 and makes two options selectable by the owner that were greyed out:
+the pack flow (`flow.pack_enabled` → `on`) and automatic release
+(`pack.release_mode` → `automatic`). Both defaults are unchanged — pack flow
+off, release manual — so deploying switches nothing on.** V12 also carries a
 fix for the REPORT flow, live today: `/demandes/$id/rapport` showed the
 dossier instead of the report (see V12). Seen in dev on the code prod runs;
 not checked on prod itself.
@@ -107,7 +112,9 @@ served bundles carry `flow.pack_enabled`, `rfq_window_closed` and
 live check of V01–V09 was done in dev (see each task below).
 **Before the pack flow can ever be switched on:** slice 1 must be complete
 (V10–V13), `on` must be made selectable in the registry, and
-`rfq.reply_to` must be set to a mailbox someone reads.
+`rfq.reply_to` must be set to a mailbox someone reads. *(2026-11-18: the
+slice is complete and `on` is selectable since V14 — on `main`, not deployed.
+The mailbox is still to set.)*
 
 **Deploy #40 verification** — backup `osi-20260914-184919.sql.gz` (31 M) +
 uploads archive taken first. Code-only. On the VM: `git log` at `8f40d1e`,
@@ -4307,6 +4314,8 @@ report, exactly as today, because that report is all they get.
 | **D11** | The shortlist is the Top-N the search ranks — 5 by default — and the window closes on 5 offers. Asking five suppliers will rarely bring five answers. Should the pack flow rank more than it needs? | Unchanged: the shortlist is what `SUPPLIERS_RETURNED` ranks. Staff relaunch (V11) when a round comes back short. Ranking more costs a supplier row and a verification run per extra candidate. | V05, V07 |
 | **D12** | A round where nobody is left to answer — every supplier asked has either sent an offer or declined — but the offer target is not reached. Three asked, three answered, target five: the round stays open until its deadline, waiting for no one. Should it close by itself? | **Not closed automatically** (V07 as built): README §2c names three conditions and this would be a fourth. The dossier shows « 0 fournisseur(s) sans réponse à ce jour », and staff close early with a reason. | V07 |
 | **D13** | A round closed early (staff, or the target reached) tells the suppliers who had not answered **nothing**: their RFQ still shows the original deadline. One who answers after the close but before that deadline is refused (V08: not in time for the round). Should they be told the RFQ is closed? | **Not told** (V07/V08 as built) — README §2c: a silent supplier is *"excluded, not chased"*. A closing notice is not chasing, and `buildRfqWithdrawnMail` shows the shape; it is one more email per silent supplier per early close. | V07, V08 |
+| **D14** | In `automatic` mode, a pack that came to a person (its round closed with no offer) and was **relaunched**: when the new round closes with offers, does it leave by itself? | **No — a pack that has reached a person stays a person's** (V14 as built). Automatic release happens only at the close that creates the pack. The other answer is simpler to state ("automatic means automatic") but lets a relaunched pack leave alone after the setting has gone back to `manual`, because a pack keeps the mode it was created with. | V14 |
+| **D15** | An automatically released pack passes through `pack_review` for an instant, so the request's timeline and activity feed — which the buyer reads — still show « Offres reçues — en revue chez OSI » a few seconds before « Decision Pack disponible ». The email and the pack page were made truthful in V14; the timeline was not. | **Left as is while the mode is off.** To settle before anyone selects `automatic`: either a different label for that step when the pack's release has no person, or no `pack_review` step at all on an automatic release. | V14 |
 
 #### Review of V01–V09 — 2026-11-14, after deploy #45
 
@@ -4687,7 +4696,7 @@ built in: **S** one, **M** two to three, **L** four or more.
       in dev: `insert into platform_setting (key, value) values
       ('flow.pack_enabled', '"on"')`, then restart the worker (30 s cache).
       **Remove `on` from `unavailable` in the commit that completes slice 1,
-      and not before.**
+      and not before.** *(Done 2026-11-18, with V14 — see there.)*
       **The fork** (`src/worker.ts`, when `validating` finishes): plan with
       quotes AND switch on → `shortlisted`, staff holding `deals` are
       notified, the buyer is told nothing. Otherwise → `report_ready`,
@@ -5671,7 +5680,122 @@ built in: **S** one, **M** two to three, **L** four or more.
       **Gotcha.** The no-splitting index and the `already_accepted` path are
       unchanged — do not re-derive them.
 
-- [ ] **V14 · Automatic release, built and switched off.** *Size M. Step 10.
+- [x] **V14 · Automatic release, built and switched off — BUILT 2026-11-18**
+      (no migration, not deployed). **This completes slice 1 (V04–V14).**
+      `autoReleaseHold` (pure) in `src/lib/decision-pack.ts`;
+      `releaseAutomatically` in `src/server/decision-pack.ts`, called by
+      `closeRound` right after `refreshPack`; two event actions the system
+      writes, `auto_released` and `held`; `PackView.reviewed`; the staff
+      notification `pack_auto_released`; `RfqPreview.releaseOnClose`; the
+      report: `src/lib/pack-review-report.ts` (pure),
+      `src/server/pack-report.ts`, `getPackReviewReportFn`, and the tab
+      « Ce que la revue a changé » on `/interne/packs`. 690 tests.
+
+      **THE DEFAULT IS UNCHANGED: `manual` — a staff member triggers every
+      release.** What changed is what the owner *can* select on
+      `/interne/parametres`, and it is two things, in this commit:
+      • `pack.release_mode` → `automatic` is no longer greyed out (this task:
+        "turned on later, by a setting and not a deploy");
+      • `flow.pack_enabled` → `on` is no longer greyed out (V05: "remove `on`
+        from `unavailable` in the commit that completes slice 1, and not
+        before"). **Once this is deployed, switching the pack flow on in
+        production is one select and one click by the owner.** Before doing
+        it: `rfq.reply_to` must be a mailbox someone reads, and the fee lines
+        the pack page shows unquoted (V12) should have been looked at.
+      Nothing in the code sets either; `unavailable` is now empty for both and
+      the mechanism stays for the next option that exists before its reader.
+
+      **The rule, as built** (`autoReleaseHold`), stricter than the task's
+      two lines on purpose:
+      • the mode read is the one stored on the pack, created at the close of
+        its round — so flipping the setting changes the next pack created and
+        none that exists;
+      • no release when the round that just closed brought no offer of its
+        own (this also covers an expired offer asked again and not answered:
+        the pack still holds the others, the round added nothing) — the pack
+        gets a `held` event by the system;
+      • no release for a pack that already has ANY event (held, relaunched,
+        taken): a pack that reached a person stays a person's. Decision
+        **D14**, built as its conservative default.
+      Only `closeRound` calls it. A late answer, a correction or a
+      recomputation never releases anything.
+
+      **Truthfulness, which the task did not ask for and the mode needs:**
+      `tellBuyerPackReady` used to say the offers "ont été revues par notre
+      équipe" and the pack page "après revue par notre équipe" — both false
+      for a pack nobody looked at. The email now says *classées* and the page
+      *dans l'ordre de notre classement* when `reviewed` is false (released
+      with no person). The notification preference label lost its "(revues)".
+      **Not fixed, and written down as D15:** the request timeline still
+      shows the `pack_review` step and « en revue chez OSI » for the instant
+      an automatic pack spends there.
+
+      **Warnings where the close has become the send:** while a round is
+      open and its pack would leave by itself, the RFQ panel says so, and the
+      early-close form says it again with "cela ne s'annule pas". The queue
+      page states the mode in force under its title — in `automatic`, an
+      empty queue does not mean nothing was sent.
+
+      **The report.** A pack DECIDED in the period counts as exactly one of
+      untouched · corrected · relaunched (sent as built after ≥ 1 relaunch) ·
+      refused · automatic. "The review changed the pack" = corrected +
+      relaunched + refused, over the packs a person decided. The waits are
+      MEANS over the decided packs so that window + desk is the total; a
+      relaunched pack adds every round and every desk; a request's second
+      pack starts its wait after the first was sent. Early closes are listed
+      with their notes, from `rfq_round`. Nothing reads `audit_log`.
+
+      *Verified live in dev, request #3049:*
+      • **The settings page:** both selects offer both options, none marked
+        « bientôt »; the owner set « Envoi du Decision Pack » to Automatique,
+        the page showed « Modifié par Owner », `audit_log` got
+        `platform_setting.updated {from: manual, to: automatic}`.
+      • **Automatic, two offers, deadline reached** (closed by the worker's
+        sweep): pack `released`, `release_mode = automatic`, `released_by`
+        and `released_by_name` both null; one `auto_released` event with no
+        actor; request `report_ready`; `pack_ready` to the buyer, whose email
+        read "ont été classées"; `pack_auto_released` to owner and manager
+        (and no `rfq_window_closed`); `pack.auto_released` in the journal
+        with no actor; the dossier shows « envoi automatique · envoyé … par
+        le système »; the pack page's first line reads « présentées dans
+        l'ordre de notre classement », as staff preview and signed in as the
+        workspace owner, with no internal field in the response.
+      • **Automatic, no offer:** pack `pending` and empty, one `held` event
+        `{cause: no_offers, round: 1}` with no actor, request `pack_review`,
+        staff got `rfq_window_closed`, the buyer nothing; the dossier says
+        the pack did not leave and why. **Then relaunched** (Changzhou):
+        `releaseOnClose` read `manual` while round 2 was open; an offer came
+        in, the round was closed early — the pack was rebuilt with 1 item and
+        stayed `pending`, no second `held`; a person approved it and it was
+        released by « Owner ».
+      • **Flipping does not reach back:** in `manual`, a round closed with
+        two offers left a `manual` pack pending; the setting was then set to
+        `automatic` and two sweeps passed — the pack stayed pending until a
+        staff member approved it from the dossier (« envoi manuel · envoyé …
+        par Owner »).
+      • **Flipping changes the next round, and the warnings:** with the
+        setting on `automatic` and a round open, the RFQ panel showed the
+        warning; « Fermer la fenêtre maintenant » showed the second one; the
+        close, with its note, released the pack in the same second.
+      • **The report:** after the relaunch scenario — « Un seul pack est passé
+        par une personne ; la revue en a changé 1 (100 %) », Relancés puis
+        envoyés 1, « 1 relance envoyée », « 1 pack en envoi automatique
+        retenu », Fenêtre 2 j 2 h + Bureau 5 min = Total 2 j 2 h, the early
+        close with its note. After the automatic scenario — « Aucun pack
+        n'est passé par une personne… », Envoyés automatiquement 1, Bureau
+        0 min. The 30-day button reloaded the same figures.
+      Dev data restored afterwards (request, quote, events, notifications,
+      journal and settings back to their baseline; no pack, round or ranking
+      left).
+      **Not exercised:** `automatic` on production (it is off there, and the
+      pack flow with it); a release failing mid-way (the code path logs and
+      leaves the pack pending — read, not provoked); the report over more
+      than one request, and its `corrected` and `refused` rows (unit-tested
+      only — dev has one request to build fixtures on); the English pages.
+      Also in this commit, seen in the console while verifying: the country
+      label `IN` was missing from both locale files (a supplier in India
+      printed `countries.IN`).
+- [x] ~~**V14 · Automatic release, built and switched off.**~~ *Size M. Step 10.
       Depends on: V01, V11.*
 
       **Left for this task by V10 and V11:** the mode to read is the one

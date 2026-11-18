@@ -291,6 +291,13 @@ export function DecisionPackPanel({
           </>
         )}
       </p>
+      {pack.status === "pending" && pack.internal?.releaseMode === "automatic" && (
+        // An automatic pack still pending did NOT leave at its close — and
+        // will not leave by itself any more. Said, so nobody waits for it.
+        <p className="mt-2 rounded-lg bg-warning/10 px-3 py-2 text-xs text-warning">
+          {t("pack.autoHeld")}
+        </p>
+      )}
       {pack.internal?.refusedReason && (
         <p className="mt-2 rounded-lg bg-secondary/40 px-3 py-2 text-xs">
           <span className="font-semibold">{t("pack.refusedBecause")}</span>{" "}

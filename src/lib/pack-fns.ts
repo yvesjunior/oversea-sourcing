@@ -7,6 +7,7 @@
 
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import type { ReleaseMode } from "@/lib/platform-settings";
 import type {
   BuyerPackView,
   PackActionResult,
@@ -17,7 +18,9 @@ import type {
   RelaunchPackResult,
   RequestPackView,
 } from "@/server/decision-pack";
+import type { PackReviewReportData } from "@/server/pack-report";
 
+export type { EarlyClose, PackReviewReportData } from "@/server/pack-report";
 export type {
   BuyerPackView,
   PackDocument,
@@ -69,17 +72,38 @@ export const getPackForRequestFn = createServerFn({ method: "GET" })
 // server module, in the same transaction — permanent, beside the pack) and in
 // `audit_log` (here — the journal staff read, purged at three months).
 
-export type PackQueueData = { packs: QueuedPack[]; me: string };
+export type PackQueueData = {
+  packs: QueuedPack[];
+  me: string;
+  /** The setting as it stands — how the NEXT pack created will leave (V14). */
+  releaseMode: ReleaseMode;
+};
 
 /** Every pack awaiting a decision, longest wait first. */
 export const getPackQueueFn = createServerFn({ method: "GET" }).handler(
   async (): Promise<PackQueueData | null> => {
     const session = await requirePackStaff();
     if (!session) return null;
-    const { listPackQueue } = await import("@/server/decision-pack");
-    return { packs: await listPackQueue(), me: session.user.id };
+    const [{ listPackQueue }, { getSetting }] = await Promise.all([
+      import("@/server/decision-pack"),
+      import("@/server/platform-settings"),
+    ]);
+    return {
+      packs: await listPackQueue(),
+      me: session.user.id,
+      releaseMode: await getSetting("pack.release_mode"),
+    };
   },
 );
+
+/** « Ce que la revue a changé » over the last `days` days (V14). */
+export const getPackReviewReportFn = createServerFn({ method: "GET" })
+  .inputValidator(z.object({ days: z.union([z.literal(30), z.literal(90), z.literal(365)]) }))
+  .handler(async ({ data }): Promise<PackReviewReportData | null> => {
+    if (!(await requirePackStaff())) return null;
+    const { loadReviewReport } = await import("@/server/pack-report");
+    return await loadReviewReport(data.days);
+  });
 
 /** Release the pack as built. */
 export const approvePackFn = createServerFn({ method: "POST" })

@@ -25,12 +25,15 @@ import { cn } from "@/lib/utils";
 function CloseEarly({
   round,
   pending,
+  automatic,
   onChanged,
 }: {
   round: RoundView;
   /** Everyone the close would drop: written to and silent, plus anyone the
    *  RFQ has not reached yet. */
   pending: number;
+  /** The pack would leave for the client the moment this closes (V14). */
+  automatic: boolean;
   onChanged: () => void;
 }) {
   const { t } = useTranslation();
@@ -74,6 +77,14 @@ function CloseEarly({
       <p className="mt-1 text-xs text-muted-foreground">
         {t("rfq.closeEarly.warning", { count: pending })}
       </p>
+      {automatic && (
+        // Closing is no longer "hand it to the review": with this mode the
+        // close IS the send, and there is no taking it back.
+        <p className="mt-2 flex items-start gap-1.5 text-xs font-medium text-warning">
+          <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
+          {t("rfq.closeEarly.automatic")}
+        </p>
+      )}
       <Label htmlFor="close-early-note" className="mt-3 block text-xs font-medium">
         {t("rfq.closeEarly.noteLabel")}
       </Label>
@@ -224,6 +235,15 @@ export function RfqPanel({
           {t("rfq.notSentYet", { hours: rfq.windowHours })}
         </p>
       )}
+      {rfq.releaseOnClose === "automatic" && !rfq.round?.closedAt && (
+        // Said BEFORE the batch leaves and for as long as the round is open:
+        // in this mode the close is the send, and whoever is watching the
+        // round is the last person who can still do anything about it.
+        <p className="mt-2 flex items-start gap-1.5 text-xs font-medium text-warning">
+          <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
+          {t("rfq.automaticRelease")}
+        </p>
+      )}
 
       {rfq.recipients.length > 0 && (
         <>
@@ -305,6 +325,7 @@ export function RfqPanel({
         <CloseEarly
           round={rfq.round}
           pending={rfq.round.awaiting + rfq.recipients.length}
+          automatic={rfq.releaseOnClose === "automatic"}
           onChanged={onChanged}
         />
       )}

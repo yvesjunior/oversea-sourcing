@@ -205,6 +205,10 @@ export type PackView = {
   builtAt: string;
   /** When it was sent — the buyer may know that; who sent it is staff's. */
   releasedAt: string | null;
+  /** A person released it (V14). False on an automatic release — and the one
+   *  thing about HOW it left that the buyer's page needs: it may only say
+   *  "reviewed by our team" when somebody did. */
+  reviewed: boolean;
   items: PackItemView[];
   /** STAFF ONLY. */
   internal?: {
@@ -250,6 +254,9 @@ export function projectPack(
     status: pack.status,
     builtAt: pack.builtAt,
     releasedAt: pack.releasedAt,
+    // The name is a snapshot kept when the account goes, so null means
+    // nobody ever was there — the system released it.
+    reviewed: pack.releasedByName !== null,
     items: [...shown, ...withheld].map((item) => {
       const fit = item.reason?.factors.kpi1;
       return {
@@ -420,4 +427,47 @@ export function packOfferState(
     default:
       return "unavailable";
   }
+}
+
+// ── The other release mode (V14) ────────────────────────────────────────────
+
+/** Why a pack is NOT released by the system when its round closes. */
+export type AutoReleaseHold =
+  /** Its stored mode says a person sends it. */
+  | "manual"
+  /** Something was already done to it — held once, relaunched, taken. A pack
+   *  that reached a person stays a person's, whatever closes afterwards. */
+  | "in_hand"
+  /** The round closed with no offer of its own, or the pack shows none. */
+  | "no_offers";
+
+/**
+ * Whether a pack leaves by itself at the close of its round — null when it
+ * does.
+ *
+ * Automatic release happens at ONE moment only: the close that built the
+ * pack, when that round brought at least one offer. Everything else goes to
+ * a person, and stays there:
+ *
+ * • a round that came back empty is a decision (relaunch or refuse), not a
+ *   delivery — and a round that added nothing to offers already held is the
+ *   same question;
+ * • once a pack has any history, somebody is — or was — deciding about it.
+ *   Without this, flipping the setting back to `manual` would still let a
+ *   relaunched pack leave alone when its second round closed, because the
+ *   mode a pack carries is the one it was created with.
+ */
+export function autoReleaseHold(pack: {
+  releaseMode: ReleaseMode;
+  /** Rows of `decision_pack_event` the pack already has. */
+  events: number;
+  /** Offers answered in the round that just closed. */
+  offersInRound: number;
+  /** Items the pack would show. */
+  items: number;
+}): AutoReleaseHold | null {
+  if (pack.releaseMode !== "automatic") return "manual";
+  if (pack.events > 0) return "in_hand";
+  if (pack.offersInRound === 0 || pack.items === 0) return "no_offers";
+  return null;
 }

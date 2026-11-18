@@ -24,6 +24,7 @@ import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import { db } from "@/database";
 import * as schema from "@/database/schema";
 import type { RoundCloseReason } from "@/database/schema";
+import type { ReleaseMode } from "@/lib/platform-settings";
 import { buildRfqMail, type RfqMail } from "@/lib/rfq-mail";
 import { sendMail } from "@/server/mail";
 import { getSetting } from "@/server/platform-settings";
@@ -134,6 +135,14 @@ export type RfqPreview = {
   replyTo: string;
   /** The delay a NEW round would get, from the setting as it stands. */
   windowHours: number;
+  /**
+   * How the pack will leave when the round closes, as things stand (V14).
+   * `automatic` only when the setting says so AND no pack of this request is
+   * already pending — one that is has reached a person and stays theirs.
+   * A forecast, not a promise: the mode is fixed when the pack is created,
+   * at the close, from the setting of that moment.
+   */
+  releaseOnClose: ReleaseMode;
   /** What the first recipient with an address would receive, word for word. */
   sample: { to: string; subject: string; text: string } | null;
 };
@@ -142,10 +151,18 @@ export async function previewRfq(requestId: string): Promise<RfqPreview | null> 
   const request = await db.query.request.findFirst({ where: eq(schema.request.id, requestId) });
   if (!request) return null;
   const round = await latestRound(requestId);
-  const [quotes, replyTo, windowHours] = await Promise.all([
+  const [quotes, replyTo, windowHours, releaseMode, pendingPack] = await Promise.all([
     pendingQuotes(requestId, round),
     getSetting("rfq.reply_to"),
     getSetting("rfq.window_hours"),
+    getSetting("pack.release_mode"),
+    db.query.decisionPack.findFirst({
+      where: and(
+        eq(schema.decisionPack.requestId, requestId),
+        eq(schema.decisionPack.status, "pending"),
+      ),
+      columns: { id: true },
+    }),
   ]);
   const contacts = await primaryContactsFor(
     quotes.map((q) => q.supplierId).filter((id): id is string => id !== null),
@@ -183,6 +200,7 @@ export async function previewRfq(requestId: string): Promise<RfqPreview | null> 
     blockedBy,
     replyTo,
     windowHours,
+    releaseOnClose: pendingPack ? "manual" : releaseMode,
     sample:
       sampleMail && firstContact
         ? { to: firstContact.email, subject: sampleMail.subject, text: sampleMail.text }

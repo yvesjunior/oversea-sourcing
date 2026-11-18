@@ -12,8 +12,9 @@
 import { z } from "zod";
 
 /** How a Decision Pack reaches the buyer. `manual` = staff validate and send
- *  (the default, owner 2026-10-22); `automatic` is designed in from the start
- *  and switched on later — see `unavailable` below. */
+ *  (the default, owner 2026-10-22); `automatic` = the pack leaves when its
+ *  round closes, without a person (V14) — built, selectable, and left off:
+ *  the evidence for switching it is the review report on /interne/packs. */
 export const RELEASE_MODES = ["manual", "automatic"] as const;
 export type ReleaseMode = (typeof RELEASE_MODES)[number];
 
@@ -89,20 +90,20 @@ export const PLATFORM_SETTINGS: {
    * `shortlisted` when the search finishes, instead of ending at the Top-N
    * report. `off` → every request ends at the report, as it always has.
    *
-   * `on` is UNAVAILABLE, deliberately, until the rest of slice 1 exists: a
-   * request that reaches `shortlisted` has no way forward before V06–V12, so
-   * switching this on in production would strand every paying customer's
-   * request there. The reader honours a stored `on` (see `readSchema`), which
-   * is how it is exercised in development — by writing the row — while the
-   * page and the server fn refuse to set it. Remove `on` from `unavailable`
-   * in the commit that completes the slice, and not before.
+   * `on` was UNAVAILABLE while slice 1 was being built (V05–V13): a request
+   * reaching `shortlisted` had no way forward, so switching this on would
+   * have stranded every paying customer's request there. The slice is
+   * complete with V14 and the option is selectable — by the owner, on the
+   * settings page. The DEFAULT is still `off`: shipping the code switches
+   * nothing on. A request already on the pack flow stays on it if the switch
+   * goes back to `off` (its flow is derived from its own history).
    */
   "flow.pack_enabled": {
     kind: "choice",
     group: "pack",
     options: SWITCH_VALUES,
     default: "off",
-    unavailable: ["on"],
+    unavailable: [],
     inert: false,
   },
   /**
@@ -147,13 +148,14 @@ export const PLATFORM_SETTINGS: {
   },
   /** Read when a pack is CREATED (V10) and stored on it, so a later change
    *  never alters how a pack already waiting is released. `automatic` is
-   *  refused on write until V14 implements it. */
+   *  honoured by `releaseAutomatically` (V14) and so is selectable; it was
+   *  refused on write until then. */
   "pack.release_mode": {
     kind: "choice",
     group: "pack",
     options: RELEASE_MODES,
     default: "manual",
-    unavailable: ["automatic"],
+    unavailable: [],
     inert: false,
   },
   /**

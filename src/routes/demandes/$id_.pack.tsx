@@ -367,7 +367,11 @@ function DecisionPackPage() {
         </p>
         <h1 className="mt-1 font-display text-2xl font-semibold">{data.requestTitle}</h1>
         <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
-          {t("packView.intro", { count: pack.items.length })}
+          {/* "after review by our team" only when somebody did review it:
+              a pack the system released (V14) says what is true of it. */}
+          {t(pack.reviewed ? "packView.intro" : "packView.introAutomatic", {
+            count: pack.items.length,
+          })}
           {pack.releasedAt &&
             ` ${t("packView.sentOn", { date: formatDayTime(pack.releasedAt, i18n.language, { month: "long" }) })}`}
         </p>

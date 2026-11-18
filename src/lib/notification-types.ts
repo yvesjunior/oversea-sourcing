@@ -36,6 +36,11 @@ export const NOTIFICATION_TYPES = [
    *  pack review. Sent whatever the count, zero included: a round that came
    *  back empty is exactly the one a person has to decide about. */
   { type: "rfq_window_closed", hasEmail: true },
+  /** STAFF-facing (Phase V · V14): a round closed and its pack went to the
+   *  client by itself — the release mode was `automatic`. Replaces
+   *  `rfq_window_closed` for that round: there is nothing to review, and
+   *  that is the news. */
+  { type: "pack_auto_released", hasEmail: true },
   /** The Decision Pack was released (Phase V · V12) — the pack flow's
    *  counterpart of `report_ready`: the buyer's answer is there to read. */
   { type: "pack_ready", hasEmail: true },

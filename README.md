@@ -1210,13 +1210,15 @@ pack flow it means the Decision Pack has been released.
 **The fork exists and is switched off** (V05, 2026-11-14). When `validating`
 finishes, the worker sends a request to `shortlisted` only if the workspace's
 plan includes quotes **and** the platform setting `flow.pack_enabled` is `on`.
-It ships `off`, and `on` cannot be selected from the product. Since 2026-11-14
-a pack-flow request can travel as far as `pack_review` — shortlist, RFQ batch,
-the window closing, the offers ranked, the Decision Pack built, released, read
-and chosen from (BACKLOG Phase V, V05–V13): the flow now reaches the dossier
-de transaction. The switch stays unavailable until the slice's last task
-(V14, automatic release, built and switched off) is in. In development it is exercised by writing the setting's row
-directly.
+It ships `off`. A pack-flow request travels the whole way — shortlist, RFQ
+batch, the window closing, the offers ranked, the Decision Pack built,
+released, read and chosen from, down to the dossier de transaction (BACKLOG
+Phase V, V05–V14). While that was being built `on` could not be selected
+from the product; since V14 (2026-11-18), the task that completes the slice,
+the owner can switch it on from `/interne/parametres`. The default is still
+`off`: deploying the code switches nothing on, and before switching it on
+`rfq.reply_to` must be a mailbox someone reads. A request already on the pack
+flow stays on it if the switch goes back to `off`.
 
 What is already true on the pack flow, and tested as the owning workspace:
 
@@ -1498,6 +1500,53 @@ acceptance is possible. Two things are specific to the pack:
 
 A `viewer` seat reads the page and gets neither button; staff previewing a
 customer's pack never act on their behalf.
+
+**The other release mode — built, and switched off** (V14, 2026-11-18).
+`pack.release_mode` has two values. `manual`, the default: a staff member
+triggers every release (approve or correct). `automatic`: the pack goes to the
+buyer the moment its round closes, as ranked, with nobody looking. The owner
+can select it on `/interne/parametres`; nothing selects it for them. The rule
+is one pure function, `autoReleaseHold` in
+[`src/lib/decision-pack.ts`](src/lib/decision-pack.ts), and its transaction is
+`releaseAutomatically` in [`src/server/decision-pack.ts`](src/server/decision-pack.ts),
+called by `closeRound` and by nothing else:
+
+- **The mode read is the one stored on the pack**, written when the pack is
+  created (at the close of its round) — never the setting again. Flipping the
+  setting changes the packs created afterwards and none that exist.
+- **A round that closes with no offer always goes to a person** — and so does
+  a round that added nothing to offers already held (an expired offer asked
+  again and not answered). The pack gets a `held` event, by the system.
+- **A pack that has reached a person stays a person's.** Automatic release
+  happens at one moment only: the close that built the pack. A pack with any
+  history — held, relaunched, taken onto a desk — is never released by a
+  later close. Without this a relaunched pack would leave alone at its second
+  close even after the setting had gone back to `manual`.
+- **"The system" is a null actor, and nothing else is**: `released_by` *and*
+  `released_by_name` null on the pack, a `decision_pack_event` of action
+  `auto_released` with no actor, and `pack.auto_released` in the journal.
+- **Nobody is told a review happened.** The buyer's email says the offers
+  were *ranked*, not *reviewed*, and the pack page's first line drops "après
+  revue par notre équipe" — `PackView.reviewed` is the only thing about how
+  a pack left that the buyer's projection carries. Staff holding `deals` get
+  `pack_auto_released` instead of `rfq_window_closed`.
+- **Whoever can still stop it is warned**: while a round is open in this mode
+  the RFQ panel says the close will send the pack, and « Fermer la fenêtre
+  maintenant » says it again, with "cela ne s'annule pas".
+
+**« Ce que la revue a changé »** is the second tab of `/interne/packs`, and
+the evidence the automatic mode waits for. Over 30 days, 90 days or 12 months
+it counts every pack *decided* in the period as exactly one of: sent as built,
+corrected, relaunched then sent, refused, sent automatically — and answers in
+one sentence how many of the packs a person decided were changed by that
+person. Below it, the buyer's wait: the **window** (rounds open) and the
+**desk** (rounds closed, a person deciding), as means, shown apart and summed,
+then pack by pack; and every window closed before its deadline with the reason
+typed. All of it is read from `decision_pack`, `decision_pack_event` and
+`rfq_round` — rows that are kept — and none of it from `audit_log`, which is
+purged at three months. Rules:
+[`src/lib/pack-review-report.ts`](src/lib/pack-review-report.ts); rows:
+[`src/server/pack-report.ts`](src/server/pack-report.ts).
 
 Guarded transitions live in [`src/lib/request-status.ts`](src/lib/request-status.ts);
 illegal ones throw. So do **stale** ones (since 2026-11-14): `transitionRequest`
@@ -2219,7 +2268,7 @@ which is the one moment they act together.
 | **Staff send the RFQs, as one batch** (2026-11-14) | They confirm the KPI #1 shortlist and every RFQ leaves in the same act — not automatically when KPI #1 finishes. **Built** (Phase V · V06). One send is one clock, so the per-request and per-supplier readings of the window (below) give the same answer in practice. |
 | **Suppliers are invited by email to create an account and answer the RFQ** | Reverses Part II §2. Two more audiences — supplier and transit agent — and strict partitioning becomes mandatory. |
 | **The RFQ window closes on 5 offers, OR the delay (72 h default), OR staff releasing early** (2026-10-24) | Three conditions, not two: staff need not wait out the clock when the offers in hand are enough. **Built** (Phase V · V06–V07, 2026-11-14): the round stores its deadline and its offer target (`rfq.window_hours`, `rfq.target_offers` — a setting of its own, not `SUPPLIERS_RETURNED`), a sweep closes it, and a fourth way out exists — the buyer withdrawing. No reminder, by decision: a silent supplier is excluded, not chased. |
-| **Release is a POLICY whose default is manual** (2026-10-22) | Staff validate and send the pack today; automatic release is built for from the start and switched on later. So it is a mode, not a hardcoded step — see the note below. |
+| **Release is a POLICY whose default is manual** (2026-10-22) | Staff validate and send the pack today; automatic release is built for from the start and switched on later. So it is a mode, not a hardcoded step — see the note below. **Both modes are built** (Phase V · V14, 2026-11-18): `manual` is the default and what runs; `automatic` is selectable by the owner and selected by nobody — §2 says what it does and what it never does. |
 | **The Decision Pack = the supplier quote + partner enrichments, ordered by KPI #2** | It has no content of its own — it is a read-model over `Offer`, `PartnerEnrichment` and `KPIResult`. What it must store is which versions were shown, in what order, and when. |
 | **Partners are Globex, escrow.com, transport, inspection, customs** | Globex and escrow.com fill the **same slot**: one settlement partner per dossier, never both (owner, 2026-10-25). They are the first real case of V6's *« partenaires interchangeables derrière des interfaces communes »* — one `PartnerAdapter`, two providers. |
 
@@ -2249,11 +2298,13 @@ things follow, and they are design constraints rather than preferences:
   only, because the settlement that will read it is not built; the window
   became live with the batch send (V06), the offer target with the round
   closing on it (V07) and the release mode with the pack that stores it
-  (V10) — so the page cannot suggest a number does something it does not. And `automatic`
-  exists as a release mode but is **refused by the server** until the code
-  that honours it ships: a mode selectable before its reader exists would
-  switch itself on the day that reader is deployed, with nobody having
-  decided to.
+  (V10) — so the page cannot suggest a number does something it does not. And an
+  option that exists before the code that honours it is **refused by the
+  server** (`unavailable` in the registry): a mode selectable before its
+  reader exists would switch itself on the day that reader is deployed, with
+  nobody having decided to. `automatic` was refused that way until V14
+  (2026-11-18) and `on` for `flow.pack_enabled` until the same commit; both
+  are selectable now, neither is a default, and no option is withheld today.
   The env-var knobs (`SUPPLIERS_RETURNED` and the rest of
   `sourcing-config.ts`) were deliberately not moved: they are read at module
   load by the worker, and that is its own change.
@@ -2729,7 +2780,7 @@ erDiagram
 | `supplier_contact`   | ✅ 2026-11-14 (0047, Phase V · V02) — who to write to at a supplier: email, name, role, phone, the language to write in, `source` (`research` \| `staff`). **Exactly one PRIMARY per supplier that has any contact** — a partial unique index for "at most one", `ensurePrimary` for "at least one" — and the RFQ goes to it. Staff-only (`deals`): never returned by a buyer-facing fn, since the pool is platform-global. A researched address is kept only when it is on the supplier's own website domain (`acceptResearchedEmail`) — and never when that domain is one many companies share (a marketplace storefront, a site builder: `SHARED_HOSTS`), where the address would be the platform's and not the supplier's; it travels on `source_record.contact_email` and becomes a row here at promotion. Never from a paid provider |
 | `decision_pack`      | ✅ 2026-11-14 (0052, Phase V · V10; 0053, V11) — what a buyer is shown, as a record: `request_id`, `round_id`, `status` (`pending` · `released` · `refused` · `withdrawn`), `release_mode` (the setting when the pack was created), `kpi_run_id` (the ranking it was built from; null for an empty pack), `built_at`; `assigned_to` + name (whose desk), `released_at`, `released_by` + name (null = the system), `refused_reason`. **At most one `pending` pack per request** (partial unique index) |
 | `decision_pack_item` | ✅ 2026-11-14 (0052, V10; 0053, V11) — one offer in a pack: `quote_id`, `kpi_result_id`, `rank_computed` and `rank_shown` (**null = withheld by a person**), and `offer` — a frozen copy of the figures and of the supplier as they stood, so the pack outlives changes to the quote |
-| `decision_pack_event`| ✅ 2026-11-14 (0053, Phase V · V11) — what was done to a pack: `action` (`approved` · `corrected` · `relaunched` · `refused` · `assigned`), actor + name, `payload` (the note, the moves, the suppliers relaunched and what each had been closed as, the reason). Permanent — not `audit_log` |
+| `decision_pack_event`| ✅ 2026-11-14 (0053, Phase V · V11) — what was done to a pack: `action` (`approved` · `corrected` · `relaunched` · `refused` · `assigned`, and since V14 the two the system writes, with no actor: `auto_released` · `held`), actor + name, `payload` (the note, the moves, the suppliers relaunched and what each had been closed as, the reason). Permanent — not `audit_log` |
 | `kpi_result`         | ✅ 2026-11-14 (0051, Phase V · V09) — KPI #2: one row per offer per run. `run_id` groups a computation; `rank`, `score` (hundredths of a point), `breakdown` (per-factor state, points and weight, the notes, and the offer exactly as it was scored), `formula_version`, `inputs_hash`, `trigger`, `computed_at`. **Append-only** — the current ranking of a round is its latest run. KPI #1 is not here: it scores a supplier before anyone is asked and stays on `match` |
 | `platform_setting`   | ✅ 2026-11-14 (0046, Phase V · V01) — platform-wide settings, ONE value per key for every client; a missing row means the default. Keys, types, ranges and defaults live in the registry `src/lib/platform-settings.ts`, so a new knob is a registry entry and not a migration. Edited from `/interne/parametres` (`settings` permission, owner by default); every change is in `audit_log` with the old and new value |
 | `plan` / `subscription` | limits as rows (daily, lifetime, seats, `quota_scope`, `audience`, `suppliers_returned`, `model_tier`); one subscription per workspace |

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  autoReleaseHold,
   packOfferState,
   planCorrection,
   projectPack,
@@ -396,5 +397,71 @@ describe("packOfferState", () => {
   it("calls anything else unavailable — a supplier who withdrew, a state it does not know", () => {
     expect(packOfferState(quote("declined", later, "supplier_declined"), now)).toBe("unavailable");
     expect(packOfferState(quote("something_new"), now)).toBe("unavailable");
+  });
+});
+
+// The other release mode (V14). Switched off in production: the setting's
+// default is `manual`, so every pack there answers "manual" here.
+describe("whether a pack leaves by itself when its round closes", () => {
+  const fresh = { releaseMode: "automatic" as const, events: 0, offersInRound: 2, items: 2 };
+
+  it("releases an automatic pack at the close that built it", () => {
+    expect(autoReleaseHold(fresh)).toBeNull();
+  });
+
+  it("never releases a manual pack, whatever it holds", () => {
+    expect(autoReleaseHold({ ...fresh, releaseMode: "manual" })).toBe("manual");
+  });
+
+  // The acceptance line: a round with zero offers always goes to a person.
+  it("hands a round that came back empty to a person", () => {
+    expect(autoReleaseHold({ ...fresh, offersInRound: 0, items: 0 })).toBe("no_offers");
+  });
+
+  // A re-asked round nobody answered: the pack still holds the earlier
+  // offers, but this close added nothing — the same question for a person.
+  it("hands over a round that added nothing to offers already held", () => {
+    expect(autoReleaseHold({ ...fresh, offersInRound: 0, items: 3 })).toBe("no_offers");
+  });
+
+  it("does not release offers the pack does not show", () => {
+    expect(autoReleaseHold({ ...fresh, offersInRound: 1, items: 0 })).toBe("no_offers");
+  });
+
+  // Held once, relaunched, taken onto a desk: somebody is deciding. Without
+  // this a relaunched pack would leave alone at its second close even after
+  // the setting went back to manual — a pack keeps the mode it was born with.
+  it("leaves a pack that already has a history to the person who has it", () => {
+    expect(autoReleaseHold({ ...fresh, events: 1 })).toBe("in_hand");
+    expect(autoReleaseHold({ ...fresh, events: 1, offersInRound: 0, items: 0 })).toBe("in_hand");
+  });
+});
+
+describe("what a pack says about having been reviewed", () => {
+  const row = (releasedByName: string | null): PackRow => ({
+    id: "p1",
+    requestId: "3049",
+    roundId: "r1",
+    status: "released",
+    releaseMode: releasedByName ? "manual" : "automatic",
+    kpiRunId: "run-1",
+    builtAt: "2026-11-18T12:00:01.000Z",
+    createdAt: "2026-11-18T12:00:00.000Z",
+    releasedAt: "2026-11-18T12:00:02.000Z",
+    releasedByName,
+    refusedReason: null,
+    assignedTo: null,
+    assignedToName: null,
+  });
+
+  it("is reviewed when a person released it — and the buyer is told only that", () => {
+    const buyer = projectPack(row("Dana"), [], "buyer");
+    expect(buyer?.reviewed).toBe(true);
+    expect(buyer?.internal).toBeUndefined();
+  });
+
+  it("is not reviewed when the system released it", () => {
+    expect(projectPack(row(null), [], "buyer")?.reviewed).toBe(false);
+    expect(projectPack(row(null), [], "staff")?.reviewed).toBe(false);
   });
 });
