@@ -24,7 +24,7 @@
 | **E9** Notifications | In-app + email | 🟡 bell, emitters, **prefs (2026-08-26)** live; Phase P types (`quote_received`, `contract_to_sign`, `contract_signed`) + staff alert on `quotes.requested` (2026-09-07) live; **the bell alerts (2026-09-14)** — count badge, 30 s poll, chime, per-browser mute |
 | **E10** Admin surfaces | Verification, imports, ops queue | 🟡 **verification LIVE (S5b/S5c, 2026-08-26)**; imports/ops queue placeholders |
 | **R** Custom staff roles | Roles as data + the matrix | ✅ **BUILT 2026-08-29** (migration 0039) — create/delete roles, dynamic matrix, `requests.all` |
-| **E13** V6 architecture | Supplier portal · KPI #2 · Partner Hub · Decision Pack | 🔵 **NEW 2026-10-21** — scope opened by the V6 document; diagrams validated 2026-11-14; **34 tasks in seven slices — [Phase V](#phase-v--the-v6-parcours-task-by-task-e13--written-2026-11-14)**; **V01, V02, V04–V11 built 2026-11-14** (settings, contacts, states, fork + shortlist, RFQ batch, window closing, typed answer time + channel, KPI #2 v1, the Decision Pack record, the release queue); V01–V11 **live on prod — V01–V09 since deploy #45 (2026-11-14), V10–V11 since deploy #47 (2026-11-18) — with the pack-flow switch OFF**; **V12–V14 built 2026-11-18** (the buyer's pack page, choosing from it, automatic release built and switched off + the review report) — **slice 1 (V04–V14) is complete** — on `main`, not deployed |
+| **E13** V6 architecture | Supplier portal · KPI #2 · Partner Hub · Decision Pack | 🔵 **NEW 2026-10-21** — scope opened by the V6 document; diagrams validated 2026-11-14; **34 tasks in seven slices — [Phase V](#phase-v--the-v6-parcours-task-by-task-e13--written-2026-11-14)**; **V01, V02, V04–V11 built 2026-11-14** (settings, contacts, states, fork + shortlist, RFQ batch, window closing, typed answer time + channel, KPI #2 v1, the Decision Pack record, the release queue); V01–V11 **live on prod — V01–V09 since deploy #45 (2026-11-14), V10–V11 since deploy #47 (2026-11-18) — with the pack-flow switch OFF**; **V12–V14 built 2026-11-18** (the buyer's pack page, choosing from it, automatic release built and switched off + the review report) — **slice 1 (V04–V14) is complete** — **live on prod since deploy #48 (2026-11-18), pack flow off, release manual** |
 | **E11** Settings | Profile, sourcing rules | 🟡 Paramètres + notification prefs live; **password / 2FA / theme / rename (2026-08-27)** live; buyer Abonnement self-service waits for billing |
 
 **MVP1 = E0–E7 + E10.** Definition of done **restated 2026-08-29 by ADR-002**
@@ -38,18 +38,37 @@ tracked to delivery** — with the PDF report available throughout.
 
 ### START HERE — handoff, 2026-09-14 (read this first)
 
-**Prod = `b146484` (deploy #47, 2026-11-18)** — Phase V tasks V01–V11, with
-the pack-flow switch off. **`main` is ahead of prod and NOT deployed:** the
-deploy #47 record, then V12 (the buyer's pack page), V13 (choosing from
-the pack, migration 0054) and V14 (automatic release, built and switched off,
-and the report « Ce que la revue a changé » — no migration). **V14 completes
-slice 1 and makes two options selectable by the owner that were greyed out:
-the pack flow (`flow.pack_enabled` → `on`) and automatic release
-(`pack.release_mode` → `automatic`). Both defaults are unchanged — pack flow
-off, release manual — so deploying switches nothing on.** V12 also carries a
-fix for the REPORT flow, live today: `/demandes/$id/rapport` showed the
-dossier instead of the report (see V12). Seen in dev on the code prod runs;
-not checked on prod itself.
+**Prod = `e61b229` (deploy #48, 2026-11-18)** — Phase V tasks V01–V14: slice 1
+is complete and live, **with the pack-flow switch off and release manual**
+(`platform_setting` holds no row on prod, so every setting is at its default).
+`main` is ahead of prod only by this record. **What deploy #48 changed for the
+owner:** `/interne/parametres` now lets them select « Activé » for the pack
+flow and « Automatique » for the release — one select and one click each.
+Neither was touched. **Before the pack flow is switched on, `rfq.reply_to`
+must be set to a mailbox someone reads.** The deploy also carries the fix for
+the REPORT flow (`/demandes/$id/rapport` showed the dossier instead of the
+report — see V12).
+
+**Deploy #48 verification** — backup `osi-20261118-184727.sql.gz` + its
+uploads archive (85 B) taken first. Build gate passed locally (690 tests).
+One migration (0054, additive: `deal.decision_pack_id`, nullable, FK
+`ON DELETE SET NULL`). On the VM: `git log` at `e61b229`; `web` / `worker` /
+`worker-research` started together at 23:50:01 UTC, restart count 0 when
+read 45 s later; `__drizzle_migrations` 54 → 55; `deal.decision_pack_id` and
+its foreign key exist. **Data unchanged across the deploy:** 17 requests,
+all `report_ready`; 3 quotes, all `requested`; 155 request events; no RFQ
+round, no deal, no decision pack, no pack event, no `platform_setting` row.
+Zero lines matching `error|unhandled|fatal|failed` (case-insensitive) in the
+web log and in both workers' after the restart; the pipeline worker is
+listening. Over the tunnel: origin 200; `/demandes`, `/soumissions`,
+`/interne/packs` and `/interne/parametres` 307. The web container's build
+carries `getPackReviewReportFn`, `pack_auto_released`, `introAutomatic`,
+`packReport`, `releaseAutomatically` and `autoReleaseHold`; the worker's
+source carries `releaseAutomatically` in `rfq-window.ts`.
+**Not checked on prod:** signing in; the report page after its fix; the
+settings page offering the two options; the buyer's pack page and the
+« Ce que la revue a changé » tab (prod has no pack to show). Every live check
+of V12–V14 was done in dev (see each task below).
 
 **Deploy #47 verification** — backup `osi-20261118-153024.sql.gz` + its
 uploads archive (85 B) taken first. Build gate passed locally (621 tests).
@@ -113,7 +132,7 @@ live check of V01–V09 was done in dev (see each task below).
 **Before the pack flow can ever be switched on:** slice 1 must be complete
 (V10–V13), `on` must be made selectable in the registry, and
 `rfq.reply_to` must be set to a mailbox someone reads. *(2026-11-18: the
-slice is complete and `on` is selectable since V14 — on `main`, not deployed.
+slice is complete and `on` is selectable since V14 — live since deploy #48.
 The mailbox is still to set.)*
 
 **Deploy #40 verification** — backup `osi-20260914-184919.sql.gz` (31 M) +
@@ -329,6 +348,7 @@ deploy failed mid-session and prod was rolled back; see #24.
 | 23 | `5b90649` | — | **the platform workspace can no longer be deleted** — the org-plugin's own `POST /organization/delete` bypassed `destroyWorkspace`; guard moved into a `beforeDeleteOrganization` hook |
 | 24 | `95b825a` | — | **filters on all four ops lists** (multi-account + week/month/year/custom period) · **the global supplier directory is staff-only** · the DB cleared for fresh testing. *First attempt (`77d37b0`) took prod down — see the chunk-cycle note* |
 | 25 | `b7481d6` | — | **"linked supplier" widened to four traces** (matched · quoted · dealt · contract party) · **a session opens in your PERSONAL workspace** when you have one · the discovery store cleared for a cold research test |
+| 48 | `e61b229` | 0054 | **The buyer's side of the Decision Pack, and the end of slice 1 (Phase V · V12–V14) — the pack-flow switch stays OFF, release stays MANUAL.** The buyer's pack page (ranked offers, landed-cost lines, why each rank) · choosing an offer from the pack opens the dossier, and the deal remembers its pack · automatic release, built and selected by nobody: a pack leaves at the close of its round only if the mode stored on it says so, the round brought an offer, and no person has touched it · « Ce que la revue a changé », a second tab on `/interne/packs` · wording that no longer claims a review nobody made. **Visible to today's users:** the owner can now select « Activé » (pack flow) and « Automatique » (release) in the platform settings — both left at their defaults · the fix that makes `/demandes/$id/rapport` show the report instead of the dossier (seen in dev; not checked on prod) · the label for India |
 | 47 | `b146484` | 0052–0053 | **The Decision Pack and its release queue (Phase V · V10–V11) — still behind the pack-flow switch, which stays OFF.** A pending pack is built when a round closes into the review (frozen copies of the offers, computed and shown ranks, one pending pack per request) · `/interne/packs`, the desk: what waits, since when, on whose desk · approve, correct, relaunch, refuse — each locked against a concurrent decision and kept in `decision_pack_event` · a relaunch keeps the offers in hand (D5 as its default), so the ranking and the offer target span a request's rounds · a refusal tells the buyer why and the suppliers holding offers that it is closed. **Visible to today's users:** a new INTERNE entry « Decision Packs » for staff holding `deals`, showing an empty queue; « Envoi du Decision Pack » is no longer marked not-applied in the platform settings |
 | 46 | `04b5019` | — | **The review of Phase V, and a download that answered nothing.** Request status changes are conditional (a buyer's cancel is no longer overwritten by the pipeline, the fork or an RFQ send) · a round on a cancelled request is always withdrawn · the research re-run is refused on the pack flow · two leaks of "the buyer sees no supplier" closed (the supplier-list count, the file download) · a marketplace's address is no longer taken for a supplier's own · three things staff could do on the pack flow against the round's rules are refused · `/api/files/:id` answers 404 when a file's bytes are missing instead of dropping the connection. Code-only |
 | 45 | `7cfd46f` | 0046–0051 | **Phase V, tasks V01–V09 — the pack flow is built up to the ranked offers and SWITCHED OFF** (`flow.pack_enabled` = off, and `on` cannot be selected until slice 1 is complete). Platform settings and `/interne/parametres` · supplier contacts · the two request flows and their states · the fork and OSI's internal shortlist · RFQ rounds and the batch send · the window closing (target, deadline, early, withdrawal) · KPI #2 v1. **What changes for today's users with the switch off:** the offer form asks when the supplier answered (« Réponse reçue le ») and shows why an entry is refused; each offer shows its channel; criteria are frozen server-side once the search has answered; research keeps a supplier's contact address when it is on the supplier's own domain |
@@ -5498,7 +5518,7 @@ built in: **S** one, **M** two to three, **L** four or more.
       decision, so say so in the UI.
 
 - [x] **V12 · The buyer reads the pack — BUILT 2026-11-18** (no migration,
-      not deployed). `src/routes/demandes/$id_.pack.tsx`;
+      live since deploy #48). `src/routes/demandes/$id_.pack.tsx`;
       `src/lib/pack-explain.ts` (pure: `explainOffer`, `landedCostLines`);
       `loadReleasedPackForRequest`, `disclosedQuoteIds` and the `pack_ready`
       notification in `src/server/decision-pack.ts`; `getRequestPackFn`;
@@ -5542,7 +5562,8 @@ built in: **S** one, **M** two to three, **L** four or more.
       the file was created (`b53f7fc`). Both pages are now
       `$id_.rapport.tsx` / `$id_.pack.tsx` — the trailing underscore takes a
       route out of its parent's layout. Seen in dev, on the same files prod
-      runs at `b146484`; **not checked on prod**.
+      ran at `b146484`; the fix is live since deploy #48 and **still not
+      checked on prod** (it needs a signed-in session).
       *Verified live in dev on request #3049, then restored (baseline
       re-checked):* before the release the page sends a buyer back to the
       dossier and the quotation answers 404. After a release with the two
@@ -5602,7 +5623,7 @@ built in: **S** one, **M** two to three, **L** four or more.
       exists, the settlement partner's own fee belongs in the same block.
 
 - [x] **V13 · Choosing from the pack opens the dossier — BUILT 2026-11-18**
-      (migration **0054**, not deployed). `deal.decision_pack_id`;
+      (migration **0054**, live since deploy #48). `deal.decision_pack_id`;
       `acceptQuoteFn` on the pack flow; `packOfferingQuote`,
       `packOfferStates`, `reaskExpiredOffer` in `src/server/decision-pack.ts`;
       `packOfferState` (pure) in `src/lib/decision-pack.ts`;
@@ -5681,7 +5702,7 @@ built in: **S** one, **M** two to three, **L** four or more.
       unchanged — do not re-derive them.
 
 - [x] **V14 · Automatic release, built and switched off — BUILT 2026-11-18**
-      (no migration, not deployed). **This completes slice 1 (V04–V14).**
+      (no migration, live since deploy #48). **This completes slice 1 (V04–V14).**
       `autoReleaseHold` (pure) in `src/lib/decision-pack.ts`;
       `releaseAutomatically` in `src/server/decision-pack.ts`, called by
       `closeRound` right after `refreshPack`; two event actions the system
