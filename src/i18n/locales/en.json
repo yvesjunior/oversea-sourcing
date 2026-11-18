@@ -1132,7 +1132,8 @@
     "pack.corrected": "Decision Pack corrected and sent",
     "pack.relaunched": "Decision Pack relaunched",
     "pack.refused": "Decision Pack refused",
-    "pack.assigned": "Decision Pack assigned"
+    "pack.assigned": "Decision Pack assigned",
+    "pack.offer_reasked": "Expired offer asked again from the Decision Pack"
   },
   "twofa": {
     "title": "Two-step verification",
@@ -1281,7 +1282,8 @@
       "answered_in_future": "The answer cannot be dated in the future.",
       "answered_after_close": "This answer arrived after the round closed: it cannot be added to it.",
       "rfq_not_sent": "The RFQ has not been sent to this supplier yet: send it from the request before entering an offer."
-    }
+    },
+    "refusal_pack_reopened": "This pack is no longer current: the RFQ was reopened and a new pack will be sent to you."
   },
   "contrats": {
     "title": "Contracts",
@@ -1703,6 +1705,31 @@
       "applies_unquoted": "applies — amount not quoted at this stage"
     },
     "noTotal": "No total is computed: the price is the one the supplier stated, and the items marked “not provided” will come on top. A total that left them out would be wrong.",
-    "documentsTitle": "Supplier's documents"
+    "documentsTitle": "Supplier's documents",
+    "accept": "Accept this offer",
+    "acceptConfirm": "Accept {{supplier}}'s offer? This choice is final: it opens the transaction dossier and sets the other offers aside.",
+    "acceptYes": "Yes, accept",
+    "cancel": "Cancel",
+    "reask": "Ask for this offer again",
+    "reaskHint": "This offer has expired and can no longer be accepted. Asking again reopens the RFQ for this supplier: an updated pack will be sent to you, and the other offers cannot be accepted until then.",
+    "state": {
+      "open": "",
+      "expired": "Offer expired",
+      "accepted": "Offer accepted",
+      "lost": "Not retained",
+      "reasked": "Asked again",
+      "unavailable": "No longer available"
+    },
+    "acceptedBanner": "You accepted {{supplier}}'s offer: the transaction dossier is open.",
+    "acceptedLink": "View the request",
+    "reopened": "An expired offer was asked for again: the RFQ is reopened and an updated pack will be sent to you. Until then, the offers below cannot be accepted.",
+    "reaskRefusal": {
+      "forbidden": "Your role in this workspace does not allow asking for an offer again.",
+      "not_found": "This offer cannot be found.",
+      "not_in_pack": "This offer is not part of your pack.",
+      "not_expired": "This offer is still valid: you can accept it.",
+      "pack_reopened": "The RFQ is already reopened, or an offer has already been accepted.",
+      "cannot_send": "We cannot write to this supplier at the moment. Please contact OSI."
+    }
   }
 }

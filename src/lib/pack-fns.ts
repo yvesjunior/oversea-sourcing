@@ -10,6 +10,8 @@ import { z } from "zod";
 import type {
   BuyerPackView,
   PackActionResult,
+  PackOfferState,
+  ReaskResult,
   QueuedPack,
   RefusePackResult,
   RelaunchPackResult,
@@ -19,6 +21,8 @@ import type {
 export type {
   BuyerPackView,
   PackDocument,
+  PackOfferState,
+  ReaskResult,
   PackActionRefusal,
   PackActionResult,
   PackEventView,
@@ -234,6 +238,15 @@ export type BuyerPackData = BuyerPackView & {
    *  content the buyer gets, said to be a preview so nobody takes it for the
    *  internal view. */
   preview: boolean;
+  /** Where each offer stands NOW, by quote id (V13) — the pack is frozen,
+   *  whether an offer can still be taken is not. */
+  offers: Record<string, PackOfferState>;
+  /** The reader may accept or re-ask: a `buyer` seat or above in the owning
+   *  workspace. False for a `viewer`, and for staff previewing. */
+  canAct: boolean;
+  /** False while the request is being solicited again: the pack on screen is
+   *  no longer the current one and nothing in it can be accepted. */
+  current: boolean;
 };
 
 /**
@@ -261,7 +274,7 @@ export const getRequestPackFn = createServerFn({ method: "GET" })
 
     const request = await db.query.request.findFirst({
       where: eq(schema.request.id, data.requestId),
-      columns: { organizationId: true },
+      columns: { organizationId: true, status: true },
     });
     if (!request) return null;
 
@@ -272,7 +285,51 @@ export const getRequestPackFn = createServerFn({ method: "GET" })
       : await effectiveHasPermission(session, "requests.all");
     if (!allowed) return null;
 
-    const { loadReleasedPackForRequest } = await import("@/server/decision-pack");
+    const { loadReleasedPackForRequest, packOfferStates } = await import("@/server/decision-pack");
     const view = await loadReleasedPackForRequest(data.requestId);
-    return view ? { ...view, preview: !isOwn } : null;
+    if (!view) return null;
+    const quoteIds = view.pack.items.map((item) => item.quoteId).filter((id): id is string => !!id);
+    return {
+      ...view,
+      preview: !isOwn,
+      offers: await packOfferStates(quoteIds),
+      // Committing the company to a supplier is a `buyer` seat's act — never
+      // a viewer's, and never staff's on a customer's behalf.
+      canAct: isOwn && (await requireMember(session.user.id, workspaceId, "buyer")) !== null,
+      current: request.status === "report_ready",
+    };
+  });
+
+/**
+ * An offer of the pack expired while the buyer was deciding: ask that
+ * supplier again (V13). Reopens the RFQ for them — the request goes back to
+ * `soliciting`, and a new pack follows once the round closes and staff have
+ * reviewed it. A `buyer` seat in the owning workspace only.
+ */
+export const reaskExpiredOfferFn = createServerFn({ method: "POST" })
+  .inputValidator(z.object({ quoteId: z.string().min(1) }))
+  .handler(async ({ data }): Promise<ReaskResult | Forbidden> => {
+    const [{ requireWorkspaceRole }, { getRequest }] = await Promise.all([
+      import("@/server/workspace-guard"),
+      import("@tanstack/react-start/server"),
+    ]);
+    const caller = await requireWorkspaceRole(getRequest().headers, "buyer");
+    if (!caller) return FORBIDDEN;
+    const { reaskExpiredOffer } = await import("@/server/decision-pack");
+    const result = await reaskExpiredOffer(data.quoteId, caller.workspaceId, {
+      id: caller.userId,
+      name: caller.userName,
+    });
+    if (result.ok) {
+      const { logAudit } = await import("@/server/audit");
+      await logAudit({
+        actorId: caller.userId,
+        actorName: caller.userName,
+        organizationId: caller.workspaceId,
+        action: "pack.offer_reasked",
+        target: `#${result.requestId}`,
+        detail: { quoteId: data.quoteId, round: result.roundNo, sent: result.sent },
+      });
+    }
+    return result;
   });

@@ -379,6 +379,13 @@
       "when": 1794703568464,
       "tag": "0053_slow_micromax",
       "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1795035663126,
+      "tag": "0054_lucky_korg",
+      "breakpoints": true
     }
   ]
 }

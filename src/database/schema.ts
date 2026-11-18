@@ -1617,6 +1617,13 @@ export const deal = pgTable(
      *  a deal outlives the paperwork that produced it. */
     requestId: text("request_id").references(() => request.id, { onDelete: "set null" }),
     quoteId: text("quote_id").references(() => quote.id, { onDelete: "set null" }),
+    /** The Decision Pack the buyer chose this offer FROM (Phase V · V13).
+     *  Null on the report flow, where the buyer picks from their own quote
+     *  list. With it, "what was the buyer looking at when they chose?" is one
+     *  join: the pack's items are frozen copies, in the order shown. */
+    decisionPackId: text("decision_pack_id").references(() => decisionPack.id, {
+      onDelete: "set null",
+    }),
     supplierId: text("supplier_id").references(() => supplier.id, { onDelete: "set null" }),
     supplierName: text("supplier_name").notNull(),
     title: text("title").notNull(),

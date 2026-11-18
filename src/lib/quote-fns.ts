@@ -1113,7 +1113,16 @@ export const acceptQuoteFn = createServerFn({ method: "POST" })
       | { ok: true; dealId: string }
       | {
           ok: false;
-          reason: "forbidden" | "not_found" | "not_received" | "expired" | "already_accepted";
+          reason:
+            | "forbidden"
+            | "not_found"
+            | "not_received"
+            | "expired"
+            | "already_accepted"
+            /** Pack flow: the request is being solicited again (an expired
+             *  offer was asked for anew) — the pack on screen is no longer
+             *  the current one, and a new one is on its way. */
+            | "pack_reopened";
         }
     > => {
       const [{ requireWorkspaceRole }, { getRequest }, { db }, { and, eq, ne }, schema] =
@@ -1135,15 +1144,26 @@ export const acceptQuoteFn = createServerFn({ method: "POST" })
         ),
       });
       if (!quote) return { ok: false, reason: "not_found" };
-      // You cannot accept an offer that never arrived.
-      // A pack-flow offer is accepted from the Decision Pack, which does not
-      // exist yet (V12/V13). Until it does, there is nothing the buyer was
-      // shown that they could be accepting — so refuse rather than let a
-      // direct call open a dossier on an offer OSI has not released.
+      // On the pack flow an offer is accepted FROM THE DECISION PACK (V13),
+      // and only from it: the offer must be one the buyer was SHOWN — an item,
+      // not withheld, of the request's latest released pack. Anything else
+      // is an offer OSI has not put in front of them, and a direct call must
+      // not open a dossier on it.
+      let decisionPackId: string | null = null;
       const { flowOfRequest } = await import("@/server/request-flow");
       if ((await flowOfRequest(quote.requestId)) === "pack") {
-        return { ok: false, reason: "not_found" };
+        const owner = await db.query.request.findFirst({
+          where: eq(schema.request.id, quote.requestId),
+          columns: { status: true },
+        });
+        // `report_ready` on this flow = a pack is released and current. Back
+        // in `soliciting` or `pack_review`, a new pack is being prepared.
+        if (owner?.status !== "report_ready") return { ok: false, reason: "pack_reopened" };
+        const { packOfferingQuote } = await import("@/server/decision-pack");
+        decisionPackId = await packOfferingQuote(quote.requestId, quote.id);
+        if (!decisionPackId) return { ok: false, reason: "not_found" };
       }
+      // You cannot accept an offer that never arrived.
       if (quote.status !== "received") return { ok: false, reason: "not_received" };
       // Nor one whose validity has run out (owner 2026-09-14): ask the supplier
       // again from the request instead — the price may no longer stand.
@@ -1185,6 +1205,8 @@ export const acceptQuoteFn = createServerFn({ method: "POST" })
             organizationId: caller.workspaceId,
             requestId: quote.requestId,
             quoteId: quote.id,
+            // The pack it was chosen from — null on the report flow.
+            decisionPackId,
             supplierId: quote.supplierId,
             // Snapshots — the dossier must stay readable without them.
             supplierName: quote.supplierName,
@@ -1245,7 +1267,12 @@ export const acceptQuoteFn = createServerFn({ method: "POST" })
         organizationId: caller.workspaceId,
         action: "deal.opened",
         target: quote.supplierName,
-        detail: { dealId, requestId: quote.requestId, quoteId: quote.id },
+        detail: {
+          dealId,
+          requestId: quote.requestId,
+          quoteId: quote.id,
+          ...(decisionPackId ? { decisionPackId } : {}),
+        },
       });
       return { ok: true, dealId };
     },

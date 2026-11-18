@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  packOfferState,
   planCorrection,
   projectPack,
   relaunchState,
@@ -353,5 +354,47 @@ describe("relaunchState", () => {
     expect(relaunchState({ status: "declined", declineReason: "lost" })).toBeNull();
     expect(relaunchState({ status: "requested", declineReason: null })).toBeNull();
     expect(relaunchState({ status: "accepted", declineReason: null })).toBeNull();
+  });
+});
+
+describe("packOfferState", () => {
+  const now = new Date("2026-12-01T12:00:00Z");
+  const later = new Date("2026-12-20T00:00:00Z");
+  const earlier = new Date("2026-11-30T00:00:00Z");
+  const quote = (
+    status: string,
+    validUntil: Date | null = later,
+    declineReason: string | null = null,
+  ) => ({
+    status,
+    validUntil,
+    declineReason,
+  });
+
+  it("is open while received and within its validity", () => {
+    expect(packOfferState(quote("received"), now)).toBe("open");
+  });
+
+  it("is expired once the validity has passed, whatever the column says", () => {
+    expect(packOfferState(quote("received", earlier), now)).toBe("expired");
+    expect(packOfferState(quote("expired"), now)).toBe("expired");
+  });
+
+  it("never expires on the clock without a date", () => {
+    expect(packOfferState(quote("received", null), now)).toBe("open");
+  });
+
+  it("tells the accepted offer from the ones it set aside", () => {
+    expect(packOfferState(quote("accepted"), now)).toBe("accepted");
+    expect(packOfferState(quote("declined", later, "lost"), now)).toBe("lost");
+  });
+
+  it("says an offer asked for again is being collected", () => {
+    expect(packOfferState(quote("requested", null), now)).toBe("reasked");
+  });
+
+  it("calls anything else unavailable — a supplier who withdrew, a state it does not know", () => {
+    expect(packOfferState(quote("declined", later, "supplier_declined"), now)).toBe("unavailable");
+    expect(packOfferState(quote("something_new"), now)).toBe("unavailable");
   });
 });

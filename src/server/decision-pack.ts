@@ -23,6 +23,7 @@ import { db } from "@/database";
 import * as schema from "@/database/schema";
 import type { KpiRunTrigger, PackEventAction } from "@/database/schema";
 import {
+  packOfferState,
   planCorrection,
   projectPack,
   relaunchState,
@@ -31,6 +32,7 @@ import {
   type CorrectionRefusal,
   type PackAudience,
   type PackItemRow,
+  type PackOfferState,
   type PackOfferSnapshot,
   type PackRow,
   type PackView,
@@ -1078,3 +1080,194 @@ export async function disclosedQuoteIds(quoteIds: readonly string[]): Promise<Se
     );
   return new Set(rows.map((row) => row.quoteId).filter((id): id is string => !!id));
 }
+
+// ── choosing from the pack (V13) ────────────────────────────────────────────
+
+/** The request's pack the buyer is CURRENTLY shown: the latest released. */
+async function currentReleasedPack(requestId: string): Promise<PackRecord | null> {
+  const pack = await db.query.decisionPack.findFirst({
+    where: and(
+      eq(schema.decisionPack.requestId, requestId),
+      eq(schema.decisionPack.status, "released"),
+    ),
+    orderBy: [desc(schema.decisionPack.releasedAt)],
+  });
+  return pack ?? null;
+}
+
+/**
+ * The pack this offer can be accepted FROM, or null.
+ *
+ * Not null only when the quote is a SHOWN item of the request's LATEST
+ * released pack. An offer staff withheld, one that only an older pack held,
+ * one beyond the pack's cap — none of them was put in front of the buyer by
+ * the pack they are reading, so none can be accepted.
+ */
+export async function packOfferingQuote(
+  requestId: string,
+  quoteId: string,
+): Promise<string | null> {
+  const pack = await currentReleasedPack(requestId);
+  if (!pack) return null;
+  const item = await db.query.decisionPackItem.findFirst({
+    where: and(
+      eq(schema.decisionPackItem.packId, pack.id),
+      eq(schema.decisionPackItem.quoteId, quoteId),
+      isNotNull(schema.decisionPackItem.rankShown),
+    ),
+    columns: { id: true },
+  });
+  return item ? pack.id : null;
+}
+
+/** The live state of each offer of a pack, by quote id. */
+export async function packOfferStates(
+  quoteIds: readonly string[],
+): Promise<Record<string, PackOfferState>> {
+  const states: Record<string, PackOfferState> = {};
+  if (quoteIds.length === 0) return states;
+  const quotes = await db.query.quote.findMany({
+    where: inArray(schema.quote.id, [...quoteIds]),
+    columns: { id: true, status: true, validUntil: true, declineReason: true },
+  });
+  const now = new Date();
+  for (const quote of quotes) {
+    states[quote.id] = packOfferState(
+      {
+        status: quote.status,
+        validUntil: quote.validUntil,
+        declineReason: quote.declineReason ?? null,
+      },
+      now,
+    );
+  }
+  // A quote row that is gone: nothing left to accept.
+  for (const id of quoteIds) states[id] ??= "unavailable";
+  return states;
+}
+
+export type ReaskResult =
+  | { ok: true; requestId: string; roundNo: number; sent: boolean }
+  | {
+      ok: false;
+      reason:
+        | "not_found"
+        /** Not an offer of the pack the buyer is reading. */
+        | "not_in_pack"
+        /** Still within its validity: accept it, do not ask again. */
+        | "not_expired"
+        /** The request has moved (already re-solicited, or an offer accepted). */
+        | "pack_reopened"
+        /** No reply address, or the supplier has no contact: OSI must fix
+         *  that before the platform can write to them. */
+        | "cannot_send";
+    };
+
+/**
+ * An offer expired while the buyer was deciding, and they ask for it again
+ * (V13) — the pack flow's second return: `report_ready → soliciting`.
+ *
+ * Opens a NEW round for that one supplier and sends them the RFQ. The quote
+ * row is reopened into it (one row per supplier per request), its old answer
+ * time, validity and channel cleared — they belong to the offer that
+ * lapsed. The other offers of the pack are untouched; when the round closes,
+ * a new pack is built from everything the request holds and goes back
+ * through staff's review. Until it is released, nothing can be accepted:
+ * the pack on the buyer's screen is no longer the current one.
+ */
+export async function reaskExpiredOffer(
+  quoteId: string,
+  workspaceId: string,
+  actor: Actor,
+): Promise<ReaskResult> {
+  const quote = await db.query.quote.findFirst({
+    where: and(eq(schema.quote.id, quoteId), eq(schema.quote.organizationId, workspaceId)),
+  });
+  if (!quote) return { ok: false, reason: "not_found" };
+  if (!(await packOfferingQuote(quote.requestId, quote.id))) {
+    return { ok: false, reason: "not_in_pack" };
+  }
+  const state = (await packOfferStates([quote.id]))[quote.id];
+  if (state !== "expired") {
+    return { ok: false, reason: state === "open" ? "not_expired" : "pack_reopened" };
+  }
+  // Refused before anything is opened, like every send: the buyer cannot fix
+  // either, so the page tells them to contact OSI.
+  const contacts = await primaryContactsFor(quote.supplierId ? [quote.supplierId] : []);
+  if ((await getSetting("rfq.reply_to")) === "" || contacts.size === 0) {
+    return { ok: false, reason: "cannot_send" };
+  }
+  const [windowHours, targetOffers] = await Promise.all([
+    getSetting("rfq.window_hours"),
+    getSetting("rfq.target_offers"),
+  ]);
+
+  const opened = await db.transaction(async (tx) => {
+    const [request] = await tx
+      .select()
+      .from(schema.request)
+      .where(eq(schema.request.id, quote.requestId))
+      .for("update");
+    // Under the lock: still showing a released pack, and nothing accepted.
+    if (!request || request.status !== "report_ready") {
+      return { ok: false as const, reason: "pack_reopened" as const };
+    }
+    const [last] = await tx
+      .select({ roundNo: schema.rfqRound.roundNo })
+      .from(schema.rfqRound)
+      .where(eq(schema.rfqRound.requestId, request.id))
+      .orderBy(desc(schema.rfqRound.roundNo))
+      .limit(1);
+    const openedAt = new Date();
+    const [round] = await tx
+      .insert(schema.rfqRound)
+      .values({
+        id: crypto.randomUUID(),
+        requestId: request.id,
+        roundNo: (last?.roundNo ?? 0) + 1,
+        openedAt,
+        closesAt: new Date(openedAt.getTime() + windowHours * 3_600_000),
+        windowHours,
+        targetOffers,
+        openedBy: actor.id,
+        openedByName: actor.name,
+      })
+      .returning();
+    // `received → expired → requested` in the quote machine, written as one
+    // update: the expiry was derived from `valid_until` and never stored, so
+    // there is no row state to pass through — only to leave.
+    const reopened = await tx
+      .update(schema.quote)
+      .set({
+        status: "requested",
+        declineReason: null,
+        sentAt: null,
+        sentBy: null,
+        respondedAt: null,
+        channel: null,
+        validUntil: null,
+        roundId: round!.id,
+        requestedAt: openedAt,
+        requestedBy: actor.id,
+        updatedAt: openedAt,
+      })
+      .where(and(eq(schema.quote.id, quote.id), eq(schema.quote.status, "received")))
+      .returning({ id: schema.quote.id });
+    if (reopened.length === 0) return { ok: false as const, reason: "pack_reopened" as const };
+    await transitionRequest(request.id, request.organizationId, "report_ready", "soliciting", tx);
+    return { ok: true as const, requestId: request.id, roundNo: round!.roundNo };
+  });
+  if (!opened.ok) return opened;
+
+  // The round is open with one quote tied to it, unsent — `sendRfqBatch`
+  // resumes it, exactly as it does after a relaunch.
+  const sent = await sendRfqBatch(opened.requestId, actor);
+  return {
+    ok: true,
+    requestId: opened.requestId,
+    roundNo: opened.roundNo,
+    sent: sent.ok && sent.sent > 0,
+  };
+}
+
+export type { PackOfferState } from "@/lib/decision-pack";

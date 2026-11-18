@@ -9,23 +9,31 @@
 // an offer. None of that reaches this file — the server fn returns the buyer
 // projection (`projectPack`) and nothing else, for staff previewing too.
 //
-// Read-only for now: choosing an offer from here is V13. A `viewer` seat
-// reads everything on this page; choosing will not be theirs.
+// Choosing (V13): a `buyer` seat accepts ONE offer here, and that opens the
+// dossier de transaction — the same act as on the report flow, tied to the
+// pack it was chosen from. An offer whose validity ran out cannot be
+// accepted; it can be asked for again, which reopens the RFQ for that
+// supplier. A `viewer` seat reads everything and can do neither, and staff
+// previewing a customer's pack never act on their behalf.
 
-import { createFileRoute, Link, redirect } from "@tanstack/react-router";
+import { useState } from "react";
+import { createFileRoute, Link, redirect, useRouter } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, Download, FileText, Info } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Download, FileText, Info, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CountryTag } from "@/components/osi/CountryTag";
 import { formatDayTime, formatInstant } from "@/lib/instant";
 import { explainOffer, landedCostLines } from "@/lib/pack-explain";
 import {
   getRequestPackFn,
+  reaskExpiredOfferFn,
   type BuyerPackData,
   type PackDocument,
   type PackItemView,
   type PackOfferSnapshot,
+  type PackOfferState,
 } from "@/lib/pack-fns";
+import { acceptQuoteFn } from "@/lib/quote-fns";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/demandes/$id_/pack")({
@@ -70,15 +78,113 @@ function Figure({ label, value }: { label: string; value: string | null }) {
   );
 }
 
+const STATE_STYLE: Record<PackOfferState, string> = {
+  open: "",
+  expired: "border-destructive/40 text-destructive",
+  accepted: "border-success/50 text-success",
+  lost: "border-border text-muted-foreground",
+  reasked: "border-border text-muted-foreground",
+  unavailable: "border-border text-muted-foreground",
+};
+
+/** What a `buyer` seat can do with one offer — accept it, or ask for it
+ *  again once it has expired. Accepting is terminal (one offer, one dossier),
+ *  so it takes a second click. */
+function OfferActions({
+  item,
+  state,
+  onChanged,
+}: {
+  item: PackItemView;
+  state: PackOfferState;
+  onChanged: () => void;
+}) {
+  const { t } = useTranslation();
+  const [confirming, setConfirming] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [refusal, setRefusal] = useState<string | null>(null);
+  const quoteId = item.quoteId;
+  if (!quoteId || (state !== "open" && state !== "expired")) return null;
+
+  const accept = async () => {
+    setBusy(true);
+    setRefusal(null);
+    try {
+      const result = await acceptQuoteFn({ data: { quoteId } });
+      // A refusal is data, not an exception — the buyer needs to know WHY.
+      if (!result.ok) setRefusal(t(`soumissions.refusal_${result.reason}`));
+      else onChanged();
+    } finally {
+      setBusy(false);
+      setConfirming(false);
+    }
+  };
+  const reask = async () => {
+    setBusy(true);
+    setRefusal(null);
+    try {
+      const result = await reaskExpiredOfferFn({ data: { quoteId } });
+      if (!result.ok) setRefusal(t(`packView.reaskRefusal.${result.reason}`));
+      else onChanged();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="mt-5 border-t border-border pt-4 print:hidden">
+      {state === "open" &&
+        (confirming ? (
+          <div className="flex flex-wrap items-center gap-3">
+            <p className="min-w-0 flex-1 text-sm">
+              {t("packView.acceptConfirm", { supplier: item.offer.supplierName })}
+            </p>
+            <Button variant="ghost" size="sm" disabled={busy} onClick={() => setConfirming(false)}>
+              {t("packView.cancel")}
+            </Button>
+            <Button variant="gold" size="sm" disabled={busy} onClick={() => void accept()}>
+              <CheckCircle2 className="size-4" />
+              {t("packView.acceptYes")}
+            </Button>
+          </div>
+        ) : (
+          <Button variant="gold" size="sm" onClick={() => setConfirming(true)}>
+            {t("packView.accept")}
+          </Button>
+        ))}
+      {state === "expired" && (
+        <div className="flex flex-wrap items-center gap-3">
+          <p className="min-w-0 flex-1 text-xs text-muted-foreground">{t("packView.reaskHint")}</p>
+          <Button variant="outline" size="sm" disabled={busy} onClick={() => void reask()}>
+            <RotateCcw className="size-4" />
+            {t("packView.reask")}
+          </Button>
+        </div>
+      )}
+      {refusal && (
+        <p role="alert" className="mt-2 text-xs font-medium text-destructive">
+          {refusal}
+        </p>
+      )}
+    </div>
+  );
+}
+
 function Offer({
   item,
   shown,
   documents,
+  state,
+  actions,
 }: {
   item: PackItemView;
   /** Every offer on this page — what this one is compared with. */
   shown: PackOfferSnapshot[];
   documents: PackDocument[];
+  /** Where the offer stands now — the pack is frozen, this is not. */
+  state: PackOfferState;
+  /** The buttons, when this reader may act and the pack is current. */
+  actions: React.ReactNode;
 }) {
   const { t, i18n } = useTranslation();
   const { offer } = item;
@@ -96,16 +202,30 @@ function Offer({
           <h2 className="truncate text-lg font-semibold">{offer.supplierName}</h2>
           {offer.supplierCountry && <CountryTag code={offer.supplierCountry} className="mt-1" />}
         </div>
-        {offer.supplierVerification && (
-          <span
-            className={cn(
-              "rounded-full border px-2.5 py-0.5 text-[11px] font-semibold",
-              VERIFICATION_STYLE[offer.supplierVerification],
-            )}
-          >
-            {t(`packView.verification.${offer.supplierVerification}`)}
-          </span>
-        )}
+        <span className="flex flex-wrap items-center justify-end gap-2">
+          {/* Only when it is no longer simply "on offer": expired, accepted,
+              not retained, asked for again. */}
+          {state !== "open" && (
+            <span
+              className={cn(
+                "rounded-full border px-2.5 py-0.5 text-[11px] font-semibold",
+                STATE_STYLE[state],
+              )}
+            >
+              {t(`packView.state.${state}`)}
+            </span>
+          )}
+          {offer.supplierVerification && (
+            <span
+              className={cn(
+                "rounded-full border px-2.5 py-0.5 text-[11px] font-semibold",
+                VERIFICATION_STYLE[offer.supplierVerification],
+              )}
+            >
+              {t(`packView.verification.${offer.supplierVerification}`)}
+            </span>
+          )}
+        </span>
       </div>
 
       {/* What the supplier stated. A figure they did not give is said to be
@@ -198,6 +318,8 @@ function Offer({
           </ul>
         </div>
       )}
+
+      {actions}
     </li>
   );
 }
@@ -208,6 +330,11 @@ function DecisionPackPage() {
   // a redirect is typed loosely by the router.
   const data = Route.useLoaderData() as BuyerPackData;
   const { pack } = data;
+  const router = useRouter();
+  const refresh = () => void router.invalidate();
+  const stateOf = (item: PackItemView): PackOfferState =>
+    (item.quoteId && data.offers[item.quoteId]) || "unavailable";
+  const accepted = pack.items.find((item) => stateOf(item) === "accepted");
 
   return (
     <div className="space-y-6 pt-6 print:space-y-4 print:pt-0">
@@ -246,6 +373,32 @@ function DecisionPackPage() {
         </p>
       </div>
 
+      {accepted && (
+        <p
+          role="status"
+          className="flex items-start gap-3 rounded-xl border border-success/40 bg-success/5 p-4 text-sm"
+        >
+          <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-success" />
+          <span>
+            {t("packView.acceptedBanner", { supplier: accepted.offer.supplierName })}{" "}
+            <Link
+              to="/demandes/$id"
+              params={{ id: data.requestId }}
+              className="font-medium underline underline-offset-2"
+            >
+              {t("packView.acceptedLink")}
+            </Link>
+          </span>
+        </p>
+      )}
+      {/* The request is being solicited again: what is on screen is the pack
+          as it was sent, and a new one is on its way. */}
+      {!data.current && !accepted && (
+        <p role="status" className="rounded-xl border border-border bg-secondary/40 p-4 text-sm">
+          {t("packView.reopened")}
+        </p>
+      )}
+
       <ol className="space-y-4">
         {pack.items.map((item) => (
           <Offer
@@ -253,6 +406,12 @@ function DecisionPackPage() {
             item={item}
             shown={pack.items.map((other) => other.offer)}
             documents={item.quoteId ? (data.documents[item.quoteId] ?? []) : []}
+            state={stateOf(item)}
+            actions={
+              data.canAct && data.current && !accepted ? (
+                <OfferActions item={item} state={stateOf(item)} onChanged={refresh} />
+              ) : null
+            }
           />
         ))}
       </ol>

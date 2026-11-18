@@ -1212,10 +1212,10 @@ finishes, the worker sends a request to `shortlisted` only if the workspace's
 plan includes quotes **and** the platform setting `flow.pack_enabled` is `on`.
 It ships `off`, and `on` cannot be selected from the product. Since 2026-11-14
 a pack-flow request can travel as far as `pack_review` — shortlist, RFQ batch,
-the window closing, the offers ranked, the Decision Pack built, released and
-read by the buyer (BACKLOG Phase V, V05–V12) — and stops there: choosing an
-offer from the pack is not built (V13). Turning it on early would send
-customers packs they cannot act on. In development it is exercised by writing the setting's row
+the window closing, the offers ranked, the Decision Pack built, released, read
+and chosen from (BACKLOG Phase V, V05–V13): the flow now reaches the dossier
+de transaction. The switch stays unavailable until the slice's last task
+(V14, automatic release, built and switched off) is in. In development it is exercised by writing the setting's row
 directly.
 
 What is already true on the pack flow, and tested as the owning workspace:
@@ -1477,6 +1477,27 @@ the owner; a shown offer's becomes downloadable when the pack is released.
 `report_ready` reads « Decision Pack disponible » on this flow — on the
 dossier, in the lists and on the timeline — since the same status means a
 report on the other.
+
+**Choosing from the pack opens the dossier** (V13, 2026-11-18). On the pack
+page a `buyer` seat accepts ONE offer — two clicks, since it is final — and
+that is the same act as on the report flow (`acceptQuoteFn`): the dossier de
+transaction opens, the other offers are closed as `lost`, and no second
+acceptance is possible. Two things are specific to the pack:
+
+- **Only an offer the buyer was SHOWN can be accepted**: a shown item of the
+  request's *latest released* pack. Not one staff withheld, not one beyond
+  the pack's cap, not one that only an earlier pack held. The deal records
+  the pack it was chosen from (`deal.decision_pack_id`), so "what was the
+  buyer looking at when they chose?" is one join onto frozen rows.
+- **An offer whose validity ran out cannot be accepted — it can be asked for
+  again.** That is the pack flow's second way back, `report_ready →
+  soliciting`: a new round opens for that one supplier and the RFQ goes out.
+  Until the round closes and staff release a *new* pack, the one on screen is
+  no longer current and nothing in it can be accepted — the page says so.
+  The earlier pack keeps its frozen copy; the new one carries the new offer.
+
+A `viewer` seat reads the page and gets neither button; staff previewing a
+customer's pack never act on their behalf.
 
 Guarded transitions live in [`src/lib/request-status.ts`](src/lib/request-status.ts);
 illegal ones throw. So do **stale** ones (since 2026-11-14): `transitionRequest`
@@ -2715,7 +2736,7 @@ erDiagram
 | `notification` / `notification_pref` | ✅ E9 — in-app inbox (type + params, rendered in the viewer's language) and per-user channel preferences |
 | `organization_profile` | ✅ 2026-08-26 — legal and tax identity of a company workspace |
 | `quote`              | ✅ P1 (0033) — one soumission per supplier asked; `decline_reason` + `sent_at` (0040); `round_id` (0048); `channel` (0050, V08 — the route the answer came by, null until there is one; existing answers backfilled `staff`); `responded_at` is the time the supplier answered, typed by staff on that route; **`quote_one_accepted_per_request_uq`** enforces no splitting |
-| `deal` / `deal_event` | ✅ P1 — the dossier de transaction opened by ONE acceptance; amount/currency/incoterm snapshots; two-act closure (`reviewed` before `closed`) |
+| `deal` / `deal_event` | ✅ P1 — the dossier de transaction opened by ONE acceptance; amount/currency/incoterm snapshots; two-act closure (`reviewed` before `closed`); `decision_pack_id` (0054, Phase V · V13) — the pack the offer was chosen from, null on the report flow |
 | `contract` / `contract_party` / `contract_event` | ✅ P1/P5/P6 — text frozen in `content` at draft time; parties are ROWS with name snapshots; the permanent signature trail (never purged, unlike `audit_log`) |
 | `document`           | ✅ 2026-09-12 (P8 slice 1, 0041) — the typed row over `file` (kind `offer\|other`, hangs from a quote and/or request); `orphaned_at` (0042) drives the 36-month retention sweep |
 

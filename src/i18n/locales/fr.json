@@ -1132,7 +1132,8 @@
     "pack.corrected": "Decision Pack corrigé et envoyé",
     "pack.relaunched": "Decision Pack relancé",
     "pack.refused": "Decision Pack refusé",
-    "pack.assigned": "Decision Pack attribué"
+    "pack.assigned": "Decision Pack attribué",
+    "pack.offer_reasked": "Offre expirée redemandée depuis le Decision Pack"
   },
   "twofa": {
     "title": "Vérification en deux étapes",
@@ -1281,7 +1282,8 @@
       "answered_in_future": "La réponse ne peut pas être datée dans le futur.",
       "answered_after_close": "Cette réponse est arrivée après la fermeture du tour : elle ne peut pas y être ajoutée.",
       "rfq_not_sent": "L'appel d'offres n'a pas encore été envoyé à ce fournisseur : envoyez-le depuis la demande avant de saisir une offre."
-    }
+    },
+    "refusal_pack_reopened": "Ce pack n'est plus à jour : l'appel d'offres a été rouvert et un nouveau pack vous sera transmis."
   },
   "contrats": {
     "title": "Contrats",
@@ -1703,6 +1705,31 @@
       "applies_unquoted": "s'appliquent — montant non communiqué à ce stade"
     },
     "noTotal": "Aucun total n'est calculé : le prix est celui annoncé par le fournisseur, et les éléments « non fourni » s'y ajouteront. Un total qui les passerait sous silence serait faux.",
-    "documentsTitle": "Documents du fournisseur"
+    "documentsTitle": "Documents du fournisseur",
+    "accept": "Accepter cette offre",
+    "acceptConfirm": "Accepter l'offre de {{supplier}} ? Ce choix est définitif : il ouvre le dossier de transaction et écarte les autres offres.",
+    "acceptYes": "Oui, accepter",
+    "cancel": "Annuler",
+    "reask": "Redemander cette offre",
+    "reaskHint": "Cette offre a expiré et ne peut plus être acceptée. La redemander rouvre l'appel d'offres pour ce fournisseur : un pack à jour vous sera transmis, et les autres offres ne pourront pas être acceptées d'ici là.",
+    "state": {
+      "open": "",
+      "expired": "Offre expirée",
+      "accepted": "Offre acceptée",
+      "lost": "Non retenue",
+      "reasked": "Redemandée",
+      "unavailable": "Plus disponible"
+    },
+    "acceptedBanner": "Vous avez accepté l'offre de {{supplier}} : le dossier de transaction est ouvert.",
+    "acceptedLink": "Voir la demande",
+    "reopened": "Une offre expirée a été redemandée : l'appel d'offres est rouvert et un pack à jour vous sera transmis. D'ici là, les offres ci-dessous ne peuvent pas être acceptées.",
+    "reaskRefusal": {
+      "forbidden": "Votre rôle dans cet espace ne permet pas de redemander une offre.",
+      "not_found": "Cette offre est introuvable.",
+      "not_in_pack": "Cette offre ne fait pas partie de votre pack.",
+      "not_expired": "Cette offre est encore valable : vous pouvez l'accepter.",
+      "pack_reopened": "L'appel d'offres est déjà rouvert, ou une offre a déjà été acceptée.",
+      "cannot_send": "Nous ne pouvons pas écrire à ce fournisseur pour le moment. Contactez OSI."
+    }
   }
 }

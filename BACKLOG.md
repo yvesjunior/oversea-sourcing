@@ -24,7 +24,7 @@
 | **E9** Notifications | In-app + email | 🟡 bell, emitters, **prefs (2026-08-26)** live; Phase P types (`quote_received`, `contract_to_sign`, `contract_signed`) + staff alert on `quotes.requested` (2026-09-07) live; **the bell alerts (2026-09-14)** — count badge, 30 s poll, chime, per-browser mute |
 | **E10** Admin surfaces | Verification, imports, ops queue | 🟡 **verification LIVE (S5b/S5c, 2026-08-26)**; imports/ops queue placeholders |
 | **R** Custom staff roles | Roles as data + the matrix | ✅ **BUILT 2026-08-29** (migration 0039) — create/delete roles, dynamic matrix, `requests.all` |
-| **E13** V6 architecture | Supplier portal · KPI #2 · Partner Hub · Decision Pack | 🔵 **NEW 2026-10-21** — scope opened by the V6 document; diagrams validated 2026-11-14; **34 tasks in seven slices — [Phase V](#phase-v--the-v6-parcours-task-by-task-e13--written-2026-11-14)**; **V01, V02, V04–V11 built 2026-11-14** (settings, contacts, states, fork + shortlist, RFQ batch, window closing, typed answer time + channel, KPI #2 v1, the Decision Pack record, the release queue); V01–V11 **live on prod — V01–V09 since deploy #45 (2026-11-14), V10–V11 since deploy #47 (2026-11-18) — with the pack-flow switch OFF**; **V12 built 2026-11-18** (the buyer's pack page), on `main`, not deployed |
+| **E13** V6 architecture | Supplier portal · KPI #2 · Partner Hub · Decision Pack | 🔵 **NEW 2026-10-21** — scope opened by the V6 document; diagrams validated 2026-11-14; **34 tasks in seven slices — [Phase V](#phase-v--the-v6-parcours-task-by-task-e13--written-2026-11-14)**; **V01, V02, V04–V11 built 2026-11-14** (settings, contacts, states, fork + shortlist, RFQ batch, window closing, typed answer time + channel, KPI #2 v1, the Decision Pack record, the release queue); V01–V11 **live on prod — V01–V09 since deploy #45 (2026-11-14), V10–V11 since deploy #47 (2026-11-18) — with the pack-flow switch OFF**; **V12–V13 built 2026-11-18** (the buyer's pack page, choosing from it), on `main`, not deployed |
 | **E11** Settings | Profile, sourcing rules | 🟡 Paramètres + notification prefs live; **password / 2FA / theme / rename (2026-08-27)** live; buyer Abonnement self-service waits for billing |
 
 **MVP1 = E0–E7 + E10.** Definition of done **restated 2026-08-29 by ADR-002**
@@ -40,7 +40,8 @@ tracked to delivery** — with the PDF report available throughout.
 
 **Prod = `b146484` (deploy #47, 2026-11-18)** — Phase V tasks V01–V11, with
 the pack-flow switch off. **`main` is ahead of prod and NOT deployed:** the
-deploy #47 record, then V12 (the buyer's pack page) — which also carries a
+deploy #47 record, then V12 (the buyer's pack page) and V13 (choosing from
+the pack, migration 0054). V12 also carries a
 fix for the REPORT flow, live today: `/demandes/$id/rapport` showed the
 dossier instead of the report (see V12). Seen in dev on the code prod runs;
 not checked on prod itself.
@@ -5591,7 +5592,55 @@ built in: **S** one, **M** two to three, **L** four or more.
       pack must be honest that OSI's fee is not the only one: once slice 6
       exists, the settlement partner's own fee belongs in the same block.
 
-- [ ] **V13 · Choosing from the pack opens the dossier.** *Size S. Steps
+- [x] **V13 · Choosing from the pack opens the dossier — BUILT 2026-11-18**
+      (migration **0054**, not deployed). `deal.decision_pack_id`;
+      `acceptQuoteFn` on the pack flow; `packOfferingQuote`,
+      `packOfferStates`, `reaskExpiredOffer` in `src/server/decision-pack.ts`;
+      `packOfferState` (pure) in `src/lib/decision-pack.ts`;
+      `reaskExpiredOfferFn`; the accept and re-ask buttons on the pack page.
+      658 tests.
+      **Accepting** is `acceptQuoteFn`, unchanged in what it does — one
+      transaction, siblings closed as `lost`, the no-splitting index and the
+      `already_accepted` path untouched — with one gate in front on the pack
+      flow: the request must be `report_ready` and the quote a SHOWN item of
+      its LATEST released pack. The deal is stamped with that pack.
+      **Asking again** for an expired offer opens round N+1 for that one
+      supplier, reopens the quote into it (old answer time, validity and
+      channel cleared), moves the request `report_ready → soliciting` in the
+      same transaction, and resumes the batch send. When the round closes a
+      NEW pack is built and goes through the review again; the earlier pack
+      stays as it was sent.
+      **Beyond the task as written:**
+      • **the live state of each offer on the page** (`packOfferState`):
+        open, expired, accepted, not retained, asked again — the pack is
+        frozen, whether an offer can still be taken is not;
+      • **accepting takes two clicks**: it is terminal;
+      • **`pack_reopened`** — a refusal of its own for an acceptance tried
+        while the request is being solicited again;
+      • **`cannot_send`** — the re-ask is refused, before anything opens,
+        when there is no reply address or the supplier has no contact: the
+        buyer cannot fix either, and the page tells them to contact OSI.
+      *Verified live in dev on request #3049, then restored (baseline
+      re-checked):* a `viewer` and staff previewing get no button; a `buyer`
+      gets one per offer. Accepting Dongguan's offer (two clicks) opened the
+      deal with `decision_pack_id` set, closed the other offer as `lost`,
+      and the page shows the banner, « Offre acceptée » and « Non retenue »,
+      with no button left. By direct call: a shown offer is acceptable from
+      the pack, a withheld one and one never in it are not. With one offer's
+      validity set in the past: « Offre expirée », no accept button on it, a
+      « Redemander » button; an acceptance tried on the other offer while
+      the request had been moved to `soliciting` behind the open page was
+      refused with « Ce pack n'est plus à jour… » and opened no deal.
+      Re-asking: round 2 opened by the buyer, the RFQ logged, the request in
+      `soliciting`, the page showing the reopened notice and no button.
+      Then, as staff: the new offer recorded, round 2 closed → a second,
+      pending pack with the new price, the released one still holding the
+      old; released → the buyer's page shows the new pack, the new price,
+      and its accept buttons.
+      **Not exercised:** two acceptances arriving together on this flow
+      (the index that settles it is the report flow's, unchanged);
+      `cannot_send`; the English page.
+- [x] ~~**V13 · Choosing from the pack opens the dossier.**~~ *Size S. Steps
       11–12. Depends on: V12.*
 
       **Left for this task by V12:** the pack page

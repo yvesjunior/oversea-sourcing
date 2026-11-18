@@ -375,3 +375,49 @@ export function relaunchState(
   }
   return null;
 }
+
+// ── choosing from the pack (V13) ────────────────────────────────────────────
+
+/** Where an offer of the pack stands NOW — the pack is frozen, whether an
+ *  offer can still be taken is not. */
+export type PackOfferState =
+  /** Received and within its validity: can be accepted. */
+  | "open"
+  /** Its validity ran out: cannot be accepted, can be asked for again. */
+  | "expired"
+  | "accepted"
+  /** The buyer accepted another offer. */
+  | "lost"
+  /** Asked for again — a new round is collecting it. */
+  | "reasked"
+  /** Anything else (declined since by the supplier, quote gone). */
+  | "unavailable";
+
+/**
+ * The live state of one offer, from its quote row.
+ *
+ * Expiry is DERIVED from `valid_until`, like everywhere else in the product:
+ * a received offer whose date has passed is `expired` whatever the column
+ * still says, and one with no date never expires on the clock.
+ */
+export function packOfferState(
+  quote: { status: string; validUntil: Date | null; declineReason: string | null },
+  now: Date,
+): PackOfferState {
+  switch (quote.status) {
+    case "accepted":
+      return "accepted";
+    case "received":
+      return quote.validUntil !== null && quote.validUntil.getTime() < now.getTime()
+        ? "expired"
+        : "open";
+    case "expired":
+      return "expired";
+    case "requested":
+      return "reasked";
+    case "declined":
+      return quote.declineReason === "lost" ? "lost" : "unavailable";
+    default:
+      return "unavailable";
+  }
+}
