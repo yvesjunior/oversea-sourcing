@@ -24,7 +24,7 @@
 | **E9** Notifications | In-app + email | 🟡 bell, emitters, **prefs (2026-08-26)** live; Phase P types (`quote_received`, `contract_to_sign`, `contract_signed`) + staff alert on `quotes.requested` (2026-09-07) live; **the bell alerts (2026-09-14)** — count badge, 30 s poll, chime, per-browser mute |
 | **E10** Admin surfaces | Verification, imports, ops queue | 🟡 **verification LIVE (S5b/S5c, 2026-08-26)**; imports/ops queue placeholders |
 | **R** Custom staff roles | Roles as data + the matrix | ✅ **BUILT 2026-08-29** (migration 0039) — create/delete roles, dynamic matrix, `requests.all` |
-| **E13** V6 architecture | Supplier portal · KPI #2 · Partner Hub · Decision Pack | 🔵 **NEW 2026-10-21** — scope opened by the V6 document; diagrams validated 2026-11-14; **34 tasks in seven slices — [Phase V](#phase-v--the-v6-parcours-task-by-task-e13--written-2026-11-14)**; **V01, V02, V04–V11 built 2026-11-14** (settings, contacts, states, fork + shortlist, RFQ batch, window closing, typed answer time + channel, KPI #2 v1, the Decision Pack record, the release queue); V01–V09 **live on prod since deploy #45 (2026-11-14) with the pack-flow switch OFF**, V10–V11 on `main`, not deployed |
+| **E13** V6 architecture | Supplier portal · KPI #2 · Partner Hub · Decision Pack | 🔵 **NEW 2026-10-21** — scope opened by the V6 document; diagrams validated 2026-11-14; **34 tasks in seven slices — [Phase V](#phase-v--the-v6-parcours-task-by-task-e13--written-2026-11-14)**; **V01, V02, V04–V11 built 2026-11-14** (settings, contacts, states, fork + shortlist, RFQ batch, window closing, typed answer time + channel, KPI #2 v1, the Decision Pack record, the release queue); **all live on prod — V01–V09 since deploy #45 (2026-11-14), V10–V11 since deploy #47 (2026-11-18) — with the pack-flow switch OFF** |
 | **E11** Settings | Profile, sourcing rules | 🟡 Paramètres + notification prefs live; **password / 2FA / theme / rename (2026-08-27)** live; buyer Abonnement self-service waits for billing |
 
 **MVP1 = E0–E7 + E10.** Definition of done **restated 2026-08-29 by ADR-002**
@@ -38,11 +38,34 @@ tracked to delivery** — with the PDF report available throughout.
 
 ### START HERE — handoff, 2026-09-14 (read this first)
 
-**Prod = `04b5019` (deploy #46, 2026-11-14)** — Phase V tasks V01–V09 with
-the pack-flow switch off, the fixes from the review of those nine tasks, and
-the missing-file fix. **`main` is ahead of prod and NOT deployed:** the
-deploy #46 record, then V10 (the Decision Pack record, migration 0052) and
-V11 (the release queue, migration 0053).
+**Prod = `b146484` (deploy #47, 2026-11-18)** — Phase V tasks V01–V11, with
+the pack-flow switch off. `main` is one commit ahead: this record.
+
+**Deploy #47 verification** — backup `osi-20261118-153024.sql.gz` + its
+uploads archive (85 B) taken first. Build gate passed locally (621 tests).
+Two migrations (0052–0053), additive but for one relaxation
+(`decision_pack_item.rank_shown` loses NOT NULL — on a table that was empty).
+On the VM: `git log` at `b146484`; `web` / `worker` / `worker-research` all
+20 s old; `__drizzle_migrations` 52 → 54; `decision_pack`,
+`decision_pack_item`, `decision_pack_event` exist and are empty;
+`request.unfulfilled_reason`, `decision_pack.released_at` and
+`decision_pack.assigned_to` exist; `rank_shown` is nullable. **Data unchanged
+across the deploy:** 17 requests, all `report_ready`; 3 quotes, all
+`requested`; 155 request events; no RFQ round. Zero error lines in the web
+log and in both workers' after the restart; the pipeline worker is
+listening. Over the tunnel: origin 200; `/demandes`, `/soumissions` and
+`/interne/packs` 307. The served bundles carry `approvePack`,
+`decision_pack_event`, `packQueue` and `request_unfulfilled`.
+**What prod showed about deploy #46 before this one replaced it:** three new
+requests (3033–3035, created 2026-11-15) went through the pipeline to
+`report_ready` on the code where status changes became conditional — the
+end-to-end run the review could not make in dev. `pgboss.job` holds ten jobs
+for the last five days (five `request.pipeline`, five `request.research`),
+all `completed`, none retried. **One line** in the old worker logs matched
+`StaleTransition|FAILED|fatal` (case-insensitive); it was counted, not read,
+and the redeploy replaced the containers and their logs — so what it said is
+not known.
+**Not checked on prod:** signing in and opening `/interne/packs` by hand.
 
 **Deploy #46 verification** — backup `osi-20261114-191920.sql.gz` + its
 uploads archive (85 B) taken first. Build gate passed locally (573 tests).
@@ -294,6 +317,7 @@ deploy failed mid-session and prod was rolled back; see #24.
 | 23 | `5b90649` | — | **the platform workspace can no longer be deleted** — the org-plugin's own `POST /organization/delete` bypassed `destroyWorkspace`; guard moved into a `beforeDeleteOrganization` hook |
 | 24 | `95b825a` | — | **filters on all four ops lists** (multi-account + week/month/year/custom period) · **the global supplier directory is staff-only** · the DB cleared for fresh testing. *First attempt (`77d37b0`) took prod down — see the chunk-cycle note* |
 | 25 | `b7481d6` | — | **"linked supplier" widened to four traces** (matched · quoted · dealt · contract party) · **a session opens in your PERSONAL workspace** when you have one · the discovery store cleared for a cold research test |
+| 47 | `b146484` | 0052–0053 | **The Decision Pack and its release queue (Phase V · V10–V11) — still behind the pack-flow switch, which stays OFF.** A pending pack is built when a round closes into the review (frozen copies of the offers, computed and shown ranks, one pending pack per request) · `/interne/packs`, the desk: what waits, since when, on whose desk · approve, correct, relaunch, refuse — each locked against a concurrent decision and kept in `decision_pack_event` · a relaunch keeps the offers in hand (D5 as its default), so the ranking and the offer target span a request's rounds · a refusal tells the buyer why and the suppliers holding offers that it is closed. **Visible to today's users:** a new INTERNE entry « Decision Packs » for staff holding `deals`, showing an empty queue; « Envoi du Decision Pack » is no longer marked not-applied in the platform settings |
 | 46 | `04b5019` | — | **The review of Phase V, and a download that answered nothing.** Request status changes are conditional (a buyer's cancel is no longer overwritten by the pipeline, the fork or an RFQ send) · a round on a cancelled request is always withdrawn · the research re-run is refused on the pack flow · two leaks of "the buyer sees no supplier" closed (the supplier-list count, the file download) · a marketplace's address is no longer taken for a supplier's own · three things staff could do on the pack flow against the round's rules are refused · `/api/files/:id` answers 404 when a file's bytes are missing instead of dropping the connection. Code-only |
 | 45 | `7cfd46f` | 0046–0051 | **Phase V, tasks V01–V09 — the pack flow is built up to the ranked offers and SWITCHED OFF** (`flow.pack_enabled` = off, and `on` cannot be selected until slice 1 is complete). Platform settings and `/interne/parametres` · supplier contacts · the two request flows and their states · the fork and OSI's internal shortlist · RFQ rounds and the batch send · the window closing (target, deadline, early, withdrawal) · KPI #2 v1. **What changes for today's users with the switch off:** the offer form asks when the supplier answered (« Réponse reçue le ») and shows why an entry is refused; each offer shows its channel; criteria are frozen server-side once the search has answered; research keeps a supplier's contact address when it is on the supplier's own domain |
 | 44 | `a520006` | — | **SendGrid removed** — Resend is the only provider. The dual dispatch existed to make the cutover safe; once Resend was proven it was a second contract (202 vs 200, two error vocabularies) guarding a path that cannot work, since the account is dead rather than dormant. Dead `SENDGRID_API_KEY` also removed from both prod `.env` files (this project and prestigelocations) |
@@ -5194,7 +5218,7 @@ built in: **S** one, **M** two to three, **L** four or more.
       of offers on what suppliers stated.
 
 - [x] **V10 · The Decision Pack record — BUILT 2026-11-14** (migration
-      **0052**, not deployed). `decision_pack`, `decision_pack_item`;
+      **0052**, live since deploy #47). `decision_pack`, `decision_pack_item`;
       `src/lib/decision-pack.ts` (pure: `selectPackItems`, `samePackItems`,
       `projectPack`); `src/server/decision-pack.ts` (`syncPack`,
       `refreshPack`, `getPackView`, `loadPackForRequest`);
@@ -5301,7 +5325,7 @@ built in: **S** one, **M** two to three, **L** four or more.
       account was later deleted is told apart by the name snapshot.
 
 - [x] **V11 · The release queue and its four actions — BUILT 2026-11-14**
-      (migration **0053**, not deployed). `decision_pack` gains
+      (migration **0053**, live since deploy #47). `decision_pack` gains
       `assigned_to`, `released_at`, `released_by`, `refused_reason` (+ names);
       `decision_pack_item.rank_shown` becomes nullable; `decision_pack_event`;
       `request.unfulfilled_*`. `src/server/decision-pack.ts` — `approvePack`,
