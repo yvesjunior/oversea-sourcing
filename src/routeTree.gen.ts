@@ -42,7 +42,8 @@ import { Route as InterneVerificationRouteImport } from './routes/interne/verifi
 import { Route as InvitationIdRouteImport } from './routes/invitation.$id'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiFilesIdRouteImport } from './routes/api/files/$id'
-import { Route as DemandesIdRapportRouteImport } from './routes/demandes/$id.rapport'
+import { Route as DemandesIdPackRouteImport } from './routes/demandes/$id_.pack'
+import { Route as DemandesIdRapportRouteImport } from './routes/demandes/$id_.rapport'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -209,10 +210,15 @@ const ApiFilesIdRoute = ApiFilesIdRouteImport.update({
   path: '/api/files/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DemandesIdPackRoute = DemandesIdPackRouteImport.update({
+  id: '/demandes/$id_/pack',
+  path: '/demandes/$id/pack',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DemandesIdRapportRoute = DemandesIdRapportRouteImport.update({
-  id: '/rapport',
-  path: '/rapport',
-  getParentRoute: () => DemandesIdRoute,
+  id: '/demandes/$id_/rapport',
+  path: '/demandes/$id/rapport',
+  getParentRoute: () => rootRouteImport,
 } as any)
 
 export interface FileRoutesByFullPath {
@@ -234,7 +240,7 @@ export interface FileRoutesByFullPath {
   '/api/source-upload': typeof ApiSourceUploadRoute
   '/api/upload': typeof ApiUploadRoute
   '/contrats/$id': typeof ContratsIdRoute
-  '/demandes/$id': typeof DemandesIdRouteWithChildren
+  '/demandes/$id': typeof DemandesIdRoute
   '/interne/clients': typeof InterneClientsRoute
   '/interne/finance': typeof InterneFinanceRoute
   '/interne/logging': typeof InterneLoggingRoute
@@ -249,6 +255,7 @@ export interface FileRoutesByFullPath {
   '/demandes/': typeof DemandesIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/files/$id': typeof ApiFilesIdRoute
+  '/demandes/$id/pack': typeof DemandesIdPackRoute
   '/demandes/$id/rapport': typeof DemandesIdRapportRoute
 }
 export interface FileRoutesByTo {
@@ -270,7 +277,7 @@ export interface FileRoutesByTo {
   '/api/source-upload': typeof ApiSourceUploadRoute
   '/api/upload': typeof ApiUploadRoute
   '/contrats/$id': typeof ContratsIdRoute
-  '/demandes/$id': typeof DemandesIdRouteWithChildren
+  '/demandes/$id': typeof DemandesIdRoute
   '/interne/clients': typeof InterneClientsRoute
   '/interne/finance': typeof InterneFinanceRoute
   '/interne/logging': typeof InterneLoggingRoute
@@ -285,6 +292,7 @@ export interface FileRoutesByTo {
   '/demandes': typeof DemandesIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/files/$id': typeof ApiFilesIdRoute
+  '/demandes/$id/pack': typeof DemandesIdPackRoute
   '/demandes/$id/rapport': typeof DemandesIdRapportRoute
 }
 export interface FileRoutesById {
@@ -307,7 +315,7 @@ export interface FileRoutesById {
   '/api/source-upload': typeof ApiSourceUploadRoute
   '/api/upload': typeof ApiUploadRoute
   '/contrats/$id': typeof ContratsIdRoute
-  '/demandes/$id': typeof DemandesIdRouteWithChildren
+  '/demandes/$id': typeof DemandesIdRoute
   '/interne/clients': typeof InterneClientsRoute
   '/interne/finance': typeof InterneFinanceRoute
   '/interne/logging': typeof InterneLoggingRoute
@@ -322,7 +330,8 @@ export interface FileRoutesById {
   '/demandes/': typeof DemandesIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/files/$id': typeof ApiFilesIdRoute
-  '/demandes/$id/rapport': typeof DemandesIdRapportRoute
+  '/demandes/$id_/pack': typeof DemandesIdPackRoute
+  '/demandes/$id_/rapport': typeof DemandesIdRapportRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -360,6 +369,7 @@ export interface FileRouteTypes {
     | '/demandes/'
     | '/api/auth/$'
     | '/api/files/$id'
+    | '/demandes/$id/pack'
     | '/demandes/$id/rapport'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -396,6 +406,7 @@ export interface FileRouteTypes {
     | '/demandes'
     | '/api/auth/$'
     | '/api/files/$id'
+    | '/demandes/$id/pack'
     | '/demandes/$id/rapport'
   id:
     | '__root__'
@@ -432,7 +443,8 @@ export interface FileRouteTypes {
     | '/demandes/'
     | '/api/auth/$'
     | '/api/files/$id'
-    | '/demandes/$id/rapport'
+    | '/demandes/$id_/pack'
+    | '/demandes/$id_/rapport'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -454,7 +466,7 @@ export interface RootRouteChildren {
   ApiSourceUploadRoute: typeof ApiSourceUploadRoute
   ApiUploadRoute: typeof ApiUploadRoute
   ContratsIdRoute: typeof ContratsIdRoute
-  DemandesIdRoute: typeof DemandesIdRouteWithChildren
+  DemandesIdRoute: typeof DemandesIdRoute
   InterneClientsRoute: typeof InterneClientsRoute
   InterneFinanceRoute: typeof InterneFinanceRoute
   InterneLoggingRoute: typeof InterneLoggingRoute
@@ -469,6 +481,8 @@ export interface RootRouteChildren {
   DemandesIndexRoute: typeof DemandesIndexRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiFilesIdRoute: typeof ApiFilesIdRoute
+  DemandesIdPackRoute: typeof DemandesIdPackRoute
+  DemandesIdRapportRoute: typeof DemandesIdRapportRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -704,27 +718,22 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiFilesIdRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/demandes/$id/rapport': {
-      id: '/demandes/$id/rapport'
-      path: '/rapport'
+    '/demandes/$id_/pack': {
+      id: '/demandes/$id_/pack'
+      path: '/demandes/$id/pack'
+      fullPath: '/demandes/$id/pack'
+      preLoaderRoute: typeof DemandesIdPackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/demandes/$id_/rapport': {
+      id: '/demandes/$id_/rapport'
+      path: '/demandes/$id/rapport'
       fullPath: '/demandes/$id/rapport'
       preLoaderRoute: typeof DemandesIdRapportRouteImport
-      parentRoute: typeof DemandesIdRoute
+      parentRoute: typeof rootRouteImport
     }
   }
 }
-
-interface DemandesIdRouteChildren {
-  DemandesIdRapportRoute: typeof DemandesIdRapportRoute
-}
-
-const DemandesIdRouteChildren: DemandesIdRouteChildren = {
-  DemandesIdRapportRoute: DemandesIdRapportRoute,
-}
-
-const DemandesIdRouteWithChildren = DemandesIdRoute._addFileChildren(
-  DemandesIdRouteChildren,
-)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
@@ -745,7 +754,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiSourceUploadRoute: ApiSourceUploadRoute,
   ApiUploadRoute: ApiUploadRoute,
   ContratsIdRoute: ContratsIdRoute,
-  DemandesIdRoute: DemandesIdRouteWithChildren,
+  DemandesIdRoute: DemandesIdRoute,
   InterneClientsRoute: InterneClientsRoute,
   InterneFinanceRoute: InterneFinanceRoute,
   InterneLoggingRoute: InterneLoggingRoute,
@@ -760,6 +769,8 @@ const rootRouteChildren: RootRouteChildren = {
   DemandesIndexRoute: DemandesIndexRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiFilesIdRoute: ApiFilesIdRoute,
+  DemandesIdPackRoute: DemandesIdPackRoute,
+  DemandesIdRapportRoute: DemandesIdRapportRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -36,6 +36,9 @@ export const NOTIFICATION_TYPES = [
    *  pack review. Sent whatever the count, zero included: a round that came
    *  back empty is exactly the one a person has to decide about. */
   { type: "rfq_window_closed", hasEmail: true },
+  /** The Decision Pack was released (Phase V · V12) — the pack flow's
+   *  counterpart of `report_ready`: the buyer's answer is there to read. */
+  { type: "pack_ready", hasEmail: true },
   /** Staff refused to send a Decision Pack and the request ended
    *  `unfulfilled` (Phase V · V11). The one outcome of the pack flow in
    *  which the buyer receives nothing — so they are told, with the reason. */

@@ -195,6 +195,36 @@ describe("projectPack", () => {
     ]);
   });
 
+  it("gives the buyer the supplier's fit, and none of the factors scored against other offers", () => {
+    const withReason: PackItemRow[] = [
+      {
+        quoteId: "b",
+        rankComputed: 2,
+        rankShown: 1,
+        offer: snapshot({ supplierName: "B" }),
+        reason: {
+          factors: {
+            price: { state: "scored", points: 100, weight: 40 },
+            // 66.67 = "a third slower than an offer you may not be shown".
+            leadTime: { state: "scored", points: 66.67, weight: 20 },
+            kpi1: { state: "scored", points: 74.6, weight: 20 },
+            verification: { state: "scored", points: 0, weight: 10 },
+            incoterm: { state: "scored", points: 30, weight: 5 },
+            validity: { state: "scored", points: 0, weight: 5 },
+          },
+          notes: ["validity_expired"],
+        },
+      },
+    ];
+    const buyer = projectPack(pack("released"), withReason, "buyer");
+    expect(buyer?.items[0]?.fit).toBe(75);
+    expect(buyer?.items[0]?.validityExpired).toBe(true);
+    expect(buyer?.items[0]).not.toHaveProperty("reason");
+    expect(JSON.stringify(buyer)).not.toMatch(/66\.67|"weight"|"factors"/);
+    const staff = projectPack(pack("released"), withReason, "staff");
+    expect(staff?.items[0]?.reason?.factors.leadTime.points).toBe(66.67);
+  });
+
   it("gives the buyer nothing of a pack withdrawn with its request", () => {
     expect(projectPack(pack("withdrawn"), items, "buyer")).toBeNull();
   });

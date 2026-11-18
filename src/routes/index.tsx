@@ -144,7 +144,7 @@ function DossiersRecents({
                       )}
                     </td>
                     <td className="px-4 py-3">
-                      <StatusPill statut={demande.status} />
+                      <StatusPill statut={demande.status} flow={demande.flow} />
                     </td>
                     <td className="px-4 py-3 tabular-nums text-muted-foreground">
                       {demande.quoteCount}

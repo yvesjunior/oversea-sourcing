@@ -17,6 +17,7 @@ import {
   ScanSearch,
   Send,
   ShieldCheck,
+  PackageOpen,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -288,7 +289,7 @@ function DemandeDetail() {
         </Link>
         <h1 className="truncate text-center font-display text-lg font-semibold">
           {t("detail.requestNo", { id: demande.id })}
-          <StatusPill statut={demande.status} className="ml-2 align-middle" />
+          <StatusPill statut={demande.status} flow={demande.flow} className="ml-2 align-middle" />
           {demande.workspaceName && (
             <span className="ml-2 align-middle rounded-full bg-gold-soft px-2 py-0.5 text-[11px] font-semibold text-gold">
               {demande.workspaceName}
@@ -317,6 +318,16 @@ function DemandeDetail() {
             <Button variant="gold" size="sm" asChild>
               <Link to="/demandes/$id/rapport" params={{ id: demande.id }}>
                 <FileText className="size-4" /> {t("detail.viewReport")}
+              </Link>
+            </Button>
+          )}
+          {/* …and here it is (V12). `finished` on the pack flow means the pack
+              was released; the page itself sends back anyone it has nothing
+              to show. */}
+          {finished && demande.flow === "pack" && (
+            <Button variant="gold" size="sm" asChild>
+              <Link to="/demandes/$id/pack" params={{ id: demande.id }}>
+                <PackageOpen className="size-4" /> {t("detail.viewPack")}
               </Link>
             </Button>
           )}
@@ -467,7 +478,14 @@ function DemandeDetail() {
                       {formatDayTime(event.createdAt, i18n.language, { withYear: false })}
                     </span>
                     <span className="min-w-0 text-muted-foreground">
-                      {t(`events.${event.type.replace(".", "_")}`, event.params)}
+                      {t(
+                        // `report_ready` on the pack flow is a pack released,
+                        // not a report — same status, different event to read.
+                        demande.flow === "pack" && event.type === "status.report_ready"
+                          ? "events.pack_released"
+                          : `events.${event.type.replace(".", "_")}`,
+                        event.params,
+                      )}
                     </span>
                   </li>
                 ))}

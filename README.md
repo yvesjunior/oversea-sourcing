@@ -1212,10 +1212,10 @@ finishes, the worker sends a request to `shortlisted` only if the workspace's
 plan includes quotes **and** the platform setting `flow.pack_enabled` is `on`.
 It ships `off`, and `on` cannot be selected from the product. Since 2026-11-14
 a pack-flow request can travel as far as `pack_review` — shortlist, RFQ batch,
-the window closing, the offers ranked, the Decision Pack built and released
-(BACKLOG Phase V, V05–V11) — and stops there: the buyer reading the pack and
-choosing from it are not built (V12–V13). Turning it on early would release
-packs no customer can open. In development it is exercised by writing the setting's row
+the window closing, the offers ranked, the Decision Pack built, released and
+read by the buyer (BACKLOG Phase V, V05–V12) — and stops there: choosing an
+offer from the pack is not built (V13). Turning it on early would send
+customers packs they cannot act on. In development it is exercised by writing the setting's row
 directly.
 
 What is already true on the pack flow, and tested as the owning workspace:
@@ -1436,6 +1436,48 @@ What was done to a pack — by whom, when, and the reason — is kept in
 `decision_pack_event`, beside the pack and permanently; `audit_log`, which is
 purged at three months, carries a copy for the journal.
 
+**The buyer reads the pack** (V12, 2026-11-18). A release notifies the person
+who filed the request (`pack_ready`, in the app and by email), and
+`/demandes/$id/pack` shows the offers in the order shown, each with:
+
+- **what the supplier stated** — price, lead time, incoterm, validity,
+  quantities, payment terms — a figure not given says « non indiqué », and
+  which route the offer came by;
+- **what OSI observed** — plain statements, every comparison made **against
+  the other offers on that page**: the lowest price, a lead time 50 % longer
+  than the shortest, prices not compared because the currencies differ, the
+  supplier's fit with the need and its verification. Not a score: the order
+  may have been corrected by a person, and a number that disagreed with it
+  would explain nothing;
+- **a landed-cost block that labels what is not known.** The supplier's price
+  as stated; transport, insurance and import duties either *included in the
+  price* by the incoterm quoted (CIF covers carriage and insurance, DDP
+  duties) or *non fourni*; inspection *non fourni*. **No total is computed** —
+  the price is a stated unit price against a free-text quantity, and a sum
+  that left the unknowns out would be the one wrong number on the page;
+- **OSI's fee and the settlement partner's fee are listed, and not quoted.**
+  The buyer must not read the supplier's price as the whole cost, so both
+  lines are there — « s'appliquent, montant non communiqué à ce stade ». No
+  rate is shown: the rates wait on the legal review of the money circuit
+  (§2c — *for anything financial, do not build it yet*);
+- **the supplier's documents**, for the offers shown.
+
+Any member of the owning workspace reads it, a `viewer` included. Staff
+holding `requests.all` can open the same page and get exactly what the buyer
+gets, under a banner saying so.
+
+What does not reach the buyer is enforced by what the server sends, not by
+what the page hides: the computed order, the correction and its reason, who
+released the pack — and **any trace of an offer staff withheld**. The
+ranking's factors are scored against every offer ranked, a withheld one
+included, so they are not sent at all; the page works its comparisons out
+from the offers it was given. A withheld offer's quotation stays a 404 for
+the owner; a shown offer's becomes downloadable when the pack is released.
+
+`report_ready` reads « Decision Pack disponible » on this flow — on the
+dossier, in the lists and on the timeline — since the same status means a
+report on the other.
+
 Guarded transitions live in [`src/lib/request-status.ts`](src/lib/request-status.ts);
 illegal ones throw. So do **stale** ones (since 2026-11-14): `transitionRequest`
 only moves a request that is still in the state the caller read, so whoever
@@ -1469,6 +1511,11 @@ dashboard stats are **pure read-models of the DB**.
    with the per-criterion reasoning in `score_breakdown`.
 4. **Report** — `/demandes/$id/rapport` renders the need, criteria, ranked
    suppliers and methodology, with PDF export via the browser's print pipeline.
+   Its file is `demandes/$id_.rapport.tsx` — the trailing underscore keeps it
+   OUT of the dossier route's layout. Named `$id.rapport.tsx` it was a child
+   of `$id.tsx`, which renders no `<Outlet />`, so the URL showed the dossier
+   again under the report's title (found and fixed 2026-11-18, with the pack
+   page that would have had the same problem).
 5. **Recovery sweep** — on boot and every 60 s the worker re-adopts requests
    stranded mid-pipeline (crash, lost enqueue) and runs them to completion.
 

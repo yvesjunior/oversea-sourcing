@@ -130,7 +130,8 @@
       "shortlist_ready": "Présélections à confirmer (une recherche est terminée) — équipe OSI",
       "mail_backlog": "Envoi d'e-mails en échec (des messages attendent) — équipe OSI",
       "rfq_window_closed": "Fenêtres de réponse fermées (une demande attend la revue) — équipe OSI",
-      "request_unfulfilled": "Demande classée sans suite (aucun Decision Pack ne sera transmis)"
+      "request_unfulfilled": "Demande classée sans suite (aucun Decision Pack ne sera transmis)",
+      "pack_ready": "Decision Pack prêt (les offres reçues ont été revues)"
     },
     "tabOrganisation": "Organisation",
     "orgInfoTitle": "Informations de l’organisation",
@@ -486,7 +487,8 @@
     "report_ready": "Rapport prêt",
     "unfulfilled": "Sans suite",
     "closed": "Clôturée",
-    "cancelled": "Annulée"
+    "cancelled": "Annulée",
+    "pack_ready": "Decision Pack disponible"
   },
   "risk": {
     "Faible": "Faible",
@@ -564,7 +566,8 @@
     "rerunRefused": "La recherche n'est plus en échec — rien à relancer.",
     "unfulfilledTitle": "Cette demande est classée sans suite",
     "unfulfilledText": "L'équipe OSI n'a pas pu constituer un Decision Pack pour cette demande. Aucune offre ne vous sera transmise. Vous pouvez déposer une nouvelle demande à tout moment.",
-    "unfulfilledReason": "Motif :"
+    "unfulfilledReason": "Motif :",
+    "viewPack": "Voir le Decision Pack"
   },
   "stepsFlux": {
     "received": "Demande reçue",
@@ -625,7 +628,8 @@
     "rfq_closed": "Fenêtre de réponse fermée — {{offers}} offre(s) reçue(s)",
     "rfq_withdrawn": "Appel d'offres retiré auprès de {{count}} fournisseur(s)",
     "rfq_offer_added": "Offre arrivée dans le délai, saisie après la fermeture — {{offers}} offre(s) au total",
-    "rfq_holders_told": "{{count}} fournisseur(s) informé(s) que la demande est close"
+    "rfq_holders_told": "{{count}} fournisseur(s) informé(s) que la demande est close",
+    "pack_released": "Decision Pack disponible"
   },
   "stepsDemande": {
     "received": {
@@ -978,7 +982,8 @@
     "shortlist_ready": "Présélection à confirmer — demande #{{id}}",
     "mail_backlog": "L'envoi d'e-mails est en échec — {{count}} message(s) en attente",
     "rfq_window_closed": "Fenêtre de réponse fermée — demande #{{id}} : {{offers}} offre(s) reçue(s)",
-    "request_unfulfilled": "Votre demande #{{id}} est classée sans suite"
+    "request_unfulfilled": "Votre demande #{{id}} est classée sans suite",
+    "pack_ready": "Votre Decision Pack #{{id}} est prêt"
   },
   "verificationAdmin": {
     "title": "Vérification des fournisseurs",
@@ -1629,5 +1634,75 @@
     "relaunchedTitle_one": "{{count}} relance en cours",
     "relaunchedTitle_other": "{{count}} relances en cours",
     "relaunchedHint": "Ces packs n'attendent pas une personne : ils reviendront ici à la fermeture de leur nouveau tour."
+  },
+  "packView": {
+    "kicker": "Decision Pack — demande #{{id}}",
+    "intro_one": "{{count}} offre obtenue par OSI pour votre demande, présentée dans l'ordre que nous vous proposons après revue par notre équipe.",
+    "intro_other": "{{count}} offres obtenues par OSI pour votre demande, présentées dans l'ordre que nous vous proposons après revue par notre équipe.",
+    "sentOn": "Transmis le {{date}}.",
+    "print": "Imprimer / PDF",
+    "preview": "Aperçu OSI : cette page est exactement ce que voit le client. L'ordre calculé, les corrections et leurs motifs n'y figurent pas — ils sont sur la demande.",
+    "notStated": "non indiqué",
+    "price": "Prix annoncé",
+    "leadTime": "Délai",
+    "days_one": "{{count}} jour",
+    "days_other": "{{count}} jours",
+    "incoterm": "Incoterm",
+    "validUntil": "Offre valable jusqu'au",
+    "quantity": "Quantité offerte",
+    "moq": "Quantité minimale",
+    "paymentTerms": "Conditions de paiement",
+    "channel": "Origine de l'offre",
+    "channelValue": {
+      "staff": "reçue par courriel, saisie par OSI",
+      "portal": "saisie par le fournisseur"
+    },
+    "verification": {
+      "verified": "Fournisseur vérifié",
+      "pending": "Vérification en cours",
+      "unverified": "Non vérifié",
+      "rejected": "Vérification défavorable"
+    },
+    "observedTitle": "Ce que nous avons relevé",
+    "explain": {
+      "price": {
+        "best": "Le prix le plus bas des offres comparées.",
+        "above": "Un prix {{pct}} % au-dessus de l'offre la moins chère.",
+        "missing": "Le fournisseur n'a pas indiqué de prix.",
+        "not_comparable": "Les prix n'ont pas été comparés entre eux : les offres ne sont pas dans la même devise, et nous ne convertissons aucun montant."
+      },
+      "leadTime": {
+        "best": "Le délai le plus court des offres reçues.",
+        "above": "Un délai {{pct}} % plus long que le plus court.",
+        "missing": "Le fournisseur n'a pas indiqué de délai."
+      },
+      "fit": "Adéquation du fournisseur avec votre besoin : {{score}} sur 100.",
+      "verification": {
+        "verified": "Fournisseur vérifié par OSI.",
+        "pending": "Vérification du fournisseur en cours.",
+        "unverified": "Fournisseur non vérifié à ce jour.",
+        "rejected": "La vérification de ce fournisseur est défavorable."
+      },
+      "mixed_incoterms": "Les prix comparés reposent sur des incoterms différents : ils ne couvrent pas les mêmes frais.",
+      "validity_expired": "La validité de cette offre était échue à la clôture de l'appel d'offres."
+    },
+    "costTitle": "Coût total rendu — ce qui est connu",
+    "cost": {
+      "goods": "Marchandise (prix du fournisseur)",
+      "main_carriage": "Transport principal",
+      "insurance": "Assurance transport",
+      "import_duties": "Droits et taxes à l'importation",
+      "inspection": "Inspection",
+      "osi_fee": "Honoraires OSI",
+      "settlement_fee": "Frais du partenaire de règlement"
+    },
+    "costState": {
+      "stated": "indiqué",
+      "included": "inclus dans le prix ({{incoterm}})",
+      "not_provided": "non fourni",
+      "applies_unquoted": "s'appliquent — montant non communiqué à ce stade"
+    },
+    "noTotal": "Aucun total n'est calculé : le prix est celui annoncé par le fournisseur, et les éléments « non fourni » s'y ajouteront. Un total qui les passerait sous silence serait faux.",
+    "documentsTitle": "Documents du fournisseur"
   }
 }

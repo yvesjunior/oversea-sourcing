@@ -183,7 +183,19 @@ export type PackItemView = {
   /** STAFF ONLY — where KPI #2 put it. Absent for the buyer. */
   rankComputed?: number;
   offer: PackOfferSnapshot;
-  reason: PackRankingReason | null;
+  /** How well the SUPPLIER fits the need (KPI #1, 0–100) — an absolute
+   *  figure about that supplier, so it says nothing about the other offers. */
+  fit: number | null;
+  /** The offer's validity had already lapsed when the round closed. */
+  validityExpired: boolean;
+  /**
+   * STAFF ONLY — the ranking's factors and notes. Absent for the buyer, and
+   * not out of tidiness: every factor is scored AGAINST THE OTHER RANKED
+   * OFFERS, withheld ones included. "Lead time: 67 points" in a response
+   * that shows a single offer says a faster one exists. What the buyer's
+   * page compares, it works out from the offers it was given (`explainOffer`).
+   */
+  reason?: PackRankingReason | null;
 };
 
 export type PackView = {
@@ -238,13 +250,18 @@ export function projectPack(
     status: pack.status,
     builtAt: pack.builtAt,
     releasedAt: pack.releasedAt,
-    items: [...shown, ...withheld].map((item) => ({
-      quoteId: item.quoteId,
-      rank: item.rankShown,
-      ...(audience === "staff" ? { rankComputed: item.rankComputed } : {}),
-      offer: item.offer,
-      reason: item.reason,
-    })),
+    items: [...shown, ...withheld].map((item) => {
+      const fit = item.reason?.factors.kpi1;
+      return {
+        quoteId: item.quoteId,
+        rank: item.rankShown,
+        ...(audience === "staff" ? { rankComputed: item.rankComputed } : {}),
+        offer: item.offer,
+        fit: fit && fit.state === "scored" && fit.points !== null ? Math.round(fit.points) : null,
+        validityExpired: item.reason?.notes.includes("validity_expired") ?? false,
+        ...(audience === "staff" ? { reason: item.reason } : {}),
+      };
+    }),
     ...(audience === "staff"
       ? {
           internal: {

@@ -42,7 +42,7 @@ export function DossierCard({ demande }: { demande: RequestSummary }) {
       <div className="mt-5 space-y-3 text-sm">
         <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
           <span className="text-xs text-muted-foreground">{t("dossier.status")}</span>
-          <StatusPill statut={demande.status} />
+          <StatusPill statut={demande.status} flow={demande.flow} />
         </div>
         {demande.compatibilityScore !== null && (
           <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">

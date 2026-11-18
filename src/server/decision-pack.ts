@@ -563,7 +563,7 @@ export type PackActionResult =
 
 /** Release the pack exactly as it was built. */
 export async function approvePack(packId: string, actor: Actor): Promise<PackActionResult> {
-  return await db.transaction(async (tx) => {
+  const result = await db.transaction(async (tx) => {
     const locked = await lockForDecision(tx, packId);
     if ("refusal" in locked) return { ok: false as const, reason: locked.refusal };
     const items = await tx.query.decisionPackItem.findMany({
@@ -577,6 +577,8 @@ export async function approvePack(packId: string, actor: Actor): Promise<PackAct
     await recordPackEvent(tx, packId, "approved", actor, { items: items.length });
     return { ok: true as const, requestId: locked.request.id, items: items.length };
   });
+  if (result.ok) await tellBuyerPackReady(result.requestId);
+  return result;
 }
 
 /**
@@ -593,7 +595,7 @@ export async function correctPack(
 ): Promise<PackActionResult> {
   const note = input.note.trim();
   if (note === "") return { ok: false, reason: "note_required" };
-  return await db.transaction(async (tx) => {
+  const result = await db.transaction(async (tx) => {
     const locked = await lockForDecision(tx, packId);
     if ("refusal" in locked) return { ok: false as const, reason: locked.refusal };
     const items = await tx.query.decisionPackItem.findMany({
@@ -618,6 +620,41 @@ export async function correctPack(
       moves: plan.moves.map((move) => ({ ...move, supplier: nameOf.get(move.quoteId) ?? null })),
     });
     return { ok: true as const, requestId: locked.request.id, items: input.order.length };
+  });
+  if (result.ok) await tellBuyerPackReady(result.requestId);
+  return result;
+}
+
+/**
+ * The pack is released: tell the person who filed the request (V12).
+ *
+ * After the commit, and never allowed to undo it — `notifyUser` swallows its
+ * own failures. Says nothing about HOW it was released: approved as built or
+ * corrected by a person is OSI's working, and the buyer's message is the
+ * same either way.
+ */
+async function tellBuyerPackReady(requestId: string): Promise<void> {
+  const request = await db.query.request.findFirst({
+    where: eq(schema.request.id, requestId),
+    columns: { id: true, createdBy: true, organizationId: true },
+  });
+  // created_by is null when the creator's account was deleted — the pack is
+  // released all the same, there is simply nobody to notify.
+  if (!request?.createdBy) return;
+  const link = `/demandes/${request.id}/pack`;
+  const base = process.env["BETTER_AUTH_URL"] ?? "http://localhost:3010";
+  await notifyUser({
+    userId: request.createdBy,
+    organizationId: request.organizationId,
+    type: "pack_ready",
+    params: { id: request.id },
+    link,
+    email: {
+      subjectFr: `Votre Decision Pack OSI #${request.id} est prêt`,
+      subjectEn: `Your OSI Decision Pack #${request.id} is ready`,
+      bodyFr: `Les offres reçues pour votre demande #${request.id} ont été revues par notre équipe : votre Decision Pack est disponible.\nConsultez-le : ${base}${link}`,
+      bodyEn: `The offers received for your request #${request.id} have been reviewed by our team: your Decision Pack is available.\nView it: ${base}${link}`,
+    },
   });
 }
 
@@ -945,4 +982,99 @@ export async function listPackQueue(): Promise<QueuedPack[]> {
         Number(a.state === "relaunched") - Number(b.state === "relaunched") ||
         (a.waitingSince ?? "").localeCompare(b.waitingSince ?? ""),
     );
+}
+
+// ── the buyer's side (V12) ──────────────────────────────────────────────────
+
+/** A supplier's document attached to an offer the buyer is shown. */
+export type PackDocument = { fileId: string; filename: string; size: number };
+
+export type BuyerPackView = {
+  pack: PackView;
+  requestId: string;
+  requestTitle: string;
+  /** Documents per quote id — only for the offers SHOWN in this pack. */
+  documents: Record<string, PackDocument[]>;
+};
+
+/**
+ * The request's released pack, as the buyer reads it. Null when there is
+ * none: still pending, refused, withdrawn, or never built.
+ *
+ * Goes through `getPackView(…, "buyer")` and nothing else, so what this
+ * returns is by construction what `projectPack` allows a buyer: the shown
+ * order, no computed rank, no internals, no withheld offer. The CALLER
+ * decides who may ask — this function does not know about workspaces.
+ */
+export async function loadReleasedPackForRequest(requestId: string): Promise<BuyerPackView | null> {
+  const [pack, request] = await Promise.all([
+    db.query.decisionPack.findFirst({
+      where: and(
+        eq(schema.decisionPack.requestId, requestId),
+        eq(schema.decisionPack.status, "released"),
+      ),
+      // A request can collect several over its life; the buyer reads the
+      // latest one that was sent to them.
+      orderBy: [desc(schema.decisionPack.releasedAt)],
+    }),
+    db.query.request.findFirst({
+      where: eq(schema.request.id, requestId),
+      columns: { id: true, title: true },
+    }),
+  ]);
+  if (!pack || !request) return null;
+  const view = await loadPack(pack, "buyer");
+  if (!view) return null;
+
+  const quoteIds = view.items.map((item) => item.quoteId).filter((id): id is string => !!id);
+  const rows =
+    quoteIds.length === 0
+      ? []
+      : await db
+          .select({
+            quoteId: schema.document.quoteId,
+            fileId: schema.file.id,
+            filename: schema.file.filename,
+            size: schema.file.size,
+          })
+          .from(schema.document)
+          .innerJoin(schema.file, eq(schema.file.id, schema.document.fileId))
+          .where(inArray(schema.document.quoteId, quoteIds))
+          .orderBy(asc(schema.document.createdAt));
+  const documents: Record<string, PackDocument[]> = {};
+  for (const row of rows) {
+    if (!row.quoteId) continue;
+    (documents[row.quoteId] ??= []).push({
+      fileId: row.fileId,
+      filename: row.filename,
+      size: Number(row.size),
+    });
+  }
+  return { pack: view, requestId: request.id, requestTitle: request.title, documents };
+}
+
+/**
+ * Among `quoteIds`, the offers a buyer HAS been shown: an item of a released
+ * pack, not withheld.
+ *
+ * The one exception to "the owning workspace reads no supplier on the pack
+ * flow": once an offer is in a pack that was sent, the supplier behind it is
+ * disclosed, and so is the quotation they attached. An offer staff took out
+ * of the pack stays undisclosed — the buyer was never shown it.
+ */
+export async function disclosedQuoteIds(quoteIds: readonly string[]): Promise<Set<string>> {
+  const ids = [...new Set(quoteIds)];
+  if (ids.length === 0) return new Set();
+  const rows = await db
+    .select({ quoteId: schema.decisionPackItem.quoteId })
+    .from(schema.decisionPackItem)
+    .innerJoin(schema.decisionPack, eq(schema.decisionPack.id, schema.decisionPackItem.packId))
+    .where(
+      and(
+        inArray(schema.decisionPackItem.quoteId, ids),
+        eq(schema.decisionPack.status, "released"),
+        isNotNull(schema.decisionPackItem.rankShown),
+      ),
+    );
+  return new Set(rows.map((row) => row.quoteId).filter((id): id is string => !!id));
 }

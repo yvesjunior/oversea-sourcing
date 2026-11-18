@@ -130,7 +130,8 @@
       "shortlist_ready": "Shortlists to confirm (a search finished) — OSI staff",
       "mail_backlog": "Outbound mail failing (messages are waiting to be sent) — OSI staff",
       "rfq_window_closed": "Response windows closed (a request awaits review) — OSI staff",
-      "request_unfulfilled": "Request closed without a result (no Decision Pack will be sent)"
+      "request_unfulfilled": "Request closed without a result (no Decision Pack will be sent)",
+      "pack_ready": "Decision Pack ready (the offers received have been reviewed)"
     },
     "tabOrganisation": "Organisation",
     "orgInfoTitle": "Organisation information",
@@ -486,7 +487,8 @@
     "report_ready": "Report ready",
     "unfulfilled": "Closed without offers",
     "closed": "Closed",
-    "cancelled": "Cancelled"
+    "cancelled": "Cancelled",
+    "pack_ready": "Decision Pack ready"
   },
   "risk": {
     "Faible": "Low",
@@ -564,7 +566,8 @@
     "rerunRefused": "This research is no longer failed — nothing to re-run.",
     "unfulfilledTitle": "This request was closed without offers",
     "unfulfilledText": "The OSI team could not put together a Decision Pack for this request. No offer will be sent to you. You can file a new request at any time.",
-    "unfulfilledReason": "Reason:"
+    "unfulfilledReason": "Reason:",
+    "viewPack": "View the Decision Pack"
   },
   "stepsFlux": {
     "received": "Request received",
@@ -625,7 +628,8 @@
     "rfq_closed": "Response window closed — {{offers}} offer(s) received",
     "rfq_withdrawn": "RFQ withdrawn from {{count}} supplier(s)",
     "rfq_offer_added": "Offer that arrived in time, entered after the close — {{offers}} offer(s) in total",
-    "rfq_holders_told": "{{count}} supplier(s) told the request is closed"
+    "rfq_holders_told": "{{count}} supplier(s) told the request is closed",
+    "pack_released": "Decision Pack available"
   },
   "stepsDemande": {
     "received": {
@@ -978,7 +982,8 @@
     "shortlist_ready": "Shortlist to confirm — request #{{id}}",
     "mail_backlog": "Outbound mail is failing — {{count}} message(s) waiting to be sent",
     "rfq_window_closed": "Response window closed — request #{{id}}: {{offers}} offer(s) received",
-    "request_unfulfilled": "Your request #{{id}} has been closed without a result"
+    "request_unfulfilled": "Your request #{{id}} has been closed without a result",
+    "pack_ready": "Your Decision Pack #{{id}} is ready"
   },
   "verificationAdmin": {
     "title": "Supplier verification",
@@ -1629,5 +1634,75 @@
     "relaunchedTitle_one": "{{count}} relaunch under way",
     "relaunchedTitle_other": "{{count}} relaunches under way",
     "relaunchedHint": "These packs are not waiting on a person: they come back here when their new round closes."
+  },
+  "packView": {
+    "kicker": "Decision Pack — request #{{id}}",
+    "intro_one": "{{count}} offer obtained by OSI for your request, in the order we propose after review by our team.",
+    "intro_other": "{{count}} offers obtained by OSI for your request, in the order we propose after review by our team.",
+    "sentOn": "Sent {{date}}.",
+    "print": "Print / PDF",
+    "preview": "OSI preview: this page is exactly what the customer sees. The computed order, corrections and their reasons are not on it — they are on the request.",
+    "notStated": "not stated",
+    "price": "Quoted price",
+    "leadTime": "Lead time",
+    "days_one": "{{count}} day",
+    "days_other": "{{count}} days",
+    "incoterm": "Incoterm",
+    "validUntil": "Offer valid until",
+    "quantity": "Quantity quoted",
+    "moq": "Minimum quantity",
+    "paymentTerms": "Payment terms",
+    "channel": "Where the offer came from",
+    "channelValue": {
+      "staff": "received by email, entered by OSI",
+      "portal": "entered by the supplier"
+    },
+    "verification": {
+      "verified": "Verified supplier",
+      "pending": "Verification in progress",
+      "unverified": "Not verified",
+      "rejected": "Unfavourable verification"
+    },
+    "observedTitle": "What we observed",
+    "explain": {
+      "price": {
+        "best": "The lowest price among the offers compared.",
+        "above": "A price {{pct}}% above the cheapest offer.",
+        "missing": "The supplier did not state a price.",
+        "not_comparable": "Prices were not compared with one another: the offers are not in one currency, and we convert no amount."
+      },
+      "leadTime": {
+        "best": "The shortest lead time among the offers received.",
+        "above": "A lead time {{pct}}% longer than the shortest.",
+        "missing": "The supplier did not state a lead time."
+      },
+      "fit": "How well the supplier fits your need: {{score}} out of 100.",
+      "verification": {
+        "verified": "Supplier verified by OSI.",
+        "pending": "Supplier verification in progress.",
+        "unverified": "Supplier not verified to date.",
+        "rejected": "This supplier's verification is unfavourable."
+      },
+      "mixed_incoterms": "The prices compared are quoted on different incoterms: they do not cover the same costs.",
+      "validity_expired": "This offer's validity had lapsed when the RFQ closed."
+    },
+    "costTitle": "Landed cost — what is known",
+    "cost": {
+      "goods": "Goods (supplier's price)",
+      "main_carriage": "Main carriage",
+      "insurance": "Cargo insurance",
+      "import_duties": "Import duties and taxes",
+      "inspection": "Inspection",
+      "osi_fee": "OSI's fee",
+      "settlement_fee": "Settlement partner's fee"
+    },
+    "costState": {
+      "stated": "stated",
+      "included": "included in the price ({{incoterm}})",
+      "not_provided": "not provided",
+      "applies_unquoted": "applies — amount not quoted at this stage"
+    },
+    "noTotal": "No total is computed: the price is the one the supplier stated, and the items marked “not provided” will come on top. A total that left them out would be wrong.",
+    "documentsTitle": "Supplier's documents"
   }
 }

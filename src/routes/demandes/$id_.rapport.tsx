@@ -26,7 +26,7 @@ const RISK_LABEL: Record<RiskLevel, Risque> = {
   high: "Élevé",
 };
 
-export const Route = createFileRoute("/demandes/$id/rapport")({
+export const Route = createFileRoute("/demandes/$id_/rapport")({
   head: ({ params }) => ({
     meta: [{ title: `Rapport — demande #${params.id} | OSI` }],
   }),

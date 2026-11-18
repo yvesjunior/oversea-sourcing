@@ -42,14 +42,21 @@ export const Route = createFileRoute("/api/files/$id")({
           // someone holding the file's address. Only documents attached to a
           // QUOTE: the buyer's own attachments stay theirs on either flow.
           const quoted = await db
-            .select({ requestId: schema.quote.requestId })
+            .select({ quoteId: schema.quote.id, requestId: schema.quote.requestId })
             .from(schema.document)
             .innerJoin(schema.quote, eq(schema.quote.id, schema.document.quoteId))
             .where(eq(schema.document.fileId, row.id));
           if (quoted.length > 0) {
-            const { packFlowRequestIds } = await import("@/server/request-flow");
+            const [{ packFlowRequestIds }, { disclosedQuoteIds }] = await Promise.all([
+              import("@/server/request-flow"),
+              import("@/server/decision-pack"),
+            ]);
             const packFlow = await packFlowRequestIds(quoted.map((q) => q.requestId));
-            if (quoted.some((q) => packFlow.has(q.requestId))) {
+            // …until the offer is one the buyer HAS been shown: an item of a
+            // released pack, not withheld (V12). Its quotation is then part
+            // of what they are deciding on.
+            const disclosed = await disclosedQuoteIds(quoted.map((q) => q.quoteId));
+            if (quoted.some((q) => packFlow.has(q.requestId) && !disclosed.has(q.quoteId))) {
               return Response.json({ error: "not found" }, { status: 404 });
             }
           }

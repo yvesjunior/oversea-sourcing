@@ -24,7 +24,7 @@
 | **E9** Notifications | In-app + email | 🟡 bell, emitters, **prefs (2026-08-26)** live; Phase P types (`quote_received`, `contract_to_sign`, `contract_signed`) + staff alert on `quotes.requested` (2026-09-07) live; **the bell alerts (2026-09-14)** — count badge, 30 s poll, chime, per-browser mute |
 | **E10** Admin surfaces | Verification, imports, ops queue | 🟡 **verification LIVE (S5b/S5c, 2026-08-26)**; imports/ops queue placeholders |
 | **R** Custom staff roles | Roles as data + the matrix | ✅ **BUILT 2026-08-29** (migration 0039) — create/delete roles, dynamic matrix, `requests.all` |
-| **E13** V6 architecture | Supplier portal · KPI #2 · Partner Hub · Decision Pack | 🔵 **NEW 2026-10-21** — scope opened by the V6 document; diagrams validated 2026-11-14; **34 tasks in seven slices — [Phase V](#phase-v--the-v6-parcours-task-by-task-e13--written-2026-11-14)**; **V01, V02, V04–V11 built 2026-11-14** (settings, contacts, states, fork + shortlist, RFQ batch, window closing, typed answer time + channel, KPI #2 v1, the Decision Pack record, the release queue); **all live on prod — V01–V09 since deploy #45 (2026-11-14), V10–V11 since deploy #47 (2026-11-18) — with the pack-flow switch OFF** |
+| **E13** V6 architecture | Supplier portal · KPI #2 · Partner Hub · Decision Pack | 🔵 **NEW 2026-10-21** — scope opened by the V6 document; diagrams validated 2026-11-14; **34 tasks in seven slices — [Phase V](#phase-v--the-v6-parcours-task-by-task-e13--written-2026-11-14)**; **V01, V02, V04–V11 built 2026-11-14** (settings, contacts, states, fork + shortlist, RFQ batch, window closing, typed answer time + channel, KPI #2 v1, the Decision Pack record, the release queue); V01–V11 **live on prod — V01–V09 since deploy #45 (2026-11-14), V10–V11 since deploy #47 (2026-11-18) — with the pack-flow switch OFF**; **V12 built 2026-11-18** (the buyer's pack page), on `main`, not deployed |
 | **E11** Settings | Profile, sourcing rules | 🟡 Paramètres + notification prefs live; **password / 2FA / theme / rename (2026-08-27)** live; buyer Abonnement self-service waits for billing |
 
 **MVP1 = E0–E7 + E10.** Definition of done **restated 2026-08-29 by ADR-002**
@@ -39,7 +39,11 @@ tracked to delivery** — with the PDF report available throughout.
 ### START HERE — handoff, 2026-09-14 (read this first)
 
 **Prod = `b146484` (deploy #47, 2026-11-18)** — Phase V tasks V01–V11, with
-the pack-flow switch off. `main` is one commit ahead: this record.
+the pack-flow switch off. **`main` is ahead of prod and NOT deployed:** the
+deploy #47 record, then V12 (the buyer's pack page) — which also carries a
+fix for the REPORT flow, live today: `/demandes/$id/rapport` showed the
+dossier instead of the report (see V12). Seen in dev on the code prod runs;
+not checked on prod itself.
 
 **Deploy #47 verification** — backup `osi-20261118-153024.sql.gz` + its
 uploads archive (85 B) taken first. Build gate passed locally (621 tests).
@@ -5483,7 +5487,71 @@ built in: **S** one, **M** two to three, **L** four or more.
       `no_response` already had a full window, and asking again is a
       decision, so say so in the UI.
 
-- [ ] **V12 · The buyer reads the pack — or is told there will be none.**
+- [x] **V12 · The buyer reads the pack — BUILT 2026-11-18** (no migration,
+      not deployed). `src/routes/demandes/$id_.pack.tsx`;
+      `src/lib/pack-explain.ts` (pure: `explainOffer`, `landedCostLines`);
+      `loadReleasedPackForRequest`, `disclosedQuoteIds` and the `pack_ready`
+      notification in `src/server/decision-pack.ts`; `getRequestPackFn`;
+      `RequestSummary.flow`; the status label and the timeline line for a
+      released pack. 650 tests (21 on what the buyer is told).
+      The "or is told there will be none" half — the `unfulfilled` notice
+      with staff's reason and `request_unfulfilled` — was built in V11.
+      **Differs from the task as written:**
+      • **No fee is quoted.** The task wanted the block honest that OSI's
+        fee is not the only one. It is: both fees are LISTED — « s'appliquent,
+        montant non communiqué à ce stade » — and neither rate is shown.
+        README §2c says, of anything financial, *do not build it yet*, and of
+        the partner's schedule that it "needs confirming before it is quoted
+        to anyone". `fee.rate_bps` therefore stays inert. **For the owner:**
+        say when the 3 % may be shown to buyers.
+      • **No total is computed**, by rule and not for lack of data: the
+        price is a stated unit price against a free-text quantity. The block
+        says so on the page.
+      • **Incoterms decide "included" vs « non fourni »** for carriage,
+        insurance and import duties (CFR/CIF/CPT/CIP/DAP/DPU/DDP · CIF/CIP ·
+        DDP) — only what the rules themselves say; an incoterm the reader
+        cannot parse includes nothing.
+      • **The explanation is not the KPI #2 breakdown.** The task said "the
+        KPI #2 breakdown, in plain words". Its factors are scored against
+        every ranked offer, a WITHHELD one included: shown as they are, a
+        lone offer would have read « un délai 50 % plus long que le plus
+        court ». So the page compares only the offers it shows
+        (`explainOffer`), the buyer's projection carries no factor at all —
+        only the supplier's fit and whether the validity had lapsed — and no
+        score is shown, since a corrected order would contradict it.
+      • **Staff can open the buyer's page** (`requests.all`) and get the
+        buyer's projection, under a banner.
+      • **Documents:** a shown offer's quotation is listed on the pack page
+        and downloadable once the pack is released; a withheld offer's stays
+        a 404. The Documents page still lists nothing from a pack-flow
+        request — the pack page is where they are read.
+      **Found while building it — the report page was not reachable.**
+      `demandes/$id.rapport.tsx` was a CHILD route of `demandes/$id.tsx`,
+      which renders no `<Outlet />`: `/demandes/3049/rapport` showed the
+      dossier under the report's title. It has been nested that way since
+      the file was created (`b53f7fc`). Both pages are now
+      `$id_.rapport.tsx` / `$id_.pack.tsx` — the trailing underscore takes a
+      route out of its parent's layout. Seen in dev, on the same files prod
+      runs at `b146484`; **not checked on prod**.
+      *Verified live in dev on request #3049, then restored (baseline
+      re-checked):* before the release the page sends a buyer back to the
+      dossier and the quotation answers 404. After a release with the two
+      offers swapped: the buyer was notified in the app and by email, with a
+      link to the page; the page shows the offers in the shown order, the
+      figures, « 7 % au-dessus de l'offre la moins chère » and « 50 % plus
+      long », CIF's carriage and insurance as included, the two fee lines
+      unquoted, no « 3 % », and both quotations download. A `viewer` reads
+      the same page. As staff: the same content under « Aperçu OSI ». After
+      a release with one offer WITHHELD: one offer on the page, nothing
+      comparative said about it, no trace of the other or of any factor in
+      the raw response, the withheld quotation 404 and the shown one 200.
+      The dossier and the request list read « Decision Pack disponible »,
+      never « Rapport prêt ». On a report-flow request, `/rapport` now
+      renders the report and `/pack` redirects to the dossier.
+      **Not exercised:** the English page; printing; a request with two
+      released packs (the latest is read); mixed currencies on the page
+      (unit-tested).
+- [x] ~~**V12 · The buyer reads the pack — or is told there will be none.**~~
       *Size L. Steps 10–11. Depends on: V11. Blocks: V13.*
 
       **Left for this task by V11:** `pack_ready` — the notification an
@@ -5525,6 +5593,14 @@ built in: **S** one, **M** two to three, **L** four or more.
 
 - [ ] **V13 · Choosing from the pack opens the dossier.** *Size S. Steps
       11–12. Depends on: V12.*
+
+      **Left for this task by V12:** the pack page
+      (`demandes/$id_.pack.tsx`) is read-only — the accept button goes on
+      each offer there, for a `buyer` seat and not a `viewer`.
+      `disclosedQuoteIds` (`src/server/decision-pack.ts`) already answers
+      "is this quote a shown item of a released pack?" — the test
+      `acceptQuoteFn` needs. The buyer's `/soumissions` list still hides
+      every pack-flow quote; the pack page is the only door.
 
       **What it does.** `acceptQuoteFn` already does steps 11 and 12 in one
       transaction (P3). This ties it to the pack and wires the second return

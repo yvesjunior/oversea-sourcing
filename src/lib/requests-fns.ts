@@ -33,6 +33,11 @@ export type RequestSummary = {
    *  dossier puts it on the dashboard row, and it is the number that says
    *  whether a dossier is moving. */
   quoteCount: number;
+  /** Which flow this request is on — derived from where it has been
+   *  (`requestFlow`), never stored. Decides the stages the dossier draws, and
+   *  what `report_ready` MEANS: a report on one flow, a released Decision
+   *  Pack on the other (V12) — which is why a list needs it too. */
+  flow: RequestFlow;
 };
 
 /** YOUR sourcing requests, newest first — personal surfaces are own-workspace
@@ -69,6 +74,8 @@ export const getMyRequestsFn = createServerFn({ method: "GET" }).handler(
       .where(eq(schema.request.organizationId, workspaceId))
       .orderBy(desc(schema.request.updatedAt));
 
+    const { packFlowRequestIds } = await import("@/server/request-flow");
+    const packFlow = await packFlowRequestIds(rows.map((row) => row.id));
     return rows.map((row) => ({
       ...row,
       updatedAt: row.updatedAt.toISOString(),
@@ -76,6 +83,7 @@ export const getMyRequestsFn = createServerFn({ method: "GET" }).handler(
       workspaceName: null,
       organizationId: workspaceId,
       organizationName: "",
+      flow: packFlow.has(row.id) ? ("pack" as const) : ("report" as const),
     }));
   },
 );
@@ -117,6 +125,8 @@ export const getAllRequestsFn = createServerFn({ method: "GET" }).handler(
       .leftJoin(schema.user, eq(schema.user.id, schema.request.createdBy))
       .orderBy(desc(schema.request.updatedAt));
 
+    const { packFlowRequestIds } = await import("@/server/request-flow");
+    const packFlow = await packFlowRequestIds(rows.map((row) => row.id));
     return rows.map((row) => ({
       id: row.id,
       title: row.title,
@@ -129,6 +139,7 @@ export const getAllRequestsFn = createServerFn({ method: "GET" }).handler(
       organizationName: row.workspaceName,
       quoteCount: row.quoteCount,
       createdByName: row.createdByName,
+      flow: packFlow.has(row.id) ? ("pack" as const) : ("report" as const),
     }));
   },
 );
@@ -197,9 +208,6 @@ export type RequestDetail = RequestSummary & {
   messages: ChatMessage[];
   events: RequestEventView[];
   attachments: AttachmentView[];
-  /** Which flow this request is on — derived from where it has been
-   *  (`requestFlow`), never stored. Decides the stages the dossier draws. */
-  flow: RequestFlow;
   /** Why staff refused to send a Decision Pack (V11) — set only on an
    *  `unfulfilled` request, and written FOR the buyer. */
   unfulfilledReason: string | null;
@@ -916,5 +924,6 @@ export const getRequestFn = createServerFn({ method: "GET" })
       organizationName: workspaceName ?? "",
       quoteCount: 0,
       createdByName: row.createdByName,
+      flow: await (await import("@/server/request-flow")).flowOfRequest(row.id),
     };
   });

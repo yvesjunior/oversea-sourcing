@@ -8,6 +8,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import type {
+  BuyerPackView,
   PackActionResult,
   QueuedPack,
   RefusePackResult,
@@ -16,6 +17,8 @@ import type {
 } from "@/server/decision-pack";
 
 export type {
+  BuyerPackView,
+  PackDocument,
   PackActionRefusal,
   PackActionResult,
   PackEventView,
@@ -223,3 +226,53 @@ export const assignPackFn = createServerFn({ method: "POST" })
       return result;
     },
   );
+
+// ── the buyer reads the pack (V12) ──────────────────────────────────────────
+
+export type BuyerPackData = BuyerPackView & {
+  /** True when the reader is OSI staff looking at a customer's pack: the same
+   *  content the buyer gets, said to be a preview so nobody takes it for the
+   *  internal view. */
+  preview: boolean;
+};
+
+/**
+ * The released Decision Pack of a request — for the workspace that owns it.
+ *
+ * Any member may read it, a `viewer` included (reading commits the company
+ * to nothing). Staff holding `requests.all` may read it too, and get exactly
+ * what the buyer gets: the point of opening this page as staff is to see
+ * what was sent. Null for anyone else, and whenever there is no released
+ * pack — the page then has nothing to show and sends the reader back.
+ */
+export const getRequestPackFn = createServerFn({ method: "GET" })
+  .inputValidator(z.object({ requestId: z.string().min(1) }))
+  .handler(async ({ data }): Promise<BuyerPackData | null> => {
+    const [{ auth }, { getRequest }, { db }, { eq }, schema] = await Promise.all([
+      import("@/server/auth"),
+      import("@tanstack/react-start/server"),
+      import("@/database"),
+      import("drizzle-orm"),
+      import("@/database/schema"),
+    ]);
+    const session = await auth.api.getSession({ headers: getRequest().headers });
+    const workspaceId = session?.session.activeOrganizationId;
+    if (!session || !workspaceId) return null;
+
+    const request = await db.query.request.findFirst({
+      where: eq(schema.request.id, data.requestId),
+      columns: { organizationId: true },
+    });
+    if (!request) return null;
+
+    const { requireMember, effectiveHasPermission } = await import("@/server/workspace-guard");
+    const isOwn = request.organizationId === workspaceId;
+    const allowed = isOwn
+      ? (await requireMember(session.user.id, workspaceId, "viewer")) !== null
+      : await effectiveHasPermission(session, "requests.all");
+    if (!allowed) return null;
+
+    const { loadReleasedPackForRequest } = await import("@/server/decision-pack");
+    const view = await loadReleasedPackForRequest(data.requestId);
+    return view ? { ...view, preview: !isOwn } : null;
+  });
