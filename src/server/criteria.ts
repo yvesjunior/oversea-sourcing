@@ -14,6 +14,7 @@ import { db } from "@/database";
 import * as schema from "@/database/schema";
 import type { CriteriaCategory } from "@/database/schema";
 import { recordEvent, type Executor } from "@/server/requests";
+import { refreshSpecIfAny, type SpecActor } from "@/server/spec";
 
 export type CriterionFields = {
   category: CriteriaCategory;
@@ -87,16 +88,22 @@ export async function deleteCriterion(
   return deleted.length > 0;
 }
 
-/** What every criteria write leaves behind: the timeline line, and a request
- *  that reads as touched. */
+/** What every criteria write leaves behind: the timeline line, a request
+ *  that reads as touched — and, once the request has a specification, its
+ *  next version (V19). "Editing criteria after a spec exists creates version
+ *  2" is enforced here because every edit, by hand or accepted from the
+ *  assistant, ends here. */
 export async function criteriaEdited(
   requestId: string,
   organizationId: string,
   executor: Executor = db,
+  /** Whose edit it was — recorded on the spec version it makes. */
+  actor: SpecActor = null,
 ): Promise<void> {
   await recordEvent(requestId, organizationId, "criteria.updated", undefined, executor);
   await executor
     .update(schema.request)
     .set({ updatedAt: new Date() })
     .where(eq(schema.request.id, requestId));
+  await refreshSpecIfAny(requestId, actor, executor);
 }

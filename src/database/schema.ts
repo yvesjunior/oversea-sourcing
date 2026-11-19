@@ -15,6 +15,8 @@ import {
 // Type-only, so erased at compile time: the schema still pulls in no runtime
 // code from src/lib.
 import type { PackOfferSnapshot } from "@/lib/decision-pack";
+import type { KpiProfileSource, KpiProfileWeights } from "@/lib/kpi-profile";
+import type { SpecContent } from "@/lib/request-spec";
 import type { ReleaseMode } from "@/lib/platform-settings";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -444,6 +446,65 @@ export const criterionProposal = pgTable(
     index("criterion_proposal_request_idx").on(table.requestId),
     index("criterion_proposal_message_idx").on(table.messageId),
   ],
+);
+
+/**
+ * The cahier des charges, as a record (Phase V · V19).
+ *
+ * One row per VERSION of what a supplier is asked to quote against.
+ * Immutable: nothing updates a row, a change to the request is a new version,
+ * and version 1 stays readable after version 2 exists. That is what lets an
+ * RFQ, an offer and a ranking each say which one they were made against
+ * (`spec_version` on `rfq_round`, `quote`, `match`, `kpi_result`).
+ *
+ * `content` is `SpecContent` (src/lib/request-spec.ts): the structured
+ * criteria AND the same thing rendered as text. Nothing in it names the buyer.
+ */
+export const requestSpec = pgTable(
+  "request_spec",
+  {
+    id: text("id").primaryKey(),
+    requestId: text("request_id")
+      .notNull()
+      .references(() => request.id, { onDelete: "cascade" }),
+    /** 1, 2, 3… per request. */
+    version: integer("version").notNull(),
+    content: jsonb("content").$type<SpecContent>().notNull(),
+    /** `specFingerprint(content)` — what "the spec changed" means. A rebuild
+     *  whose fingerprint equals the latest version's writes nothing. */
+    fingerprint: text("fingerprint").notNull(),
+    /** Whose change made this version; null = the system (the launch, or
+     *  criteria read out of an attachment by the research stage). */
+    createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+    createdByName: text("created_by_name"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex("request_spec_request_version_uq").on(table.requestId, table.version)],
+);
+
+/**
+ * KPIProfile v1 (Phase V · V19): one request's weights for both scorers.
+ *
+ * Versioned and immutable like the spec. `weights` is `KpiProfileWeights`
+ * (src/lib/kpi-profile.ts). `source` says who set them: `default` = proposed
+ * by the platform from the criteria, `buyer` = adjusted and validated by the
+ * buyer (V20 — nothing writes it yet).
+ */
+export const kpiProfile = pgTable(
+  "kpi_profile",
+  {
+    id: text("id").primaryKey(),
+    requestId: text("request_id")
+      .notNull()
+      .references(() => request.id, { onDelete: "cascade" }),
+    version: integer("version").notNull(),
+    weights: jsonb("weights").$type<KpiProfileWeights>().notNull(),
+    source: text("source").$type<KpiProfileSource>().notNull().default("default"),
+    /** `profileFingerprint(weights)`. */
+    fingerprint: text("fingerprint").notNull(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex("kpi_profile_request_version_uq").on(table.requestId, table.version)],
 );
 
 /** Pipeline/activity events — powers timelines and the activity feed (E3). */
@@ -1185,6 +1246,11 @@ export const match = pgTable(
      *  score is worthless to a buyer without the reason, and to us without an
      *  audit trail when someone asks why rank 1 is rank 1. */
     scoreBreakdown: jsonb("score_breakdown"),
+    /** Which version of the specification (`request_spec`) this was made
+     *  against (V19). Null on rows that predate specifications. */
+    specVersion: integer("spec_version"),
+    /** Which version of the KPI profile (`kpi_profile`) weighed it. */
+    profileVersion: integer("profile_version"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (table) => [
@@ -1270,6 +1336,10 @@ export const rfqRound = pgTable(
     closedByName: text("closed_by_name"),
     /** Why staff stopped waiting. Required for `early`, null otherwise. */
     earlyNote: text("early_note"),
+    /** The specification this round's RFQs carried (V19). One per round:
+     *  every supplier in a round is asked the same thing. Null on rounds that
+     *  predate specifications. */
+    specVersion: integer("spec_version"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (table) => [
@@ -1395,6 +1465,11 @@ export const quote = pgTable(
      * gone out — report-flow readers fall back to `requested_at` and say so.
      */
     sentAt: timestamp("sent_at"),
+    /** The specification the RFQ carried when it left — and therefore the one
+     *  the supplier's offer answers (V19). Stamped with `sent_at`. An offer
+     *  answering version 1 ranked against version 2 is the error nobody
+     *  notices; this column is what lets someone notice. */
+    specVersion: integer("spec_version"),
     sentBy: text("sent_by").references(() => user.id, { onDelete: "set null" }),
     /** The round this solicitation belongs to (V06). Null on the report flow,
      *  and on a confirmed shortlist entry whose batch has not left yet — a
@@ -1504,6 +1579,11 @@ export const kpiResult = pgTable(
      *  latest run's writes nothing: identical inputs are not a new result. */
     inputsHash: text("inputs_hash").notNull(),
     trigger: text("trigger").$type<KpiRunTrigger>().notNull(),
+    /** The specification the ranked offers answered, and the KPI profile
+     *  whose weights ranked them (V19). Same on every row of a run. Null on
+     *  runs that predate both. */
+    specVersion: integer("spec_version"),
+    profileVersion: integer("profile_version"),
     /** Same instant on every row of a run. */
     computedAt: timestamp("computed_at").notNull(),
   },

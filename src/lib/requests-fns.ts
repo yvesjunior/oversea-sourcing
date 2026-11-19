@@ -453,6 +453,17 @@ export const createRequestFn = createServerFn({ method: "POST" })
     // "A pending draft never spends money on its own."
     if (held) return { ok: true, id };
 
+    // Launched: version 1 of the cahier des charges and of the KPI profile
+    // (V19) — what this request asks for, as it leaves the buyer's hands.
+    // Never allowed to fail the creation: the ranking writes it if this
+    // could not.
+    try {
+      const { ensureSpec } = await import("@/server/spec");
+      await ensureSpec(id, { id: session.user.id, name: session.user.name });
+    } catch (error) {
+      console.error(`createRequest: could not write the spec of ${id}`, error);
+    }
+
     // Attachments coming: startRequestPipelineFn enqueues once they are stored.
     // If the browser dies in between, the worker's sweep re-adopts the request
     // from "received" after two minutes — delaying the launch, never losing it.
@@ -506,6 +517,14 @@ export const launchDraftFn = createServerFn({ method: "POST" })
       // draft, and the page reloads to show where it is.
       if (error instanceof StaleTransitionError) return { ok: false };
       throw error;
+    }
+
+    // The draft's criteria are what the buyer settled on: version 1 (V19).
+    try {
+      const { ensureSpec } = await import("@/server/spec");
+      await ensureSpec(row.id, { id: session.user.id, name: session.user.name });
+    } catch (error) {
+      console.error(`launchDraft: could not write the spec of ${row.id}`, error);
     }
 
     const { logAudit, actorOf } = await import("@/server/audit");

@@ -634,7 +634,8 @@
     "rfq_offer_added": "Offre arrivée dans le délai, saisie après la fermeture — {{offers}} offre(s) au total",
     "rfq_holders_told": "{{count}} fournisseur(s) informé(s) que la demande est close",
     "pack_released": "Decision Pack disponible",
-    "clarification_asked": "Relecture par l’assistant — questions : {{questions}}, propositions : {{proposals}}"
+    "clarification_asked": "Relecture par l’assistant — questions : {{questions}}, propositions : {{proposals}}",
+    "spec_versioned": "Cahier des charges — version {{version}}"
   },
   "stepsDemande": {
     "received": {
@@ -1853,5 +1854,33 @@
     "becomes_required": "devient obligatoire",
     "becomes_optional": "devient facultatif",
     "draftTextNoAssistant": "Rien n’est recherché tant que vous n’avez pas lancé la recherche. Vous pouvez encore corriger les critères avant de lancer."
+  },
+  "spec": {
+    "title": "Cahier des charges",
+    "version": "Version {{version}}",
+    "versionShort": "v{{version}}",
+    "madeBy": "Établie le {{when}} par {{name}}",
+    "madeBySystem": "Établie le {{when}} par la plateforme",
+    "superseded": "remplacée par la version {{version}}",
+    "need": "Besoin",
+    "specifications": "Spécifications",
+    "required": "obligatoire",
+    "weight": "poids {{weight}}",
+    "description": "Description du client",
+    "attachments_one": "{{count}} pièce jointe au dossier",
+    "attachments_other": "{{count}} pièces jointes au dossier",
+    "profileTitle": "Comparaison des offres — points sur 100 (profil v{{version}})",
+    "profileSource": {
+      "default": "Pondération proposée par la plateforme.",
+      "buyer": "Pondération validée par l’acheteur."
+    },
+    "factor": {
+      "price": "Prix",
+      "leadTime": "Délai de livraison",
+      "kpi1": "Adéquation du fournisseur au besoin",
+      "verification": "Vérification du fournisseur",
+      "incoterm": "Incoterm",
+      "validity": "Durée de validité de l’offre"
+    }
   }
 }

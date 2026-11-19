@@ -34,6 +34,7 @@ import {
   rankOffers,
   type Kpi2Breakdown,
   type Kpi2Offer,
+  type Kpi2Weights,
 } from "@/lib/kpi2";
 
 export type Kpi2RunOutcome =
@@ -102,10 +103,12 @@ async function gatherOffers(requestId: string): Promise<Kpi2Offer[]> {
   }));
 }
 
-/** The run fingerprint for these offers under today's rules and weights. */
-function hashInputs(offers: readonly Kpi2Offer[], closedAt: Date): string {
+/** The run fingerprint for these offers under today's rules and the
+ *  request's weights. The weights are part of it: the same offers under a
+ *  different profile are a different ranking, and a new run. */
+function hashInputs(offers: readonly Kpi2Offer[], weights: Kpi2Weights, closedAt: Date): string {
   return createHash("sha256")
-    .update(kpi2Fingerprint(offers, KPI2_DEFAULT_WEIGHTS, closedAt))
+    .update(kpi2Fingerprint(offers, weights, closedAt))
     .digest("hex");
 }
 
@@ -132,8 +135,36 @@ export async function runKpi2(roundId: string, trigger: KpiRunTrigger): Promise<
   const offers = await gatherOffers(request.id);
   if (offers.length === 0) return { ok: false, reason: "no_offers" };
 
-  const weights = KPI2_DEFAULT_WEIGHTS;
-  const inputsHash = hashInputs(offers, round.closedAt);
+  // The weights are the request's KPI profile (V19), no longer a constant.
+  // The default profile carries the same numbers, so a request nobody
+  // adjusted ranks as before. `ensureSpec` writes nothing here in practice —
+  // the criteria froze before the first RFQ left — except for a request that
+  // predates specifications, which gets its version 1 now.
+  const { ensureSpec } = await import("@/server/spec");
+  const ensured = await ensureSpec(request.id);
+  const weights = ensured.weights.kpi2;
+  // What the offers ANSWERED is the spec their round carried.
+  const specVersion = round.specVersion ?? ensured.specVersion;
+  const inputsHash = hashInputs(offers, weights, round.closedAt);
+
+  // The error nobody notices (V19's gotcha): an offer that answered one
+  // version of the spec, ranked beside offers that answered another. It
+  // cannot happen while criteria freeze before the first RFQ, so if it ever
+  // does, something changed that rule — say so loudly rather than rank on.
+  const answered = await db
+    .select({ id: schema.quote.id, specVersion: schema.quote.specVersion })
+    .from(schema.quote)
+    .where(eq(schema.quote.requestId, request.id));
+  const offerIds = new Set(offers.map((o) => o.quoteId));
+  const strays = answered.filter(
+    (q) => offerIds.has(q.id) && q.specVersion !== null && q.specVersion !== specVersion,
+  );
+  if (strays.length > 0) {
+    console.warn(
+      `kpi2: request ${request.id} ranks offers made against different spec versions — ` +
+        `run on v${specVersion}, but ${strays.map((q) => `${q.id}=v${q.specVersion}`).join(", ")}`,
+    );
+  }
 
   // The latest run of the REQUEST, whichever round triggered it: after a
   // relaunch the previous ranking lives under the earlier round's id.
@@ -162,6 +193,8 @@ export async function runKpi2(roundId: string, trigger: KpiRunTrigger): Promise<
       formulaVersion: KPI2_VERSION,
       inputsHash,
       trigger,
+      specVersion,
+      profileVersion: ensured.profileVersion,
       computedAt,
     })),
   );
@@ -244,7 +277,10 @@ export async function loadOfferRanking(requestId: string): Promise<OfferRankingV
 
   const inReview = request.status === "pack_review";
   const offers = await gatherOffers(requestId);
-  const hashNow = offers.length > 0 ? hashInputs(offers, round.closedAt) : null;
+  // A read path: the profile as stored, never written from here.
+  const { latestProfile } = await import("@/server/spec");
+  const weightsNow = (await latestProfile(requestId))?.weights.kpi2 ?? KPI2_DEFAULT_WEIGHTS;
+  const hashNow = offers.length > 0 ? hashInputs(offers, weightsNow, round.closedAt) : null;
   const latestHash = rows[0]?.result.inputsHash ?? null;
 
   const runs: RankingRunView[] = [];

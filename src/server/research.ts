@@ -326,6 +326,10 @@ async function addCriteriaFromAttachments(
   await recordEvent(requestId, organizationId, "criteria.fromAttachment", {
     count: parsed.length,
   });
+  // Criteria read out of an attachment change what a supplier is asked for:
+  // the next version of the spec, made by the system (V19).
+  const { refreshSpecIfAny } = await import("@/server/spec");
+  await refreshSpecIfAny(requestId, null);
 }
 
 /**

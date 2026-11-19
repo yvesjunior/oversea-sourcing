@@ -344,7 +344,7 @@ export async function resolveProposal(input: {
       await settle("stale");
       return { ok: false, reason: "stale" };
     }
-    await criteriaEdited(request.id, request.organizationId, tx);
+    await criteriaEdited(request.id, request.organizationId, tx, input.actor);
     await settle("accepted");
     return { ok: true, status: "accepted" };
   });

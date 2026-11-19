@@ -21,6 +21,7 @@ import { db } from "@/database";
 import * as schema from "@/database/schema";
 // Tokenization lives in the shared lib (C2b): the SQL prefilter in
 // sources/scope.ts must use the exact same vocabulary as this scorer.
+import { criterionWeight, KPI1_BASE_WEIGHTS, type Kpi1Weights } from "@/lib/kpi-profile";
 import { haystackTokens, tokens } from "@/lib/match-tokens";
 import { recordEvent } from "@/server/requests";
 import { SUPPLIERS_RETURNED } from "@/server/sourcing-config";
@@ -30,18 +31,13 @@ import { eligibleCandidates, resolveScope, type MatchCandidate } from "@/server/
 /** How many suppliers reach the buyer — configured via SUPPLIERS_RETURNED. */
 export const TOP_N = SUPPLIERS_RETURNED;
 
-// ── Weights (sum of positives = 97, leaving 98 as an unreachable ceiling) ────
-const BASE = 10;
-const CRITERIA_WEIGHT = 55;
-const CONFIDENCE_WEIGHT = 20;
-const VERIFICATION_POINTS = { verified: 12, pending: 5, unverified: 0, rejected: -25 } as const;
-const RISK_PENALTY = { low: 0, medium: 4, high: 10 } as const;
-/** A required criterion counts double — missing one is a real disqualifier. */
-const REQUIRED_MULTIPLIER = 2;
-/** What a PARTIAL match earns: the supplier makes the product but does not
- *  quote the exact grade the buyer named. Half, so an exact grade always
- *  outranks an alternative without excluding the alternative. */
-const PARTIAL_CREDIT = 0.5;
+// ── Weights ─────────────────────────────────────────────────────────────────
+// They are no longer constants of this file (V19): they come from the
+// request's KPI profile (`src/lib/kpi-profile.ts`, table `kpi_profile`), and
+// `scoreSupplier` takes them as an argument. The default profile is the
+// numbers this file used to hold — base 10, criteria 55, confidence 20, a
+// required criterion counting double, a partial match on the product earning
+// half — so a request nobody adjusted ranks exactly as before.
 
 /** Categories whose values are numeric specs. A supplier's marketing text will
  *  not state "16 bar", so absence proves nothing — see the header note. */
@@ -54,14 +50,14 @@ export type CriterionScore = {
   required: boolean;
   /** matched | partial | missed | unverifiable. `partial` exists only on the
    *  PRIMARY row: the product words match but a grade code does not. Never
-   *  counts against; earns PARTIAL_CREDIT rather than full. */
+   *  counts against; earns the profile's `partialCredit` rather than full. */
   outcome: "matched" | "partial" | "missed" | "unverifiable";
 };
 
 export type ScoreBreakdown = {
   base: number;
   criteria: CriterionScore[];
-  /** Points earned from criteria coverage, out of CRITERIA_WEIGHT. */
+  /** Points earned from criteria coverage, out of the profile's `criteria`. */
   criteriaPoints: number;
   confidencePoints: number;
   verificationPoints: number;
@@ -181,7 +177,14 @@ function criterionStrength(supplierTokens: Set<string>, criterion: CriterionRow)
   return native === "partial" || english === "partial" ? "partial" : "none";
 }
 
-export function scoreSupplier(supplier: Scoreable, criteria: CriterionRow[]): ScoreBreakdown {
+export function scoreSupplier(
+  supplier: Scoreable,
+  criteria: CriterionRow[],
+  /** The request's KPI #1 weights. Omitted = the platform's own, with every
+   *  criterion weighed required ×2 / optional ×1 — what a default profile
+   *  says too, so callers with no profile at hand score identically. */
+  weights: Kpi1Weights = KPI1_BASE_WEIGHTS,
+): ScoreBreakdown {
   const supplierTokens = new Set(haystackTokens(searchableText(supplier)));
 
   const scored: CriterionScore[] = criteria.map((criterion) => {
@@ -206,12 +209,16 @@ export function scoreSupplier(supplier: Scoreable, criteria: CriterionRow[]): Sc
     };
   });
 
-  const weighed = scored.filter((c) => c.outcome !== "unverifiable");
-  const totalWeight = weighed.reduce((sum, c) => sum + (c.required ? REQUIRED_MULTIPLIER : 1), 0);
-  const earned = weighed.reduce((sum, c) => {
-    const weight = c.required ? REQUIRED_MULTIPLIER : 1;
-    if (c.outcome === "matched") return sum + weight;
-    if (c.outcome === "partial") return sum + weight * PARTIAL_CREDIT;
+  // `scored` is index-aligned with `criteria`, which is where the weight of
+  // each row comes from: the profile names criteria by id.
+  const weighedRows = scored
+    .map((score, index) => ({ score, weight: criterionWeight(weights, criteria[index]!) }))
+    .filter((row) => row.score.outcome !== "unverifiable");
+  const weighed = weighedRows.map((row) => row.score);
+  const totalWeight = weighedRows.reduce((sum, row) => sum + row.weight, 0);
+  const earned = weighedRows.reduce((sum, row) => {
+    if (row.score.outcome === "matched") return sum + row.weight;
+    if (row.score.outcome === "partial") return sum + row.weight * weights.partialCredit;
     return sum;
   }, 0);
 
@@ -219,7 +226,7 @@ export function scoreSupplier(supplier: Scoreable, criteria: CriterionRow[]): Sc
   // rather than zero, so an unscoreable request still ranks on the other signals.
   const coverage = totalWeight === 0 ? 0.5 : earned / totalWeight;
 
-  const criteriaPoints = Math.round(CRITERIA_WEIGHT * coverage);
+  const criteriaPoints = Math.round(weights.criteria * coverage);
   const matchedCount = weighed.filter((c) => c.outcome === "matched").length;
   const partialCount = weighed.filter((c) => c.outcome === "partial").length;
   // The product row, when the request has one and it is checkable at all.
@@ -231,17 +238,20 @@ export function scoreSupplier(supplier: Scoreable, criteria: CriterionRow[]): Sc
     primaryOutcome === undefined || primaryOutcome === "unverifiable"
       ? null
       : primaryOutcome === "matched" || primaryOutcome === "partial";
-  const confidencePoints = Math.round((supplier.confidenceScore / 100) * CONFIDENCE_WEIGHT);
-  const verificationPoints = VERIFICATION_POINTS[supplier.verificationStatus] ?? 0;
-  const riskPenalty = RISK_PENALTY[supplier.riskLevel] ?? 0;
+  const confidencePoints = Math.round((supplier.confidenceScore / 100) * weights.confidence);
+  const verificationPoints = weights.verification[supplier.verificationStatus] ?? 0;
+  const riskPenalty = weights.risk[supplier.riskLevel] ?? 0;
 
   const total = Math.max(
     1,
-    Math.min(98, BASE + criteriaPoints + confidencePoints + verificationPoints - riskPenalty),
+    Math.min(
+      98,
+      weights.base + criteriaPoints + confidencePoints + verificationPoints - riskPenalty,
+    ),
   );
 
   return {
-    base: BASE,
+    base: weights.base,
     criteria: scored,
     criteriaPoints,
     confidencePoints,
@@ -336,8 +346,17 @@ export async function createMatchesForRequest(
     return 0;
   }
 
+  // The weights are the request's KPI profile, and the ranking records which
+  // spec and which profile it was made against (V19). `ensureSpec` writes a
+  // version only if the request changed since the last one — and version 1
+  // for a request that reaches the ranking without any (launched before
+  // specifications existed, or seeded).
+  const { ensureSpec } = await import("@/server/spec");
+  const ensured = await ensureSpec(requestId);
+  const weights = ensured.weights.kpi1;
+
   const ranked = candidates
-    .map((candidate) => ({ candidate, breakdown: scoreSupplier(candidate, criteria) }))
+    .map((candidate) => ({ candidate, breakdown: scoreSupplier(candidate, criteria, weights) }))
     // The gate. A candidate that evidences NOTHING the buyer asked for is not
     // a worse match — it is not a match, and padding the Top-N with it is
     // worse than returning fewer. An empty result is honest and, upstream,
@@ -434,6 +453,8 @@ export async function createMatchesForRequest(
         riskLevel: entry.candidate.riskLevel,
         status: "presented" as const,
         scoreBreakdown: entry.breakdown,
+        specVersion: ensured.specVersion,
+        profileVersion: ensured.profileVersion,
       })),
     );
   }

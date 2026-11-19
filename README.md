@@ -1648,6 +1648,52 @@ reads it. Research and extraction still take their model from the environment
 tier: about **$0.003 per turn**. Not measured on `balanced` or `best`, which
 is what prod's plans are set to — see BACKLOG D16.
 
+### The cahier des charges and the KPI profile — two records per request (V19)
+
+Step 03 of the V6 parcours. Until 2026-11-18 "the specification" was whatever
+the criteria rows said at the instant someone looked, and the scoring weights
+were constants inside each scorer. Both are now **versioned, immutable rows**:
+
+- **`request_spec`** — what a supplier is asked to quote against: the need,
+  the criteria, the buyer's own description, the number of attachments, and
+  the same thing rendered as text (`SpecContent`, `src/lib/request-spec.ts`).
+  **Nothing in it names the buyer** — the builder is not handed a workspace
+  or a person, so it cannot print one. The buyer's free text is the one place
+  identity can still appear, which is why staff read the RFQ preview before
+  sending, as before.
+- **`kpi_profile`** — the weights both scorers rank with
+  (`src/lib/kpi-profile.ts`): for KPI #1, how much each criterion counts, by
+  criterion id, plus the platform's own numbers; for KPI #2, the six factors.
+  `source` is `default` (proposed by the platform) or `buyer` (validated by
+  the buyer — V20, nothing writes it yet).
+
+**One rule decides when a version is written** (`ensureSpec`,
+`src/server/spec.ts`): build both from what the request holds now, and write a
+new version of each only if its fingerprint differs from the latest. So the
+call is always safe and usually writes nothing. It runs where a version is
+about to be relied on — the launch, a ranking, an RFQ round opening — and
+wherever the criteria change once a spec exists (`criteriaEdited`, which every
+edit goes through, by hand or accepted from the assistant; and the research
+stage when it reads criteria out of an attachment). **A held draft has no spec
+until it is launched.** Version 1 stays readable after version 2 exists; the
+dossier shows the latest and a button per earlier version.
+
+**The default profile changes no ranking.** It is the scorers' former
+constants, moved into data: a required criterion counts double in KPI #1's
+coverage (now written out per criterion, which is what makes it adjustable),
+and KPI #2 keeps price 40 · lead time 20 · KPI #1 20 · verification 10 ·
+incoterm 5 · validity 5. A test pins that a default profile scores exactly as
+no profile does.
+
+**Everything made against a spec says which one**: `rfq_round.spec_version`
+(one per round), `quote.spec_version` (stamped with `sent_at` — what that
+supplier was asked, so what their offer answers), `match.spec_version` /
+`profile_version`, `kpi_result.spec_version` / `profile_version`. The RFQ email
+is built from the round's spec version, no longer from the live criteria
+rows. Criteria freeze before the first RFQ leaves, so two offers of one
+request cannot answer different versions today; `runKpi2` logs a warning if it
+ever ranks such a mix.
+
 ### The search runs in English; the pool is stored in two languages
 
 **Owner, 2026-08-29:** *"when we are receiving a request we should be looking
@@ -2840,6 +2886,8 @@ erDiagram
 | `decision_pack`      | ✅ 2026-11-14 (0052, Phase V · V10; 0053, V11) — what a buyer is shown, as a record: `request_id`, `round_id`, `status` (`pending` · `released` · `refused` · `withdrawn`), `release_mode` (the setting when the pack was created), `kpi_run_id` (the ranking it was built from; null for an empty pack), `built_at`; `assigned_to` + name (whose desk), `released_at`, `released_by` + name (null = the system), `refused_reason`. **At most one `pending` pack per request** (partial unique index) |
 | `decision_pack_item` | ✅ 2026-11-14 (0052, V10; 0053, V11) — one offer in a pack: `quote_id`, `kpi_result_id`, `rank_computed` and `rank_shown` (**null = withheld by a person**), and `offer` — a frozen copy of the figures and of the supplier as they stood, so the pack outlives changes to the quote |
 | `decision_pack_event`| ✅ 2026-11-14 (0053, Phase V · V11) — what was done to a pack: `action` (`approved` · `corrected` · `relaunched` · `refused` · `assigned`, and since V14 the two the system writes, with no actor: `auto_released` · `held`), actor + name, `payload` (the note, the moves, the suppliers relaunched and what each had been closed as, the reason). Permanent — not `audit_log` |
+| `request_spec`       | ✅ 2026-11-18 (0056, Phase V · V19) — the cahier des charges, versioned and immutable: `request_id`, `version`, `content` (`SpecContent`: the criteria as structure AND the same thing as text), `fingerprint` (what "the spec changed" means), `created_by` + name snapshot (null = the system). Unique on `(request_id, version)`. Same migration: `spec_version` on `rfq_round`, `quote`, `match`, `kpi_result`, and `profile_version` on the last two |
+| `kpi_profile`        | ✅ 2026-11-18 (0056, V19) — one request's weights for both scorers, versioned: `weights` (`KpiProfileWeights`), `source` (`default` · `buyer`), `fingerprint`. The default is the scorers' former constants, so it moves no ranking |
 | `criterion_proposal` | ✅ 2026-11-18 (0055, Phase V · V18) — a criteria change the assistant PROPOSED: `op` (`add` · `update` · `remove`), the full criterion an accept would leave, `previous` / `previous_required` (what an update replaces), `status` (`pending` · `accepted` · `dismissed` · `stale` · `superseded`), who answered and their name as it was. `criterion_id` is deliberately not a foreign key: the proposal outlives a criterion deleted by hand, to say `stale`. Same migration: `request_message.questions` (jsonb) — what the assistant asked on a turn; non-null is what counts a turn against the request's six |
 | `kpi_result`         | ✅ 2026-11-14 (0051, Phase V · V09) — KPI #2: one row per offer per run. `run_id` groups a computation; `rank`, `score` (hundredths of a point), `breakdown` (per-factor state, points and weight, the notes, and the offer exactly as it was scored), `formula_version`, `inputs_hash`, `trigger`, `computed_at`. **Append-only** — the current ranking of a round is its latest run. KPI #1 is not here: it scores a supplier before anyone is asked and stays on `match` |
 | `platform_setting`   | ✅ 2026-11-14 (0046, Phase V · V01) — platform-wide settings, ONE value per key for every client; a missing row means the default. Keys, types, ranges and defaults live in the registry `src/lib/platform-settings.ts`, so a new knob is a registry entry and not a migration. Edited from `/interne/parametres` (`settings` permission, owner by default); every change is in `audit_log` with the old and new value |

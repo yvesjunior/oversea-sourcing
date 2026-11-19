@@ -24,7 +24,7 @@
 | **E9** Notifications | In-app + email | 🟡 bell, emitters, **prefs (2026-08-26)** live; Phase P types (`quote_received`, `contract_to_sign`, `contract_signed`) + staff alert on `quotes.requested` (2026-09-07) live; **the bell alerts (2026-09-14)** — count badge, 30 s poll, chime, per-browser mute |
 | **E10** Admin surfaces | Verification, imports, ops queue | 🟡 **verification LIVE (S5b/S5c, 2026-08-26)**; imports/ops queue placeholders |
 | **R** Custom staff roles | Roles as data + the matrix | ✅ **BUILT 2026-08-29** (migration 0039) — create/delete roles, dynamic matrix, `requests.all` |
-| **E13** V6 architecture | Supplier portal · KPI #2 · Partner Hub · Decision Pack | 🔵 **NEW 2026-10-21** — scope opened by the V6 document; diagrams validated 2026-11-14; **34 tasks in seven slices — [Phase V](#phase-v--the-v6-parcours-task-by-task-e13--written-2026-11-14)**; **V01, V02, V04–V11 built 2026-11-14** (settings, contacts, states, fork + shortlist, RFQ batch, window closing, typed answer time + channel, KPI #2 v1, the Decision Pack record, the release queue); V01–V11 **live on prod — V01–V09 since deploy #45 (2026-11-14), V10–V11 since deploy #47 (2026-11-18) — with the pack-flow switch OFF**; **V12–V14 built 2026-11-18** (the buyer's pack page, choosing from it, automatic release built and switched off + the review report) — **slice 1 (V04–V14) is complete** — **live on prod since deploy #48 (2026-11-18), pack flow off, release manual**; **V18 built 2026-11-18** (the clarification before launch, behind `AI_CHAT`, off) — on `main`, not deployed |
+| **E13** V6 architecture | Supplier portal · KPI #2 · Partner Hub · Decision Pack | 🔵 **NEW 2026-10-21** — scope opened by the V6 document; diagrams validated 2026-11-14; **34 tasks in seven slices — [Phase V](#phase-v--the-v6-parcours-task-by-task-e13--written-2026-11-14)**; **V01, V02, V04–V11 built 2026-11-14** (settings, contacts, states, fork + shortlist, RFQ batch, window closing, typed answer time + channel, KPI #2 v1, the Decision Pack record, the release queue); V01–V11 **live on prod — V01–V09 since deploy #45 (2026-11-14), V10–V11 since deploy #47 (2026-11-18) — with the pack-flow switch OFF**; **V12–V14 built 2026-11-18** (the buyer's pack page, choosing from it, automatic release built and switched off + the review report) — **slice 1 (V04–V14) is complete** — **live on prod since deploy #48 (2026-11-18), pack flow off, release manual**; **V18–V19 built 2026-11-18** (the clarification before launch, behind `AI_CHAT`, off; the cahier des charges and the KPI profile as versioned records) — on `main`, not deployed |
 | **E11** Settings | Profile, sourcing rules | 🟡 Paramètres + notification prefs live; **password / 2FA / theme / rename (2026-08-27)** live; buyer Abonnement self-service waits for billing |
 
 **MVP1 = E0–E7 + E10.** Definition of done **restated 2026-08-29 by ADR-002**
@@ -44,7 +44,13 @@ is complete and live, **with the pack-flow switch off and release manual**
 **`main` is ahead of prod and NOT deployed:** this record, then **V18** (the
 clarification before launch, migration **0055**, behind `AI_CHAT` — which is
 `false` on prod, read from the web container on 2026-11-18, so deploying it
-shows nothing new). **Before `AI_CHAT` is ever switched on in prod, read D16:**
+shows nothing new), and **V19** (the cahier des charges and the KPI profile,
+migration **0056** — additive: two tables, six nullable columns). **V19 is
+visible once deployed**: every request launched afterwards shows a
+« Cahier des charges » panel on its dossier, and the RFQ email is built from
+the recorded spec instead of the live criteria (same text). Rankings do not
+move: the default profile is the former constants.
+**Before `AI_CHAT` is ever switched on in prod, read D16:**
 the clarification is the first call that honours the plan's `model_tier`, and
 prod's plans are `balanced` and `best` while every cost figure we have was
 measured on `cheap`. **What deploy #48 changed for the
@@ -4337,7 +4343,7 @@ report, exactly as today, because that report is all they get.
 | **D5** | On relaunch, do offers already held survive, and whose clock restarts? | They survive; a new round has its own clock, for the suppliers newly asked only. **Built as this default in V11 (2026-11-14)** — and one thing follows from it that is worth confirming: the offer TARGET counts what the request holds across rounds, so two offers kept plus three new ones close the new window. Still the owner's to confirm. | V11 |
 | **D6** | What does a supplier see of the buyer before a dossier opens? | The specification, never the buyer's name or workspace. Identity is disclosed when the deal opens. | V16 |
 | **D7** | Offers arrive in different currencies and money is never converted (ADR-002). What does KPI #2 compare? | Landed cost is compared only within one currency; across currencies the pack says so instead of ranking on a rate nobody stored. A rate entered by staff or supplied by the settlement partner is stored on the pack when one exists. **Built as this default in V09 (2026-11-14), read strictly: with mixed currencies price is compared for no offer at all, and the ranking rests on the other factors.** Still the owner's to confirm. | V09, V24 |
-| **D8** | Who sets the KPIProfile weights? | The platform proposes them from the criteria; the buyer adjusts and validates them with the cahier des charges. | V19 |
+| **D8** | Who sets the KPIProfile weights? | The platform proposes them from the criteria; the buyer adjusts and validates them with the cahier des charges. **Built in V19 (2026-11-18) as far as "the platform proposes": the default profile is the scorers' former constants, written per criterion — it moves no ranking. The buyer adjusting and validating is V20.** | V19, V20 |
 | **D9** | `quote.sent_at` is nullable. What does the window do with an RFQ nobody marked sent? | Such a quote is not in a round and has no clock; the batch send (V06) is the only thing that opens one. | V06 |
 | **D10** | Who assigns a partner to a case, and which partner kinds exist at launch? | Staff assign, per offer. Kinds: settlement, transport, inspection, customs, insurance. | V21, V22 |
 | **D11** | The shortlist is the Top-N the search ranks — 5 by default — and the window closes on 5 offers. Asking five suppliers will rarely bring five answers. Should the pack flow rank more than it needs? | Unchanged: the shortlist is what `SUPPLIERS_RETURNED` ranks. Staff relaunch (V11) when a round comes back short. Ranking more costs a supplier row and a verification run per extra candidate. | V05, V07 |
@@ -6057,32 +6063,101 @@ built in: **S** one, **M** two to three, **L** four or more.
       on its own" (owner, 2026-08-29) — the clarification runs when the buyer
       asks for it, never on a timer, and it uses the plan's `model_tier`.~~
 
-- [ ] **V19 · Cahier des charges and KPIProfile v1.** *Size L. Step 03.
-      Depends on: V18. Blocks: V20.*
+- [x] **V19 · Cahier des charges and KPIProfile v1 — BUILT 2026-11-18**
+      (migration **0056**, not deployed). `src/lib/request-spec.ts` (pure:
+      `buildSpecContent`, `specFingerprint`); `src/lib/kpi-profile.ts` (pure:
+      `defaultProfile`, `criterionWeight`, `profileFingerprint`, and KPI #1's
+      weights, moved out of `matching.ts`); `src/server/spec.ts`
+      (`ensureSpec`, `refreshSpecIfAny`, `specForReading`, `readSpec`);
+      `src/lib/spec-fns.ts` (`getRequestSpecFn`); `SpecPanel.tsx` on the
+      dossier. Changed: `matching.ts` (`scoreSupplier` takes the weights;
+      the ranking ensures the spec and records both versions), `kpi.ts`
+      (weights from the profile, versions on `kpi_result`), `rfq.ts` (the
+      mail is built from the round's spec; versions on the round and on each
+      quote as it is sent), `decision-pack.ts` (the two other places a round
+      opens), `criteria.ts` (`criteriaEdited` writes the next version),
+      `research.ts` (attachment criteria), `requests-fns.ts` (version 1 at
+      launch). Tables `request_spec`, `kpi_profile`; `spec_version` on
+      `rfq_round`, `quote`, `match`, `kpi_result`; `profile_version` on the
+      last two. 734 tests.
 
-      **What it does.** Turns the structured request into the two artefacts
+      **The profile, and decision D8.** The task asks for "default weights
+      from the criteria the buyer marked required". Built as the reading that
+      **moves no ranking**: a required criterion already counted double in
+      KPI #1; the profile writes that out per criterion (2 / 1), and carries
+      every other number unchanged, KPI #2's six factors included. Nothing
+      was invented, and `kpi-profile.test.ts` pins that a default profile
+      scores exactly as no profile. Shifting weights between factors because
+      of what is required (a mandatory lead time weighing more than the
+      price, say) is a ranking rule — it is the buyer's adjustment of V20, or
+      an owner decision, not a default to slip in here.
+
+      **When a version is written.** At launch (creation, or the launch of a
+      held draft); whenever the criteria change once a spec exists; and,
+      defensively, when a ranking or an RFQ round is about to rely on one —
+      which is also how a request launched before this deploy gets its
+      version 1. A held draft has none. The English form of a value
+      (`value_en`, filled after launch by the translation pass) is NOT part
+      of the spec: it is read from the criterion row at send time, so the
+      translation pass does not make a version 2 of every request.
+
+      **Where the build departs from the task text:** "builds the spec from
+      criteria, attachments and the clarification" — the attachments enter as
+      a count (their names are the buyer's) and through the criteria the
+      research stage reads out of them; the clarification enters through the
+      proposals the buyer accepted, which are criteria. Its transcript is not
+      sent to suppliers: the assistant's sentences are not the buyer's
+      requirement.
+
+      *Verified live in dev, then restored (1 request, 0 spec, 0 profile,
+      audit 33, events 16):*
+      - **Existing request.** `ensureSpec` on #3049 wrote spec v1 and profile
+        v1; a second call wrote nothing. The five stored matches re-scored
+        with the profile's weights give the stored scores (75 each). The
+        panel shows version 1, « par la plateforme », each criterion with
+        « poids 2 », and the six offer factors.
+      - **Launch.** A request created from the form (#3050): spec v1 by
+        « Buyer », profile v1 with weights 2 / 2 / 1, a « Cahier des charges —
+        version 1 » line on the timeline.
+      - **Editing creates version 2 and leaves version 1 readable.** One
+        criterion deleted while `searching`: spec v2 (two criteria), profile
+        v2 (two weights), buttons v2 / v1 on the panel, and v1 still shows the
+        three criteria with « remplacée par la version 2 ».
+      - **The RFQ text.** On the pack-flow fixture, the preview's sample mail
+        is built from the spec — need, specifications, the buyer's
+        description, no buyer name — and reading it wrote no version.
+      - **The ranking records its versions.** The same fixture's round closed
+        by the sweep: two `kpi_result` rows with `spec_version` 1 and
+        `profile_version` 1; the pack was built from them as before.
+
+      **Not exercised:** `sendRfqBatch` itself — so `rfq_round.spec_version`
+      and `quote.spec_version` being stamped on a real send, and on a relaunch,
+      are type-checked and read, not seen (dev would have sent real mail); the
+      fixture's round was inserted by SQL and has no version, which is the
+      fallback path. `match.spec_version` on a real pipeline run (the research
+      worker was stopped for the test, to spend nothing). Attachment criteria
+      making a version. The warning for offers answering different versions.
+      A `buyer` profile (nothing writes one). The English pages. Production.
+      **Left as it was:** `countQualifyingCandidates` (the store-first check in
+      `research.ts`) still scores with the platform's weights rather than the
+      request's profile — identical while every profile is the default.
+
+      ~~**What it does.** Turns the structured request into the two artefacts
       the diagram names: a specification a supplier can quote against, and
-      the weights both scorers will use.
-
-      **Schema.** `request_spec` — `request_id`, `version`, `content`
-      (structured jsonb + rendered text), `created_by`, `created_at`;
-      immutable, a change is a new version. `kpi_profile` — `request_id`,
-      `version`, `weights` (jsonb), `source` (`default | buyer`),
-      `created_at`.
-
-      **Files.** New `src/server/spec.ts` (builds the spec from criteria,
-      attachments and the clarification), `src/lib/kpi-profile.ts` (pure:
-      default weights from the criteria the buyer marked required),
-      `src/lib/spec-fns.ts`, and the spec view on the dossier.
-
-      **Acceptance.** The spec states everything a supplier needs and nothing
-      identifying the buyer — it is the text V06 sends. Editing criteria
-      after a spec exists creates version 2 and leaves version 1 readable.
-      `matching.ts` and `kpi2.ts` read their weights from the profile.
-
-      **Gotcha.** The RFQ, the offers and the KPI results must each record
-      **which spec version** they were made against; an offer answering
-      version 1 ranked against version 2 is the kind of error nobody notices.
+      the weights both scorers will use. **Schema.** `request_spec` —
+      `request_id`, `version`, `content` (structured jsonb + rendered text),
+      `created_by`, `created_at`; immutable, a change is a new version.
+      `kpi_profile` — `request_id`, `version`, `weights` (jsonb), `source`
+      (`default | buyer`), `created_at`. **Files.** New `src/server/spec.ts`,
+      `src/lib/kpi-profile.ts`, `src/lib/spec-fns.ts`, and the spec view on
+      the dossier. **Acceptance.** The spec states everything a supplier needs
+      and nothing identifying the buyer — it is the text V06 sends. Editing
+      criteria after a spec exists creates version 2 and leaves version 1
+      readable. `matching.ts` and `kpi2.ts` read their weights from the
+      profile. **Gotcha.** The RFQ, the offers and the KPI results must each
+      record **which spec version** they were made against; an offer
+      answering version 1 ranked against version 2 is the kind of error
+      nobody notices.~~
 
 - [ ] **V20 · The buyer validates the cahier.** *Size M. Step 04. Depends on:
       V19.*

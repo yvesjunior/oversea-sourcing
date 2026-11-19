@@ -393,6 +393,13 @@
       "when": 1795046741830,
       "tag": "0055_brainy_wallop",
       "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "7",
+      "when": 1795047677021,
+      "tag": "0056_mighty_the_stranger",
+      "breakpoints": true
     }
   ]
 }

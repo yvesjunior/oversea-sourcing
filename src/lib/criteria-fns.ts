@@ -39,7 +39,12 @@ async function requireOwnRequest(requestId: string) {
   // specification suppliers were already quoting against. `criteriaEditable`
   // is an allow list — a state added later is frozen until someone decides.
   if (!criteriaEditable(row.status)) return null;
-  return { request: row, workspaceId };
+  return {
+    request: row,
+    workspaceId,
+    // Whose edit this is — written on the spec version it makes (V19).
+    actor: { id: session.user.id, name: session.user.name },
+  };
 }
 
 export const addCriterionFn = createServerFn({ method: "POST" })
@@ -52,7 +57,7 @@ export const addCriterionFn = createServerFn({ method: "POST" })
     const { insertCriterion, criteriaEdited } = await import("@/server/criteria");
     const { requestId, ...fields } = data;
     await insertCriterion(requestId, fields);
-    await criteriaEdited(requestId, ctx.workspaceId);
+    await criteriaEdited(requestId, ctx.workspaceId, undefined, ctx.actor);
     return { ok: true };
   });
 
@@ -64,7 +69,7 @@ export const updateCriterionFn = createServerFn({ method: "POST" })
     const { updateCriterion, criteriaEdited } = await import("@/server/criteria");
     const { requestId, id, ...fields } = data;
     await updateCriterion(requestId, id, fields);
-    await criteriaEdited(requestId, ctx.workspaceId);
+    await criteriaEdited(requestId, ctx.workspaceId, undefined, ctx.actor);
     return { ok: true };
   });
 
@@ -75,6 +80,6 @@ export const deleteCriterionFn = createServerFn({ method: "POST" })
     if (!ctx) return { ok: false };
     const { deleteCriterion, criteriaEdited } = await import("@/server/criteria");
     await deleteCriterion(data.requestId, data.id);
-    await criteriaEdited(data.requestId, ctx.workspaceId);
+    await criteriaEdited(data.requestId, ctx.workspaceId, undefined, ctx.actor);
     return { ok: true };
   });

@@ -47,6 +47,7 @@ import { runKpi2 } from "@/server/kpi";
 import { notifyUser } from "@/server/notify";
 import { getSetting } from "@/server/platform-settings";
 import { transitionRequest } from "@/server/requests";
+import { ensureSpec } from "@/server/spec";
 import { sendRfqBatch } from "@/server/rfq";
 import { tellOfferHolders } from "@/server/rfq-window";
 import { primaryContactsFor } from "@/server/supplier-contacts";
@@ -919,6 +920,7 @@ export async function relaunchPack(
           id: crypto.randomUUID(),
           requestId: request.id,
           roundNo: (last?.roundNo ?? 0) + 1,
+          specVersion: (await ensureSpec(request.id, null, tx)).specVersion,
           openedAt,
           closesAt: new Date(openedAt.getTime() + windowHours * 3_600_000),
           windowHours,
@@ -1343,6 +1345,7 @@ export async function reaskExpiredOffer(
         id: crypto.randomUUID(),
         requestId: request.id,
         roundNo: (last?.roundNo ?? 0) + 1,
+        specVersion: (await ensureSpec(request.id, null, tx)).specVersion,
         openedAt,
         closesAt: new Date(openedAt.getTime() + windowHours * 3_600_000),
         windowHours,

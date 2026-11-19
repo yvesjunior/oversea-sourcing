@@ -99,24 +99,40 @@ async function pendingQuotes(requestId: string, round: RoundRow | null): Promise
   });
 }
 
+/**
+ * The RFQ a contact receives, built from the SPECIFICATION (V19) — the
+ * round's version when it has one — and no longer from the live criteria
+ * rows. So what leaves is a recorded version, and `quote.spec_version` can
+ * say which one an offer answers.
+ *
+ * The English form of a value is not part of the spec (it is a translation
+ * aid, filled in after launch): it is looked up on the criterion row the spec
+ * line was copied from.
+ */
 async function mailFor(
   request: typeof schema.request.$inferSelect,
   contact: PrimaryContact,
   closesAt: Date,
+  specVersion: number | null,
 ): Promise<RfqMail> {
-  const criteria = await db.query.requestCriterion.findMany({
-    where: eq(schema.requestCriterion.requestId, request.id),
-    orderBy: [schema.requestCriterion.position],
-  });
+  const { specForReading } = await import("@/server/spec");
+  const [spec, rows] = await Promise.all([
+    specForReading(request.id, specVersion),
+    db
+      .select({ id: schema.requestCriterion.id, valueEn: schema.requestCriterion.valueEn })
+      .from(schema.requestCriterion)
+      .where(eq(schema.requestCriterion.requestId, request.id)),
+  ]);
+  const english = new Map(rows.map((row) => [row.id, row.valueEn]));
   return buildRfqMail({
     locale: contact.locale,
     requestId: request.id,
-    title: request.title,
-    description: request.descriptionRaw,
-    criteria: criteria.map((c) => ({
+    title: spec?.title ?? request.title,
+    description: spec?.description ?? request.descriptionRaw,
+    criteria: (spec?.criteria ?? []).map((c) => ({
       label: c.label,
       value: c.value,
-      valueEn: c.valueEn,
+      valueEn: english.get(c.id) ?? null,
       unit: c.unit,
     })),
     closesAt,
@@ -192,7 +208,9 @@ export async function previewRfq(requestId: string): Promise<RfqPreview | null> 
   // A round not yet open has no deadline; show the one it would get if the
   // batch left now, so the preview reads like the real thing.
   const closesAt = round?.closesAt ?? new Date(Date.now() + windowHours * 3_600_000);
-  const sampleMail = firstContact ? await mailFor(request, firstContact, closesAt) : null;
+  const sampleMail = firstContact
+    ? await mailFor(request, firstContact, closesAt, round?.specVersion ?? null)
+    : null;
 
   return {
     round: round ? await toRoundView(round) : null,
@@ -275,11 +293,16 @@ export async function sendRfqBatch(
     const openedAt = new Date();
     try {
       round = await db.transaction(async (tx) => {
+        // The spec this round's RFQs carry, settled in the same transaction
+        // as the round itself (V19).
+        const { ensureSpec } = await import("@/server/spec");
+        const { specVersion } = await ensureSpec(requestId, null, tx);
         const [created] = await tx
           .insert(schema.rfqRound)
           .values({
             id: crypto.randomUUID(),
             requestId,
+            specVersion,
             roundNo: 1,
             openedAt,
             // Stored, never recomputed: a later change to the setting must
@@ -327,7 +350,7 @@ export async function sendRfqBatch(
       failed.push({ supplier: quote.supplierName, error: "no_contact" });
       continue;
     }
-    const mail = await mailFor(request, contact, round.closesAt);
+    const mail = await mailFor(request, contact, round.closesAt, round.specVersion);
     const result = await sendMail({
       to: contact.email,
       subject: mail.subject,
@@ -349,7 +372,13 @@ export async function sendRfqBatch(
     const stamp = opening ? round.openedAt : new Date();
     await db
       .update(schema.quote)
-      .set({ sentAt: stamp, sentBy: actor.id, updatedAt: new Date() })
+      .set({
+        sentAt: stamp,
+        sentBy: actor.id,
+        // What this supplier was asked — and so what their offer answers.
+        specVersion: round.specVersion,
+        updatedAt: new Date(),
+      })
       .where(and(eq(schema.quote.id, quote.id), isNull(schema.quote.sentAt)));
     sent += 1;
   }

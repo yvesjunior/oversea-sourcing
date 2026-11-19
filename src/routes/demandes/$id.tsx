@@ -34,6 +34,8 @@ import { CountryTag } from "@/components/osi/CountryTag";
 import { RiskBadge } from "@/components/osi/RiskBadge";
 import { CriteriaPanel } from "@/components/osi/CriteriaPanel";
 import { RequestChat } from "@/components/osi/RequestChat";
+import { SpecPanel } from "@/components/osi/SpecPanel";
+import { getRequestSpecFn, type SpecView } from "@/lib/spec-fns";
 import { AttachmentsList } from "@/components/osi/AttachmentsList";
 import { StatusPill } from "@/components/osi/StatusPill";
 import { ShortlistPanel } from "@/components/osi/ShortlistPanel";
@@ -126,7 +128,10 @@ export const Route = createFileRoute("/demandes/$id")({
     // The pack built from that ranking (V10) — the same gate once more: a
     // pending pack is OSI's draft, and the owning workspace gets none of it.
     const pack = shortlist ? await getPackForRequestFn({ data: { requestId: params.id } }) : null;
-    return { demande, dossier, shortlist, rfq, ranking, pack };
+    // The cahier des charges (V19) — null on a draft and on a request that
+    // finished before specifications existed.
+    const spec = await getRequestSpecFn({ data: { requestId: params.id } });
+    return { demande, dossier, shortlist, rfq, ranking, pack, spec };
   },
   component: DemandeDetail,
 });
@@ -150,7 +155,8 @@ function DemandeDetail() {
   const { t, i18n } = useTranslation();
   const router = useRouter();
   const { session } = Route.useRouteContext();
-  const { demande, dossier, shortlist, rfq, ranking, pack } = Route.useLoaderData() as {
+  const { demande, dossier, shortlist, rfq, ranking, pack, spec } = Route.useLoaderData() as {
+    spec: SpecView | null;
     demande: RequestDetail;
     dossier: RequestDealStatus;
     shortlist: ShortlistData | null;
@@ -832,6 +838,16 @@ function DemandeDetail() {
                 {t("detail.resultsNote")}
               </p>
             </section>
+          )}
+
+          {spec && (
+            <SpecPanel
+              requestId={demande.id}
+              initial={spec}
+              // How offers are compared only concerns a workspace whose plan
+              // asks for offers at all.
+              showOfferWeights={!demande.quotesPlanRequired}
+            />
           )}
 
           {/* The clarification (V18) is platform-gated (AI_CHAT): when off,

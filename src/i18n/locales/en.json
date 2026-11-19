@@ -634,7 +634,8 @@
     "rfq_offer_added": "Offer that arrived in time, entered after the close — {{offers}} offer(s) in total",
     "rfq_holders_told": "{{count}} supplier(s) told the request is closed",
     "pack_released": "Decision Pack available",
-    "clarification_asked": "Read by the assistant — questions: {{questions}}, proposals: {{proposals}}"
+    "clarification_asked": "Read by the assistant — questions: {{questions}}, proposals: {{proposals}}",
+    "spec_versioned": "Specification — version {{version}}"
   },
   "stepsDemande": {
     "received": {
@@ -1853,5 +1854,33 @@
     "becomes_required": "becomes required",
     "becomes_optional": "becomes optional",
     "draftTextNoAssistant": "Nothing is searched until you launch the search. You can still correct the criteria before launching."
+  },
+  "spec": {
+    "title": "Specification",
+    "version": "Version {{version}}",
+    "versionShort": "v{{version}}",
+    "madeBy": "Made on {{when}} by {{name}}",
+    "madeBySystem": "Made on {{when}} by the platform",
+    "superseded": "replaced by version {{version}}",
+    "need": "What is needed",
+    "specifications": "Specifications",
+    "required": "required",
+    "weight": "weight {{weight}}",
+    "description": "The client’s description",
+    "attachments_one": "{{count}} file attached to the request",
+    "attachments_other": "{{count}} files attached to the request",
+    "profileTitle": "How offers are compared — points out of 100 (profile v{{version}})",
+    "profileSource": {
+      "default": "Weights proposed by the platform.",
+      "buyer": "Weights validated by the buyer."
+    },
+    "factor": {
+      "price": "Price",
+      "leadTime": "Lead time",
+      "kpi1": "How well the supplier fits the need",
+      "verification": "Supplier verification",
+      "incoterm": "Incoterm",
+      "validity": "How long the offer stays valid"
+    }
   }
 }
