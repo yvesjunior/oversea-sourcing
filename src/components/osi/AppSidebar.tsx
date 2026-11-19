@@ -23,6 +23,7 @@ import {
   Handshake,
   Wallet,
   Briefcase,
+  Truck,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { authClient } from "@/lib/auth-client";
@@ -107,6 +108,9 @@ const itemsInterne: {
   // The release queue (Phase V · V11): every Decision Pack awaiting a
   // decision. Keyed on `deals` — the permission that lets someone act on one.
   { key: "deals", url: "/interne/packs", icone: PackageCheck },
+  // The partners the platform works with on a dossier — transport,
+  // inspection, customs, insurance (Phase V · V21).
+  { key: "partners", url: "/interne/partenaires", icone: Truck },
   // One value per key, for every client (Phase V · V01). Not the buyer's
   // "Paramètres" — that one is /parametres, in the client block above.
   { key: "settings", url: "/interne/parametres", icone: SlidersHorizontal },

@@ -26,7 +26,8 @@
     "users": "Utilisateurs",
     "logging": "Logging",
     "sources": "Sources de données",
-    "deals": "Decision Packs"
+    "deals": "Decision Packs",
+    "partners": "Partenaires"
   },
   "platformRoles": {
     "owner": "Propriétaire plateforme",
@@ -1160,7 +1161,9 @@
     "request.launched": "Recherche lancée depuis un brouillon",
     "request.validated": "Cahier des charges validé — recherche lancée",
     "supplier.account_created": "Compte fournisseur créé depuis une invitation",
-    "supplier.account_attached": "Invitation rattachée à un compte fournisseur existant"
+    "supplier.account_attached": "Invitation rattachée à un compte fournisseur existant",
+    "partner.created": "Partenaire créé",
+    "partner.updated": "Partenaire modifié"
   },
   "twofa": {
     "title": "Vérification en deux étapes",
@@ -1198,7 +1201,8 @@
       "contracts.send": "Envoyer un contrat aux parties",
       "contracts.sign": "Signer au nom d'OSI",
       "contracts.void": "Annuler un contrat",
-      "requests.all": "Voir les données de tous les clients"
+      "requests.all": "Voir les données de tous les clients",
+      "partners": "Partenaires (transport, inspection, douane, assurance)"
     },
     "addRole": "Créer le rôle",
     "deleteRole": "Supprimer ce rôle",
@@ -2056,5 +2060,43 @@
     "round": "Demande et tour",
     "roundNo": "tour {{no}}",
     "open": "ouvert"
+  },
+  "partnersAdmin": {
+    "title": "Partenaires",
+    "subtitle": "Les entreprises avec lesquelles la plateforme travaille sur un dossier : transport, inspection, douane, assurance. Chaque partenaire est suivi « manuellement » : une personne fait le travail et ce qu’elle répond est consigné.",
+    "add": "Ajouter un partenaire",
+    "addTitle": "Nouveau partenaire",
+    "editTitle": "Modifier {{name}}",
+    "edit": "Modifier",
+    "empty": "Aucun partenaire enregistré.",
+    "inactive": "inactif",
+    "noContact": "Aucun contact renseigné",
+    "kind": {
+      "transport": "Transport",
+      "inspection": "Inspection",
+      "customs": "Douane",
+      "insurance": "Assurance",
+      "settlement": "Règlement"
+    },
+    "kindUnavailable": "en attente de l’avis juridique",
+    "field": {
+      "name": "Nom",
+      "kind": "Type",
+      "contactName": "Personne à contacter",
+      "contactEmail": "Courriel",
+      "contactPhone": "Téléphone",
+      "locale": "Langue de correspondance",
+      "notes": "Notes internes",
+      "active": "Actif — proposé pour de nouveaux dossiers"
+    },
+    "create": "Créer le partenaire",
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "refused": {
+      "forbidden": "Votre rôle ne permet pas cette action.",
+      "kind_unavailable": "Ce type de partenaire n’est pas encore disponible.",
+      "name_taken": "Un partenaire de ce type porte déjà ce nom.",
+      "not_found": "Ce partenaire est introuvable."
+    }
   }
 }

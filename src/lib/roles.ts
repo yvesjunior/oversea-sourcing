@@ -57,6 +57,10 @@ export const PLATFORM_FEATURES = {
   deals: ["owner", "manager"],
   // The contract centre — reading and drafting. SIGNING is separate below.
   contracts: ["owner", "manager"],
+  // The partners the platform works with — transport, inspection, customs,
+  // insurance (Phase V · V21) — and the cases opened with them. Operations,
+  // like `deals`: managers run it alongside the owner.
+  partners: ["owner", "manager"],
 } as const satisfies Record<string, readonly BuiltInRole[]>;
 
 export type PlatformFeature = keyof typeof PLATFORM_FEATURES;

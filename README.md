@@ -1350,6 +1350,41 @@ suppliers registered, and what share answered.** Read from `quote`,
 `rfq_round` and `rfq_invitation` only (`src/lib/response-funnel.ts`, pure and
 tested; `src/server/response-funnel.ts`).
 
+### Partners, and the adapter they sit behind (V21)
+
+A **partner** is a company that does for a dossier what neither the buyer,
+the supplier nor OSI does: moves the goods, inspects them, clears them,
+insures them, holds the money. Since 2026-11-18 it is a record (`partner`)
+staff keep on `/interne/partenaires` (permission `partners`, owner and
+manager by default).
+
+- **`kind` is the slot it fills** — `transport` · `inspection` · `customs` ·
+  `insurance` · `settlement` (decision D10). A company that does two things
+  is two partners: a case is opened with a slot, not with a company. The kind
+  is chosen once.
+- **`settlement` is in the vocabulary and cannot be created.** It is the slot
+  the adapter was designed around, and the money circuit waits on its legal
+  opinion (§2c): shown greyed, refused by the server — the same rule as an
+  unimplemented option of a platform setting.
+- **`provider` is HOW the platform talks to it**, and there is one:
+  `manual`. A person at the partner does the work and what they answer is
+  recorded. No contract, no key, no legal opinion — which is what makes the
+  seam real before any integration is.
+
+**The adapter** (`src/server/partners/adapter.ts`) is the one seam, with the
+five operations the V6 document names: `createCase`, `requestDocument`,
+`getStatus`, `redirectUrl`, `receiveWebhook`. **No domain code imports a
+provider** — only `adapterFor(partner.provider)`, the rule `mail.ts` and
+`esign.ts` already follow; a test reads the source and fails if anything but
+the adapter imports `./manual`. The `manual` provider answers each operation
+truthfully ("nothing was handed over — a person will") rather than
+pretending. An integrated provider would be a second file there and a second
+value in `PARTNER_PROVIDERS`, and nothing else would change.
+
+A partner's people get accounts of their own (`partner_user`, the counterpart
+of `supplier_user`); `requirePartnerSession` is a separate guard from the
+supplier's on purpose — a partner's need-to-know is not a supplier's (V23).
+
 ## 2 · How a request works
 
 ```
@@ -3145,6 +3180,8 @@ erDiagram
 | `kpi_profile`        | ✅ 2026-11-18 (0056, V19) — one request's weights for both scorers, versioned: `weights` (`KpiProfileWeights`), `source` (`default` · `buyer`), `fingerprint`. The default is the scorers' former constants, so it moves no ranking |
 | `supplier_user`      | ✅ 2026-11-18 (0058, Phase V · V03) — which supplier(s) an EXTERNAL account answers for: `user_id`, `supplier_id` (unique pair), `created_via` (`invitation` — the only value; there is no unsolicited supplier signup). The whole of a supplier account's authority: `requireSupplierSession` returns these ids and every portal query is filtered by them. `user.account_type` gains the values `supplier` and `partner` (text column, no migration) |
 | `rfq_invitation`     | ✅ 2026-11-18 (0059, Phase V · V15) — one row per RFQ email that carried a portal link: `quote_id`, `contact_id`, `email` (as sent), `token_hash` (SHA-256 — **the token is never stored**), `expires_at` (30 days), `opened_at`, `registered_user_id` + `registered_at`. The only way a supplier account comes to exist, and the first two steps of the response funnel (V17) |
+| `partner`            | ✅ 2026-11-18 (0060, Phase V · V21) — a company filling a slot on a dossier: `name`, `kind` (`transport` · `inspection` · `customs` · `insurance` · `settlement` — the last one not creatable until the legal gate lifts), `provider` (`manual`, the only adapter), `active`, contact fields, `locale`. A record, not an account |
+| `partner_user`       | ✅ 2026-11-18 (0060, V21) — which partner(s) an external account answers for; `supplier_user`'s counterpart, read by `requirePartnerSession` |
 | `criterion_proposal` | ✅ 2026-11-18 (0055, Phase V · V18) — a criteria change the assistant PROPOSED: `op` (`add` · `update` · `remove`), the full criterion an accept would leave, `previous` / `previous_required` (what an update replaces), `status` (`pending` · `accepted` · `dismissed` · `stale` · `superseded`), who answered and their name as it was. `criterion_id` is deliberately not a foreign key: the proposal outlives a criterion deleted by hand, to say `stale`. Same migration: `request_message.questions` (jsonb) — what the assistant asked on a turn; non-null is what counts a turn against the request's six |
 | `kpi_result`         | ✅ 2026-11-14 (0051, Phase V · V09) — KPI #2: one row per offer per run. `run_id` groups a computation; `rank`, `score` (hundredths of a point), `breakdown` (per-factor state, points and weight, the notes, and the offer exactly as it was scored), `formula_version`, `inputs_hash`, `trigger`, `computed_at`. **Append-only** — the current ranking of a round is its latest run. KPI #1 is not here: it scores a supplier before anyone is asked and stays on `match` |
 | `platform_setting`   | ✅ 2026-11-14 (0046, Phase V · V01) — platform-wide settings, ONE value per key for every client; a missing row means the default. Keys, types, ranges and defaults live in the registry `src/lib/platform-settings.ts`, so a new knob is a registry entry and not a migration. Edited from `/interne/parametres` (`settings` permission, owner by default); every change is in `audit_log` with the old and new value |

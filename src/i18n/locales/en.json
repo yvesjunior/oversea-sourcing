@@ -26,7 +26,8 @@
     "users": "Users",
     "logging": "Logging",
     "sources": "Data sources",
-    "deals": "Decision Packs"
+    "deals": "Decision Packs",
+    "partners": "Partners"
   },
   "platformRoles": {
     "owner": "Platform owner",
@@ -1160,7 +1161,9 @@
     "request.launched": "Search launched from a draft",
     "request.validated": "Specification validated — search launched",
     "supplier.account_created": "Supplier account created from an invitation",
-    "supplier.account_attached": "Invitation attached to an existing supplier account"
+    "supplier.account_attached": "Invitation attached to an existing supplier account",
+    "partner.created": "Partner created",
+    "partner.updated": "Partner updated"
   },
   "twofa": {
     "title": "Two-step verification",
@@ -1198,7 +1201,8 @@
       "contracts.send": "Send a contract to its parties",
       "contracts.sign": "Sign on OSI's behalf",
       "contracts.void": "Void a contract",
-      "requests.all": "See every client's data"
+      "requests.all": "See every client's data",
+      "partners": "Partners (transport, inspection, customs, insurance)"
     },
     "addRole": "Create role",
     "deleteRole": "Delete this role",
@@ -2056,5 +2060,43 @@
     "round": "Request and round",
     "roundNo": "round {{no}}",
     "open": "open"
+  },
+  "partnersAdmin": {
+    "title": "Partners",
+    "subtitle": "The companies the platform works with on a dossier: transport, inspection, customs, insurance. Every partner is handled “manually”: a person does the work and what they answer is recorded.",
+    "add": "Add a partner",
+    "addTitle": "New partner",
+    "editTitle": "Edit {{name}}",
+    "edit": "Edit",
+    "empty": "No partner on file.",
+    "inactive": "inactive",
+    "noContact": "No contact on file",
+    "kind": {
+      "transport": "Transport",
+      "inspection": "Inspection",
+      "customs": "Customs",
+      "insurance": "Insurance",
+      "settlement": "Settlement"
+    },
+    "kindUnavailable": "waiting on the legal opinion",
+    "field": {
+      "name": "Name",
+      "kind": "Kind",
+      "contactName": "Contact person",
+      "contactEmail": "Email",
+      "contactPhone": "Phone",
+      "locale": "Language to write in",
+      "notes": "Internal notes",
+      "active": "Active — offered for new dossiers"
+    },
+    "create": "Create the partner",
+    "save": "Save",
+    "cancel": "Cancel",
+    "refused": {
+      "forbidden": "Your role does not allow this.",
+      "kind_unavailable": "This kind of partner is not available yet.",
+      "name_taken": "A partner of this kind already has this name.",
+      "not_found": "This partner cannot be found."
+    }
   }
 }

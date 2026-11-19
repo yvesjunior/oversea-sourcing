@@ -16,6 +16,7 @@ import {
 // code from src/lib.
 import type { PackOfferSnapshot } from "@/lib/decision-pack";
 import type { KpiProfileSource, KpiProfileWeights } from "@/lib/kpi-profile";
+import type { PartnerKind, PartnerProvider } from "@/lib/partners";
 import type { SpecContent } from "@/lib/request-spec";
 import type { ReleaseMode } from "@/lib/platform-settings";
 
@@ -654,6 +655,70 @@ export const supplierUser = pgTable(
   (table) => [
     uniqueIndex("supplier_user_pair_uq").on(table.userId, table.supplierId),
     index("supplier_user_supplier_idx").on(table.supplierId),
+  ],
+);
+
+/**
+ * A partner (Phase V · V21): a company that does for a dossier what neither
+ * the buyer, the supplier nor OSI does — moves the goods, inspects them,
+ * clears them, insures them, holds the money.
+ *
+ * `kind` is the slot it fills (`PartnerKind`, src/lib/partners.ts). `provider`
+ * is HOW the platform talks to it — which adapter in
+ * `src/server/partners/`. Today there is one, `manual`: a person does the
+ * work and staff record it. Two partners of the same kind behind two
+ * providers is the whole point of the seam; nothing but the adapter may know
+ * which provider a partner uses.
+ *
+ * A record, not an account: a partner's people get accounts of their own
+ * (`partner_user`, like `supplier_user`), and a partner nobody has an account
+ * for is still a partner staff can open a case with.
+ */
+export const partner = pgTable(
+  "partner",
+  {
+    id: text("id").primaryKey(),
+    name: text("name").notNull(),
+    kind: text("kind").$type<PartnerKind>().notNull(),
+    provider: text("provider").$type<PartnerProvider>().notNull().default("manual"),
+    /** Inactive = kept for the cases it already has, offered for no new one. */
+    active: boolean("active").notNull().default(true),
+    contactName: text("contact_name"),
+    contactEmail: text("contact_email"),
+    contactPhone: text("contact_phone"),
+    /** The language to write to them in. */
+    locale: text("locale").$type<ContactLocale>().notNull().default("en"),
+    notes: text("notes"),
+    createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+    createdByName: text("created_by_name"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (table) => [index("partner_kind_idx").on(table.kind)],
+);
+
+/**
+ * Which partner(s) an EXTERNAL account answers for — `supplier_user`'s
+ * counterpart (V03 announced it, V21 brings it with the partners themselves).
+ * The whole of a partner account's authority: `requirePartnerSession` returns
+ * these ids and nothing else.
+ */
+export const partnerUser = pgTable(
+  "partner_user",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    partnerId: text("partner_id")
+      .notNull()
+      .references(() => partner.id, { onDelete: "cascade" }),
+    createdVia: text("created_via").$type<"invitation">().notNull().default("invitation"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("partner_user_pair_uq").on(table.userId, table.partnerId),
+    index("partner_user_partner_idx").on(table.partnerId),
   ],
 );
 

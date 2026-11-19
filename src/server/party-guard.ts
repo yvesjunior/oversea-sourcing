@@ -59,21 +59,40 @@ export async function requireSupplierSession(headers: Headers): Promise<Supplier
   };
 }
 
-export type PartnerSession = { userId: string; userName: string; partnerIds: string[] };
+export type PartnerSession = {
+  userId: string;
+  userName: string;
+  locale: string;
+  /** The partners this account answers for. Never empty. */
+  partnerIds: string[];
+};
 
 /**
  * The partner account behind this request, or null.
  *
- * Always null today. The `partner` account type exists so that it is REFUSED
- * like a supplier everywhere a customer is expected; what a partner may read
- * arrives with the partners themselves (`partner_user`, V21). Until then a
- * partner account has no authority anywhere — which this function states by
- * granting none, rather than by not existing.
+ * The supplier guard's counterpart, and deliberately a SEPARATE function
+ * rather than one guard with a flag: a partner's need-to-know is not a
+ * supplier's (V23), and a guard that answered for both would invite code
+ * that treats them alike. Null for anyone who is not a partner account
+ * linked to at least one partner (`partner_user`, V21) — never an empty
+ * `partnerIds`, for the reason given above.
  */
 export async function requirePartnerSession(headers: Headers): Promise<PartnerSession | null> {
   const session = await getAnySession(headers);
   if (!session) return null;
-  const account = session.user as { accountType?: string };
+  const account = session.user as { accountType?: string; locale?: string };
   if (externalKind(account.accountType) !== "partner") return null;
-  return null;
+
+  const links = await db
+    .select({ partnerId: schema.partnerUser.partnerId })
+    .from(schema.partnerUser)
+    .where(eq(schema.partnerUser.userId, session.user.id));
+  if (links.length === 0) return null;
+
+  return {
+    userId: session.user.id,
+    userName: session.user.name,
+    locale: account.locale ?? "en",
+    partnerIds: links.map((link) => link.partnerId),
+  };
 }

@@ -24,7 +24,7 @@
 | **E9** Notifications | In-app + email | 🟡 bell, emitters, **prefs (2026-08-26)** live; Phase P types (`quote_received`, `contract_to_sign`, `contract_signed`) + staff alert on `quotes.requested` (2026-09-07) live; **the bell alerts (2026-09-14)** — count badge, 30 s poll, chime, per-browser mute |
 | **E10** Admin surfaces | Verification, imports, ops queue | 🟡 **verification LIVE (S5b/S5c, 2026-08-26)**; imports/ops queue placeholders |
 | **R** Custom staff roles | Roles as data + the matrix | ✅ **BUILT 2026-08-29** (migration 0039) — create/delete roles, dynamic matrix, `requests.all` |
-| **E13** V6 architecture | Supplier portal · KPI #2 · Partner Hub · Decision Pack | 🔵 **NEW 2026-10-21** — scope opened by the V6 document; diagrams validated 2026-11-14; **34 tasks in seven slices — [Phase V](#phase-v--the-v6-parcours-task-by-task-e13--written-2026-11-14)**; **V01, V02, V04–V11 built 2026-11-14** (settings, contacts, states, fork + shortlist, RFQ batch, window closing, typed answer time + channel, KPI #2 v1, the Decision Pack record, the release queue); V01–V11 **live on prod — V01–V09 since deploy #45 (2026-11-14), V10–V11 since deploy #47 (2026-11-18) — with the pack-flow switch OFF**; **V12–V14 built 2026-11-18** (the buyer's pack page, choosing from it, automatic release built and switched off + the review report) — **slice 1 (V04–V14) is complete** — **live on prod since deploy #48 (2026-11-18), pack flow off, release manual**; **V18–V20 built 2026-11-18** (the clarification, behind `AI_CHAT`, off; the cahier des charges and the KPI profile as versioned records; the buyer's validation before any search, behind `flow.spec_validation`, ON by default) — **slice 3 complete**; **V03 and V15–V17 built 2026-11-18** (external accounts: a supplier is not a customer; the RFQ link that creates a supplier account; the portal where they answer, decline and attach; what suppliers are told and the response funnel) — **slice 2 complete** — on `main`, not deployed |
+| **E13** V6 architecture | Supplier portal · KPI #2 · Partner Hub · Decision Pack | 🔵 **NEW 2026-10-21** — scope opened by the V6 document; diagrams validated 2026-11-14; **34 tasks in seven slices — [Phase V](#phase-v--the-v6-parcours-task-by-task-e13--written-2026-11-14)**; **V01, V02, V04–V11 built 2026-11-14** (settings, contacts, states, fork + shortlist, RFQ batch, window closing, typed answer time + channel, KPI #2 v1, the Decision Pack record, the release queue); V01–V11 **live on prod — V01–V09 since deploy #45 (2026-11-14), V10–V11 since deploy #47 (2026-11-18) — with the pack-flow switch OFF**; **V12–V14 built 2026-11-18** (the buyer's pack page, choosing from it, automatic release built and switched off + the review report) — **slice 1 (V04–V14) is complete** — **live on prod since deploy #48 (2026-11-18), pack flow off, release manual**; **V18–V20 built 2026-11-18** (the clarification, behind `AI_CHAT`, off; the cahier des charges and the KPI profile as versioned records; the buyer's validation before any search, behind `flow.spec_validation`, ON by default) — **slice 3 complete**; **V03 and V15–V17 built 2026-11-18** (external accounts: a supplier is not a customer; the RFQ link that creates a supplier account; the portal where they answer, decline and attach; what suppliers are told and the response funnel) — **slice 2 complete**; **V21 built 2026-11-18** (partners and their adapter) — on `main`, not deployed |
 | **E11** Settings | Profile, sourcing rules | 🟡 Paramètres + notification prefs live; **password / 2FA / theme / rename (2026-08-27)** live; buyer Abonnement self-service waits for billing |
 
 **MVP1 = E0–E7 + E10.** Definition of done **restated 2026-08-29 by ADR-002**
@@ -6486,30 +6486,51 @@ built in: **S** one, **M** two to three, **L** four or more.
 
 #### Slice 4 — The Partner Hub (steps 08–09)
 
-- [ ] **V21 · Partners, and the adapter they sit behind.** *Size M. Depends
-      on: V03. Blocks: V22, V32.*
+- [x] **V21 · Partners, and the adapter they sit behind — BUILT 2026-11-18**
+      (migration **0060**, not deployed). `src/lib/partners.ts` (pure: the
+      kinds, which are available, the providers);
+      `src/server/partners/adapter.ts` (the interface and `adapterFor`),
+      `src/server/partners/manual.ts` (the only provider);
+      `src/server/partner-directory.ts` (`listPartners`, `createPartner`,
+      `updatePartner`); `src/lib/partner-fns.ts`; `routes/interne/partenaires.tsx`;
+      a new staff permission `partners` (owner, manager) with its sidebar
+      entry; `requirePartnerSession` now reads `partner_user`. Tables
+      `partner`, `partner_user`. 838 tests.
 
-      **What it does.** Makes "a partner" a thing the platform knows, behind
+      **Decision D10, as built:** the five kinds exist; staff assign (V22).
+      **`settlement` exists in the vocabulary and cannot be created** — shown
+      greyed in the form, refused by the server. The task calls the settlement
+      slot "the first real case" of the adapter; the money circuit is behind
+      the legal gate, and a settlement partner on file would read as a
+      capability the platform does not have. It becomes creatable in one line
+      (`PARTNER_KINDS_AVAILABLE`) when slice 6 opens.
+
+      **Acceptance, as tests:** `partners.test.ts` reads the source — one
+      provider file per provider beside the adapter, and nothing but the
+      adapter imports one.
+
+      *Verified live in dev (partners kept for V22–V24, removed after):* the
+      sidebar shows « Partenaires »; a transport partner created from the
+      form, an inspection partner from the function; the same name again in
+      the same kind → `name_taken`; the same name in another kind → a second
+      partner; `settlement` → `kind_unavailable`; renamed and switched off;
+      four audit rows (`partner.created` ×3, `partner.updated` with the old
+      name); a buyer gets `null` and `forbidden`.
+
+      **Not exercised:** the adapter's five operations — nothing calls them
+      until a case is opened (V22); a manager's access; the English page.
+
+      ~~**What it does.** Makes "a partner" a thing the platform knows, behind
       one interface, so that two providers can fill the same slot — the
-      settlement slot being the first real case.
-
-      **Schema.** `partner` — `name`, `kind` (`settlement | transport |
-      inspection | customs | insurance`), `provider` (which adapter),
-      `active`, contact fields. `partner_user` (see V03).
-
-      **Files.** New `src/server/partners/adapter.ts` — the interface V6
-      names: `createCase`, `requestDocument`, `getStatus`, `redirectUrl`,
-      `receiveWebhook`. New `src/server/partners/manual.ts` — the first and
-      only provider: a person does the work and staff record it. New
-      `src/routes/interne/partenaires.tsx`.
-
-      **Acceptance.** Staff create a transport partner and an inspection
-      partner. No domain code imports a provider directly — only the adapter,
-      the rule `mail.ts` and `esign.ts` already follow.
-
-      **Gotcha.** Do not write an escrow.com or Globex client here. The
-      `manual` provider is what makes the seam real without a contract, a
-      key, or a legal opinion.
+      settlement slot being the first real case. **Schema.** `partner` —
+      `name`, `kind`, `provider`, `active`, contact fields. `partner_user`
+      (see V03). **Files.** New `src/server/partners/adapter.ts` — the
+      interface V6 names: `createCase`, `requestDocument`, `getStatus`,
+      `redirectUrl`, `receiveWebhook`. New `src/server/partners/manual.ts`.
+      New `src/routes/interne/partenaires.tsx`. **Acceptance.** Staff create a
+      transport partner and an inspection partner. No domain code imports a
+      provider directly — only the adapter. **Gotcha.** Do not write an
+      escrow.com or Globex client here.~~
 
 - [ ] **V22 · Cases and enrichments.** *Size L. Step 08. Depends on: V21.
       Blocks: V23, V24.*
