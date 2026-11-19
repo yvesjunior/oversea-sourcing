@@ -1582,8 +1582,9 @@ button of its own — it *follows* what somebody recorded as done:
 | Expédition | `in_production` | `shipping` | carrier |
 | Livraison | `shipping` | `delivered` | carrier |
 
-(`MILESTONES`, `src/lib/milestones.ts`; rows in `order_milestone`. V28 and
-V29 add inspection, booking and customs to the list.)
+(`MILESTONES`, `src/lib/milestones.ts`; rows in `order_milestone`. V28 added
+an optional *Inspection* between production and shipment — see below; V29
+adds booking and customs.)
 
 - **Who records.** The party whose work it is, or OSI for it — which answers
   the question P7 left open. A supplier records its production in the portal;
@@ -1613,6 +1614,44 @@ V29 add inspection, booking and customs to the list.)
 **Not built:** undoing a milestone marked done by mistake; a notification
 when one is recorded (the buyer's activity feed shows it); a carrier
 recording its own milestones (V29).
+
+### Inspection, and what is not as agreed (V28)
+
+**The inspection is a milestone like the others** — `inspection`, owned by
+the inspector, completed while the dossier is in production — with two
+differences. It is **optional**: most dossiers have no inspector, and a step
+nobody is there to do never holds back a shipment. And it is the first
+milestone a **partner** records: since V28 a partner's person records the
+milestones of its role on the dossier from the Partner Hub (an inspector the
+inspection, a carrier shipment and delivery), plans their dates, and attaches
+its report (`/api/partner/milestone-proof`; an inspection's report is a
+`document` of kind `inspection`). Staff can do all of it on the partner's
+behalf.
+
+**Who reads what was said and attached.** A milestone's note is read by
+staff, the buyer and the side whose work it is. Its documents are read by
+whoever they are shared with — the buyer and the owning party. So the
+supplier does not read an inspector's note or report about its own goods:
+that reaches it through OSI.
+
+**An issue** (`deal_issue`) is something not as agreed: nonconformity, damage,
+shortfall, delay, other.
+
+| | |
+| --- | --- |
+| Raised by | staff, the buyer, a partner on the dossier — not the supplier, who writes to OSI |
+| Read by | staff, the buyer, and the party that raised it |
+| Settled by | staff: **resolved** with what was done, or **disputed** when the sides do not agree |
+| Until when | from the day the dossier opens until it is closed — damage is found after delivery |
+
+The page says which *side* raised an issue; the person is staff's to know.
+An issue is settled once: a resolution is not written over.
+**A dossier cannot be closed while an issue is `open`** (`openIssues`; V31
+enforces it at closing). A *disputed* one does not block — it is a
+disagreement on record, and a dossier kept open forever settles nothing.
+
+**Not built:** reopening a settled issue; a notification when one is raised
+(the buyer's activity feed shows it); the supplier's view of an issue.
 
 ### A supplier signs in the portal — behind a setting, off (V26)
 
@@ -3460,6 +3499,7 @@ erDiagram
 | `deal_party`         | ✅ 2026-11-19 (0064, Phase V · V25) — who is ON a dossier: `deal_id`, `role` (the contracts' vocabulary — buyer · osi · supplier · carrier · customs_broker · inspector · other), one of `organization_id` / `supplier_id` / `partner_id` (OSI's row has none), `name` snapshot, `added_by` + name. A partner is on a dossier once (partial unique index). A reader's slice of the dossier is defined by its row |
 | `message_thread` / `message` | ✅ 2026-11-19 (0064, V25) — an exchange on a dossier. `message_thread.parties` (jsonb) lists the `deal_party` ids in it; OSI is in every thread and never listed. `message`: author tombstone + name snapshot, `author_role`, `author_party_id` (null for OSI) |
 | `order_milestone`    | ✅ 2026-11-19 (0065, Phase V · V27; P7's table) — one row per (dossier, kind): `planned_at`, `completed_at`, `note`, `channel` (`portal` · `staff`), `updated_by` + name, `updated_by_role` (the side it is attributed to). No status column and no late flag: both are derived when read. `document.milestone_id` (0065) + kind `proof`: the evidence attached to a milestone |
+| `deal_issue`         | ✅ 2026-11-19 (0066, Phase V · V28) — something not as agreed on a dossier: `kind` (nonconformity · damage · shortfall · delay · other), `description`, `status` (open · resolved · disputed), `raised_by` + name + `raised_by_role` + `raised_by_party_id` (null for OSI — decides who else reads it), `resolution`, `resolved_by` + name, `resolved_at`. A dossier is not closed while one is `open` |
 | `document` (V25 columns) | ✅ 2026-11-19 (0064) — `deal_id`, `shared_with` (jsonb: the parties that may read it — the buyer included only when listed), `version` + `supersedes_id` (a new version is a new row), `label`; kind `dossier`. `deal.buyer_disclosed_at` + `buyer_disclosed_by_name` (0064): decision D6's disclosure, null until the step is taken |
 
 **Not yet built:** `order_milestone` (P7), `payment` (P9), `message_thread`

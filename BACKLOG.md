@@ -24,7 +24,7 @@
 | **E9** Notifications | In-app + email | 🟡 bell, emitters, **prefs (2026-08-26)** live; Phase P types (`quote_received`, `contract_to_sign`, `contract_signed`) + staff alert on `quotes.requested` (2026-09-07) live; **the bell alerts (2026-09-14)** — count badge, 30 s poll, chime, per-browser mute |
 | **E10** Admin surfaces | Verification, imports, ops queue | 🟡 **verification LIVE (S5b/S5c, 2026-08-26)**; imports/ops queue placeholders |
 | **R** Custom staff roles | Roles as data + the matrix | ✅ **BUILT 2026-08-29** (migration 0039) — create/delete roles, dynamic matrix, `requests.all` |
-| **E13** V6 architecture | Supplier portal · KPI #2 · Partner Hub · Decision Pack | 🔵 **NEW 2026-10-21** — scope opened by the V6 document; diagrams validated 2026-11-14; **34 tasks in seven slices — [Phase V](#phase-v--the-v6-parcours-task-by-task-e13--written-2026-11-14)**; **V01, V02, V04–V11 built 2026-11-14** (settings, contacts, states, fork + shortlist, RFQ batch, window closing, typed answer time + channel, KPI #2 v1, the Decision Pack record, the release queue); V01–V11 **live on prod — V01–V09 since deploy #45 (2026-11-14), V10–V11 since deploy #47 (2026-11-18) — with the pack-flow switch OFF**; **V12–V14 built 2026-11-18** (the buyer's pack page, choosing from it, automatic release built and switched off + the review report) — **slice 1 (V04–V14) is complete** — **live on prod since deploy #48 (2026-11-18), pack flow off, release manual**; **V18–V20 built 2026-11-18** (the clarification, behind `AI_CHAT`, off; the cahier des charges and the KPI profile as versioned records; the buyer's validation before any search, behind `flow.spec_validation`, ON by default) — **slice 3 complete**; **V03 and V15–V17 built 2026-11-18** (external accounts: a supplier is not a customer; the RFQ link that creates a supplier account; the portal where they answer, decline and attach; what suppliers are told and the response funnel) — **slice 2 complete**; **V21–V23 built 2026-11-18** (partners and their adapter; cases opened on an offer and the figures partners add to it; the Partner Hub where a partner's person answers) — **V15–V23 and V03 live on prod since deploy #49 (2026-11-18)**; **V24 built 2026-11-19** (KPI #2 on landed cost per unit, stored exchange rates) — **slice 4 complete**; **V25–V27 built 2026-11-19** (the Transaction Room: one dossier, four readers; a supplier signs in the portal, behind a setting that is OFF; milestones and proofs — the dossier now moves from contracts to delivered) — all on `main`, not deployed |
+| **E13** V6 architecture | Supplier portal · KPI #2 · Partner Hub · Decision Pack | 🔵 **NEW 2026-10-21** — scope opened by the V6 document; diagrams validated 2026-11-14; **34 tasks in seven slices — [Phase V](#phase-v--the-v6-parcours-task-by-task-e13--written-2026-11-14)**; **V01, V02, V04–V11 built 2026-11-14** (settings, contacts, states, fork + shortlist, RFQ batch, window closing, typed answer time + channel, KPI #2 v1, the Decision Pack record, the release queue); V01–V11 **live on prod — V01–V09 since deploy #45 (2026-11-14), V10–V11 since deploy #47 (2026-11-18) — with the pack-flow switch OFF**; **V12–V14 built 2026-11-18** (the buyer's pack page, choosing from it, automatic release built and switched off + the review report) — **slice 1 (V04–V14) is complete** — **live on prod since deploy #48 (2026-11-18), pack flow off, release manual**; **V18–V20 built 2026-11-18** (the clarification, behind `AI_CHAT`, off; the cahier des charges and the KPI profile as versioned records; the buyer's validation before any search, behind `flow.spec_validation`, ON by default) — **slice 3 complete**; **V03 and V15–V17 built 2026-11-18** (external accounts: a supplier is not a customer; the RFQ link that creates a supplier account; the portal where they answer, decline and attach; what suppliers are told and the response funnel) — **slice 2 complete**; **V21–V23 built 2026-11-18** (partners and their adapter; cases opened on an offer and the figures partners add to it; the Partner Hub where a partner's person answers) — **V15–V23 and V03 live on prod since deploy #49 (2026-11-18)**; **V24 built 2026-11-19** (KPI #2 on landed cost per unit, stored exchange rates) — **slice 4 complete**; **V25–V28 built 2026-11-19** (the Transaction Room: one dossier, four readers; a supplier signs in the portal, behind a setting that is OFF; milestones and proofs — the dossier now moves from contracts to delivered; inspection by the partner and conformity issues) — all on `main`, not deployed |
 | **E11** Settings | Profile, sourcing rules | 🟡 Paramètres + notification prefs live; **password / 2FA / theme / rename (2026-08-27)** live; buyer Abonnement self-service waits for billing |
 
 **MVP1 = E0–E7 + E10.** Definition of done **restated 2026-08-29 by ADR-002**
@@ -40,14 +40,15 @@ tracked to delivery** — with the PDF report available throughout.
 
 **Prod = `dc0964b` (deploy #49, 2026-11-18)** — Phase V tasks V01–V23:
 slices 1, 2 and 3 complete, slice 4 up to V23. **`main` is ahead of prod by
-four tasks, NOT deployed: V24** (KPI #2 on landed cost; migration **0063**,
+five tasks, NOT deployed: V24** (KPI #2 on landed cost; migration **0063**,
 additive — two nullable columns), **V25** (the Transaction Room;
 migration **0064**, additive — three tables, seven nullable or defaulted
 columns), **V26** (a supplier signs in the portal; no migration; behind
 `contracts.supplier_signature`, **off** by default — nothing changes until
-someone switches it on, and the legal question comes first) **and V27**
+someone switches it on, and the legal question comes first), **V27**
 (milestones and proofs; migration **0065**, additive — one table, one
-nullable column). Four tasks in all. Deploying them changes no ranking on prod (no round, no partner
+nullable column) **and V28** (inspection and issues; migration **0066**,
+additive — one table). Five tasks in all. Deploying them changes no ranking on prod (no round, no partner
 figure, no pack) and opens no dossier (prod holds no deal); what a user
 sees is « Commandes » enabled in the menu, leading to an empty list. Deploy #49 carried eleven tasks at once — V18, V19, the search-model
 fix, V20, V03, V15, V16, V17, V21, V22, V23 — and eight additive migrations
@@ -7066,20 +7067,77 @@ P10 in V25, P11 in V31.
       Lateness is **derived** from `planned_at`, never a stored flag and never
       a cron.~~
 
-- [ ] **V28 · Inspection and conformity.** *Size M. Step 17. Depends on: V22,
-      V27.*
+- [x] **V28 · Inspection and conformity — BUILT 2026-11-19** (migration
+      **0066**, not deployed). `inspection` added to `MILESTONES` (optional,
+      the inspector's); `mayRecordMilestone` opened to a partner for the
+      milestones of its role; `src/server/issues.ts` (`raiseIssue`,
+      `settleIssue`); issue rules in `src/lib/dossier.ts` (`maySeeIssue`,
+      `mayRaiseIssue`, `openIssues`); `raiseIssueFn` / `settleIssueFn`
+      (workspace), `planHubMilestoneFn` / `completeHubMilestoneFn` /
+      `raiseHubIssueFn` (partner); `/api/partner/milestone-proof`; an « Écarts
+      et litiges » section and the partner's controls in `DossierRoom.tsx`.
+      Table `deal_issue`; document kind `inspection`. 1006 tests.
 
-      **What it does.** An inspection partner is asked, reports, and what
-      does not conform is tracked to a resolution.
+      **How the task's "inspection case" was built.** Not as a case of the
+      V22 kind (a request for a figure): as a **milestone** of the dossier,
+      owned by the inspector that staff put on it (V25). "Staff open an
+      inspection case" = staff add the inspection partner to the dossier,
+      and may plan the date; "the inspector (or staff for them) files the
+      report" = records the inspection and attaches the report; "a gap
+      becomes an issue" = the inspector, or staff, raises one. One mechanism
+      for every step of a dossier instead of a second one for inspections.
 
-      **Schema.** `deal_issue` — `deal_id`, `kind` (`nonconformity | damage |
-      shortfall | delay | other`), `raised_by` + role, `description`,
-      `status` (`open | resolved | disputed`), `resolution`, timestamps.
-      Document kind `inspection`.
+      **Decisions taken here, the owner's to confirm.**
+      - **The supplier does not read an issue**, nor the inspector's note or
+        report: what is found about its goods reaches it through OSI. The
+        other reading — the supplier sees and answers issues itself — is one
+        line in `maySeeIssue`.
+      - **The supplier cannot raise an issue** (it writes to OSI).
+      - **A disputed issue does not block closing**; only an open one does.
+      - **Staff alone settle.** A buyer who disagrees with a resolution
+        writes to OSI; there is no "reopen".
+      - **The inspection waits for « Fin de production »** (steps are
+        completed in order); an inspection during production is not modelled.
 
+      **Found in the live run and fixed.** (1) An inspector could not see the
+      report it had just uploaded: proofs were withheld from every partner.
+      They follow `shared_with` now, one rule for every reader. (2) A
+      milestone's note was shown to every non-partner — so a supplier would
+      have read the inspector's note. It is read by staff, the buyer and the
+      side whose work it is. Both pinned by tests.
+
+      **A side effect on V27:** a proof is now shared with the buyer and the
+      party whose work the milestone is (it was buyer + supplier for every
+      milestone) — a bill of lading goes to the buyer and the carrier.
+
+      *Verified live in dev* (a second dossier brought into production; a
+      real inspector account created from an invitation): the inspector's
+      page names the supplier and shows no price and no buyer; it planned
+      the inspection, was refused the supplier's milestone (`forbidden`) and
+      a proof on the carrier's (403), and the supplier's upload route (401);
+      uploaded its report; completing was refused until production was
+      finished (`out_of_order`), then recorded; raised a nonconformity. The
+      **buyer** sees the issue « signalé par : Inspecteur », the inspection
+      and the report (download 200), cannot settle (`forbidden`), raised a
+      delay. **Staff** see who raised each, resolved one, disputed the
+      other; a second settlement → `already_settled`.
+
+      **Not exercised live:** the « Écarts et litiges » section through the
+      page's own forms (the sign-in rate limit was reached after twenty-odd
+      account switches — the functions were called from the page's session);
+      the supplier's page of that dossier (its supplier has no account —
+      unit-tested); a closed dossier refusing an issue.
+      **Not built:** reopening an issue; a notification when one is raised;
+      blocking the close itself (V31 calls `openIssues`).
+
+      ~~**What it does.** An inspection partner is asked, reports, and what
+      does not conform is tracked to a resolution. **Schema.** `deal_issue` —
+      `deal_id`, `kind` (`nonconformity | damage | shortfall | delay |
+      other`), `raised_by` + role, `description`, `status` (`open | resolved |
+      disputed`), `resolution`, timestamps. Document kind `inspection`.
       **Acceptance.** Staff open an inspection case; the inspector (or staff
       for them) files the report; a gap becomes an issue the buyer sees, and
-      the dossier cannot be closed while one is `open`.
+      the dossier cannot be closed while one is `open`.~~
 
 - [ ] **V29 · Transport and customs.** *Size M. Step 18. Depends on: V22,
       V27.*

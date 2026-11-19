@@ -650,7 +650,11 @@
     "milestone_production_started": "Production démarrée",
     "milestone_production_finished": "Production terminée",
     "milestone_shipped": "Marchandise expédiée",
-    "milestone_delivered": "Marchandise livrée"
+    "milestone_delivered": "Marchandise livrée",
+    "milestone_inspection": "Inspection réalisée",
+    "issue_raised": "Un écart a été signalé",
+    "issue_resolved": "Un écart a été résolu",
+    "issue_disputed": "Un écart est contesté"
   },
   "stepsDemande": {
     "received": {
@@ -1185,7 +1189,9 @@
     "dossier.buyer_disclosed": "Identité du client communiquée au fournisseur",
     "dossier.document_added": "Document ajouté à un dossier",
     "dossier.document_versioned": "Nouvelle version d’un document de dossier",
-    "dossier.milestone_completed": "Étape de dossier enregistrée comme faite"
+    "dossier.milestone_completed": "Étape de dossier enregistrée comme faite",
+    "dossier.issue_raised": "Écart signalé sur un dossier",
+    "dossier.issue_settled": "Écart réglé sur un dossier"
   },
   "twofa": {
     "title": "Vérification en deux étapes",
@@ -2412,7 +2418,8 @@
       "production_started": "Début de production",
       "production_finished": "Fin de production",
       "shipped": "Expédition",
-      "delivered": "Livraison"
+      "delivered": "Livraison",
+      "inspection": "Inspection"
     },
     "state": {
       "done": "Fait",
@@ -2446,6 +2453,40 @@
       "upload_413": "Fichier trop volumineux (10 Mo au plus).",
       "upload_415": "Format non accepté : PDF, PNG ou JPEG.",
       "other": "La mise à jour n’a pas pu être enregistrée."
+    },
+    "issues": "Écarts et litiges",
+    "noIssue": "Aucun écart signalé.",
+    "raiseIssue": "Signaler un écart",
+    "issueKindLabel": "Nature de l’écart",
+    "issueKind": {
+      "nonconformity": "Non-conformité",
+      "damage": "Dommage",
+      "shortfall": "Quantité manquante",
+      "delay": "Retard",
+      "other": "Autre"
+    },
+    "issueDescription": "Décrivez ce qui n’est pas conforme à ce qui était convenu.",
+    "raiseIssueSubmit": "Signaler",
+    "issueStatus": {
+      "open": "Ouvert",
+      "resolved": "Résolu",
+      "disputed": "Contesté"
+    },
+    "raisedBy": "Signalé par : {{party}}",
+    "raisedByYou": "Signalé par vous",
+    "settled": {
+      "resolved": "Résolu",
+      "disputed": "Contesté",
+      "open": "Ouvert"
+    },
+    "resolution": "Ce qui a été fait, ou pourquoi les parties ne s’accordent pas (obligatoire)",
+    "markResolved": "Marquer comme résolu",
+    "markDisputed": "Marquer comme contesté",
+    "issueRefused": {
+      "not_found": "Ce dossier ou cet écart est introuvable.",
+      "forbidden": "Vous ne pouvez pas faire cela sur ce dossier.",
+      "already_settled": "Cet écart est déjà réglé.",
+      "other": "L’écart n’a pas pu être enregistré."
     }
   },
   "portalContract": {

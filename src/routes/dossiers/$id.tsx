@@ -10,6 +10,8 @@ import {
   discloseBuyerFn,
   getDossierFn,
   postDossierMessageFn,
+  raiseIssueFn,
+  settleIssueFn,
   type DossierPage,
 } from "@/lib/dossier-fns";
 import { formatDay } from "@/lib/instant";
@@ -92,6 +94,15 @@ function DossierPageView() {
           onComplete: (kind, note) =>
             completeMilestoneFn({ data: { dealId: view.deal.id, kind, note } }),
           proofEndpoint: "/api/dossier-document",
+          onDone: refresh,
+        }}
+        // The buyer and staff raise an issue; settling one is staff's, and
+        // the control shows only where the view says so.
+        issues={{
+          onRaise: (kind, description) =>
+            raiseIssueFn({ data: { dealId: view.deal.id, kind, description } }),
+          onSettle: (issueId, status, resolution) =>
+            settleIssueFn({ data: { issueId, status, resolution } }),
           onDone: refresh,
         }}
       >

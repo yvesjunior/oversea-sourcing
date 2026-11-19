@@ -17,10 +17,11 @@ import type { DossierAudience } from "@/lib/dossier";
 const now = new Date("2026-12-10T15:00:00Z");
 
 describe("the milestones of a dossier", () => {
-  it("are four, in the order they happen", () => {
+  it("are five, in the order they happen", () => {
     expect([...MILESTONE_KINDS]).toEqual([
       "production_started",
       "production_finished",
+      "inspection",
       "shipped",
       "delivered",
     ]);
@@ -98,6 +99,7 @@ describe("who records a milestone", () => {
   it("lets the supplier record production, and nothing else", () => {
     expect(mayRecordMilestone(supplier, "production_started")).toBe(true);
     expect(mayRecordMilestone(supplier, "production_finished")).toBe(true);
+    expect(mayRecordMilestone(supplier, "inspection")).toBe(false);
     expect(mayRecordMilestone(supplier, "shipped")).toBe(false);
     expect(mayRecordMilestone(supplier, "delivered")).toBe(false);
   });
@@ -107,10 +109,37 @@ describe("who records a milestone", () => {
     for (const kind of MILESTONE_KINDS) expect(mayRecordMilestone(staff, kind), kind).toBe(true);
   });
 
-  it("lets the buyer and a partner read, and record nothing", () => {
-    for (const kind of MILESTONE_KINDS) {
-      expect(mayRecordMilestone(buyer, kind), kind).toBe(false);
-      expect(mayRecordMilestone(carrier, kind), kind).toBe(false);
+  it("lets the buyer read, and record nothing", () => {
+    for (const kind of MILESTONE_KINDS) expect(mayRecordMilestone(buyer, kind), kind).toBe(false);
+  });
+
+  // V28: a partner records the milestones of ITS role, and no other.
+  it("lets a partner record the milestones of its own role", () => {
+    const inspector: DossierAudience = {
+      kind: "partner",
+      partyId: "p-i",
+      partnerKind: "inspection",
+    };
+    expect(mayRecordMilestone(inspector, "inspection")).toBe(true);
+    for (const kind of [
+      "production_started",
+      "production_finished",
+      "shipped",
+      "delivered",
+    ] as const) {
+      expect(mayRecordMilestone(inspector, kind), kind).toBe(false);
+    }
+    expect(mayRecordMilestone(carrier, "shipped")).toBe(true);
+    expect(mayRecordMilestone(carrier, "delivered")).toBe(true);
+    expect(mayRecordMilestone(carrier, "inspection")).toBe(false);
+    expect(mayRecordMilestone(carrier, "production_started")).toBe(false);
+    // A customs broker and an insurer have no milestone of their own yet.
+    for (const partnerKind of ["customs", "insurance"] as const) {
+      const other: DossierAudience = { kind: "partner", partyId: "p-x", partnerKind };
+      expect(
+        MILESTONE_KINDS.some((kind) => mayRecordMilestone(other, kind)),
+        partnerKind,
+      ).toBe(false);
     }
   });
 
@@ -168,6 +197,23 @@ describe("completing a milestone", () => {
         facts({ dealStatus: "in_production", done: ["production_started"] }),
       ),
     ).toBe("already_done");
+  });
+
+  // V28: an inspection nobody ordered must not stand between production and
+  // shipment — and one that was ordered can be done while in production.
+  it("never requires the optional inspection before a later step", () => {
+    const done = ["production_started", "production_finished"] as const;
+    expect(canComplete("shipped", facts({ dealStatus: "in_production", done: [...done] }))).toBe(
+      "ok",
+    );
+    expect(canComplete("inspection", facts({ dealStatus: "in_production", done: [...done] }))).toBe(
+      "ok",
+    );
+    // …but not once the goods have left.
+    expect(
+      canComplete("inspection", facts({ dealStatus: "shipping", done: [...done, "shipped"] })),
+    ).toBe("wrong_status");
+    expect(statusAfter("inspection")).toBeNull();
   });
 
   it("walks a dossier from contracts to delivered", () => {

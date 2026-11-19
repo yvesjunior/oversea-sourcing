@@ -463,6 +463,13 @@
       "when": 1795101028587,
       "tag": "0065_thick_iceman",
       "breakpoints": true
+    },
+    {
+      "idx": 66,
+      "version": "7",
+      "when": 1795101434908,
+      "tag": "0066_modern_skrulls",
+      "breakpoints": true
     }
   ]
 }

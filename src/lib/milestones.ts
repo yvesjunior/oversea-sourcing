@@ -21,25 +21,43 @@
 
 import type { ContractPartyRole, DealStatus } from "@/database/schema";
 import type { DossierAudience } from "@/lib/dossier";
+import { PARTY_ROLE_OF } from "@/lib/partners";
 
 /**
  * The milestones of a dossier, in the order they happen. Each one says the
  * dossier status it is completed FROM and the status it moves the dossier TO
  * (null = the dossier stays where it is), and whose work it is.
  *
- * V28 and V29 add inspection, booking and customs to this list; the table
- * and everything below already work for any kind in it.
+ * V28 added the inspection; V29 adds booking and customs. The table and
+ * everything below work for any kind in this list.
  */
 export const MILESTONES = [
-  { kind: "production_started", from: "contracting", to: "in_production", owner: "supplier" },
-  { kind: "production_finished", from: "in_production", to: null, owner: "supplier" },
-  { kind: "shipped", from: "in_production", to: "shipping", owner: "carrier" },
-  { kind: "delivered", from: "shipping", to: "delivered", owner: "carrier" },
+  {
+    kind: "production_started",
+    from: "contracting",
+    to: "in_production",
+    owner: "supplier",
+    optional: false,
+  },
+  {
+    kind: "production_finished",
+    from: "in_production",
+    to: null,
+    owner: "supplier",
+    optional: false,
+  },
+  // V28. OPTIONAL: most dossiers have no inspector, and a step nobody is
+  // there to do must not stand between production and shipment.
+  { kind: "inspection", from: "in_production", to: null, owner: "inspector", optional: true },
+  { kind: "shipped", from: "in_production", to: "shipping", owner: "carrier", optional: false },
+  { kind: "delivered", from: "shipping", to: "delivered", owner: "carrier", optional: false },
 ] as const satisfies readonly {
   kind: string;
   from: DealStatus;
   to: DealStatus | null;
   owner: ContractPartyRole;
+  /** An optional milestone is never required before a later one. */
+  optional: boolean;
 }[];
 
 export type MilestoneKind = (typeof MILESTONES)[number]["kind"];
@@ -106,12 +124,17 @@ function endOfDay(iso: string): number {
  * May this reader record (plan or complete) this milestone?
  *
  * Staff: every one, on the owning party's behalf. A supplier: its own — the
- * production ones. The buyer and a partner read (a carrier's own milestones
- * become theirs to record in V29).
+ * production ones. A partner: the ones of its role on the dossier. The buyer
+ * reads.
  */
 export function mayRecordMilestone(audience: DossierAudience, kind: MilestoneKind): boolean {
+  const owner = milestoneOwner(kind);
   if (audience.kind === "staff") return true;
-  return audience.kind === "supplier" && milestoneOwner(kind) === "supplier";
+  if (audience.kind === "supplier") return owner === "supplier";
+  // A partner records the milestones of ITS role on the dossier (V28): an
+  // inspector the inspection, and from V29 a carrier its own.
+  if (audience.kind === "partner") return PARTY_ROLE_OF[audience.partnerKind] === owner;
+  return false;
 }
 
 export type CompleteRefusal =
@@ -137,9 +160,12 @@ export function canComplete(
 ): "ok" | CompleteRefusal {
   if (facts.done.includes(kind)) return "already_done";
   const index = MILESTONE_KINDS.indexOf(kind);
-  if (MILESTONE_KINDS.slice(0, index).some((earlier) => !facts.done.includes(earlier))) {
-    return "out_of_order";
-  }
+  // Every REQUIRED step before it must be done; an optional one (an
+  // inspection nobody ordered) never holds a dossier back.
+  const missing = MILESTONES.slice(0, index).some(
+    (earlier) => !earlier.optional && !facts.done.includes(earlier.kind),
+  );
+  if (missing) return "out_of_order";
   // The first step out of the paperwork: nothing is produced on a contract
   // nobody signed.
   if (kind === "production_started" && !facts.contractsSigned) return "contracts_pending";

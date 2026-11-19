@@ -292,7 +292,7 @@ async function full(loaded: Loaded): Promise<FullDossier> {
   const quote = deal.quoteId
     ? await db.query.quote.findFirst({ where: eq(schema.quote.id, deal.quoteId) })
     : null;
-  const [spec, supplier, documents, threads, milestones] = await Promise.all([
+  const [spec, supplier, documents, threads, milestones, issues] = await Promise.all([
     deal.requestId ? specForReading(deal.requestId, quote?.specVersion ?? null) : null,
     deal.supplierId
       ? db.query.supplier.findFirst({
@@ -307,6 +307,7 @@ async function full(loaded: Loaded): Promise<FullDossier> {
       .where(eq(schema.document.dealId, deal.id)),
     db.select().from(schema.messageThread).where(eq(schema.messageThread.dealId, deal.id)),
     db.select().from(schema.orderMilestone).where(eq(schema.orderMilestone.dealId, deal.id)),
+    db.select().from(schema.dealIssue).where(eq(schema.dealIssue.dealId, deal.id)),
   ]);
   const messages =
     threads.length === 0
@@ -381,6 +382,18 @@ async function full(loaded: Loaded): Promise<FullDossier> {
       channel: milestone.channel,
       updatedByName: milestone.updatedByName,
       updatedAt: milestone.updatedAt.toISOString(),
+    })),
+    issues: issues.map((issue) => ({
+      id: issue.id,
+      kind: issue.kind,
+      description: issue.description,
+      status: issue.status,
+      raisedByName: issue.raisedByName,
+      raisedByRole: issue.raisedByRole,
+      raisedByPartyId: issue.raisedByPartyId,
+      resolution: issue.resolution,
+      resolvedAt: issue.resolvedAt ? issue.resolvedAt.toISOString() : null,
+      createdAt: issue.createdAt.toISOString(),
     })),
     threads: threads.map((thread) => ({
       id: thread.id,

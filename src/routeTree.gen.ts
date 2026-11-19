@@ -47,6 +47,7 @@ import { Route as PartenairesIndexRouteImport } from './routes/partenaires/index
 import { Route as PortailIndexRouteImport } from './routes/portail/index'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiFilesIdRouteImport } from './routes/api/files/$id'
+import { Route as ApiPartnerMilestoneProofRouteImport } from './routes/api/partner/milestone-proof'
 import { Route as ApiPortalMilestoneProofRouteImport } from './routes/api/portal/milestone-proof'
 import { Route as ApiPortalQuoteDocumentRouteImport } from './routes/api/portal/quote-document'
 import { Route as DemandesIdPackRouteImport } from './routes/demandes/$id_.pack'
@@ -251,6 +252,12 @@ const ApiFilesIdRoute = ApiFilesIdRouteImport.update({
   path: '/api/files/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPartnerMilestoneProofRoute =
+  ApiPartnerMilestoneProofRouteImport.update({
+    id: '/api/partner/milestone-proof',
+    path: '/api/partner/milestone-proof',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPortalMilestoneProofRoute = ApiPortalMilestoneProofRouteImport.update({
   id: '/api/portal/milestone-proof',
   path: '/api/portal/milestone-proof',
@@ -358,6 +365,7 @@ export interface FileRoutesByFullPath {
   '/portail/': typeof PortailIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/files/$id': typeof ApiFilesIdRoute
+  '/api/partner/milestone-proof': typeof ApiPartnerMilestoneProofRoute
   '/api/portal/milestone-proof': typeof ApiPortalMilestoneProofRoute
   '/api/portal/quote-document': typeof ApiPortalQuoteDocumentRoute
   '/demandes/$id/pack': typeof DemandesIdPackRoute
@@ -411,6 +419,7 @@ export interface FileRoutesByTo {
   '/portail': typeof PortailIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/files/$id': typeof ApiFilesIdRoute
+  '/api/partner/milestone-proof': typeof ApiPartnerMilestoneProofRoute
   '/api/portal/milestone-proof': typeof ApiPortalMilestoneProofRoute
   '/api/portal/quote-document': typeof ApiPortalQuoteDocumentRoute
   '/demandes/$id/pack': typeof DemandesIdPackRoute
@@ -465,6 +474,7 @@ export interface FileRoutesById {
   '/portail/': typeof PortailIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/files/$id': typeof ApiFilesIdRoute
+  '/api/partner/milestone-proof': typeof ApiPartnerMilestoneProofRoute
   '/api/portal/milestone-proof': typeof ApiPortalMilestoneProofRoute
   '/api/portal/quote-document': typeof ApiPortalQuoteDocumentRoute
   '/demandes/$id_/pack': typeof DemandesIdPackRoute
@@ -520,6 +530,7 @@ export interface FileRouteTypes {
     | '/portail/'
     | '/api/auth/$'
     | '/api/files/$id'
+    | '/api/partner/milestone-proof'
     | '/api/portal/milestone-proof'
     | '/api/portal/quote-document'
     | '/demandes/$id/pack'
@@ -573,6 +584,7 @@ export interface FileRouteTypes {
     | '/portail'
     | '/api/auth/$'
     | '/api/files/$id'
+    | '/api/partner/milestone-proof'
     | '/api/portal/milestone-proof'
     | '/api/portal/quote-document'
     | '/demandes/$id/pack'
@@ -626,6 +638,7 @@ export interface FileRouteTypes {
     | '/portail/'
     | '/api/auth/$'
     | '/api/files/$id'
+    | '/api/partner/milestone-proof'
     | '/api/portal/milestone-proof'
     | '/api/portal/quote-document'
     | '/demandes/$id_/pack'
@@ -680,6 +693,7 @@ export interface RootRouteChildren {
   PortailIndexRoute: typeof PortailIndexRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiFilesIdRoute: typeof ApiFilesIdRoute
+  ApiPartnerMilestoneProofRoute: typeof ApiPartnerMilestoneProofRoute
   ApiPortalMilestoneProofRoute: typeof ApiPortalMilestoneProofRoute
   ApiPortalQuoteDocumentRoute: typeof ApiPortalQuoteDocumentRoute
   DemandesIdPackRoute: typeof DemandesIdPackRoute
@@ -963,6 +977,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiFilesIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/partner/milestone-proof': {
+      id: '/api/partner/milestone-proof'
+      path: '/api/partner/milestone-proof'
+      fullPath: '/api/partner/milestone-proof'
+      preLoaderRoute: typeof ApiPartnerMilestoneProofRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/portal/milestone-proof': {
       id: '/api/portal/milestone-proof'
       path: '/api/portal/milestone-proof'
@@ -1096,6 +1117,7 @@ const rootRouteChildren: RootRouteChildren = {
   PortailIndexRoute: PortailIndexRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiFilesIdRoute: ApiFilesIdRoute,
+  ApiPartnerMilestoneProofRoute: ApiPartnerMilestoneProofRoute,
   ApiPortalMilestoneProofRoute: ApiPortalMilestoneProofRoute,
   ApiPortalQuoteDocumentRoute: ApiPortalQuoteDocumentRoute,
   DemandesIdPackRoute: DemandesIdPackRoute,

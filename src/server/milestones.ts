@@ -207,9 +207,12 @@ export type ProofPlan =
       ok: true;
       deal: OpenedDossier["deal"];
       milestoneId: string;
-      /** Who reads the proof: the supplier and the buyer. Staff read every
-       *  document of a dossier. */
+      /** Who reads the proof: the buyer and the party whose work the
+       *  milestone is. Staff read every document of a dossier. */
       sharedWith: string[];
+      /** An inspection's report is an `inspection` document (V28); every
+       *  other proof a `proof`. */
+      documentKind: schema.DocumentKind;
     }
   | { ok: false; reason: "not_found" | "forbidden" | "closed" | "not_recorded" };
 
@@ -218,8 +221,7 @@ export type ProofPlan =
  *
  * Asked by the upload routes before a byte is stored. A proof hangs from a
  * milestone that EXISTS — planned or done; evidence of nothing is not
- * evidence — and is read by the supplier and the buyer: it is what the
- * supplier shows the buyer.
+ * evidence — and is read by the buyer and by the party whose work it is.
  */
 export async function planProof(
   reader: DossierReader,
@@ -239,20 +241,18 @@ export async function planProof(
     columns: { id: true },
   });
   if (!milestone) return { ok: false, reason: "not_recorded" };
-  const readers = await db
-    .select({ id: schema.dealParty.id })
-    .from(schema.dealParty)
-    .where(
-      and(
-        eq(schema.dealParty.dealId, dealId),
-        inArray(schema.dealParty.role, ["buyer", "supplier"]),
-      ),
-    );
+  // Read by the buyer and by the party whose work the milestone is: a
+  // production photo by the supplier, an inspection report by the inspector
+  // — not by the supplier it is about, unless OSI shares it.
+  const readers = loaded.parties.filter(
+    (party) => party.role === "buyer" || party.role === milestoneOwner(kind),
+  );
   return {
     ok: true,
     deal: loaded.deal,
     milestoneId: milestone.id,
     sharedWith: readers.map((party) => party.id),
+    documentKind: kind === "inspection" ? "inspection" : "proof",
   };
 }
 
@@ -281,7 +281,7 @@ export async function recordProof(
     id: documentId,
     organizationId: plan.deal.organizationId,
     fileId,
-    kind: "proof",
+    kind: plan.documentKind,
     dealId: plan.deal.id,
     milestoneId: plan.milestoneId,
     sharedWith: plan.sharedWith,

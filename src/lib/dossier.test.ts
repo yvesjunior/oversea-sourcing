@@ -4,8 +4,11 @@ import {
   documentAudience,
   documentChains,
   dossierIsLive,
+  mayRaiseIssue,
   mayRead,
+  maySeeIssue,
   mayUpload,
+  openIssues,
   projectDossier,
   threadParties,
   type DossierAudience,
@@ -451,6 +454,7 @@ describe("milestones on the page", () => {
       expect(view.milestones.map((m) => m.kind)).toEqual([
         "production_started",
         "production_finished",
+        "inspection",
         "shipped",
         "delivered",
       ]);
@@ -484,13 +488,63 @@ describe("milestones on the page", () => {
     expect(JSON.stringify(projectDossier(withProduction(), carrier))).not.toContain("Ligne 3");
   });
 
-  it("lets the supplier record production, staff everything, the buyer nothing", () => {
+  // Found in V28's live run: an inspector could not see the report it had
+  // just uploaded, nor its own note.
+  it("shows a partner the note and the proofs of its OWN milestone", () => {
+    const inspected: FullDossier = {
+      ...withProduction(),
+      milestones: [
+        ...withProduction().milestones!,
+        {
+          id: "m-insp",
+          kind: "inspection",
+          plannedAt: null,
+          completedAt: "2026-12-05T09:00:00.000Z",
+          note: "3 lots contrôlés",
+          channel: "portal",
+          updatedByName: "Ana Reyes",
+          updatedAt: "2026-12-05T09:00:00.000Z",
+        },
+      ],
+      documents: [
+        doc("photo", [BUYER, SUPPLIER], { milestoneId: "m-start" }),
+        doc("report", [BUYER, INSPECTOR], { milestoneId: "m-insp" }),
+      ],
+    };
+    const own = projectDossier(inspected, inspector).milestones.find(
+      (m) => m.kind === "inspection",
+    )!;
+    expect(own.note).toBe("3 lots contrôlés");
+    expect(own.proofs.map((p) => p.id)).toEqual(["report"]);
+    // Still not the supplier's production note or photo…
+    const production = projectDossier(inspected, inspector).milestones[0]!;
+    expect("note" in production).toBe(false);
+    expect(production.proofs).toEqual([]);
+    // …and the supplier does not read the inspection report about its goods.
+    const forSupplier = projectDossier(inspected, supplier).milestones.find(
+      (m) => m.kind === "inspection",
+    )!;
+    expect(forSupplier.proofs).toEqual([]);
+    expect("note" in forSupplier).toBe(false);
+    // Its own production note it does read.
+    expect(projectDossier(inspected, supplier).milestones[0]!.note).toBe("Ligne 3 lancée");
+    // The buyer reads both.
+    const forBuyer = projectDossier(inspected, buyer).milestones;
+    expect(forBuyer[0]!.proofs.map((p) => p.id)).toEqual(["photo"]);
+    expect(forBuyer.find((m) => m.kind === "inspection")!.proofs.map((p) => p.id)).toEqual([
+      "report",
+    ]);
+  });
+
+  it("lets each side record its own steps, staff every one, the buyer none", () => {
     const can = (audience: DossierAudience) =>
       projectDossier(withProduction(), audience).milestones.map((m) => m.canRecord);
-    expect(can(supplier)).toEqual([true, true, false, false]);
-    expect(can(staff)).toEqual([true, true, true, true]);
-    expect(can(buyer)).toEqual([false, false, false, false]);
-    expect(can(carrier)).toEqual([false, false, false, false]);
+    //                    start  finish inspect shipped delivered
+    expect(can(supplier)).toEqual([true, true, false, false, false]);
+    expect(can(inspector)).toEqual([false, false, true, false, false]);
+    expect(can(carrier)).toEqual([false, false, false, true, true]);
+    expect(can(staff)).toEqual([true, true, true, true, true]);
+    expect(can(buyer)).toEqual([false, false, false, false, false]);
   });
 
   it("lets nobody record on a dossier that is delivered or closed", () => {
@@ -499,5 +553,99 @@ describe("milestones on the page", () => {
       deal: { ...dossier().deal, status: "delivered" as const },
     };
     expect(projectDossier(delivered, staff).milestones.every((m) => !m.canRecord)).toBe(true);
+  });
+});
+
+// V28: something is not as agreed. Who reads it, who raises it, and what it
+// does to closing.
+describe("issues", () => {
+  const withIssues = (): FullDossier => ({
+    ...dossier(),
+    issues: [
+      {
+        id: "i-insp",
+        kind: "nonconformity",
+        description: "Dureté hors tolérance sur 3 lots",
+        status: "open",
+        raisedByName: "Ana Inspector",
+        raisedByRole: "inspector",
+        raisedByPartyId: INSPECTOR,
+        resolution: null,
+        resolvedAt: null,
+        createdAt: "2026-12-05T10:00:00.000Z",
+      },
+      {
+        id: "i-buyer",
+        kind: "shortfall",
+        description: "2 cartons manquants",
+        status: "resolved",
+        raisedByName: "Camille Roy",
+        raisedByRole: "buyer",
+        raisedByPartyId: BUYER,
+        resolution: "Avoir émis par le fournisseur",
+        resolvedAt: "2026-12-20T10:00:00.000Z",
+        createdAt: "2026-12-18T10:00:00.000Z",
+      },
+    ],
+  });
+
+  // "A gap becomes an issue the buyer sees."
+  it("shows the buyer and staff every issue", () => {
+    expect(ids(projectDossier(withIssues(), buyer).issues)).toEqual(["i-buyer", "i-insp"]);
+    expect(ids(projectDossier(withIssues(), staff).issues)).toEqual(["i-buyer", "i-insp"]);
+  });
+
+  it("shows a partner the issues it raised, and no other", () => {
+    expect(ids(projectDossier(withIssues(), inspector).issues)).toEqual(["i-insp"]);
+    expect(projectDossier(withIssues(), carrier).issues).toEqual([]);
+  });
+
+  // What an inspector found reaches the supplier through OSI.
+  it("shows the supplier none of them", () => {
+    const page = projectDossier(withIssues(), supplier);
+    expect(page.issues).toEqual([]);
+    expect(JSON.stringify(page)).not.toContain("Dureté");
+    expect(page.canRaiseIssue).toBe(false);
+  });
+
+  it("says which side raised an issue — the person is staff's to know", () => {
+    const forBuyer = projectDossier(withIssues(), buyer).issues;
+    expect(forBuyer.map((i) => [i.raisedByRole, i.mine])).toEqual([
+      ["buyer", true],
+      ["inspector", false],
+    ]);
+    expect(JSON.stringify(forBuyer)).not.toContain("Ana Inspector");
+    expect(projectDossier(withIssues(), staff).issues[1]!.raisedByName).toBe("Ana Inspector");
+  });
+
+  it("lets staff, the buyer and a partner raise one — until the dossier is closed", () => {
+    for (const audience of [staff, buyer, inspector, carrier]) {
+      expect(mayRaiseIssue(audience, "in_production")).toBe(true);
+      // A buyer finds damage after delivery, not before.
+      expect(mayRaiseIssue(audience, "delivered")).toBe(true);
+      expect(mayRaiseIssue(audience, "closed")).toBe(false);
+      expect(mayRaiseIssue(audience, "cancelled")).toBe(false);
+    }
+    expect(mayRaiseIssue(supplier, "in_production")).toBe(false);
+  });
+
+  it("leaves settling to staff", () => {
+    expect(projectDossier(withIssues(), staff).canSettleIssues).toBe(true);
+    for (const audience of [buyer, supplier, inspector]) {
+      expect(projectDossier(withIssues(), audience).canSettleIssues).toBe(false);
+    }
+  });
+
+  // "The dossier cannot be closed while one is open."
+  it("counts what stands in the way of closing: the open ones, not the disputed", () => {
+    expect(openIssues(withIssues().issues!)).toBe(1);
+    expect(openIssues([{ status: "resolved" }, { status: "disputed" }])).toBe(0);
+    expect(openIssues([])).toBe(0);
+  });
+
+  it("is read only by its own party once raised", () => {
+    expect(maySeeIssue(inspector, { raisedByPartyId: INSPECTOR })).toBe(true);
+    expect(maySeeIssue(carrier, { raisedByPartyId: INSPECTOR })).toBe(false);
+    expect(maySeeIssue(supplier, { raisedByPartyId: null })).toBe(false);
   });
 });

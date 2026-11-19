@@ -12,8 +12,12 @@
 
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { DEAL_ISSUE_KINDS } from "@/database/schema";
 import type { DossierView } from "@/lib/dossier";
+import { MILESTONE_KINDS, isMilestoneKind } from "@/lib/milestones";
 import type { DossierSummary, DossierWriteResult } from "@/server/dossier";
+import type { IssueWriteResult } from "@/server/issues";
+import type { MilestoneWriteResult } from "@/server/milestones";
 import type { HubAnswerResult, HubCaseDetail, HubCaseSummary } from "@/server/partner-hub";
 
 export type { HubAnswerResult, HubCaseDetail, HubCaseSummary };
@@ -148,4 +152,73 @@ export const postHubMessageFn = createServerFn({ method: "POST" })
     if (!who) return { ok: false, reason: "not_found" };
     const { postMessage } = await import("@/server/dossier");
     return postMessage({ kind: "partner", ...who }, data.threadId, data.body);
+  });
+
+// ── a partner's own work on a dossier (V28) ─────────────────────────────────
+//
+// A partner records the milestones of ITS role — an inspector the inspection
+// — and raises what it finds as an issue. Its report is uploaded through
+// /api/partner/milestone-proof.
+
+const hubMilestoneKind = z.enum(MILESTONE_KINDS as [string, ...string[]]);
+
+/** Say when one of the caller's own milestones is meant to happen. */
+export const planHubMilestoneFn = createServerFn({ method: "POST" })
+  .inputValidator(
+    z.object({
+      dealId: z.string().min(1).max(100),
+      kind: hubMilestoneKind,
+      plannedAt: z
+        .string()
+        .regex(/^\d{4}-\d{2}-\d{2}$/)
+        .nullable(),
+    }),
+  )
+  .handler(async ({ data }): Promise<MilestoneWriteResult> => {
+    const who = await partnerCaller();
+    if (!who || !isMilestoneKind(data.kind)) return { ok: false, reason: "not_found" };
+    const { planMilestone } = await import("@/server/milestones");
+    return planMilestone(
+      { kind: "partner", ...who },
+      data.dealId,
+      data.kind,
+      data.plannedAt ? new Date(`${data.plannedAt}T00:00:00.000Z`) : null,
+    );
+  });
+
+/** Record that one of the caller's own milestones happened. */
+export const completeHubMilestoneFn = createServerFn({ method: "POST" })
+  .inputValidator(
+    z.object({
+      dealId: z.string().min(1).max(100),
+      kind: hubMilestoneKind,
+      note: z
+        .string()
+        .trim()
+        .max(1000)
+        .nullable()
+        .transform((value) => (value ? value : null)),
+    }),
+  )
+  .handler(async ({ data }): Promise<MilestoneWriteResult> => {
+    const who = await partnerCaller();
+    if (!who || !isMilestoneKind(data.kind)) return { ok: false, reason: "not_found" };
+    const { completeMilestone } = await import("@/server/milestones");
+    return completeMilestone({ kind: "partner", ...who }, data.dealId, data.kind, data.note);
+  });
+
+/** Raise what the caller found as an issue on the dossier. */
+export const raiseHubIssueFn = createServerFn({ method: "POST" })
+  .inputValidator(
+    z.object({
+      dealId: z.string().min(1).max(100),
+      kind: z.enum(DEAL_ISSUE_KINDS),
+      description: z.string().trim().min(5).max(2000),
+    }),
+  )
+  .handler(async ({ data }): Promise<IssueWriteResult> => {
+    const who = await partnerCaller();
+    if (!who) return { ok: false, reason: "not_found" };
+    const { raiseIssue } = await import("@/server/issues");
+    return raiseIssue({ kind: "partner", ...who }, data.dealId, data);
   });

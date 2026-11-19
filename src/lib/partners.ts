@@ -55,3 +55,20 @@ export function partnerKindAvailable(kind: PartnerKind): boolean {
  */
 export const PARTNER_PROVIDERS = ["manual"] as const;
 export type PartnerProvider = (typeof PARTNER_PROVIDERS)[number];
+
+/**
+ * The role each kind of partner holds ON A DOSSIER (V25) — the contracts'
+ * vocabulary. `insurance` has no role of its own there and is `other`; the
+ * kind is kept on the party so nothing is lost. Here, beside the kinds,
+ * because the dossier and the milestones both read it.
+ */
+export const PARTY_ROLE_OF: Record<
+  PartnerKind,
+  "carrier" | "customs_broker" | "inspector" | "other"
+> = {
+  transport: "carrier",
+  customs: "customs_broker",
+  inspection: "inspector",
+  insurance: "other",
+  settlement: "other",
+};

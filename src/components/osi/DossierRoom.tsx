@@ -1,12 +1,22 @@
 import { useState, type FormEvent, type ReactNode } from "react";
-import { Download, FileText, ListChecks, Loader2, MessageSquare, Upload } from "lucide-react";
+import {
+  AlertTriangle,
+  Download,
+  FileText,
+  ListChecks,
+  Loader2,
+  MessageSquare,
+  Upload,
+} from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { DEAL_ISSUE_KINDS, type DealIssueKind } from "@/database/schema";
 import type {
   DocumentView,
   DossierView,
+  IssueView,
   MilestoneView,
   PartyView,
   ThreadView,
@@ -38,6 +48,7 @@ export function DossierRoom({
   onPost,
   upload,
   milestones,
+  issues,
   children,
 }: {
   view: DossierView;
@@ -62,6 +73,21 @@ export function DossierRoom({
         onComplete: (kind: MilestoneKind, note: string | null) => Promise<RoomResult>;
         /** Where this side posts a proof (multipart: dealId, milestone, file). */
         proofEndpoint: string;
+        onDone: () => void;
+      }
+    | undefined;
+  /**
+   * How this reader raises an issue, and — staff — settles one (V28). Left
+   * out for a reader who does neither.
+   */
+  issues?:
+    | {
+        onRaise: (kind: DealIssueKind, description: string) => Promise<RoomResult>;
+        onSettle?: (
+          issueId: string,
+          status: "resolved" | "disputed",
+          resolution: string,
+        ) => Promise<RoomResult>;
         onDone: () => void;
       }
     | undefined;
@@ -138,6 +164,31 @@ export function DossierRoom({
           ))}
         </ol>
       </section>
+
+      {/* ── what is not as agreed (V28) — shown when there is something to
+          show, or something this reader can do ── */}
+      {(view.issues.length > 0 || (view.canRaiseIssue && issues)) && (
+        <section className="card-surface p-5">
+          <h2 className="flex items-center gap-2 text-sm font-semibold">
+            <AlertTriangle className="size-4" /> {t("room.issues")}
+          </h2>
+          {view.issues.length === 0 ? (
+            <p className="mt-2 text-sm text-muted-foreground">{t("room.noIssue")}</p>
+          ) : (
+            <ul className="mt-3 space-y-3">
+              {view.issues.map((issue) => (
+                <IssueRow
+                  key={issue.id}
+                  issue={issue}
+                  staff={staff}
+                  actions={view.canSettleIssues ? issues : undefined}
+                />
+              ))}
+            </ul>
+          )}
+          {view.canRaiseIssue && issues && <RaiseIssue actions={issues} />}
+        </section>
+      )}
 
       {/* ── the retained offer — or, for a partner, what its work needs ── */}
       {view.offer && (
@@ -481,6 +532,183 @@ function MilestoneRow({
         </p>
       )}
     </li>
+  );
+}
+
+const ISSUE_STYLE: Record<IssueView["status"], string> = {
+  open: "bg-destructive/15 text-destructive",
+  resolved: "bg-success/15 text-success",
+  disputed: "bg-gold-soft text-gold",
+};
+
+type IssueActions = {
+  onRaise: (kind: DealIssueKind, description: string) => Promise<RoomResult>;
+  onSettle?: (
+    issueId: string,
+    status: "resolved" | "disputed",
+    resolution: string,
+  ) => Promise<RoomResult>;
+  onDone: () => void;
+};
+
+function IssueRow({
+  issue,
+  staff,
+  actions,
+}: {
+  issue: IssueView;
+  staff: boolean;
+  actions: IssueActions | undefined;
+}) {
+  const { t, i18n } = useTranslation();
+  const [resolution, setResolution] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [refusal, setRefusal] = useState<string | null>(null);
+
+  const settle = async (status: "resolved" | "disputed") => {
+    if (busy || !actions?.onSettle || resolution.trim().length < 5) return;
+    setBusy(true);
+    setRefusal(null);
+    try {
+      const result = await actions.onSettle(issue.id, status, resolution.trim());
+      if (!result.ok) setRefusal(result.reason ?? "not_found");
+      else actions.onDone();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <li className="rounded-lg border border-border p-3 text-sm">
+      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
+        <div className="min-w-0">
+          <p className="font-medium">{t(`room.issueKind.${issue.kind}`)}</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            {issue.mine
+              ? t("room.raisedByYou")
+              : t("room.raisedBy", { party: t(`contrats.role.${issue.raisedByRole}`) })}
+            {staff && issue.raisedByName ? ` — ${issue.raisedByName}` : ""}
+            {" · "}
+            {formatDayTime(issue.createdAt, i18n.language)}
+          </p>
+          <p className="mt-1 whitespace-pre-line">{issue.description}</p>
+          {issue.resolution && (
+            <p className="mt-2 rounded-md bg-secondary/50 px-2 py-1.5 text-xs">
+              <span className="font-semibold">{t(`room.settled.${issue.status}`)}</span>
+              {issue.resolvedAt ? ` · ${formatDay(issue.resolvedAt, i18n.language)}` : ""}
+              <span className="mt-0.5 block whitespace-pre-line">{issue.resolution}</span>
+            </p>
+          )}
+        </div>
+        <span
+          className={cn(
+            "shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold",
+            ISSUE_STYLE[issue.status],
+          )}
+        >
+          {t(`room.issueStatus.${issue.status}`)}
+        </span>
+      </div>
+      {actions?.onSettle && issue.status === "open" && (
+        <div className="mt-3 space-y-2 border-t border-border pt-3">
+          <Textarea
+            value={resolution}
+            onChange={(e) => setResolution(e.target.value)}
+            maxLength={2000}
+            rows={2}
+            placeholder={t("room.resolution")}
+            aria-label={t("room.resolution")}
+          />
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={busy || resolution.trim().length < 5}
+              onClick={() => void settle("resolved")}
+            >
+              {t("room.markResolved")}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              disabled={busy || resolution.trim().length < 5}
+              onClick={() => void settle("disputed")}
+            >
+              {t("room.markDisputed")}
+            </Button>
+          </div>
+        </div>
+      )}
+      {refusal && (
+        <p role="alert" className="mt-2 text-xs text-destructive">
+          {t(`room.issueRefused.${refusal}`, t("room.issueRefused.other"))}
+        </p>
+      )}
+    </li>
+  );
+}
+
+function RaiseIssue({ actions }: { actions: IssueActions }) {
+  const { t } = useTranslation();
+  const [kind, setKind] = useState<DealIssueKind>("nonconformity");
+  const [description, setDescription] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [refusal, setRefusal] = useState<string | null>(null);
+
+  const raise = async (event: FormEvent) => {
+    event.preventDefault();
+    if (busy) return;
+    setBusy(true);
+    setRefusal(null);
+    try {
+      const result = await actions.onRaise(kind, description.trim());
+      if (!result.ok) setRefusal(result.reason ?? "not_found");
+      else {
+        setDescription("");
+        actions.onDone();
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <form className="mt-4 space-y-2 border-t border-border pt-4" onSubmit={(e) => void raise(e)}>
+      <p className="text-xs font-medium">{t("room.raiseIssue")}</p>
+      <select
+        value={kind}
+        onChange={(e) => setKind(e.target.value as DealIssueKind)}
+        aria-label={t("room.issueKindLabel")}
+        className="h-9 w-full max-w-xs rounded-md border border-input bg-background px-3 text-sm"
+      >
+        {DEAL_ISSUE_KINDS.map((value) => (
+          <option key={value} value={value}>
+            {t(`room.issueKind.${value}`)}
+          </option>
+        ))}
+      </select>
+      <Textarea
+        value={description}
+        onChange={(e) => setDescription(e.target.value)}
+        maxLength={2000}
+        minLength={5}
+        required
+        rows={3}
+        placeholder={t("room.issueDescription")}
+        aria-label={t("room.issueDescription")}
+      />
+      {refusal && (
+        <p role="alert" className="text-xs text-destructive">
+          {t(`room.issueRefused.${refusal}`, t("room.issueRefused.other"))}
+        </p>
+      )}
+      <Button type="submit" size="sm" variant="outline" disabled={busy}>
+        {busy && <Loader2 className="size-4 animate-spin" />}
+        {t("room.raiseIssueSubmit")}
+      </Button>
+    </form>
   );
 }
 

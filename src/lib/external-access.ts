@@ -90,6 +90,11 @@ export const EXTERNAL_FNS = {
   getHubDossierFn: "one of those dossiers, the partner's slice",
   startHubThreadFn: "the caller's own thread with OSI",
   postHubMessageFn: "the caller's own message, in a thread they are in",
+  // A partner's own work on a dossier (V28): the milestones of its role, and
+  // what it found.
+  planHubMilestoneFn: "the planned date of the caller's own milestone",
+  completeHubMilestoneFn: "the caller's own milestone, recorded as done",
+  raiseHubIssueFn: "an issue the caller raises on a dossier it is a party to",
 } as const;
 
 /**
@@ -119,7 +124,11 @@ export const EXTERNAL_API_ROUTES = [
  * The same, for a partner's people (V25) — behind the PARTNER guard, under
  * their own path. A supplier's route never answers a partner and the reverse.
  */
-export const PARTNER_API_ROUTES = ["src/routes/api/partner/file.$id.ts"] as const;
+export const PARTNER_API_ROUTES = [
+  "src/routes/api/partner/file.$id.ts",
+  // V28: a partner attaches its report to a milestone of its own.
+  "src/routes/api/partner/milestone-proof.ts",
+] as const;
 
 /**
  * The only modules that may import the unguarded session getter

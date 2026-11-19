@@ -35,7 +35,13 @@
 //    when it is not told WHO: "and 1 other party". A shared conversation is
 //    never mistaken for a private one.
 
-import type { ContractPartyRole, DealStatus, QuoteChannel } from "@/database/schema";
+import type {
+  ContractPartyRole,
+  DealIssueKind,
+  DealIssueStatus,
+  DealStatus,
+  QuoteChannel,
+} from "@/database/schema";
 import {
   MILESTONE_KINDS,
   mayRecordMilestone,
@@ -44,18 +50,11 @@ import {
   type MilestoneKind,
 } from "@/lib/milestones";
 import { caseNeeds, factsForCase, type CaseFacts } from "@/lib/partner-need";
-import type { PartnerKind } from "@/lib/partners";
+import { PARTY_ROLE_OF, type PartnerKind } from "@/lib/partners";
 
-/** The dossier role each kind of partner holds. `insurance` has no role of
- *  its own in the contracts' vocabulary and is `other`; the kind is kept on
- *  the party so nothing is lost. */
-export const PARTY_ROLE_OF: Record<PartnerKind, ContractPartyRole> = {
-  transport: "carrier",
-  customs: "customs_broker",
-  inspection: "inspector",
-  insurance: "other",
-  settlement: "other",
-};
+// The dossier role of each kind of partner lives with the partner kinds
+// (src/lib/partners.ts) and is re-exported here, where the dossier reads it.
+export { PARTY_ROLE_OF };
 
 export type DossierAudience =
   | { kind: "staff" }
@@ -97,6 +96,21 @@ export type DossierMilestone = {
   channel: QuoteChannel;
   updatedByName: string | null;
   updatedAt: string;
+};
+
+/** Something not as agreed (V28), as recorded. */
+export type DossierIssue = {
+  id: string;
+  kind: DealIssueKind;
+  description: string;
+  status: DealIssueStatus;
+  raisedByName: string;
+  raisedByRole: ContractPartyRole;
+  /** The party that raised it — null for OSI. */
+  raisedByPartyId: string | null;
+  resolution: string | null;
+  resolvedAt: string | null;
+  createdAt: string;
 };
 
 export type DossierMessage = {
@@ -146,6 +160,7 @@ export type FullDossier = {
   threads: DossierThread[];
   /** Absent on a dossier built before V27's reader: the same as none. */
   milestones?: DossierMilestone[];
+  issues?: DossierIssue[];
 };
 
 export type PartyView = {
@@ -210,6 +225,28 @@ export type MilestoneView = {
   canRecord: boolean;
 };
 
+/**
+ * An issue as a reader sees it (V28). Read by staff, by the BUYER — whose
+ * goods it is about — and by the party that raised it. Not by the supplier:
+ * what an inspector found reaches a supplier through OSI, in OSI's words, the
+ * way everything between two sides does.
+ */
+export type IssueView = {
+  id: string;
+  kind: DealIssueKind;
+  description: string;
+  status: DealIssueStatus;
+  /** Which side raised it. */
+  raisedByRole: ContractPartyRole;
+  /** The reader's own side raised it. */
+  mine: boolean;
+  /** STAFF ONLY — the person. */
+  raisedByName?: string;
+  resolution: string | null;
+  resolvedAt: string | null;
+  createdAt: string;
+};
+
 export type MessageView = {
   id: string;
   /** Which side spoke. */
@@ -257,6 +294,11 @@ export type DossierView = {
   documents: DocumentView[];
   threads: ThreadView[];
   milestones: MilestoneView[];
+  /** What is not as agreed, for the readers it concerns (V28). */
+  issues: IssueView[];
+  /** This reader may raise an issue / settle one. */
+  canRaiseIssue: boolean;
+  canSettleIssues: boolean;
 };
 
 // ── reading ─────────────────────────────────────────────────────────────────
@@ -354,6 +396,9 @@ export function projectDossier(full: FullDossier, audience: DossierAudience): Do
     full.parties.filter((party) => ids.includes(party.id) && !partyFor(party, audience, full))
       .length;
 
+  /** The reader's own role on the dossier — null for staff. */
+  const ownRole = full.parties.find((party) => party.id === own)?.role ?? null;
+
   const version = (doc: DossierDocument): DocumentVersionView => ({
     id: doc.id,
     fileId: doc.fileId,
@@ -384,6 +429,23 @@ export function projectDossier(full: FullDossier, audience: DossierAudience): Do
     ...(audience.kind === "staff" || audience.kind === "supplier"
       ? { buyerDisclosedAt: full.deal.buyerDisclosedAt }
       : {}),
+    issues: (full.issues ?? [])
+      .filter((issue) => maySeeIssue(audience, issue))
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .map((issue) => ({
+        id: issue.id,
+        kind: issue.kind,
+        description: issue.description,
+        status: issue.status,
+        raisedByRole: issue.raisedByRole,
+        mine: staff ? issue.raisedByPartyId === null : issue.raisedByPartyId === own,
+        ...(staff ? { raisedByName: issue.raisedByName } : {}),
+        resolution: issue.resolution,
+        resolvedAt: issue.resolvedAt,
+        createdAt: issue.createdAt,
+      })),
+    canRaiseIssue: mayRaiseIssue(audience, full.deal.status),
+    canSettleIssues: staff,
     milestones: MILESTONE_KINDS.map((kind): MilestoneView => {
       const recorded = (full.milestones ?? []).find((milestone) => milestone.kind === kind);
       return {
@@ -393,19 +455,22 @@ export function projectDossier(full: FullDossier, audience: DossierAudience): Do
         completedAt: recorded?.completedAt ?? null,
         channel: recorded?.channel ?? null,
         updatedAt: recorded?.updatedAt ?? null,
-        // A partner is told what happened and when — not what a supplier
-        // wrote about its production, nor shown its photos.
-        ...(audience.kind === "partner" ? {} : { note: recorded?.note ?? null }),
+        // WHAT WAS SAID about a milestone is read by staff, by the buyer, and
+        // by the side whose work it is — nobody else. A carrier does not read
+        // the supplier's production note; the supplier does not read what an
+        // inspector wrote about its goods (that reaches it through OSI).
+        ...(staff || audience.kind === "buyer" || ownRole === milestoneOwner(kind)
+          ? { note: recorded?.note ?? null }
+          : {}),
         ...(staff ? { recordedByName: recorded?.updatedByName ?? null } : {}),
-        proofs:
-          recorded && audience.kind !== "partner"
-            ? full.documents
-                .filter(
-                  (doc) => doc.milestoneId === recorded.id && mayRead(audience, doc.sharedWith),
-                )
-                .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
-                .map(version)
-            : [],
+        // The evidence, for whoever it is shared with — the buyer and the
+        // party whose work it is. One rule for every reader: `shared_with`.
+        proofs: recorded
+          ? full.documents
+              .filter((doc) => doc.milestoneId === recorded.id && mayRead(audience, doc.sharedWith))
+              .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+              .map(version)
+          : [],
         canRecord: milestonesOpen(full.deal.status) && mayRecordMilestone(audience, kind),
       };
     }),
@@ -439,6 +504,37 @@ export function projectDossier(full: FullDossier, audience: DossierAudience): Do
         })),
       })),
   };
+}
+
+// ── issues (V28) ────────────────────────────────────────────────────────────
+
+/** Who reads an issue: staff, the buyer, and the party that raised it. */
+export function maySeeIssue(
+  audience: DossierAudience,
+  issue: Pick<DossierIssue, "raisedByPartyId">,
+): boolean {
+  if (audience.kind === "staff" || audience.kind === "buyer") return true;
+  return issue.raisedByPartyId === audience.partyId;
+}
+
+/**
+ * Who may RAISE one, and when. Staff, the buyer, and a partner — the one sent
+ * to look, an inspector first of all. Not the supplier: a supplier with
+ * something to say writes to OSI. From the day the dossier opens until it is
+ * closed — a buyer finds damage after delivery, not before.
+ */
+export function mayRaiseIssue(audience: DossierAudience, status: DealStatus): boolean {
+  if (status === "closed" || status === "cancelled") return false;
+  return audience.kind !== "supplier";
+}
+
+/**
+ * Does anything stand in the way of CLOSING the dossier? An issue still
+ * `open` does. A `disputed` one does not: it is a disagreement on record, and
+ * a dossier kept open forever settles nothing.
+ */
+export function openIssues(issues: ReadonlyArray<{ status: DealIssueStatus }>): number {
+  return issues.filter((issue) => issue.status === "open").length;
 }
 
 // ── writing ─────────────────────────────────────────────────────────────────

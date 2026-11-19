@@ -2,7 +2,14 @@ import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { ArrowLeft } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { DossierRoom } from "@/components/osi/DossierRoom";
-import { getHubDossierFn, postHubMessageFn, startHubThreadFn } from "@/lib/partner-portal-fns";
+import {
+  completeHubMilestoneFn,
+  getHubDossierFn,
+  planHubMilestoneFn,
+  postHubMessageFn,
+  raiseHubIssueFn,
+  startHubThreadFn,
+} from "@/lib/partner-portal-fns";
 
 // The Transaction Room, a PARTNER's page (Phase V · V25).
 //
@@ -54,6 +61,21 @@ function PartnerDossier() {
           const result = await postHubMessageFn({ data: { threadId, body } });
           if (result.ok) refresh();
           return result;
+        }}
+        // A partner records the milestones of its own role (V28) and attaches
+        // its report; the controls show only on those.
+        milestones={{
+          onPlan: (kind, plannedAt) =>
+            planHubMilestoneFn({ data: { dealId: view.deal.id, kind, plannedAt } }),
+          onComplete: (kind, note) =>
+            completeHubMilestoneFn({ data: { dealId: view.deal.id, kind, note } }),
+          proofEndpoint: "/api/partner/milestone-proof",
+          onDone: refresh,
+        }}
+        issues={{
+          onRaise: (kind, description) =>
+            raiseHubIssueFn({ data: { dealId: view.deal.id, kind, description } }),
+          onDone: refresh,
         }}
       />
     </section>

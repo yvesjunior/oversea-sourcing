@@ -14,14 +14,16 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import type { DossierView } from "@/lib/dossier";
 import type { PartnerKind } from "@/lib/partners";
+import { DEAL_ISSUE_KINDS } from "@/database/schema";
 import type {
   DossierReader,
   DossierSummary,
   DossierWriteResult,
   PartyWriteResult,
 } from "@/server/dossier";
+import type { IssueWriteResult } from "@/server/issues";
 
-export type { DossierSummary, DossierView, DossierWriteResult, PartyWriteResult };
+export type { DossierSummary, DossierView, DossierWriteResult, IssueWriteResult, PartyWriteResult };
 
 /** `write`: a viewer of the workspace reads a dossier and changes nothing. */
 async function workspaceReader(write = false): Promise<DossierReader | null> {
@@ -144,4 +146,38 @@ export const discloseBuyerFn = createServerFn({ method: "POST" })
     const { discloseBuyer } = await import("@/server/dossier");
     const done = await discloseBuyer(data.dealId, { id: reader.userId, name: reader.userName });
     return done ? { ok: true } : { ok: false, reason: "not_found" };
+  });
+
+// ── issues (V28) ────────────────────────────────────────────────────────────
+
+/** Raise an issue on a dossier — the buyer, or staff. */
+export const raiseIssueFn = createServerFn({ method: "POST" })
+  .inputValidator(
+    z.object({
+      dealId: z.string().min(1).max(100),
+      kind: z.enum(DEAL_ISSUE_KINDS),
+      description: z.string().trim().min(5).max(2000),
+    }),
+  )
+  .handler(async ({ data }): Promise<IssueWriteResult> => {
+    const reader = await workspaceReader(true);
+    if (!reader) return { ok: false, reason: "forbidden" };
+    const { raiseIssue } = await import("@/server/issues");
+    return raiseIssue(reader, data.dealId, data);
+  });
+
+/** STAFF: settle an issue — resolved, with what was done; or disputed. */
+export const settleIssueFn = createServerFn({ method: "POST" })
+  .inputValidator(
+    z.object({
+      issueId: z.string().min(1).max(100),
+      status: z.enum(["resolved", "disputed"]),
+      resolution: z.string().trim().min(5).max(2000),
+    }),
+  )
+  .handler(async ({ data }): Promise<IssueWriteResult> => {
+    const reader = await workspaceReader(true);
+    if (!reader) return { ok: false, reason: "forbidden" };
+    const { settleIssue } = await import("@/server/issues");
+    return settleIssue(reader, data.issueId, data);
   });

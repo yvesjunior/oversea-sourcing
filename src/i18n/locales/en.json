@@ -650,7 +650,11 @@
     "milestone_production_started": "Production started",
     "milestone_production_finished": "Production finished",
     "milestone_shipped": "Goods shipped",
-    "milestone_delivered": "Goods delivered"
+    "milestone_delivered": "Goods delivered",
+    "milestone_inspection": "Inspection carried out",
+    "issue_raised": "A discrepancy was reported",
+    "issue_resolved": "A discrepancy was resolved",
+    "issue_disputed": "A discrepancy is disputed"
   },
   "stepsDemande": {
     "received": {
@@ -1185,7 +1189,9 @@
     "dossier.buyer_disclosed": "Client’s identity disclosed to the supplier",
     "dossier.document_added": "Document added to a dossier",
     "dossier.document_versioned": "New version of a dossier document",
-    "dossier.milestone_completed": "Dossier step recorded as done"
+    "dossier.milestone_completed": "Dossier step recorded as done",
+    "dossier.issue_raised": "Discrepancy reported on a dossier",
+    "dossier.issue_settled": "Discrepancy settled on a dossier"
   },
   "twofa": {
     "title": "Two-step verification",
@@ -2412,7 +2418,8 @@
       "production_started": "Production started",
       "production_finished": "Production finished",
       "shipped": "Shipment",
-      "delivered": "Delivery"
+      "delivered": "Delivery",
+      "inspection": "Inspection"
     },
     "state": {
       "done": "Done",
@@ -2446,6 +2453,40 @@
       "upload_413": "File too large (10 MB at most).",
       "upload_415": "Format not accepted: PDF, PNG or JPEG.",
       "other": "The update could not be recorded."
+    },
+    "issues": "Discrepancies and disputes",
+    "noIssue": "No discrepancy reported.",
+    "raiseIssue": "Report a discrepancy",
+    "issueKindLabel": "Kind of discrepancy",
+    "issueKind": {
+      "nonconformity": "Nonconformity",
+      "damage": "Damage",
+      "shortfall": "Shortfall",
+      "delay": "Delay",
+      "other": "Other"
+    },
+    "issueDescription": "Describe what is not as agreed.",
+    "raiseIssueSubmit": "Report",
+    "issueStatus": {
+      "open": "Open",
+      "resolved": "Resolved",
+      "disputed": "Disputed"
+    },
+    "raisedBy": "Reported by: {{party}}",
+    "raisedByYou": "Reported by you",
+    "settled": {
+      "resolved": "Resolved",
+      "disputed": "Disputed",
+      "open": "Open"
+    },
+    "resolution": "What was done, or why the parties do not agree (required)",
+    "markResolved": "Mark as resolved",
+    "markDisputed": "Mark as disputed",
+    "issueRefused": {
+      "not_found": "This dossier or discrepancy cannot be found.",
+      "forbidden": "You cannot do this on this dossier.",
+      "already_settled": "This discrepancy is already settled.",
+      "other": "The discrepancy could not be recorded."
     }
   },
   "portalContract": {

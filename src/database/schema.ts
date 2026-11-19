@@ -2251,6 +2251,58 @@ export const orderMilestone = pgTable(
   (table) => [uniqueIndex("order_milestone_deal_kind_uq").on(table.dealId, table.kind)],
 );
 
+export const DEAL_ISSUE_KINDS = ["nonconformity", "damage", "shortfall", "delay", "other"] as const;
+export type DealIssueKind = (typeof DEAL_ISSUE_KINDS)[number];
+
+/**
+ * - `open`      raised, nothing settled — a dossier cannot be closed over it
+ * - `resolved`  settled, with what was done about it (`resolution`)
+ * - `disputed`  the parties do not agree on it. On record, and no longer
+ *               `open` — see below for what that means for closing
+ */
+export const DEAL_ISSUE_STATUSES = ["open", "resolved", "disputed"] as const;
+export type DealIssueStatus = (typeof DEAL_ISSUE_STATUSES)[number];
+
+/**
+ * Something that is not as agreed on a dossier (Phase V · V28): goods that do
+ * not conform, damage, a shortfall, a delay.
+ *
+ * Raised by whoever sees it — an inspector, the buyer at reception, staff —
+ * and tracked to a resolution, which is staff's to record: OSI is the one
+ * party that speaks to every side. `raised_by_role` is the SIDE that raised
+ * it, kept as a snapshot beside the person's name.
+ *
+ * A dossier is not closed while an issue is `open` (V31 enforces it). A
+ * `disputed` one does not block: it is a disagreement on record, and keeping
+ * a dossier open forever is not how a disagreement is settled.
+ */
+export const dealIssue = pgTable(
+  "deal_issue",
+  {
+    id: text("id").primaryKey(),
+    dealId: text("deal_id")
+      .notNull()
+      .references(() => deal.id, { onDelete: "cascade" }),
+    kind: text("kind").$type<DealIssueKind>().notNull(),
+    description: text("description").notNull(),
+    status: text("status").$type<DealIssueStatus>().notNull().default("open"),
+    raisedBy: text("raised_by").references(() => user.id, { onDelete: "set null" }),
+    raisedByName: text("raised_by_name").notNull(),
+    raisedByRole: text("raised_by_role").$type<ContractPartyRole>().notNull(),
+    /** The party that raised it — null for OSI. Decides who else reads it. */
+    raisedByPartyId: text("raised_by_party_id").references(() => dealParty.id, {
+      onDelete: "set null",
+    }),
+    resolution: text("resolution"),
+    resolvedBy: text("resolved_by").references(() => user.id, { onDelete: "set null" }),
+    resolvedByName: text("resolved_by_name"),
+    resolvedAt: timestamp("resolved_at"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (table) => [index("deal_issue_deal_idx").on(table.dealId)],
+);
+
 /**
  * An exchange on a dossier (Phase V · V25; P10's thread).
  *
@@ -2495,7 +2547,7 @@ export const contractEvent = pgTable(
  * capability. `valid_until` on `quote` sat unwritten for two weeks and taught
  * that lesson.
  */
-export const DOCUMENT_KINDS = ["offer", "other", "dossier", "proof"] as const;
+export const DOCUMENT_KINDS = ["offer", "other", "dossier", "proof", "inspection"] as const;
 export type DocumentKind = (typeof DOCUMENT_KINDS)[number];
 
 /**
