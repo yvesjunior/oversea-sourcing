@@ -1,13 +1,15 @@
 import { describe, expect, it } from "vitest";
 import {
-  MILESTONE_KINDS,
   MILESTONES,
+  MILESTONE_KINDS,
+  PAPERWORK,
   canComplete,
   isMilestoneKind,
   mayRecordMilestone,
   milestoneOwner,
   milestoneState,
   milestonesOpen,
+  paperworkKind,
   statusAfter,
   wasLate,
 } from "@/lib/milestones";
@@ -17,16 +19,28 @@ import type { DossierAudience } from "@/lib/dossier";
 const now = new Date("2026-12-10T15:00:00Z");
 
 describe("the milestones of a dossier", () => {
-  it("are five, in the order they happen", () => {
+  it("are seven, in the order they happen", () => {
     expect([...MILESTONE_KINDS]).toEqual([
       "production_started",
       "production_finished",
       "inspection",
+      "booking",
       "shipped",
+      "customs_cleared",
       "delivered",
     ]);
     expect(isMilestoneKind("shipped")).toBe(true);
     expect(isMilestoneKind("paid")).toBe(false);
+  });
+
+  // V29's schema note: "Statuses are order_milestone rows of the transport
+  // and customs kinds — no parallel status table."
+  it("carry the logistics partners' statuses as milestones of their own roles", () => {
+    expect(milestoneOwner("booking")).toBe("carrier");
+    expect(milestoneOwner("customs_cleared")).toBe("customs_broker");
+    // Optional: a dossier whose transport OSI follows by phone still ships.
+    const optional = MILESTONES.filter((m) => m.optional).map((m) => m.kind);
+    expect(optional).toEqual(["inspection", "booking", "customs_cleared"]);
   });
 
   // `transitionDeal` finally gets its callers — and only legal ones.
@@ -129,18 +143,33 @@ describe("who records a milestone", () => {
     ] as const) {
       expect(mayRecordMilestone(inspector, kind), kind).toBe(false);
     }
+    expect(mayRecordMilestone(carrier, "booking")).toBe(true);
     expect(mayRecordMilestone(carrier, "shipped")).toBe(true);
     expect(mayRecordMilestone(carrier, "delivered")).toBe(true);
     expect(mayRecordMilestone(carrier, "inspection")).toBe(false);
+    expect(mayRecordMilestone(carrier, "customs_cleared")).toBe(false);
     expect(mayRecordMilestone(carrier, "production_started")).toBe(false);
-    // A customs broker and an insurer have no milestone of their own yet.
-    for (const partnerKind of ["customs", "insurance"] as const) {
-      const other: DossierAudience = { kind: "partner", partyId: "p-x", partnerKind };
-      expect(
-        MILESTONE_KINDS.some((kind) => mayRecordMilestone(other, kind)),
-        partnerKind,
-      ).toBe(false);
-    }
+    const broker: DossierAudience = { kind: "partner", partyId: "p-x", partnerKind: "customs" };
+    expect(mayRecordMilestone(broker, "customs_cleared")).toBe(true);
+    expect(mayRecordMilestone(broker, "shipped")).toBe(false);
+    // An insurer has no milestone of its own.
+    const insurer: DossierAudience = { kind: "partner", partyId: "p-y", partnerKind: "insurance" };
+    expect(MILESTONE_KINDS.some((kind) => mayRecordMilestone(insurer, kind))).toBe(false);
+  });
+
+  // V29's acceptance: "A transit agent records a booking and a customs
+  // clearance from the Partner Hub." One person, two partners.
+  it("lets one account that both ships and clears record both", () => {
+    const agent: DossierAudience = {
+      kind: "partner",
+      partyId: "p-c",
+      partnerKind: "transport",
+      also: [{ partyId: "p-x", partnerKind: "customs" }],
+    };
+    expect(mayRecordMilestone(agent, "booking")).toBe(true);
+    expect(mayRecordMilestone(agent, "customs_cleared")).toBe(true);
+    expect(mayRecordMilestone(agent, "inspection")).toBe(false);
+    expect(mayRecordMilestone(agent, "production_started")).toBe(false);
   });
 
   it("attributes production to the supplier and transport to the carrier", () => {
@@ -236,5 +265,30 @@ describe("when milestones can be touched", () => {
     for (const status of ["delivered", "reviewed", "closed", "cancelled"] as const) {
       expect(milestonesOpen(status), status).toBe(false);
     }
+  });
+});
+
+// V29: the paperwork each step produces.
+describe("what a document attached to a milestone is", () => {
+  it("is a bill of lading on shipment unless its uploader says otherwise", () => {
+    expect(paperworkKind("shipped")).toBe("bill_of_lading");
+    expect(paperworkKind("shipped", "packing_list")).toBe("packing_list");
+    expect(paperworkKind("shipped", "insurance")).toBe("insurance");
+  });
+
+  it("is a customs document on clearance and an inspection report on inspection", () => {
+    expect(paperworkKind("customs_cleared")).toBe("customs");
+    expect(paperworkKind("inspection")).toBe("inspection");
+  });
+
+  it("ignores a kind the milestone does not produce", () => {
+    expect(paperworkKind("customs_cleared", "bill_of_lading")).toBe("customs");
+    expect(paperworkKind("production_started", "customs")).toBe("proof");
+    expect(paperworkKind("shipped", "offer")).toBe("bill_of_lading");
+    expect(paperworkKind("shipped", "")).toBe("bill_of_lading");
+  });
+
+  it("names something for every milestone", () => {
+    for (const kind of MILESTONE_KINDS) expect(PAPERWORK[kind].length, kind).toBeGreaterThan(0);
   });
 });

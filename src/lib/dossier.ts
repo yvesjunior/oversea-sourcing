@@ -40,6 +40,7 @@ import type {
   DealIssueKind,
   DealIssueStatus,
   DealStatus,
+  DocumentKind,
   QuoteChannel,
 } from "@/database/schema";
 import {
@@ -60,7 +61,32 @@ export type DossierAudience =
   | { kind: "staff" }
   | { kind: "buyer"; partyId: string }
   | { kind: "supplier"; partyId: string }
-  | { kind: "partner"; partyId: string; partnerKind: PartnerKind };
+  | {
+      kind: "partner";
+      partyId: string;
+      partnerKind: PartnerKind;
+      /**
+       * The OTHER parties this same account holds on the dossier (V29). A
+       * transit agent that both ships and clears customs is two partners —
+       * a partner is a slot, not a company — and one person answers for
+       * both: they read and record as each of them.
+       */
+      also?: ReadonlyArray<{ partyId: string; partnerKind: PartnerKind }>;
+    };
+
+/** Every party this reader holds on the dossier — none for staff, who read
+ *  as OSI. */
+export function ownParties(audience: DossierAudience): string[] {
+  if (audience.kind === "staff") return [];
+  if (audience.kind !== "partner") return [audience.partyId];
+  return [audience.partyId, ...(audience.also ?? []).map((other) => other.partyId)];
+}
+
+/** Every kind of partner this reader is on the dossier. */
+export function partnerKindsOf(audience: DossierAudience): PartnerKind[] {
+  if (audience.kind !== "partner") return [];
+  return [audience.partnerKind, ...(audience.also ?? []).map((other) => other.partnerKind)];
+}
 
 export type DossierParty = {
   id: string;
@@ -84,6 +110,8 @@ export type DossierDocument = {
   /** Set on a PROOF: the milestone it is evidence of (V27). Such a document
    *  is shown under its milestone, not in the dossier's general list. */
   milestoneId?: string | null;
+  /** What the document is (V29) — a bill of lading, a customs entry… */
+  kind?: DocumentKind;
 };
 
 /** A milestone as recorded (V27). A kind nobody has touched has no row. */
@@ -180,6 +208,8 @@ export type DocumentVersionView = {
   size: number;
   version: number;
   createdAt: string;
+  /** What the document is, when it says (V29). */
+  kind?: DocumentKind;
   /** STAFF ONLY — who put it there. */
   uploadedByName?: string | null;
 };
@@ -303,15 +333,11 @@ export type DossierView = {
 
 // ── reading ─────────────────────────────────────────────────────────────────
 
-/** The reader's own party id — null for staff, who read as OSI. */
-function ownParty(audience: DossierAudience): string | null {
-  return audience.kind === "staff" ? null : audience.partyId;
-}
-
 /** May this reader see a thing shared with `listed` parties? */
 export function mayRead(audience: DossierAudience, listed: readonly string[]): boolean {
-  const own = ownParty(audience);
-  return own === null || listed.includes(own);
+  if (audience.kind === "staff") return true;
+  const own = ownParties(audience);
+  return listed.some((id) => own.includes(id));
 }
 
 /**
@@ -323,7 +349,7 @@ export function partyFor(
   audience: DossierAudience,
   dossier: Pick<FullDossier, "deal">,
 ): PartyView | null {
-  const you = ownParty(audience) === party.id;
+  const you = ownParties(audience).includes(party.id);
   const view = (name: string | null): PartyView => ({
     id: party.id,
     role: party.role,
@@ -347,7 +373,10 @@ export function partyFor(
       return view(party.name);
     case "partner":
       if (party.role === "supplier") {
-        return caseNeeds(audience.partnerKind, "supplier_identity") ? view(party.name) : null;
+        // Named when ANY of the reader's kinds of work needs to know.
+        return partnerKindsOf(audience).some((kind) => caseNeeds(kind, "supplier_identity"))
+          ? view(party.name)
+          : null;
       }
       // Never the buyer, never another partner.
       return null;
@@ -383,7 +412,7 @@ export function documentChains(
 /** The dossier as one reader may see it. */
 export function projectDossier(full: FullDossier, audience: DossierAudience): DossierView {
   const staff = audience.kind === "staff";
-  const own = ownParty(audience);
+  const own = ownParties(audience);
   const named = (ids: readonly string[]): PartyView[] =>
     full.parties
       .filter((party) => ids.includes(party.id))
@@ -396,8 +425,8 @@ export function projectDossier(full: FullDossier, audience: DossierAudience): Do
     full.parties.filter((party) => ids.includes(party.id) && !partyFor(party, audience, full))
       .length;
 
-  /** The reader's own role on the dossier — null for staff. */
-  const ownRole = full.parties.find((party) => party.id === own)?.role ?? null;
+  /** The reader's own role(s) on the dossier — none for staff. */
+  const ownRoles = full.parties.filter((party) => own.includes(party.id)).map((p) => p.role);
 
   const version = (doc: DossierDocument): DocumentVersionView => ({
     id: doc.id,
@@ -406,6 +435,7 @@ export function projectDossier(full: FullDossier, audience: DossierAudience): Do
     size: doc.size,
     version: doc.version,
     createdAt: doc.createdAt,
+    ...(doc.kind ? { kind: doc.kind } : {}),
     ...(staff ? { uploadedByName: doc.uploadedByName } : {}),
   });
 
@@ -424,7 +454,14 @@ export function projectDossier(full: FullDossier, audience: DossierAudience): Do
       .map((party) => partyFor(party, audience, full))
       .filter((party): party is PartyView => party !== null),
     ...(audience.kind === "partner"
-      ? { facts: factsForCase(audience.partnerKind, full.facts) }
+      ? {
+          // What its work needs — the union, for an account that holds more
+          // than one kind of work on this dossier.
+          facts: Object.assign(
+            {},
+            ...partnerKindsOf(audience).map((kind) => factsForCase(kind, full.facts)),
+          ) as Partial<CaseFacts>,
+        }
       : { offer: full.offer }),
     ...(audience.kind === "staff" || audience.kind === "supplier"
       ? { buyerDisclosedAt: full.deal.buyerDisclosedAt }
@@ -438,7 +475,9 @@ export function projectDossier(full: FullDossier, audience: DossierAudience): Do
         description: issue.description,
         status: issue.status,
         raisedByRole: issue.raisedByRole,
-        mine: staff ? issue.raisedByPartyId === null : issue.raisedByPartyId === own,
+        mine: staff
+          ? issue.raisedByPartyId === null
+          : issue.raisedByPartyId !== null && own.includes(issue.raisedByPartyId),
         ...(staff ? { raisedByName: issue.raisedByName } : {}),
         resolution: issue.resolution,
         resolvedAt: issue.resolvedAt,
@@ -459,7 +498,7 @@ export function projectDossier(full: FullDossier, audience: DossierAudience): Do
         // by the side whose work it is — nobody else. A carrier does not read
         // the supplier's production note; the supplier does not read what an
         // inspector wrote about its goods (that reaches it through OSI).
-        ...(staff || audience.kind === "buyer" || ownRole === milestoneOwner(kind)
+        ...(staff || audience.kind === "buyer" || ownRoles.includes(milestoneOwner(kind))
           ? { note: recorded?.note ?? null }
           : {}),
         ...(staff ? { recordedByName: recorded?.updatedByName ?? null } : {}),
@@ -497,7 +536,9 @@ export function projectDossier(full: FullDossier, audience: DossierAudience): Do
         messages: thread.messages.map((message) => ({
           id: message.id,
           role: message.authorRole,
-          mine: staff ? message.authorPartyId === null : message.authorPartyId === own,
+          mine: staff
+            ? message.authorPartyId === null
+            : message.authorPartyId !== null && own.includes(message.authorPartyId),
           ...(staff ? { authorName: message.authorName } : {}),
           body: message.body,
           createdAt: message.createdAt,
@@ -514,7 +555,7 @@ export function maySeeIssue(
   issue: Pick<DossierIssue, "raisedByPartyId">,
 ): boolean {
   if (audience.kind === "staff" || audience.kind === "buyer") return true;
-  return issue.raisedByPartyId === audience.partyId;
+  return issue.raisedByPartyId !== null && ownParties(audience).includes(issue.raisedByPartyId);
 }
 
 /**

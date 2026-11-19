@@ -1653,6 +1653,36 @@ disagreement on record, and a dossier kept open forever settles nothing.
 **Not built:** reopening a settled issue; a notification when one is raised
 (the buyer's activity feed shows it); the supplier's view of an issue.
 
+### Transport and customs (V29)
+
+The logistics partners' statuses are **milestones**, not a second table:
+
+| Milestone | Whose work | When | Moves the dossier |
+| --- | --- | --- | --- |
+| Réservation du transport | carrier | in production — optional | — |
+| Expédition | carrier | in production | → `shipping` |
+| Dédouanement | customs broker | in transit — optional | — |
+| Livraison | carrier | in transit | → `delivered` |
+
+A carrier's or a broker's person records them from the Partner Hub, with
+their dates and their paperwork; staff can record any of them instead, and
+the row says which. The buyer follows them on the dossier.
+
+- **The paperwork has names.** A document attached to a milestone is stored
+  as what it is (`PAPERWORK`, `src/lib/milestones.ts`): on *Expédition* a
+  bill of lading unless its uploader says packing list or insurance
+  certificate; on *Dédouanement* a customs document. The buyer reads
+  « Connaissement — fichier.pdf ». A kind a milestone does not produce falls
+  back to that milestone's default. **Nothing is checked**: no carrier or
+  customs system is asked anything — the `manual` provider is the whole
+  integration, and a file is what the party that attached it says it is.
+- **One person, two partners.** A partner is a slot, not a company: a transit
+  agent that both ships and clears is a `transport` partner and a `customs`
+  partner. One account attached to both (the invitation's "attach" path)
+  reads the dossier and records as each of them — its milestones are the
+  union, and so is what its work needs to know (the value of the goods, which
+  customs is computed from).
+
 ### A supplier signs in the portal — behind a setting, off (V26)
 
 Until V26 a supplier's signature was always a countersigned PDF recorded by

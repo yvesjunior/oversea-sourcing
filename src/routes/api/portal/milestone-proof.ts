@@ -31,6 +31,9 @@ export const Route = createFileRoute("/api/portal/milestone-proof")({
         const dealId = form.get("dealId");
         const milestone = form.get("milestone");
         const upload = form.get("file");
+        // What the uploader says the document is; checked against what the
+        // milestone allows by `planProof`.
+        const documentKind = form.get("documentKind");
         if (typeof dealId !== "string" || !dealId || typeof milestone !== "string") {
           return Response.json({ error: "missing fields" }, { status: 400 });
         }
@@ -56,6 +59,7 @@ export const Route = createFileRoute("/api/portal/milestone-proof")({
           },
           dealId,
           milestone,
+          typeof documentKind === "string" ? documentKind : null,
         );
         if (!plan.ok) {
           // Not theirs and no such dossier answer alike.

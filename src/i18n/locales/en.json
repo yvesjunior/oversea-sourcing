@@ -654,7 +654,9 @@
     "milestone_inspection": "Inspection carried out",
     "issue_raised": "A discrepancy was reported",
     "issue_resolved": "A discrepancy was resolved",
-    "issue_disputed": "A discrepancy is disputed"
+    "issue_disputed": "A discrepancy is disputed",
+    "milestone_booking": "Transport booked",
+    "milestone_customs_cleared": "Goods cleared through customs"
   },
   "stepsDemande": {
     "received": {
@@ -1509,7 +1511,14 @@
     "download": "Download",
     "kind": {
       "offer": "Supplier offer",
-      "other": "Other"
+      "other": "Other",
+      "dossier": "Dossier document",
+      "proof": "Milestone proof",
+      "inspection": "Inspection report",
+      "packing_list": "Packing list",
+      "bill_of_lading": "Bill of lading",
+      "customs": "Customs document",
+      "insurance": "Insurance certificate"
     },
     "fromRequest": "Request",
     "fromQuote": "Quote",
@@ -2419,7 +2428,9 @@
       "production_finished": "Production finished",
       "shipped": "Shipment",
       "delivered": "Delivery",
-      "inspection": "Inspection"
+      "inspection": "Inspection",
+      "booking": "Transport booking",
+      "customs_cleared": "Customs clearance"
     },
     "state": {
       "done": "Done",
@@ -2433,8 +2444,24 @@
     "wasLate": "later than planned ({{when}})",
     "wasPlannedFor": "planned for {{when}}",
     "recordedBy": {
-      "portal": "Recorded by the {{party}}",
-      "staff": "Recorded by OSI for the {{party}}"
+      "portal": {
+        "supplier": "Recorded by the supplier",
+        "inspector": "Recorded by the inspector",
+        "carrier": "Recorded by the carrier",
+        "customs_broker": "Recorded by the customs broker",
+        "buyer": "Recorded by the buyer",
+        "osi": "Recorded by OSI",
+        "other": "Recorded by a partner"
+      },
+      "staff": {
+        "supplier": "Recorded by OSI for the supplier",
+        "inspector": "Recorded by OSI for the inspector",
+        "carrier": "Recorded by OSI for the carrier",
+        "customs_broker": "Recorded by OSI for the customs broker",
+        "buyer": "Recorded by OSI for the buyer",
+        "osi": "Recorded by OSI",
+        "other": "Recorded by OSI for a partner"
+      }
     },
     "plannedDate": "Planned date",
     "plan": "Plan",
@@ -2487,6 +2514,18 @@
       "forbidden": "You cannot do this on this dossier.",
       "already_settled": "This discrepancy is already settled.",
       "other": "The discrepancy could not be recorded."
+    },
+    "docKindLabel": "Type of document",
+    "docKind": {
+      "proof": "Proof (photo, report)",
+      "inspection": "Inspection report",
+      "packing_list": "Packing list",
+      "bill_of_lading": "Bill of lading",
+      "customs": "Customs document",
+      "insurance": "Insurance certificate",
+      "offer": "Offer",
+      "other": "Other",
+      "dossier": "Dossier document"
     }
   },
   "portalContract": {

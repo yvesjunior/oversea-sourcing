@@ -19,6 +19,7 @@ import {
   mayRecordMilestone,
   milestoneOwner,
   milestonesOpen,
+  paperworkKind,
   statusAfter,
   type CompleteRefusal,
   type MilestoneKind,
@@ -210,8 +211,8 @@ export type ProofPlan =
       /** Who reads the proof: the buyer and the party whose work the
        *  milestone is. Staff read every document of a dossier. */
       sharedWith: string[];
-      /** An inspection's report is an `inspection` document (V28); every
-       *  other proof a `proof`. */
+      /** What the document is stored as (`paperworkKind`): an inspection's
+       *  report, a bill of lading, a customs entry — or a plain `proof`. */
       documentKind: schema.DocumentKind;
     }
   | { ok: false; reason: "not_found" | "forbidden" | "closed" | "not_recorded" };
@@ -227,6 +228,9 @@ export async function planProof(
   reader: DossierReader,
   dealId: string,
   kind: MilestoneKind,
+  /** What the uploader says the document is (V29) — kept when the milestone
+   *  allows that kind, replaced by the milestone's default otherwise. */
+  requestedKind: string | null = null,
 ): Promise<ProofPlan> {
   const loaded = await openDossier(reader, dealId);
   if (!loaded) return { ok: false, reason: "not_found" };
@@ -252,7 +256,7 @@ export async function planProof(
     deal: loaded.deal,
     milestoneId: milestone.id,
     sharedWith: readers.map((party) => party.id),
-    documentKind: kind === "inspection" ? "inspection" : "proof",
+    documentKind: paperworkKind(kind, requestedKind),
   };
 }
 

@@ -2547,7 +2547,18 @@ export const contractEvent = pgTable(
  * capability. `valid_until` on `quote` sat unwritten for two weeks and taught
  * that lesson.
  */
-export const DOCUMENT_KINDS = ["offer", "other", "dossier", "proof", "inspection"] as const;
+export const DOCUMENT_KINDS = [
+  "offer",
+  "other",
+  "dossier",
+  "proof",
+  "inspection",
+  // V29 — the paperwork the logistics partners produce.
+  "packing_list",
+  "bill_of_lading",
+  "customs",
+  "insurance",
+] as const;
 export type DocumentKind = (typeof DOCUMENT_KINDS)[number];
 
 /**

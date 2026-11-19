@@ -228,11 +228,14 @@ function audienceOf(
     );
     return own ? { kind: "supplier", partyId: own.id } : null;
   }
-  const own = parties.find(
-    (party) => party.partnerId !== null && reader.partnerIds.includes(party.partnerId),
-  );
-  const kind = own?.partnerId ? partnerKinds.get(own.partnerId) : undefined;
-  return own && kind ? { kind: "partner", partyId: own.id, partnerKind: kind } : null;
+  // EVERY party this account answers for on the dossier: a transit agent
+  // that both ships and clears is two partners and one person (V29).
+  const held = parties
+    .filter((party) => party.partnerId !== null && reader.partnerIds.includes(party.partnerId))
+    .map((party) => ({ partyId: party.id, partnerKind: partnerKinds.get(party.partnerId!) }))
+    .filter((own): own is { partyId: string; partnerKind: PartnerKind } => !!own.partnerKind);
+  const [first, ...also] = held;
+  return first ? { kind: "partner", ...first, also } : null;
 }
 
 async function kindsOf(parties: readonly PartyRow[]): Promise<Map<string, PartnerKind>> {
@@ -372,6 +375,7 @@ async function full(loaded: Loaded): Promise<FullDossier> {
       uploadedByName: document.uploadedByName,
       createdAt: document.createdAt.toISOString(),
       milestoneId: document.milestoneId,
+      kind: document.kind,
     })),
     milestones: milestones.map((milestone) => ({
       id: milestone.id,

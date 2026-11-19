@@ -84,7 +84,13 @@ export const Route = createFileRoute("/api/dossier-document")({
           if (!isMilestoneKind(milestone)) {
             return Response.json({ error: "not_found" }, { status: 404 });
           }
-          const proof = await milestones.planProof(reader, dealId, milestone);
+          const documentKind = form.get("documentKind");
+          const proof = await milestones.planProof(
+            reader,
+            dealId,
+            milestone,
+            typeof documentKind === "string" ? documentKind : null,
+          );
           if (!proof.ok) {
             const status =
               proof.reason === "not_found" ? 404 : proof.reason === "forbidden" ? 403 : 409;

@@ -455,7 +455,9 @@ describe("milestones on the page", () => {
         "production_started",
         "production_finished",
         "inspection",
+        "booking",
         "shipped",
+        "customs_cleared",
         "delivered",
       ]);
       expect(view.milestones[0]!.completedAt).toBe("2026-12-02T09:00:00.000Z");
@@ -539,12 +541,58 @@ describe("milestones on the page", () => {
   it("lets each side record its own steps, staff every one, the buyer none", () => {
     const can = (audience: DossierAudience) =>
       projectDossier(withProduction(), audience).milestones.map((m) => m.canRecord);
-    //                    start  finish inspect shipped delivered
-    expect(can(supplier)).toEqual([true, true, false, false, false]);
-    expect(can(inspector)).toEqual([false, false, true, false, false]);
-    expect(can(carrier)).toEqual([false, false, false, true, true]);
-    expect(can(staff)).toEqual([true, true, true, true, true]);
-    expect(can(buyer)).toEqual([false, false, false, false, false]);
+    //                      start finish inspect booking shipped customs delivered
+    expect(can(supplier)).toEqual([true, true, false, false, false, false, false]);
+    expect(can(inspector)).toEqual([false, false, true, false, false, false, false]);
+    expect(can(carrier)).toEqual([false, false, false, true, true, false, true]);
+    expect(can(staff)).toEqual([true, true, true, true, true, true, true]);
+    expect(can(buyer)).toEqual([false, false, false, false, false, false, false]);
+  });
+
+  // V29: a transit agent that both ships and clears is two partners and one
+  // person. That person reads and records as each of them.
+  it("gives one account holding two partner roles the union of both", () => {
+    const BROKER = "p-broker";
+    const full: FullDossier = {
+      ...withProduction(),
+      parties: [
+        ...withProduction().parties,
+        { id: BROKER, role: "customs_broker", name: "Transit Boréal", partnerKind: "customs" },
+      ],
+      documents: [doc("bl", [BUYER, CARRIER]), doc("entry", [BUYER, BROKER]), doc("x", [SUPPLIER])],
+      threads: [],
+    };
+    const agent: DossierAudience = {
+      kind: "partner",
+      partyId: CARRIER,
+      partnerKind: "transport",
+      also: [{ partyId: BROKER, partnerKind: "customs" }],
+    };
+    const view = projectDossier(full, agent);
+    // Both of its parties are marked as its own.
+    expect(
+      view.parties
+        .filter((p) => p.you)
+        .map((p) => p.id)
+        .sort(),
+    ).toEqual([CARRIER, BROKER].sort());
+    // The documents of either role, and not the supplier's.
+    expect(ids(view.documents)).toEqual(["bl", "entry"]);
+    // What either kind of work needs: the value, which customs is computed
+    // from — and still not the supplier, nor the buyer.
+    expect(view.facts?.goods_value).toEqual({ amountCents: 98000, currency: "USD" });
+    expect(view.facts?.lead_time).toBe(30);
+    expect("supplier_identity" in (view.facts ?? {})).toBe(false);
+    expect(JSON.stringify(view)).not.toContain("Atelier Boréal");
+    // And the milestones of both roles.
+    expect(view.milestones.filter((m) => m.canRecord).map((m) => m.kind)).toEqual([
+      "booking",
+      "shipped",
+      "customs_cleared",
+      "delivered",
+    ]);
+    // The carrier alone does not get the value.
+    expect("goods_value" in (projectDossier(full, carrier).facts ?? {})).toBe(false);
   });
 
   it("lets nobody record on a dossier that is delivered or closed", () => {

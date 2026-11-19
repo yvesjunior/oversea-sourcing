@@ -19,7 +19,7 @@
 //     updates milestones?") with: the party whose work it is, or OSI for
 //     them. What was recorded says which (`channel`).
 
-import type { ContractPartyRole, DealStatus } from "@/database/schema";
+import type { ContractPartyRole, DealStatus, DocumentKind } from "@/database/schema";
 import type { DossierAudience } from "@/lib/dossier";
 import { PARTY_ROLE_OF } from "@/lib/partners";
 
@@ -28,8 +28,8 @@ import { PARTY_ROLE_OF } from "@/lib/partners";
  * dossier status it is completed FROM and the status it moves the dossier TO
  * (null = the dossier stays where it is), and whose work it is.
  *
- * V28 added the inspection; V29 adds booking and customs. The table and
- * everything below work for any kind in this list.
+ * V28 added the inspection, V29 the booking and the customs clearance — the
+ * logistics partners' statuses are rows of this table, not a second one.
  */
 export const MILESTONES = [
   {
@@ -49,7 +49,19 @@ export const MILESTONES = [
   // V28. OPTIONAL: most dossiers have no inspector, and a step nobody is
   // there to do must not stand between production and shipment.
   { kind: "inspection", from: "in_production", to: null, owner: "inspector", optional: true },
+  // V29. The carrier's booking — said before the goods leave. Optional: a
+  // dossier whose transport OSI follows by phone still ships.
+  { kind: "booking", from: "in_production", to: null, owner: "carrier", optional: true },
   { kind: "shipped", from: "in_production", to: "shipping", owner: "carrier", optional: false },
+  // V29. Customs clearance, while the goods are in transit. Optional for
+  // the same reason — and because under DDP it is not the buyer's to follow.
+  {
+    kind: "customs_cleared",
+    from: "shipping",
+    to: null,
+    owner: "customs_broker",
+    optional: true,
+  },
   { kind: "delivered", from: "shipping", to: "delivered", owner: "carrier", optional: false },
 ] as const satisfies readonly {
   kind: string;
@@ -74,6 +86,34 @@ function definition(kind: MilestoneKind) {
 /** Whose work a milestone is — the side it is attributed to when recorded. */
 export function milestoneOwner(kind: MilestoneKind): ContractPartyRole {
   return definition(kind).owner;
+}
+
+// ── the paperwork each step produces (V29) ──────────────────────────────────
+
+/**
+ * What a document attached to a milestone can BE. The first of each list is
+ * what it is taken for when nobody says: a document on "shipped" is a bill
+ * of lading unless its uploader says it is the packing list.
+ *
+ * It names the paperwork so the buyer can find "the bill of lading" — it
+ * does not check it: no carrier or customs system is asked anything, and a
+ * file is what the party that attached it says it is.
+ */
+export const PAPERWORK: Record<MilestoneKind, readonly DocumentKind[]> = {
+  production_started: ["proof"],
+  production_finished: ["proof", "packing_list"],
+  inspection: ["inspection"],
+  booking: ["proof", "insurance"],
+  shipped: ["bill_of_lading", "packing_list", "insurance", "proof"],
+  customs_cleared: ["customs"],
+  delivered: ["proof"],
+};
+
+/** The kind a document attached to this milestone is stored as: the one
+ *  asked for when the milestone allows it, its default otherwise. */
+export function paperworkKind(kind: MilestoneKind, requested?: string | null): DocumentKind {
+  const allowed = PAPERWORK[kind];
+  return allowed.find((candidate) => candidate === requested) ?? allowed[0]!;
 }
 
 // ── state ───────────────────────────────────────────────────────────────────
@@ -133,7 +173,12 @@ export function mayRecordMilestone(audience: DossierAudience, kind: MilestoneKin
   if (audience.kind === "supplier") return owner === "supplier";
   // A partner records the milestones of ITS role on the dossier (V28): an
   // inspector the inspection, and from V29 a carrier its own.
-  if (audience.kind === "partner") return PARTY_ROLE_OF[audience.partnerKind] === owner;
+  if (audience.kind === "partner") {
+    // Every kind of work this account holds on the dossier (V29): a transit
+    // agent that both ships and clears records both.
+    const kinds = [audience.partnerKind, ...(audience.also ?? []).map((o) => o.partnerKind)];
+    return kinds.some((partnerKind) => PARTY_ROLE_OF[partnerKind] === owner);
+  }
   return false;
 }
 

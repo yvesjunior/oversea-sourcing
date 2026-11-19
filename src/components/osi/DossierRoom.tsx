@@ -21,7 +21,7 @@ import type {
   PartyView,
   ThreadView,
 } from "@/lib/dossier";
-import { milestoneState, wasLate, type MilestoneKind } from "@/lib/milestones";
+import { PAPERWORK, milestoneState, wasLate, type MilestoneKind } from "@/lib/milestones";
 import { formatCalendarDay, formatDay, formatDayTime } from "@/lib/instant";
 import { cn } from "@/lib/utils";
 
@@ -381,6 +381,10 @@ function MilestoneRow({
   const [busy, setBusy] = useState(false);
   const [refusal, setRefusal] = useState<string | null>(null);
   const recorded = milestone.plannedAt !== null || milestone.completedAt !== null;
+  // What a document attached here can be (V29): a bill of lading, a packing
+  // list… The first is what it is taken for unless the uploader says.
+  const paperwork = PAPERWORK[milestone.kind];
+  const [documentKind, setDocumentKind] = useState<string>(paperwork[0]!);
 
   const run = async (action: () => Promise<RoomResult>) => {
     if (busy) return;
@@ -404,6 +408,7 @@ function MilestoneRow({
       const form = new FormData();
       form.set("dealId", dealId);
       form.set("milestone", milestone.kind);
+      form.set("documentKind", documentKind);
       form.set("file", file);
       const response = await fetch(actions.proofEndpoint, { method: "POST", body: form });
       return response.ok ? { ok: true } : { ok: false, reason: `upload_${response.status}` };
@@ -435,9 +440,9 @@ function MilestoneRow({
               OSI. The person's name is staff's alone. */}
           {milestone.channel && (
             <p className="mt-0.5 text-xs text-muted-foreground">
-              {t(`room.recordedBy.${milestone.channel}`, {
-                party: t(`contrats.role.${milestone.owner}`).toLowerCase(),
-              })}
+              {/* A sentence per role, not a role dropped into a sentence:
+                  « le inspecteur » is what interpolation gives in French. */}
+              {t(`room.recordedBy.${milestone.channel}.${milestone.owner}`)}
               {staff && milestone.recordedByName ? ` — ${milestone.recordedByName}` : ""}
               {milestone.updatedAt ? ` · ${formatDayTime(milestone.updatedAt, lang)}` : ""}
             </p>
@@ -451,7 +456,12 @@ function MilestoneRow({
                     href={fileUrl(proof.fileId)}
                     className="inline-flex items-center gap-1 text-gold underline-offset-4 hover:underline"
                   >
-                    <Download className="size-3" /> {proof.filename}
+                    <Download className="size-3" />
+                    {/* Named for what it is, when it says: the buyer looks
+                        for "the bill of lading", not for a file name. */}
+                    {proof.kind && proof.kind !== "proof"
+                      ? `${t(`room.docKind.${proof.kind}`)} — ${proof.filename}`
+                      : proof.filename}
                   </a>
                 </li>
               ))}
@@ -512,6 +522,20 @@ function MilestoneRow({
             </>
           )}
           {/* A proof hangs from a milestone that exists: planned or done. */}
+          {recorded && paperwork.length > 1 && (
+            <select
+              value={documentKind}
+              onChange={(e) => setDocumentKind(e.target.value)}
+              aria-label={t("room.docKindLabel")}
+              className="mr-3 h-8 rounded-md border border-input bg-background px-2 text-xs"
+            >
+              {paperwork.map((kind) => (
+                <option key={kind} value={kind}>
+                  {t(`room.docKind.${kind}`)}
+                </option>
+              ))}
+            </select>
+          )}
           {recorded && (
             <label className="inline-flex cursor-pointer items-center gap-1.5 text-xs font-medium text-gold underline-offset-4 hover:underline">
               <Upload className="size-3.5" /> {t("room.addProof")}

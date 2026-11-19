@@ -654,7 +654,9 @@
     "milestone_inspection": "Inspection réalisée",
     "issue_raised": "Un écart a été signalé",
     "issue_resolved": "Un écart a été résolu",
-    "issue_disputed": "Un écart est contesté"
+    "issue_disputed": "Un écart est contesté",
+    "milestone_booking": "Transport réservé",
+    "milestone_customs_cleared": "Marchandise dédouanée"
   },
   "stepsDemande": {
     "received": {
@@ -1509,7 +1511,14 @@
     "download": "Télécharger",
     "kind": {
       "offer": "Offre fournisseur",
-      "other": "Autre"
+      "other": "Autre",
+      "dossier": "Document de dossier",
+      "proof": "Preuve d’étape",
+      "inspection": "Rapport d’inspection",
+      "packing_list": "Liste de colisage",
+      "bill_of_lading": "Connaissement",
+      "customs": "Document de douane",
+      "insurance": "Certificat d’assurance"
     },
     "fromRequest": "Demande",
     "fromQuote": "Soumission",
@@ -2419,7 +2428,9 @@
       "production_finished": "Fin de production",
       "shipped": "Expédition",
       "delivered": "Livraison",
-      "inspection": "Inspection"
+      "inspection": "Inspection",
+      "booking": "Réservation du transport",
+      "customs_cleared": "Dédouanement"
     },
     "state": {
       "done": "Fait",
@@ -2433,8 +2444,24 @@
     "wasLate": "en retard sur la date prévue ({{when}})",
     "wasPlannedFor": "prévu le {{when}}",
     "recordedBy": {
-      "portal": "Enregistré par le {{party}}",
-      "staff": "Enregistré par OSI pour le {{party}}"
+      "portal": {
+        "supplier": "Enregistré par le fournisseur",
+        "inspector": "Enregistré par l’inspecteur",
+        "carrier": "Enregistré par le transporteur",
+        "customs_broker": "Enregistré par le courtier en douane",
+        "buyer": "Enregistré par l’acheteur",
+        "osi": "Enregistré par OSI",
+        "other": "Enregistré par un partenaire"
+      },
+      "staff": {
+        "supplier": "Enregistré par OSI pour le fournisseur",
+        "inspector": "Enregistré par OSI pour l’inspecteur",
+        "carrier": "Enregistré par OSI pour le transporteur",
+        "customs_broker": "Enregistré par OSI pour le courtier en douane",
+        "buyer": "Enregistré par OSI pour l’acheteur",
+        "osi": "Enregistré par OSI",
+        "other": "Enregistré par OSI pour un partenaire"
+      }
     },
     "plannedDate": "Date prévue",
     "plan": "Planifier",
@@ -2487,6 +2514,18 @@
       "forbidden": "Vous ne pouvez pas faire cela sur ce dossier.",
       "already_settled": "Cet écart est déjà réglé.",
       "other": "L’écart n’a pas pu être enregistré."
+    },
+    "docKindLabel": "Type de document",
+    "docKind": {
+      "proof": "Preuve (photo, rapport)",
+      "inspection": "Rapport d’inspection",
+      "packing_list": "Liste de colisage",
+      "bill_of_lading": "Connaissement",
+      "customs": "Document de douane",
+      "insurance": "Certificat d’assurance",
+      "offer": "Offre",
+      "other": "Autre",
+      "dossier": "Document du dossier"
     }
   },
   "portalContract": {
