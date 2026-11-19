@@ -2254,9 +2254,11 @@ says which version the buyer validated.
 ### The clarification before launch — built, and switched off (V18)
 
 Step 02 of the V6 parcours: *the AI clarifies, reformulates, asks what is
-missing*. Behind the platform flag **`AI_CHAT`, off by default and off on
-prod** — with it off none of this is visible and the flow is exactly the one
-above.
+missing*. Behind the platform flag **`AI_CHAT`, off by default — and ON on
+prod since deploy #50 (2026-11-19, owner)**, set in the VM's `.env`. With it
+off none of this is visible and the flow is exactly the one above. Each turn
+runs on the model of the buyer's plan, and a turn on `balanced` or `best` has
+not been measured (BACKLOG, D16).
 
 **Since V20 the assistant lives on the validation screen** (above): with
 `flow.spec_validation` on, every request already stops before the search, so

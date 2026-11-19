@@ -24,7 +24,7 @@
 | **E9** Notifications | In-app + email | 🟡 bell, emitters, **prefs (2026-08-26)** live; Phase P types (`quote_received`, `contract_to_sign`, `contract_signed`) + staff alert on `quotes.requested` (2026-09-07) live; **the bell alerts (2026-09-14)** — count badge, 30 s poll, chime, per-browser mute |
 | **E10** Admin surfaces | Verification, imports, ops queue | 🟡 **verification LIVE (S5b/S5c, 2026-08-26)**; imports/ops queue placeholders |
 | **R** Custom staff roles | Roles as data + the matrix | ✅ **BUILT 2026-08-29** (migration 0039) — create/delete roles, dynamic matrix, `requests.all` |
-| **E13** V6 architecture | Supplier portal · KPI #2 · Partner Hub · Decision Pack | 🔵 **NEW 2026-10-21** — scope opened by the V6 document; diagrams validated 2026-11-14; **34 tasks in seven slices — [Phase V](#phase-v--the-v6-parcours-task-by-task-e13--written-2026-11-14)**; **V01, V02, V04–V11 built 2026-11-14** (settings, contacts, states, fork + shortlist, RFQ batch, window closing, typed answer time + channel, KPI #2 v1, the Decision Pack record, the release queue); V01–V11 **live on prod — V01–V09 since deploy #45 (2026-11-14), V10–V11 since deploy #47 (2026-11-18) — with the pack-flow switch OFF**; **V12–V14 built 2026-11-18** (the buyer's pack page, choosing from it, automatic release built and switched off + the review report) — **slice 1 (V04–V14) is complete** — **live on prod since deploy #48 (2026-11-18), pack flow off, release manual**; **V18–V20 built 2026-11-18** (the clarification, behind `AI_CHAT`, off; the cahier des charges and the KPI profile as versioned records; the buyer's validation before any search, behind `flow.spec_validation`, ON by default) — **slice 3 complete**; **V03 and V15–V17 built 2026-11-18** (external accounts: a supplier is not a customer; the RFQ link that creates a supplier account; the portal where they answer, decline and attach; what suppliers are told and the response funnel) — **slice 2 complete**; **V21–V23 built 2026-11-18** (partners and their adapter; cases opened on an offer and the figures partners add to it; the Partner Hub where a partner's person answers) — **V15–V23 and V03 live on prod since deploy #49 (2026-11-18)**; **V24 built 2026-11-19** (KPI #2 on landed cost per unit, stored exchange rates) — **slice 4 complete**; **V25–V31 built 2026-11-19 — slice 5 (execution) complete** (the Transaction Room: one dossier, four readers; a supplier signs in the portal, behind a setting that is OFF; milestones and proofs — the dossier now moves from contracts to delivered; inspection by the partner and conformity issues; transport and customs by the logistics partners; the buyer confirms reception; staff close and the platform remembers) — all on `main`, not deployed. **What is left of Phase V is slice 6 (V32–V34), behind the legal gate** |
+| **E13** V6 architecture | Supplier portal · KPI #2 · Partner Hub · Decision Pack | 🔵 **NEW 2026-10-21** — scope opened by the V6 document; diagrams validated 2026-11-14; **34 tasks in seven slices — [Phase V](#phase-v--the-v6-parcours-task-by-task-e13--written-2026-11-14)**; **V01, V02, V04–V11 built 2026-11-14** (settings, contacts, states, fork + shortlist, RFQ batch, window closing, typed answer time + channel, KPI #2 v1, the Decision Pack record, the release queue); V01–V11 **live on prod — V01–V09 since deploy #45 (2026-11-14), V10–V11 since deploy #47 (2026-11-18) — with the pack-flow switch OFF**; **V12–V14 built 2026-11-18** (the buyer's pack page, choosing from it, automatic release built and switched off + the review report) — **slice 1 (V04–V14) is complete** — **live on prod since deploy #48 (2026-11-18), pack flow off, release manual**; **V18–V20 built 2026-11-18** (the clarification, behind `AI_CHAT`, off; the cahier des charges and the KPI profile as versioned records; the buyer's validation before any search, behind `flow.spec_validation`, ON by default) — **slice 3 complete**; **V03 and V15–V17 built 2026-11-18** (external accounts: a supplier is not a customer; the RFQ link that creates a supplier account; the portal where they answer, decline and attach; what suppliers are told and the response funnel) — **slice 2 complete**; **V21–V23 built 2026-11-18** (partners and their adapter; cases opened on an offer and the figures partners add to it; the Partner Hub where a partner's person answers) — **V15–V23 and V03 live on prod since deploy #49 (2026-11-18)**; **V24 built 2026-11-19** (KPI #2 on landed cost per unit, stored exchange rates) — **slice 4 complete**; **V25–V31 built 2026-11-19 — slice 5 (execution) complete** (the Transaction Room: one dossier, four readers; a supplier signs in the portal, behind a setting that is OFF; milestones and proofs — the dossier now moves from contracts to delivered; inspection by the partner and conformity issues; transport and customs by the logistics partners; the buyer confirms reception; staff close and the platform remembers) — **V24–V31 live on prod since deploy #50 (2026-11-19)**; **`AI_CHAT` switched on in prod at that deploy (owner), D16 still unmeasured**. **What is left of Phase V is slice 6 (V32–V34), behind the legal gate** |
 | **E11** Settings | Profile, sourcing rules | 🟡 Paramètres + notification prefs live; **password / 2FA / theme / rename (2026-08-27)** live; buyer Abonnement self-service waits for billing |
 
 **MVP1 = E0–E7 + E10.** Definition of done **restated 2026-08-29 by ADR-002**
@@ -38,9 +38,9 @@ tracked to delivery** — with the PDF report available throughout.
 
 ### START HERE — handoff, 2026-09-14 (read this first)
 
-**Prod = `dc0964b` (deploy #49, 2026-11-18)** — Phase V tasks V01–V23:
-slices 1, 2 and 3 complete, slice 4 up to V23. **`main` is ahead of prod by
-eight tasks, NOT deployed: V24** (KPI #2 on landed cost; migration **0063**,
+**Prod = `70abbdc` (deploy #50, 2026-11-19)** — Phase V tasks V01–V31:
+slices 1 to 5 complete. `main` and prod are level, bar the commit that
+records this. **Deploy #50 carried eight tasks and one correction: V24** (KPI #2 on landed cost; migration **0063**,
 additive — two nullable columns), **V25** (the Transaction Room;
 migration **0064**, additive — three tables, seven nullable or defaulted
 columns), **V26** (a supplier signs in the portal; no migration; behind
@@ -53,9 +53,9 @@ additive — one table), **V29** (transport and customs; no migration),
 supplier performance; migration **0067**, additive — one table). Eight tasks
 in all: **slices 4 and 5 are complete.** The one thing among them that moves
 a number buyers see is V31: once a dossier is closed, its supplier's KPI #1
-score carries that history on the next request. Prod has no dossier, so
-deploying changes no score.
-**Plus one correction, also not deployed: contract template version 2**
+score carries that history on the next request. Prod had no dossier (0 deals
+read after the deploy), so no score moved.
+**Plus one correction: contract template version 2**
 (2026-11-19, no migration): the purchase order and the mandate state the
 accepted offer's amount as a unit price instead of a total, a stale draft
 says so on its page, and the screens label that amount « Prix unitaire »;
@@ -63,12 +63,49 @@ see P5.
 **What is left of Phase V is slice 6 — V32, V33, V34: the settlement record,
 the providers, the fee's document. All three wait on the legal opinion
 (README §2c: "for anything financial: do not build it yet"). Nothing else in
-Phase V is open.** Deploying them changes no ranking on prod (no round, no partner
-figure, no pack) and opens no dossier (prod holds no deal); what a user
-sees is « Commandes » enabled in the menu, leading to an empty list. Deploy #49 carried eleven tasks at once — V18, V19, the search-model
+Phase V is open.** Deploying them changed no ranking on prod (no round, no partner
+figure, no pack) and opened no dossier (prod holds no deal); what a user
+should see is « Commandes » enabled in the menu, leading to an empty list —
+**not opened on prod.**
+
+**⚠ TWO THINGS DEPLOY #50 DID BESIDE THE CODE.**
+(1) **`AI_CHAT` is `true` on prod (owner, 2026-11-19).** Changed in the VM's
+`.env` (line 25), which is not in the repo. « Préciser avec l'assistant » and
+the assistant on a draft are now offered to buyers, and each turn calls the
+model of the buyer's plan — **D16: nobody has measured a turn on `balanced`
+or `best`.** To go back: `AI_CHAT=false` in the VM's `.env`, then
+`docker compose -f docker-compose.prod.yml up -d`.
+(2) **Editing `.env` restarted Postgres.** Every service that reads
+`env_file: .env` is recreated when the file changes, the database included:
+its container was recreated at 20:04:13 UTC and Postgres was accepting again
+at 20:04:28 — about fifteen seconds down, volume untouched. An `.env` edit
+on the VM is never free; the same will happen when `AI_CHAT` is put back.
+
+**Deploy #50 verification** — backup `osi-20261119-150219.sql.gz` (31 M) +
+its uploads archive (85 B — the same size as #49's; not opened) taken at
+15:02:19 local, **after `deploy.sh` had started** and while the VM was still
+building the image; the `migrate` container started at 15:04:33, so the dump
+predates the migrations. That order was luck, not procedure: take the backup
+BEFORE starting the script. Build gate passed locally (1049 tests,
+`verify-build.sh`, run again by the script). Five migrations (0063–0067).
+Read on the VM before: `git log` at `dc0964b`, `AI_CHAT=false` in web and
+both workers. Read after: `git log` at `70abbdc`; `web`, `worker`,
+`worker-research` up; `migrate` exited 0; `__drizzle_migrations` holds 68
+rows; `deal_issue` and `supplier_performance` exist; `AI_CHAT=true` in web
+and worker. **Data across the deploy:** 17 requests, 13 users, 14
+workspaces, 67 suppliers, 3 quotes; no deal, contract, partner or
+`platform_setting` row — every setting is at its default (pack flow off,
+validation on, release manual, supplier signature off). No line matching
+`error` in the web log at 17 seconds of uptime. `/` answers 200 on the VM
+(the script's own check) and over the tunnel.
+**Not checked on prod:** no page was opened in a browser — not the
+assistant that was just switched on, not « Commandes », not a dossier or a
+contract (there is none); the workers' logs; the other routes #49 probed.
+
+Deploy #49 carried eleven tasks at once — V18, V19, the search-model
 fix, V20, V03, V15, V16, V17, V21, V22, V23 — and eight additive migrations
 (**0055–0062**). In one line each: the assistant on a draft (behind `AI_CHAT`,
-`false` on prod, so invisible); the specification and the weights as
+`false` on prod then, so invisible — **`true` since deploy #50**); the specification and the weights as
 versioned records; searches follow the plan's model tier; the buyer validates
 before any search; a supplier account type that is not a customer; the RFQ
 link that creates one; the portal where suppliers answer; what they are told
@@ -92,9 +129,10 @@ the deploy.** They are edited live on `/interne/plans`, no deploy needed.
 **What is live but dormant:** the supplier portal and the Partner Hub change
 nothing anyone sees until an RFQ is sent or a partner is created — RFQs are
 only sent on the pack flow, which is OFF on prod, and prod holds no partner.
-**Before `AI_CHAT` is ever switched on in prod, read D16:** the clarification
+**`AI_CHAT` WAS switched on in prod at deploy #50 (owner, 2026-11-19), and
+D16 was not settled first:** the clarification
 honours the plan's `model_tier`, and every cost figure we have was measured
-on `cheap`. **Before the pack flow is switched on, `rfq.reply_to` must be set
+on `cheap`. Prod's plans are on `balanced` and `best` (read 2026-11-18). **Before the pack flow is switched on, `rfq.reply_to` must be set
 to a mailbox someone reads.**
 
 **Deploy #49 verification** — backup `osi-20261118-215201.sql.gz` (31 M) +
@@ -419,6 +457,8 @@ deploy failed mid-session and prod was rolled back; see #24.
 | 23 | `5b90649` | — | **the platform workspace can no longer be deleted** — the org-plugin's own `POST /organization/delete` bypassed `destroyWorkspace`; guard moved into a `beforeDeleteOrganization` hook |
 | 24 | `95b825a` | — | **filters on all four ops lists** (multi-account + week/month/year/custom period) · **the global supplier directory is staff-only** · the DB cleared for fresh testing. *First attempt (`77d37b0`) took prod down — see the chunk-cycle note* |
 | 25 | `b7481d6` | — | **"linked supplier" widened to four traces** (matched · quoted · dealt · contract party) · **a session opens in your PERSONAL workspace** when you have one · the discovery store cleared for a cold research test |
+| 50 | `70abbdc` | 0063–0067 | **Slices 4 and 5 complete (Phase V · V24–V31), and the contracts stop calling a unit price the total.** KPI #2 on landed cost per unit, stored exchange rates · the Transaction Room · a supplier signs in the portal (`contracts.supplier_signature`, OFF) · milestones and proofs · inspection and conformity issues · transport and customs · the buyer confirms reception · staff close and the supplier's history feeds KPI #1 · contract template version 2 (« Prix unitaire convenu », no total printed), the stale-draft notice, « Prix unitaire » on the contract screens and for insurance and customs partners. **Also at this deploy, outside the repo:** `AI_CHAT` set to `true` in the VM's `.env` (owner) — D16 not settled. **Expected to be visible to today's users — not opened on prod:** the assistant on the request form and on a draft · « Commandes » enabled in the menu (prod holds no dossier) |
+| 49 | `dc0964b` | 0055–0062 | **Slices 2 and 3, and slice 4 up to V23 (Phase V · V18–V20, V03, V15–V17, V21–V23) plus the search-model fix.** Recorded in the handoff above, « Deploy #49 verification »; this row was added on 2026-11-19 so the table has no gap |
 | 48 | `e61b229` | 0054 | **The buyer's side of the Decision Pack, and the end of slice 1 (Phase V · V12–V14) — the pack-flow switch stays OFF, release stays MANUAL.** The buyer's pack page (ranked offers, landed-cost lines, why each rank) · choosing an offer from the pack opens the dossier, and the deal remembers its pack · automatic release, built and selected by nobody: a pack leaves at the close of its round only if the mode stored on it says so, the round brought an offer, and no person has touched it · « Ce que la revue a changé », a second tab on `/interne/packs` · wording that no longer claims a review nobody made. **Visible to today's users:** the owner can now select « Activé » (pack flow) and « Automatique » (release) in the platform settings — both left at their defaults · the fix that makes `/demandes/$id/rapport` show the report instead of the dossier (seen in dev; not checked on prod) · the label for India |
 | 47 | `b146484` | 0052–0053 | **The Decision Pack and its release queue (Phase V · V10–V11) — still behind the pack-flow switch, which stays OFF.** A pending pack is built when a round closes into the review (frozen copies of the offers, computed and shown ranks, one pending pack per request) · `/interne/packs`, the desk: what waits, since when, on whose desk · approve, correct, relaunch, refuse — each locked against a concurrent decision and kept in `decision_pack_event` · a relaunch keeps the offers in hand (D5 as its default), so the ranking and the offer target span a request's rounds · a refusal tells the buyer why and the suppliers holding offers that it is closed. **Visible to today's users:** a new INTERNE entry « Decision Packs » for staff holding `deals`, showing an empty queue; « Envoi du Decision Pack » is no longer marked not-applied in the platform settings |
 | 46 | `04b5019` | — | **The review of Phase V, and a download that answered nothing.** Request status changes are conditional (a buyer's cancel is no longer overwritten by the pipeline, the fork or an RFQ send) · a round on a cancelled request is always withdrawn · the research re-run is refused on the pack flow · two leaks of "the buyer sees no supplier" closed (the supplier-list count, the file download) · a marketplace's address is no longer taken for a supplier's own · three things staff could do on the pack flow against the round's rules are refused · `/api/files/:id` answers 404 when a file's bytes are missing instead of dropping the connection. Code-only |
@@ -532,7 +572,7 @@ quotes · 0 deals · 0 contracts — prod has still not run the new flow, as at
 - **P5 · templates** (mig 0038) — the two v1 contracts render their own text,
   frozen at draft time in the REQUEST's language; a missing mandatory contract
   surfaces on the dossier, visible to the buyer, actionable only by staff.
-  **Template version 2 (2026-11-19, not deployed):** the price is stated as a
+  **Template version 2 (2026-11-19, live since deploy #50):** the price is stated as a
   unit price and no total is printed — version 1 called it the total.
 - **P6 · signatures** — send · sign in-platform · record an offline signature
   (optional countersigned PDF) · remind. `src/lib/signature.ts` (pure rules,
@@ -4151,7 +4191,7 @@ in the browser before committing; deploy only when the owner asks.
       so there is nothing to pick from — it lands with them.
 
       **Corrected 2026-11-19 — template version 2: a unit price was printed
-      as the total** (no migration, not deployed).
+      as the total** (no migration, live since deploy #50).
       *What was wrong (read on a rendered contract in dev, 2026-11-19):* the
       purchase order's « 3. Prix » said « Prix total convenu : 980,00 $ US,
       selon la soumission acceptée par l'Acheteur ». That amount is
@@ -4507,7 +4547,7 @@ report, exactly as today, because that report is all they get.
 | **D13** | A round closed early (staff, or the target reached) tells the suppliers who had not answered **nothing**: their RFQ still shows the original deadline. One who answers after the close but before that deadline is refused (V08: not in time for the round). Should they be told the RFQ is closed? | **Not told** (V07/V08 as built) — README §2c: a silent supplier is *"excluded, not chased"*. A closing notice is not chasing, and `buildRfqWithdrawnMail` shows the shape; it is one more email per silent supplier per early close. | **Settled for the email side in V17 (2026-11-18):** a round that closes before its deadline now tells the suppliers who had not answered that it is closed and nothing is expected any longer — never why. What a late answer sent anyway is worth is still open. | V07, V08 |
 | **D14** | In `automatic` mode, a pack that came to a person (its round closed with no offer) and was **relaunched**: when the new round closes with offers, does it leave by itself? | **No — a pack that has reached a person stays a person's** (V14 as built). Automatic release happens only at the close that creates the pack. The other answer is simpler to state ("automatic means automatic") but lets a relaunched pack leave alone after the setting has gone back to `manual`, because a pack keeps the mode it was created with. | V14 |
 | **D15** | An automatically released pack passes through `pack_review` for an instant, so the request's timeline and activity feed — which the buyer reads — still show « Offres reçues — en revue chez OSI » a few seconds before « Decision Pack disponible ». The email and the pack page were made truthful in V14; the timeline was not. | **Left as is while the mode is off.** To settle before anyone selects `automatic`: either a different label for that step when the pack's release has no person, or no `pack_review` step at all on an automatic release. | V14 |
-| **D16** | The clarification (V18) is the **first AI call that reads the plan's `model_tier`** — research and extraction take their model from `ANTHROPIC_MODEL`, whatever the plan says (verified in the code 2026-11-18: nothing else reads `plan.model_tier`). On prod the plans are `free` / `internal` / `org_trial` = `balanced`, `pro` / `business` / `enterprise` = `best` (read from prod's `plan` table 2026-11-18), while `ANTHROPIC_MODEL` is `cheap`. So switching `AI_CHAT` on in prod would run clarifications on Sonnet and Opus, at a cost per turn **nobody has measured** — dev measured `cheap` only, about $0.003 a turn. | **Built as the task says: the plan's tier.** To settle before `AI_CHAT` goes on in prod: measure a turn on `balanced` and `best`, or set the plans' tiers to what the owner wants to pay, or decide that the clarification follows `ANTHROPIC_MODEL` like everything else. Separately: is it intended that research ignores the plan's tier? The plans page shows a per-request cost by tier that research does not follow. **Half settled 2026-11-18 (owner: "fix search model"): the search now follows the plan's tier too, so the two agree and the plans page's cost per tier is true. Still open: nobody has measured a clarification turn on `balanced` or `best`, and prod's plans are on those tiers.** | the next deploy; switching `AI_CHAT` on |
+| **D16** | The clarification (V18) is the **first AI call that reads the plan's `model_tier`** — research and extraction take their model from `ANTHROPIC_MODEL`, whatever the plan says (verified in the code 2026-11-18: nothing else reads `plan.model_tier`). On prod the plans are `free` / `internal` / `org_trial` = `balanced`, `pro` / `business` / `enterprise` = `best` (read from prod's `plan` table 2026-11-18), while `ANTHROPIC_MODEL` is `cheap`. So switching `AI_CHAT` on in prod would run clarifications on Sonnet and Opus, at a cost per turn **nobody has measured** — dev measured `cheap` only, about $0.003 a turn. | **Built as the task says: the plan's tier.** To settle before `AI_CHAT` goes on in prod: measure a turn on `balanced` and `best`, or set the plans' tiers to what the owner wants to pay, or decide that the clarification follows `ANTHROPIC_MODEL` like everything else. Separately: is it intended that research ignores the plan's tier? The plans page shows a per-request cost by tier that research does not follow. **Half settled 2026-11-18 (owner: "fix search model"): the search now follows the plan's tier too, so the two agree and the plans page's cost per tier is true. Still open: nobody has measured a clarification turn on `balanced` or `best`, and prod's plans are on those tiers.** **`AI_CHAT` went on in prod on 2026-11-19 (deploy #50, owner's instruction) with this still unmeasured.** | switching `AI_CHAT` on — **done 2026-11-19; the measurement is still owed** |
 | **D17** | Two limits V18 had to invent. **(a) Six clarifications per request** (`CLARIFY_MAX_TURNS`): the quota counts requests, not calls, so nothing else bounds them. **(b) Drafts only**: once the search is launched the assistant no longer answers — a paid exchange that changes criteria after the search was built from them changes nothing the buyer receives. Proposals left open can still be accepted while the criteria are editable, like a manual edit. | **Built as stated.** Both are one constant / one condition to change. A held draft also has **no expiry**: it waits until its buyer launches or cancels it, counted in the quota since creation (V20's gotcha relies on that). *(V20, 2026-11-18: "drafts only" became "before the launch" — a held draft or a request awaiting validation, since the assistant was folded into the validation screen.)* | V18, V20 |
 | **D18** | **Which weights may a buyer change, and within what bounds?** D8 says the buyer "adjusts and validates" the KPI profile. V20 built the validation and shows the weights; it did not build editing them by number, because the rule is a ranking rule and nobody has stated it: may a buyer set a criterion to count ten times? move points from price to lead time? make verification worth nothing? | **Shown and validated, not editable.** The one adjustment is marking a criterion mandatory (it counts double). `kpi_profile.source = buyer` is written by nothing. | whenever buyers ask to weigh things themselves |
 
@@ -6293,7 +6333,8 @@ built in: **S** one, **M** two to three, **L** four or more.
 #### Slice 3 — Specification and validation (steps 02–04)
 
 - [x] **V18 · The AI clarifies and restructures — BUILT 2026-11-18**
-      (migration **0055**, live since deploy #49; behind `AI_CHAT`, off).
+      (migration **0055**, live since deploy #49; behind `AI_CHAT` — **on in prod
+      since deploy #50, 2026-11-19, owner's instruction; D16 not settled**).
       `src/lib/clarification.ts` (pure: `absentBasics`, `normalizeProposals`,
       `supersededAdds`, `normalizeQuestions`, `CLARIFY_MAX_TURNS`);
       `src/server/ai/chat.ts` (`clarifyRequest` — replaces `chatAboutRequest`);
@@ -6828,7 +6869,7 @@ built in: **S** one, **M** two to three, **L** four or more.
       supplier guard with a flag; write the rule down per case kind.~~
 
 - [x] **V24 · KPI #2 on landed cost — BUILT 2026-11-19** (migration
-      **0063**, not deployed). **This completes slice 4 (V21–V24).**
+      **0063**, live since deploy #50). **This completes slice 4 (V21–V24).**
       `src/lib/landed-cost.ts` (pure: the calculation), `src/lib/incoterm.ts`
       (what a term puts inside the price — moved out of kpi2 and
       pack-explain); `src/lib/kpi2.ts` → **`kpi2.v2`**; `src/server/kpi.ts`
@@ -6921,7 +6962,7 @@ rather than duplicating them — P7 becomes V27, the rest of P8 lands in V25,
 P10 in V25, P11 in V31.
 
 - [x] **V25 · The Transaction Room — BUILT 2026-11-19** (migration
-      **0064**, not deployed). `src/lib/dossier.ts` (pure: what each of the
+      **0064**, live since deploy #50). `src/lib/dossier.ts` (pure: what each of the
       four readers sees); `src/server/dossier.ts` (the reader → its party →
       its slice; parties, disclosure, threads, upload plan, file access);
       `src/lib/dossier-fns.ts` (buyer and staff), four functions each added to
@@ -7027,7 +7068,7 @@ P10 in V25, P11 in V31.
       effect of a join.~~
 
 - [x] **V26 · Contracts: the supplier signs in the platform — BUILT
-      2026-11-19** (no migration, not deployed; **behind
+      2026-11-19** (no migration, live since deploy #50; **behind
       `contracts.supplier_signature`, off by default**).
       `src/lib/signature.ts` (`canSupplierSign`, `signatureWays`);
       `src/server/signatures.ts` (new: the supplier's reads and signature,
@@ -7099,7 +7140,7 @@ P10 in V25, P11 in V31.
       two built are separate work and not part of this task.~~
 
 - [x] **V27 · Production: milestones and proofs — BUILT 2026-11-19**
-      (migration **0065**, not deployed). `src/lib/milestones.ts` (pure: the
+      (migration **0065**, live since deploy #50). `src/lib/milestones.ts` (pure: the
       list, who records, the order, derived lateness);
       `src/server/milestones.ts` (`planMilestone`, `completeMilestone`,
       `planProof`, `recordProof`); `src/lib/milestone-fns.ts` (staff), two
@@ -7184,7 +7225,7 @@ P10 in V25, P11 in V31.
       a cron.~~
 
 - [x] **V28 · Inspection and conformity — BUILT 2026-11-19** (migration
-      **0066**, not deployed). `inspection` added to `MILESTONES` (optional,
+      **0066**, live since deploy #50). `inspection` added to `MILESTONES` (optional,
       the inspector's); `mayRecordMilestone` opened to a partner for the
       milestones of its role; `src/server/issues.ts` (`raiseIssue`,
       `settleIssue`); issue rules in `src/lib/dossier.ts` (`maySeeIssue`,
@@ -7257,7 +7298,7 @@ P10 in V25, P11 in V31.
       the dossier cannot be closed while one is `open`.~~
 
 - [x] **V29 · Transport and customs — BUILT 2026-11-19** (no migration,
-      not deployed). `booking` and `customs_cleared` added to `MILESTONES`
+      live since deploy #50). `booking` and `customs_cleared` added to `MILESTONES`
       (both optional); `PAPERWORK` / `paperworkKind` in
       `src/lib/milestones.ts`; document kinds `packing_list`,
       `bill_of_lading`, `customs`, `insurance`; the three proof routes accept
@@ -7324,7 +7365,7 @@ P10 in V25, P11 in V31.
       until a partner contract says otherwise.~~
 
 - [x] **V30 · The buyer confirms reception — BUILT 2026-11-19** (no
-      migration, not deployed). `src/lib/deal-fns.ts` (`confirmReceptionFn`);
+      migration, live since deploy #50). `src/lib/deal-fns.ts` (`confirmReceptionFn`);
       `src/server/reception.ts` (`confirmReception`); `mayConfirmReception`,
       `isSatisfaction` in `src/lib/dossier.ts`; a reception form and summary
       in `DossierRoom.tsx`. The four `deal` columns nothing wrote since P1 —
@@ -7369,7 +7410,7 @@ P10 in V25, P11 in V31.
       the rule is two acts by two actors.~~
 
 - [x] **V31 · Closure, and what the platform remembers — BUILT 2026-11-19**
-      (migration **0067**, not deployed). **This completes slice 5
+      (migration **0067**, live since deploy #50). **This completes slice 5
       (V25–V31).** `src/lib/supplier-performance.ts` (pure: the facts of a
       deal, the aggregate, the adjustment and its reasons);
       `src/server/supplier-performance.ts` (`rememberDeal`,
