@@ -41,6 +41,12 @@ export const NOTIFICATION_TYPES = [
    *  `rfq_window_closed` for that round: there is nothing to review, and
    *  that is the news. */
   { type: "pack_auto_released", hasEmail: true },
+  /** STAFF-facing (Phase V · V16): a supplier entered their offer in the
+   *  portal. Nobody typed it in, so nobody at OSI would otherwise know it
+   *  arrived. In-app only — the round's own closing email follows. */
+  { type: "portal_offer_received", hasEmail: false },
+  /** STAFF-facing (V16): a supplier declined an RFQ in the portal. */
+  { type: "portal_rfq_declined", hasEmail: false },
   /** The Decision Pack was released (Phase V · V12) — the pack flow's
    *  counterpart of `report_ready`: the buyer's answer is there to read. */
   { type: "pack_ready", hasEmail: true },

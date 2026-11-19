@@ -1273,6 +1273,49 @@ The preview staff read before sending shows a placeholder where each
 recipient's own link will be — the one part of the email that cannot be byte
 for byte what leaves.
 
+### The supplier portal — answer, decline, attach (V16)
+
+`/portail` is the supplier's own surface, in its own shell: the RFQs addressed
+to their supplier, and for each one the specification, the deadline, the form
+to answer, their documents, and a way to decline.
+
+**What a supplier is told, and nothing else.** The specification of the
+round's version (what the email said), the deadline, their own offer and
+their own files. Never the buyer, another supplier, how many were asked or
+answered, a rank, a score, or a note of OSI's. The state of an RFQ is one of
+four words — *to answer · offer sent · declined · closed* — and "closed" covers
+every ending the supplier did not cause (the window ran out, enough offers
+were in, the buyer withdrew), because each of those says something about the
+others. Whether an offer was retained is told once, in its own message (V17).
+
+**How the partition holds.** Every function in `src/lib/portal-fns.ts` goes
+through `requireSupplierSession`; every query in `src/server/portal.ts` is
+filtered by the caller's `supplierIds`, and only reaches quotes the platform
+sent in a round. A quote that is not theirs answers `null` — the same as an id
+that does not exist — for reads and `not_found` for writes. The views are
+built field by field; nothing is spread from a row.
+
+**Answering.** `submitOfferFn` takes the same figures staff key in (price and
+currency required here — a supplier writing their own offer states a price).
+It is decided under a lock on the quote and a shared lock on its round: an
+offer racing the close lands in the round or is refused, never "accepted but
+not ranked". `responded_at` is the server's clock — the one route where the
+answer time is observed, not typed — and stays the FIRST answer's when an
+offer is revised. `channel` is `portal`, `recorded_by` null. While the window
+is open a supplier may revise their offer, and may answer after having
+declined; once it closes the page is read-only and says so. **The offer that
+reaches the round's target closes it**, by the same call the staff route makes.
+
+**Documents.** A file a supplier attaches to their offer belongs to the
+**buyer's** workspace (P8's ownership rule) and is read back by the supplier
+through `/api/portal/file` — a second access path to the same row, open only
+to files attached to a quote of theirs. The buyer's own lists leave it out
+until the Decision Pack discloses the offer, as for a file staff uploaded.
+
+**Both routes stay.** A supplier who answers by email is typed in by staff
+(`channel: staff`); staff are told in-app when an offer or a refusal arrives
+through the portal, since nobody typed it.
+
 ## 2 · How a request works
 
 ```

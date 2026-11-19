@@ -45,7 +45,26 @@ export const EXTERNAL_FNS = {
   /** The root session: it is what recognises an external account and sends
    *  it to the portal. Returns the caller's own account, nothing else. */
   getSessionFn: "the caller's own session",
+  // ── the supplier portal (V16): each through `requireSupplierSession`, each
+  //    filtered by the caller's own `supplierIds` in src/server/portal.ts ──
+  /** The RFQs addressed to the caller's supplier(s). */
+  getMyRfqsFn: "the caller's own RFQs",
+  /** One RFQ: its specification, its deadline, the caller's own offer and
+   *  documents. Not the buyer, not another supplier, no count, no rank. */
+  getRfqFn: "one of the caller's own RFQs",
+  submitOfferFn: "the caller's own offer",
+  declineRfqFn: "the caller's own refusal",
 } as const;
+
+/**
+ * API routes written for external accounts. Like the functions above, they
+ * read their session through `party-guard` and never through the workspace
+ * getter — which would refuse their callers.
+ */
+export const EXTERNAL_API_ROUTES = [
+  "src/routes/api/portal/quote-document.ts",
+  "src/routes/api/portal/file.$id.ts",
+] as const;
 
 /**
  * The only modules that may import the unguarded session getter
@@ -67,4 +86,6 @@ export const EXTERNAL_AWARE_MODULES = [
   "src/server/auth.ts",
   "src/server/party-guard.ts",
   "src/lib/session-fns.ts",
+  "src/lib/portal-fns.ts",
+  ...EXTERNAL_API_ROUTES,
 ] as const;

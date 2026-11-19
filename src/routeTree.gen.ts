@@ -43,9 +43,12 @@ import { Route as InvitationIdRouteImport } from './routes/invitation.$id'
 import { Route as PortailIndexRouteImport } from './routes/portail/index'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiFilesIdRouteImport } from './routes/api/files/$id'
+import { Route as ApiPortalQuoteDocumentRouteImport } from './routes/api/portal/quote-document'
 import { Route as DemandesIdPackRouteImport } from './routes/demandes/$id_.pack'
 import { Route as DemandesIdRapportRouteImport } from './routes/demandes/$id_.rapport'
 import { Route as PortailInscriptionTokenRouteImport } from './routes/portail/inscription.$token'
+import { Route as PortailRfqIdRouteImport } from './routes/portail/rfq.$id'
+import { Route as ApiPortalFileIdRouteImport } from './routes/api/portal/file.$id'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -217,6 +220,11 @@ const ApiFilesIdRoute = ApiFilesIdRouteImport.update({
   path: '/api/files/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPortalQuoteDocumentRoute = ApiPortalQuoteDocumentRouteImport.update({
+  id: '/api/portal/quote-document',
+  path: '/api/portal/quote-document',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DemandesIdPackRoute = DemandesIdPackRouteImport.update({
   id: '/demandes/$id_/pack',
   path: '/demandes/$id/pack',
@@ -230,6 +238,16 @@ const DemandesIdRapportRoute = DemandesIdRapportRouteImport.update({
 const PortailInscriptionTokenRoute = PortailInscriptionTokenRouteImport.update({
   id: '/portail/inscription/$token',
   path: '/portail/inscription/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PortailRfqIdRoute = PortailRfqIdRouteImport.update({
+  id: '/portail/rfq/$id',
+  path: '/portail/rfq/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPortalFileIdRoute = ApiPortalFileIdRouteImport.update({
+  id: '/api/portal/file/$id',
+  path: '/api/portal/file/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
 
@@ -268,9 +286,12 @@ export interface FileRoutesByFullPath {
   '/portail/': typeof PortailIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/files/$id': typeof ApiFilesIdRoute
+  '/api/portal/quote-document': typeof ApiPortalQuoteDocumentRoute
   '/demandes/$id/pack': typeof DemandesIdPackRoute
   '/demandes/$id/rapport': typeof DemandesIdRapportRoute
   '/portail/inscription/$token': typeof PortailInscriptionTokenRoute
+  '/portail/rfq/$id': typeof PortailRfqIdRoute
+  '/api/portal/file/$id': typeof ApiPortalFileIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -307,9 +328,12 @@ export interface FileRoutesByTo {
   '/portail': typeof PortailIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/files/$id': typeof ApiFilesIdRoute
+  '/api/portal/quote-document': typeof ApiPortalQuoteDocumentRoute
   '/demandes/$id/pack': typeof DemandesIdPackRoute
   '/demandes/$id/rapport': typeof DemandesIdRapportRoute
   '/portail/inscription/$token': typeof PortailInscriptionTokenRoute
+  '/portail/rfq/$id': typeof PortailRfqIdRoute
+  '/api/portal/file/$id': typeof ApiPortalFileIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -347,9 +371,12 @@ export interface FileRoutesById {
   '/portail/': typeof PortailIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/files/$id': typeof ApiFilesIdRoute
+  '/api/portal/quote-document': typeof ApiPortalQuoteDocumentRoute
   '/demandes/$id_/pack': typeof DemandesIdPackRoute
   '/demandes/$id_/rapport': typeof DemandesIdRapportRoute
   '/portail/inscription/$token': typeof PortailInscriptionTokenRoute
+  '/portail/rfq/$id': typeof PortailRfqIdRoute
+  '/api/portal/file/$id': typeof ApiPortalFileIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -388,9 +415,12 @@ export interface FileRouteTypes {
     | '/portail/'
     | '/api/auth/$'
     | '/api/files/$id'
+    | '/api/portal/quote-document'
     | '/demandes/$id/pack'
     | '/demandes/$id/rapport'
     | '/portail/inscription/$token'
+    | '/portail/rfq/$id'
+    | '/api/portal/file/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -427,9 +457,12 @@ export interface FileRouteTypes {
     | '/portail'
     | '/api/auth/$'
     | '/api/files/$id'
+    | '/api/portal/quote-document'
     | '/demandes/$id/pack'
     | '/demandes/$id/rapport'
     | '/portail/inscription/$token'
+    | '/portail/rfq/$id'
+    | '/api/portal/file/$id'
   id:
     | '__root__'
     | '/'
@@ -466,9 +499,12 @@ export interface FileRouteTypes {
     | '/portail/'
     | '/api/auth/$'
     | '/api/files/$id'
+    | '/api/portal/quote-document'
     | '/demandes/$id_/pack'
     | '/demandes/$id_/rapport'
     | '/portail/inscription/$token'
+    | '/portail/rfq/$id'
+    | '/api/portal/file/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -506,9 +542,12 @@ export interface RootRouteChildren {
   PortailIndexRoute: typeof PortailIndexRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiFilesIdRoute: typeof ApiFilesIdRoute
+  ApiPortalQuoteDocumentRoute: typeof ApiPortalQuoteDocumentRoute
   DemandesIdPackRoute: typeof DemandesIdPackRoute
   DemandesIdRapportRoute: typeof DemandesIdRapportRoute
   PortailInscriptionTokenRoute: typeof PortailInscriptionTokenRoute
+  PortailRfqIdRoute: typeof PortailRfqIdRoute
+  ApiPortalFileIdRoute: typeof ApiPortalFileIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -751,6 +790,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiFilesIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/portal/quote-document': {
+      id: '/api/portal/quote-document'
+      path: '/api/portal/quote-document'
+      fullPath: '/api/portal/quote-document'
+      preLoaderRoute: typeof ApiPortalQuoteDocumentRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/demandes/$id_/pack': {
       id: '/demandes/$id_/pack'
       path: '/demandes/$id/pack'
@@ -770,6 +816,20 @@ declare module '@tanstack/react-router' {
       path: '/portail/inscription/$token'
       fullPath: '/portail/inscription/$token'
       preLoaderRoute: typeof PortailInscriptionTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/portail/rfq/$id': {
+      id: '/portail/rfq/$id'
+      path: '/portail/rfq/$id'
+      fullPath: '/portail/rfq/$id'
+      preLoaderRoute: typeof PortailRfqIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/portal/file/$id': {
+      id: '/api/portal/file/$id'
+      path: '/api/portal/file/$id'
+      fullPath: '/api/portal/file/$id'
+      preLoaderRoute: typeof ApiPortalFileIdRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -810,9 +870,12 @@ const rootRouteChildren: RootRouteChildren = {
   PortailIndexRoute: PortailIndexRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiFilesIdRoute: ApiFilesIdRoute,
+  ApiPortalQuoteDocumentRoute: ApiPortalQuoteDocumentRoute,
   DemandesIdPackRoute: DemandesIdPackRoute,
   DemandesIdRapportRoute: DemandesIdRapportRoute,
   PortailInscriptionTokenRoute: PortailInscriptionTokenRoute,
+  PortailRfqIdRoute: PortailRfqIdRoute,
+  ApiPortalFileIdRoute: ApiPortalFileIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

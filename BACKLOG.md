@@ -24,7 +24,7 @@
 | **E9** Notifications | In-app + email | 🟡 bell, emitters, **prefs (2026-08-26)** live; Phase P types (`quote_received`, `contract_to_sign`, `contract_signed`) + staff alert on `quotes.requested` (2026-09-07) live; **the bell alerts (2026-09-14)** — count badge, 30 s poll, chime, per-browser mute |
 | **E10** Admin surfaces | Verification, imports, ops queue | 🟡 **verification LIVE (S5b/S5c, 2026-08-26)**; imports/ops queue placeholders |
 | **R** Custom staff roles | Roles as data + the matrix | ✅ **BUILT 2026-08-29** (migration 0039) — create/delete roles, dynamic matrix, `requests.all` |
-| **E13** V6 architecture | Supplier portal · KPI #2 · Partner Hub · Decision Pack | 🔵 **NEW 2026-10-21** — scope opened by the V6 document; diagrams validated 2026-11-14; **34 tasks in seven slices — [Phase V](#phase-v--the-v6-parcours-task-by-task-e13--written-2026-11-14)**; **V01, V02, V04–V11 built 2026-11-14** (settings, contacts, states, fork + shortlist, RFQ batch, window closing, typed answer time + channel, KPI #2 v1, the Decision Pack record, the release queue); V01–V11 **live on prod — V01–V09 since deploy #45 (2026-11-14), V10–V11 since deploy #47 (2026-11-18) — with the pack-flow switch OFF**; **V12–V14 built 2026-11-18** (the buyer's pack page, choosing from it, automatic release built and switched off + the review report) — **slice 1 (V04–V14) is complete** — **live on prod since deploy #48 (2026-11-18), pack flow off, release manual**; **V18–V20 built 2026-11-18** (the clarification, behind `AI_CHAT`, off; the cahier des charges and the KPI profile as versioned records; the buyer's validation before any search, behind `flow.spec_validation`, ON by default) — **slice 3 complete**; **V03 and V15 built 2026-11-18** (external accounts: a supplier is not a customer; the RFQ link that creates a supplier account) — on `main`, not deployed |
+| **E13** V6 architecture | Supplier portal · KPI #2 · Partner Hub · Decision Pack | 🔵 **NEW 2026-10-21** — scope opened by the V6 document; diagrams validated 2026-11-14; **34 tasks in seven slices — [Phase V](#phase-v--the-v6-parcours-task-by-task-e13--written-2026-11-14)**; **V01, V02, V04–V11 built 2026-11-14** (settings, contacts, states, fork + shortlist, RFQ batch, window closing, typed answer time + channel, KPI #2 v1, the Decision Pack record, the release queue); V01–V11 **live on prod — V01–V09 since deploy #45 (2026-11-14), V10–V11 since deploy #47 (2026-11-18) — with the pack-flow switch OFF**; **V12–V14 built 2026-11-18** (the buyer's pack page, choosing from it, automatic release built and switched off + the review report) — **slice 1 (V04–V14) is complete** — **live on prod since deploy #48 (2026-11-18), pack flow off, release manual**; **V18–V20 built 2026-11-18** (the clarification, behind `AI_CHAT`, off; the cahier des charges and the KPI profile as versioned records; the buyer's validation before any search, behind `flow.spec_validation`, ON by default) — **slice 3 complete**; **V03, V15 and V16 built 2026-11-18** (external accounts: a supplier is not a customer; the RFQ link that creates a supplier account; the portal where they answer, decline and attach) — on `main`, not deployed |
 | **E11** Settings | Profile, sourcing rules | 🟡 Paramètres + notification prefs live; **password / 2FA / theme / rename (2026-08-27)** live; buyer Abonnement self-service waits for billing |
 
 **MVP1 = E0–E7 + E10.** Definition of done **restated 2026-08-29 by ADR-002**
@@ -6007,32 +6007,84 @@ built in: **S** one, **M** two to three, **L** four or more.
       no unsolicited supplier signup, and this task must not create one.
       Redemption needs its own rate limit.~~
 
-- [ ] **V16 · The portal: answer, decline, attach.** *Size L. Depends on:
-      V08, V15. Blocks: V17.*
+- [x] **V16 · The portal: answer, decline, attach — BUILT 2026-11-18** (no
+      migration, not deployed). `src/lib/portal-rfq.ts` (pure:
+      `portalRfqState`, `canSubmitOffer`, `canDecline`, `windowOpen`);
+      `src/server/portal.ts` (`listRfqs`, `readRfq`, `submitOffer`,
+      `declineRfq`, `quoteForUpload`, `fileForDownload` — every query
+      filtered by the caller's `supplierIds`); `src/lib/portal-fns.ts`
+      (`getMyRfqsFn`, `getRfqFn`, `submitOfferFn`, `declineRfqFn`);
+      `routes/api/portal/quote-document.ts`, `routes/api/portal/file.$id.ts`;
+      `routes/portail/index.tsx`, `routes/portail/rfq.$id.tsx`; two
+      staff-facing notification types. The register
+      (`external-access.ts`) lists the four functions and the two routes as
+      opened to external accounts, and its test checks each reads its session
+      through the supplier guard. 810 tests.
 
-      **What it does.** The supplier's own surface: the RFQs addressed to
-      them, and the form to answer one.
+      **Where the build goes beyond the task text:** a supplier may **revise**
+      their offer while the window is open, and may **answer after having
+      declined** — "after the round closes the form is read-only" says the
+      form is not read-only before. `responded_at` stays the first answer's.
+      A price and a currency are **required** from a supplier (staff keying
+      in an email may leave them out). The audit rows go to the platform's
+      journal, not the buyer's workspace's: the actor is a supplier's person.
 
-      **Files.** New `src/routes/portail/index.tsx` and
-      `portail/rfq.$id.tsx`, in their own shell — not `AppShell`, whose
-      sidebar is the buyer's and staff's. New `src/lib/portal-fns.ts`, every
-      fn through `requireSupplierSession`: `getMyRfqsFn`, `getRfqFn`,
-      `submitOfferFn` (the `recordQuoteFn` fields; `channel: "portal"`,
-      `responded_at` = now, `recorded_by` null), `declineRfqFn` (→ `declined`,
-      `supplier_declined`), and document upload through a portal variant of
-      `/api/quote-document`.
+      *Verified live in dev on request #3049, with the accounts V15 made (Li:
+      one supplier; Mei: two, then three):*
+      - **V03's partition, against these functions.** As Li: the list holds
+        his supplier's RFQ only; another supplier's RFQ, a third one's and an
+        id that does not exist all answer `null`; sending an offer or a
+        refusal on another supplier's RFQ answers `not_found`. The payload of
+        his own RFQ holds the specification, the deadline, his offer and his
+        documents — no buyer, no other supplier, no count, no rank.
+      - **Answer.** From the page: 0,98 USD, 30 days → `received`, 98 cents,
+        `channel` portal, `recorded_by` null, the server's time, validity one
+        month out; audit `quote.received` by Li, on the platform's journal;
+        staff notified.
+      - **Revise.** A second submission (by Mei, same supplier): 95 cents, 28
+        days, `responded_at` unchanged; audit `quote.corrected`. A validity
+        date in the past is refused.
+      - **Decline, then change of mind.** A refusal with its note →
+        `declined` / `supplier_declined`; a second refusal is refused; an
+        offer sent afterwards → `received`, the reason cleared.
+      - **Documents.** A PDF on one's own RFQ: stored, owned by the BUYER's
+        workspace, listed, read back (200). On another supplier's RFQ: 404. A
+        text file: 415. A colleague of the same supplier reads it; a person
+        of another supplier gets 404; the buyer's file route refuses a
+        supplier; an anonymous caller gets 401.
+      - **The buyer sees none of it.** The owner of the request's workspace:
+        an empty Documents list, 404 on the supplier's file, and `null` /
+        `not_found` / 401 from the portal's functions and routes.
+      - **The offer that fills the round closes it.** With the target set to
+        three, the third portal offer closed the round (`target_reached`, by
+        the system), moved the request to the pack review, and the pending
+        pack holds the three offers, ranked.
+      - **Read-only after the close.** No field, no button; the offer as it
+        was sent, the documents still readable; a late revision answers
+        `closed`, a late upload 404.
 
-      **Acceptance.** A supplier sees only quotes whose `supplier_id` is one
-      of theirs. They see the specification and the deadline, and not the
-      buyer's name (D6). Submitting stamps the response time and, if it is
-      the fifth, closes the round (V07). After the round closes the form is
-      read-only and says so. V03's partition tests pass against every fn in
-      this file.
+      **Not exercised:** an offer and the round's close in the same instant
+      (the locks are read, not raced); the upload limits (size, number of
+      files); the French pages; an account answering for several suppliers on
+      the same request beyond the test's own setup; production. **Known and
+      left:** an RFQ's criteria are shown with the label as the buyer wrote it
+      and the value in English when the reader's account is in English — the
+      same choice the RFQ email makes. A refusal sent twice answers `closed`.
 
-      **Gotcha.** The document belongs to the **buyer's** workspace (P8's
-      ownership rule) even though the supplier uploads it — and the supplier
-      must still be able to read back their own upload, which is a second
-      access path to the same row. Test both.
+      ~~**What it does.** The supplier's own surface: the RFQs addressed to
+      them, and the form to answer one. **Files.** New
+      `src/routes/portail/index.tsx` and `portail/rfq.$id.tsx`, in their own
+      shell; new `src/lib/portal-fns.ts`, every fn through
+      `requireSupplierSession`: `getMyRfqsFn`, `getRfqFn`, `submitOfferFn`,
+      `declineRfqFn`, and document upload through a portal variant of
+      `/api/quote-document`. **Acceptance.** A supplier sees only quotes whose
+      `supplier_id` is one of theirs. They see the specification and the
+      deadline, and not the buyer's name (D6). Submitting stamps the response
+      time and, if it is the fifth, closes the round (V07). After the round
+      closes the form is read-only and says so. V03's partition tests pass
+      against every fn in this file. **Gotcha.** The document belongs to the
+      buyer's workspace even though the supplier uploads it — and the supplier
+      must still be able to read back their own upload. Test both.~~
 
 - [ ] **V17 · What a supplier is told, and the response funnel.** *Size M.
       Depends on: V16.*

@@ -132,7 +132,9 @@
       "rfq_window_closed": "Fenêtres de réponse fermées (une demande attend la revue) — équipe OSI",
       "request_unfulfilled": "Demande classée sans suite (aucun Decision Pack ne sera transmis)",
       "pack_ready": "Decision Pack prêt (les offres reçues vous sont présentées)",
-      "pack_auto_released": "Decision Packs envoyés automatiquement, sans revue — équipe OSI"
+      "pack_auto_released": "Decision Packs envoyés automatiquement, sans revue — équipe OSI",
+      "portal_offer_received": "Offres déposées par les fournisseurs sur le portail — équipe OSI",
+      "portal_rfq_declined": "Appels d’offres déclinés par les fournisseurs sur le portail — équipe OSI"
     },
     "tabOrganisation": "Organisation",
     "orgInfoTitle": "Informations de l’organisation",
@@ -999,7 +1001,9 @@
     "rfq_window_closed": "Fenêtre de réponse fermée — demande #{{id}} : {{offers}} offre(s) reçue(s)",
     "request_unfulfilled": "Votre demande #{{id}} est classée sans suite",
     "pack_ready": "Votre Decision Pack #{{id}} est prêt",
-    "pack_auto_released": "Decision Pack #{{id}} envoyé automatiquement au client — {{offers}} offre(s) reçue(s)"
+    "pack_auto_released": "Decision Pack #{{id}} envoyé automatiquement au client — {{offers}} offre(s) reçue(s)",
+    "portal_offer_received": "Offre déposée sur le portail par {{supplier}} — demande #{{id}}",
+    "portal_rfq_declined": "{{supplier}} a décliné l’appel d’offres sur le portail — demande #{{id}}"
   },
   "verificationAdmin": {
     "title": "Vérification des fournisseurs",
@@ -1919,7 +1923,68 @@
     "shellTitle": "Portail fournisseur",
     "signOut": "Se déconnecter",
     "homeTitle": "Vos appels d’offres",
-    "homeEmpty": "Aucun appel d’offres à afficher pour le moment."
+    "homeEmpty": "Aucun appel d’offres à afficher pour le moment.",
+    "noSupplier": "Ce compte n’est rattaché à aucun fournisseur. Ouvrez le lien reçu dans un courriel d’appel d’offres pour le rattacher.",
+    "reference": "Référence #{{id}}",
+    "deadline": "Date limite : {{when}}",
+    "answeredOn": "Offre transmise le {{when}}",
+    "state": {
+      "to_answer": "À répondre",
+      "answered": "Offre transmise",
+      "declined": "Décliné",
+      "closed": "Clos"
+    },
+    "back": "Tous les appels d’offres",
+    "specTitle": "Ce qui est demandé",
+    "required": "obligatoire",
+    "clientDescription": "Description du client (telle qu’il l’a rédigée)",
+    "offerTitle": "Votre offre",
+    "offerHint": "Indiquez votre prix et vos conditions. Vous pourrez modifier votre offre tant que l’appel d’offres est ouvert.",
+    "offerEditHint": "Votre offre est enregistrée. Vous pouvez la modifier tant que l’appel d’offres est ouvert.",
+    "sendOffer": "Envoyer mon offre",
+    "updateOffer": "Mettre à jour mon offre",
+    "offerSent": "Votre offre a bien été transmise.",
+    "offerUpdated": "Votre offre a été mise à jour.",
+    "closedWithOffer": "Cet appel d’offres est clos. Voici l’offre que vous avez transmise ; elle n’est plus modifiable.",
+    "closedWithout": {
+      "closed": "Cet appel d’offres est clos : il n’est plus possible d’y répondre.",
+      "declined": "Vous avez décliné cet appel d’offres.",
+      "to_answer": "Cet appel d’offres n’accepte plus de réponse.",
+      "answered": "Cet appel d’offres est clos."
+    },
+    "field": {
+      "price": "Prix unitaire",
+      "currency": "Devise",
+      "quantity": "Quantité offerte",
+      "moq": "Quantité minimale de commande (MOQ)",
+      "leadTime": "Délai de livraison, en jours",
+      "incoterm": "Incoterm",
+      "paymentTerms": "Conditions de paiement",
+      "validUntil": "Offre valable jusqu’au",
+      "notes": "Remarques"
+    },
+    "validHint": "Laissé vide : un mois à compter de votre réponse.",
+    "days_one": "{{count}} jour",
+    "days_other": "{{count}} jours",
+    "documentsTitle": "Vos documents",
+    "attach": "Joindre une soumission",
+    "attachHint": "PDF, PNG ou JPEG — 10 Mo par fichier au plus.",
+    "declineTitle": "Vous ne souhaitez pas répondre ?",
+    "declineText": "Indiquez-le nous : cela nous aide à mieux cibler nos prochaines demandes.",
+    "declineOpen": "Décliner cet appel d’offres",
+    "declineNote": "Motif (facultatif)",
+    "declineConfirm": "Confirmer que je décline",
+    "cancel": "Annuler",
+    "error": {
+      "amount": "Indiquez un prix valide, par exemple 12.50.",
+      "leadTime": "Indiquez le délai en nombre de jours.",
+      "not_found": "Cet appel d’offres est introuvable.",
+      "closed": "Cet appel d’offres vient d’être clos : votre réponse n’a pas pu être enregistrée.",
+      "validity_past": "La date de validité doit être dans le futur.",
+      "upload": "Le fichier n’a pas pu être envoyé.",
+      "upload_413": "Fichier trop volumineux (10 Mo au plus), ou trop de fichiers à la fois.",
+      "upload_415": "Format non accepté : PDF, PNG ou JPEG uniquement."
+    }
   },
   "portalSignup": {
     "title": "Créez votre compte fournisseur",

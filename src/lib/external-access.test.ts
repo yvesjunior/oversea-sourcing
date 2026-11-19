@@ -12,6 +12,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   EXTERNAL_ACCOUNT_CREATORS,
+  EXTERNAL_API_ROUTES,
   EXTERNAL_AWARE_MODULES,
   EXTERNAL_FNS,
   PUBLIC_FNS,
@@ -120,8 +121,15 @@ describe("every server function has decided who may call it", () => {
       // Opened to external accounts means reading the session another way —
       // through the workspace getter it would simply refuse them.
       expect(fn!.source.includes(GUARDED), `${name} uses the workspace getter`).toBe(false);
+      // Directly, or through the one helper its file defines for it
+      // (`caller()` in portal-fns.ts, which is `requireSupplierSession`).
+      const file = SOURCES.find((s) => s.file === fn!.file)!.text;
+      const viaHelper =
+        /\bawait caller\(\)/.test(fn!.source) &&
+        /async function caller\(\)[\s\S]*?requireSupplierSession\(/.test(file);
       expect(
-        /getAnySession\(|requireSupplierSession\(|requirePartnerSession\(/.test(fn!.source),
+        viaHelper ||
+          /getAnySession\(|requireSupplierSession\(|requirePartnerSession\(/.test(fn!.source),
         `${name} does not read an external session`,
       ).toBe(true);
     }
@@ -175,12 +183,32 @@ describe("there is one way to become a supplier", () => {
 
 describe("every API route asks who is calling", () => {
   it("reads its session through the guarded getter", () => {
+    const external = EXTERNAL_API_ROUTES as readonly string[];
     const routes = SOURCES.filter(
-      ({ file }) => file.startsWith("src/routes/api/") && !file.startsWith("src/routes/api/auth/"),
+      ({ file }) =>
+        file.startsWith("src/routes/api/") &&
+        !file.startsWith("src/routes/api/auth/") &&
+        !external.includes(file),
     );
     expect(routes.length).toBeGreaterThan(3);
     for (const { file, text } of routes) {
       expect(text.includes(GUARDED), `${file} does not read a session`).toBe(true);
     }
+  });
+
+  it("guards the routes written for external accounts with the supplier guard, and only it", () => {
+    for (const file of EXTERNAL_API_ROUTES) {
+      const route = SOURCES.find((s) => s.file === file);
+      expect(route, `${file} is listed but does not exist`).toBeDefined();
+      expect(route!.text.includes("requireSupplierSession("), `${file} has no guard`).toBe(true);
+      expect(route!.text.includes(GUARDED), `${file} uses the workspace getter`).toBe(false);
+    }
+    // And nothing under /api/portal/ escapes the list.
+    const unlisted = SOURCES.filter(
+      ({ file }) =>
+        file.startsWith("src/routes/api/portal/") &&
+        !(EXTERNAL_API_ROUTES as readonly string[]).includes(file),
+    ).map(({ file }) => file);
+    expect(unlisted).toEqual([]);
   });
 });

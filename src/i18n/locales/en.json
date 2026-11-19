@@ -132,7 +132,9 @@
       "rfq_window_closed": "Response windows closed (a request awaits review) — OSI staff",
       "request_unfulfilled": "Request closed without a result (no Decision Pack will be sent)",
       "pack_ready": "Decision Pack ready (the offers received are there to read)",
-      "pack_auto_released": "Decision Packs sent automatically, without review — OSI staff"
+      "pack_auto_released": "Decision Packs sent automatically, without review — OSI staff",
+      "portal_offer_received": "Offers entered by suppliers in the portal — OSI team",
+      "portal_rfq_declined": "Requests for quotation declined by suppliers in the portal — OSI team"
     },
     "tabOrganisation": "Organisation",
     "orgInfoTitle": "Organisation information",
@@ -999,7 +1001,9 @@
     "rfq_window_closed": "Response window closed — request #{{id}}: {{offers}} offer(s) received",
     "request_unfulfilled": "Your request #{{id}} has been closed without a result",
     "pack_ready": "Your Decision Pack #{{id}} is ready",
-    "pack_auto_released": "Decision Pack #{{id}} sent to the client automatically — {{offers}} offer(s) received"
+    "pack_auto_released": "Decision Pack #{{id}} sent to the client automatically — {{offers}} offer(s) received",
+    "portal_offer_received": "Offer entered in the portal by {{supplier}} — request #{{id}}",
+    "portal_rfq_declined": "{{supplier}} declined the request for quotation in the portal — request #{{id}}"
   },
   "verificationAdmin": {
     "title": "Supplier verification",
@@ -1919,7 +1923,68 @@
     "shellTitle": "Supplier portal",
     "signOut": "Sign out",
     "homeTitle": "Your requests for quotation",
-    "homeEmpty": "No request for quotation to show at the moment."
+    "homeEmpty": "No request for quotation to show at the moment.",
+    "noSupplier": "This account is not attached to any supplier. Open the link from a request-for-quotation email to attach it.",
+    "reference": "Reference #{{id}}",
+    "deadline": "Deadline: {{when}}",
+    "answeredOn": "Offer sent on {{when}}",
+    "state": {
+      "to_answer": "To answer",
+      "answered": "Offer sent",
+      "declined": "Declined",
+      "closed": "Closed"
+    },
+    "back": "All requests for quotation",
+    "specTitle": "What is requested",
+    "required": "required",
+    "clientDescription": "The client’s own description (as written)",
+    "offerTitle": "Your offer",
+    "offerHint": "Enter your price and terms. You can change your offer for as long as the request for quotation is open.",
+    "offerEditHint": "Your offer is recorded. You can change it for as long as the request for quotation is open.",
+    "sendOffer": "Send my offer",
+    "updateOffer": "Update my offer",
+    "offerSent": "Your offer has been sent.",
+    "offerUpdated": "Your offer has been updated.",
+    "closedWithOffer": "This request for quotation is closed. This is the offer you sent; it can no longer be changed.",
+    "closedWithout": {
+      "closed": "This request for quotation is closed: it can no longer be answered.",
+      "declined": "You declined this request for quotation.",
+      "to_answer": "This request for quotation no longer takes answers.",
+      "answered": "This request for quotation is closed."
+    },
+    "field": {
+      "price": "Unit price",
+      "currency": "Currency",
+      "quantity": "Quantity quoted",
+      "moq": "Minimum order quantity (MOQ)",
+      "leadTime": "Lead time, in days",
+      "incoterm": "Incoterm",
+      "paymentTerms": "Payment terms",
+      "validUntil": "Offer valid until",
+      "notes": "Remarks"
+    },
+    "validHint": "Left empty: one month from your answer.",
+    "days_one": "{{count}} day",
+    "days_other": "{{count}} days",
+    "documentsTitle": "Your documents",
+    "attach": "Attach a quotation",
+    "attachHint": "PDF, PNG or JPEG — 10 MB per file at most.",
+    "declineTitle": "Not able to quote?",
+    "declineText": "Let us know: it helps us send you better-matched requests.",
+    "declineOpen": "Decline this request for quotation",
+    "declineNote": "Reason (optional)",
+    "declineConfirm": "Confirm that I decline",
+    "cancel": "Cancel",
+    "error": {
+      "amount": "Enter a valid price, for example 12.50.",
+      "leadTime": "Enter the lead time as a number of days.",
+      "not_found": "This request for quotation cannot be found.",
+      "closed": "This request for quotation has just closed: your answer could not be recorded.",
+      "validity_past": "The validity date must be in the future.",
+      "upload": "The file could not be sent.",
+      "upload_413": "File too large (10 MB at most), or too many files at once.",
+      "upload_415": "Format not accepted: PDF, PNG or JPEG only."
+    }
   },
   "portalSignup": {
     "title": "Create your supplier account",
