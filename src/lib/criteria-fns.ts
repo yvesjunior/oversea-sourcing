@@ -39,16 +39,7 @@ async function requireOwnRequest(requestId: string) {
   // specification suppliers were already quoting against. `criteriaEditable`
   // is an allow list — a state added later is frozen until someone decides.
   if (!criteriaEditable(row.status)) return null;
-  return { db, eq, schema, request: row, workspaceId };
-}
-
-async function touchRequest(ctx: NonNullable<Awaited<ReturnType<typeof requireOwnRequest>>>) {
-  const { recordEvent } = await import("@/server/requests");
-  await recordEvent(ctx.request.id, ctx.workspaceId, "criteria.updated");
-  await ctx.db
-    .update(ctx.schema.request)
-    .set({ updatedAt: new Date() })
-    .where(ctx.eq(ctx.schema.request.id, ctx.request.id));
+  return { request: row, workspaceId };
 }
 
 export const addCriterionFn = createServerFn({ method: "POST" })
@@ -56,24 +47,12 @@ export const addCriterionFn = createServerFn({ method: "POST" })
   .handler(async ({ data }): Promise<{ ok: boolean }> => {
     const ctx = await requireOwnRequest(data.requestId);
     if (!ctx) return { ok: false };
-    const { db, eq, schema } = ctx;
-    const { max } = await import("drizzle-orm");
-    const [row] = await db
-      .select({ max: max(schema.requestCriterion.position) })
-      .from(schema.requestCriterion)
-      .where(eq(schema.requestCriterion.requestId, data.requestId));
-    await db.insert(schema.requestCriterion).values({
-      id: crypto.randomUUID(),
-      requestId: data.requestId,
-      category: data.category,
-      label: data.label,
-      value: data.value,
-      unit: data.unit,
-      required: data.required,
-      source: "user",
-      position: (row?.max ?? -1) + 1,
-    });
-    await touchRequest(ctx);
+    // The writes live in src/server/criteria.ts, shared with an accepted
+    // proposal from the assistant (V18) — one definition of "a manual edit".
+    const { insertCriterion, criteriaEdited } = await import("@/server/criteria");
+    const { requestId, ...fields } = data;
+    await insertCriterion(requestId, fields);
+    await criteriaEdited(requestId, ctx.workspaceId);
     return { ok: true };
   });
 
@@ -82,25 +61,10 @@ export const updateCriterionFn = createServerFn({ method: "POST" })
   .handler(async ({ data }): Promise<{ ok: boolean }> => {
     const ctx = await requireOwnRequest(data.requestId);
     if (!ctx) return { ok: false };
-    const { db, eq, schema } = ctx;
-    const { and } = await import("drizzle-orm");
-    await db
-      .update(schema.requestCriterion)
-      .set({
-        category: data.category,
-        label: data.label,
-        value: data.value,
-        unit: data.unit,
-        required: data.required,
-        source: "user",
-      })
-      .where(
-        and(
-          eq(schema.requestCriterion.id, data.id),
-          eq(schema.requestCriterion.requestId, data.requestId),
-        ),
-      );
-    await touchRequest(ctx);
+    const { updateCriterion, criteriaEdited } = await import("@/server/criteria");
+    const { requestId, id, ...fields } = data;
+    await updateCriterion(requestId, id, fields);
+    await criteriaEdited(requestId, ctx.workspaceId);
     return { ok: true };
   });
 
@@ -109,16 +73,8 @@ export const deleteCriterionFn = createServerFn({ method: "POST" })
   .handler(async ({ data }): Promise<{ ok: boolean }> => {
     const ctx = await requireOwnRequest(data.requestId);
     if (!ctx) return { ok: false };
-    const { db, eq, schema } = ctx;
-    const { and } = await import("drizzle-orm");
-    await db
-      .delete(schema.requestCriterion)
-      .where(
-        and(
-          eq(schema.requestCriterion.id, data.id),
-          eq(schema.requestCriterion.requestId, data.requestId),
-        ),
-      );
-    await touchRequest(ctx);
+    const { deleteCriterion, criteriaEdited } = await import("@/server/criteria");
+    await deleteCriterion(data.requestId, data.id);
+    await criteriaEdited(data.requestId, ctx.workspaceId);
     return { ok: true };
   });

@@ -355,9 +355,95 @@ export const requestMessage = pgTable(
       .references(() => request.id, { onDelete: "cascade" }),
     role: text("role").$type<"user" | "assistant">().notNull(),
     content: text("content").notNull(),
+    /** What the assistant asked on this turn (V18). Null on a buyer's
+     *  message, on a turn from the pre-V18 chat, and on a turn where the
+     *  model could not be reached — which is how a turn that produced nothing
+     *  is told apart from one that was paid for: only a non-null value counts
+     *  against the request's allowance of clarifications. */
+    questions: jsonb("questions").$type<string[]>(),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (table) => [index("request_message_request_idx").on(table.requestId)],
+);
+
+export const PROPOSAL_OPS = ["add", "update", "remove"] as const;
+export type ProposalOp = (typeof PROPOSAL_OPS)[number];
+
+/**
+ * - `pending`   the buyer has not answered.
+ * - `accepted`  applied to `request_criterion`, as a manual edit would be.
+ * - `dismissed` the buyer said no.
+ * - `stale`     accepted too late: the criterion it changes or removes is
+ *               gone, or the criteria were frozen in between. Nothing applied.
+ * - `superseded` a later turn proposed the same criterion with another value
+ *               before the buyer answered this one ("8 weeks" → "10 weeks
+ *               after all"). Settled by the system, never by a person.
+ */
+export const PROPOSAL_STATUSES = [
+  "pending",
+  "accepted",
+  "dismissed",
+  "stale",
+  "superseded",
+] as const;
+export type ProposalStatus = (typeof PROPOSAL_STATUSES)[number];
+
+/**
+ * A change to the criteria that the assistant PROPOSED (Phase V · V18) and the
+ * buyer has, or has not, accepted.
+ *
+ * The assistant never writes a criterion. The chat it replaces applied its
+ * operations the moment the model returned them — so a row a supplier would
+ * later quote against could come from a sentence nobody confirmed. Here the
+ * model's output stops at this table, and only the buyer's click turns a row
+ * of it into a `request_criterion`.
+ *
+ * The fields are the FULL criterion the proposal would leave behind (for a
+ * removal: the row as it stood), computed when the proposal was made. So the
+ * page shows exactly what an accept will write, and a transcript read a month
+ * later still says what was proposed after the criterion itself has changed.
+ */
+export const criterionProposal = pgTable(
+  "criterion_proposal",
+  {
+    id: text("id").primaryKey(),
+    requestId: text("request_id")
+      .notNull()
+      .references(() => request.id, { onDelete: "cascade" }),
+    /** The assistant turn that made it. */
+    messageId: text("message_id")
+      .notNull()
+      .references(() => requestMessage.id, { onDelete: "cascade" }),
+    op: text("op").$type<ProposalOp>().notNull(),
+    /** The criterion an update or a removal targets; null for an addition.
+     *  Not a foreign key on purpose: the criterion can be deleted by hand
+     *  while the proposal waits, and the proposal must survive to say so
+     *  (`stale`) rather than vanish from the transcript. */
+    criterionId: text("criterion_id"),
+    category: text("category").$type<CriteriaCategory>().notNull().default("other"),
+    label: text("label").notNull(),
+    value: text("value").notNull(),
+    unit: text("unit"),
+    required: boolean("required").notNull().default(false),
+    /** For an update: the value it replaces, as "value unit" — shown struck
+     *  through next to the new one. Null otherwise. */
+    previous: text("previous"),
+    /** For an update that flips the obligation: what `required` was. Null
+     *  when the flag does not change — which is most updates, and why the
+     *  page can say "becomes mandatory" only for the ones that do. */
+    previousRequired: boolean("previous_required"),
+    status: text("status").$type<ProposalStatus>().notNull().default("pending"),
+    position: integer("position").notNull().default(0),
+    resolvedAt: timestamp("resolved_at"),
+    /** Who answered — and their name as it was, which survives the account. */
+    resolvedBy: text("resolved_by").references(() => user.id, { onDelete: "set null" }),
+    resolvedByName: text("resolved_by_name"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => [
+    index("criterion_proposal_request_idx").on(table.requestId),
+    index("criterion_proposal_message_idx").on(table.messageId),
+  ],
 );
 
 /** Pipeline/activity events — powers timelines and the activity feed (E3). */

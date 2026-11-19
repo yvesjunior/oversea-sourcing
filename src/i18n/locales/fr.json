@@ -445,7 +445,9 @@
       "status": "Statut",
       "quotes": "Soumissions",
       "updated": "Mis à jour"
-    }
+    },
+    "clarify": "Préciser avec l’assistant",
+    "clarifyHint": "Enregistre la demande en brouillon : l’assistant la relit, vous lancez la recherche ensuite."
   },
   "stats": {
     "activeRequests": "Demandes actives",
@@ -631,7 +633,8 @@
     "rfq_withdrawn": "Appel d'offres retiré auprès de {{count}} fournisseur(s)",
     "rfq_offer_added": "Offre arrivée dans le délai, saisie après la fermeture — {{offers}} offre(s) au total",
     "rfq_holders_told": "{{count}} fournisseur(s) informé(s) que la demande est close",
-    "pack_released": "Decision Pack disponible"
+    "pack_released": "Decision Pack disponible",
+    "clarification_asked": "Relecture par l’assistant — questions : {{questions}}, propositions : {{proposals}}"
   },
   "stepsDemande": {
     "received": {
@@ -1139,7 +1142,8 @@
     "pack.refused": "Decision Pack refusé",
     "pack.assigned": "Decision Pack attribué",
     "pack.offer_reasked": "Offre expirée redemandée depuis le Decision Pack",
-    "pack.auto_released": "Decision Pack envoyé automatiquement"
+    "pack.auto_released": "Decision Pack envoyé automatiquement",
+    "request.launched": "Recherche lancée depuis un brouillon"
   },
   "twofa": {
     "title": "Vérification en deux étapes",
@@ -1807,5 +1811,47 @@
       "refused": "Refusé",
       "automatic": "Envoyé automatiquement"
     }
+  },
+  "clarify": {
+    "draftTitle": "Brouillon — la recherche n’est pas lancée",
+    "draftText": "Rien n’est recherché tant que vous n’avez pas lancé la recherche. Vous pouvez demander à l’assistant de relire la demande, corriger les critères, puis lancer.",
+    "draftTextReadOnly": "Rien n’est recherché tant que la recherche n’a pas été lancée.",
+    "launch": "Lancer la recherche",
+    "intro": "L’assistant relit votre demande : il la reformule, signale ce qu’il manque à un fournisseur pour établir un prix, et propose des critères. Rien n’est ajouté sans votre accord.",
+    "ask": "Faire relire ma demande",
+    "turnsLeft_one": "{{count}} échange restant",
+    "turnsLeft_other": "{{count}} échanges restants",
+    "turnsLeft_zero": "Aucun échange restant",
+    "questions": "Ce qu’il manque",
+    "proposals": "Critères proposés",
+    "op": {
+      "add": "Ajouter",
+      "update": "Modifier",
+      "remove": "Retirer"
+    },
+    "required": "obligatoire",
+    "accept": "Accepter",
+    "dismiss": "Ignorer",
+    "status": {
+      "pending": "En attente",
+      "accepted": "Accepté",
+      "dismissed": "Ignoré",
+      "stale": "Non appliqué — le critère a changé",
+      "superseded": "Remplacé par une proposition plus récente",
+      "unanswered": "Restée sans réponse"
+    },
+    "placeholder": "Répondez aux questions de l’assistant…",
+    "limitReached": "Tous les échanges prévus pour cette demande ont été utilisés. Vous pouvez encore modifier les critères à la main, puis lancer la recherche.",
+    "closed": "Cette demande n’est plus un brouillon : l’échange avec l’assistant est clos.",
+    "refused": {
+      "disabled": "L’assistant n’est pas disponible.",
+      "forbidden": "Votre rôle ne permet pas cette action.",
+      "not_draft": "Cette demande n’est plus un brouillon.",
+      "limit": "Tous les échanges prévus pour cette demande ont été utilisés.",
+      "stale": "Cette proposition n’a pas pu être appliquée : le critère a changé entre-temps."
+    },
+    "becomes_required": "devient obligatoire",
+    "becomes_optional": "devient facultatif",
+    "draftTextNoAssistant": "Rien n’est recherché tant que vous n’avez pas lancé la recherche. Vous pouvez encore corriger les critères avant de lancer."
   }
 }

@@ -19,7 +19,16 @@
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { Info, Loader2, Mic, Paperclip, Sparkles, TriangleAlert, X } from "lucide-react";
+import {
+  Info,
+  Loader2,
+  Mic,
+  Paperclip,
+  ScanSearch,
+  Sparkles,
+  TriangleAlert,
+  X,
+} from "lucide-react";
 import { useTranslation } from "react-i18next";
 import globe from "@/assets/globe.jpg";
 import { Button } from "@/components/ui/button";
@@ -168,9 +177,14 @@ export function HeroPrompt({
   user,
   variant = "hero",
   onDraftRestored,
+  clarifyAvailable = false,
 }: {
   user: HeroUser;
   variant?: HeroVariant;
+  /** Offer « Préciser avec l'assistant » next to the launch button (V18,
+   *  platform flag AI_CHAT). Signed-in buyers only: an anonymous visitor
+   *  goes through the auth gate first and finds both buttons on the way back. */
+  clarifyAvailable?: boolean;
   /** Fired when a saved draft was put back in the form, so a page that keeps
    *  the form collapsed can open it — a restored draft nobody can see is
    *  worse than no draft at all. */
@@ -277,7 +291,7 @@ export function HeroPrompt({
     return false;
   };
 
-  const finishCreate = async (id: string, attachments: File[]) => {
+  const finishCreate = async (id: string, attachments: File[], hold: boolean) => {
     if (attachments.length > 0) {
       const form = new FormData();
       form.set("requestId", id);
@@ -287,12 +301,13 @@ export function HeroPrompt({
       await fetch("/api/upload", { method: "POST", body: form }).catch(() => {});
       // Release the pipeline now the files are stored. If this call fails the
       // request still runs — the worker sweeps "received" after two minutes.
-      await startRequestPipelineFn({ data: { id } }).catch(() => {});
+      // A held draft (V18) releases nothing: the buyer launches it themselves.
+      if (!hold) await startRequestPipelineFn({ data: { id } }).catch(() => {});
     }
     void navigate({ to: "/demandes/$id", params: { id } });
   };
 
-  const submitStructured = async (f: FormFields, attachments: File[]) => {
+  const submitStructured = async (f: FormFields, attachments: File[], hold: boolean) => {
     if (submitting) return;
     setBlockedAlert(null);
     setSubmitting(true);
@@ -316,10 +331,11 @@ export function HeroPrompt({
             ...(f.details.trim() ? { details: f.details.trim() } : {}),
           },
           attachmentsPending: hasFiles,
+          ...(hold ? { hold: true } : {}),
         },
       });
       if (!handleCreateResult(created, () => writeDraft(f))) return;
-      await finishCreate(created.id, attachments);
+      await finishCreate(created.id, attachments, hold);
     } finally {
       setSubmitting(false);
     }
@@ -353,8 +369,10 @@ export function HeroPrompt({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loggedIn]);
 
-  const onSubmit = (event: FormEvent) => {
-    event.preventDefault();
+  /** `hold` = create the request and keep it a draft, so the assistant can
+   *  read it before anything is searched (V18). Same validation, same auth
+   *  gate, same quota — only the launch is left to the buyer. */
+  const submit = (hold: boolean) => {
     if (!formValid) {
       setInvalid(true);
       return;
@@ -370,7 +388,12 @@ export function HeroPrompt({
       void navigate({ to: "/login", search: { redirect: "/demandes" } });
       return;
     }
-    void submitStructured(fields, files);
+    void submitStructured(fields, files, hold);
+  };
+
+  const onSubmit = (event: FormEvent) => {
+    event.preventDefault();
+    submit(false);
   };
 
   const onFilesPicked = (picked: FileList | null) => {
@@ -598,14 +621,28 @@ export function HeroPrompt({
                 <Paperclip className="size-4" /> {t("home.attach")}
               </button>
             </div>
-            <Button type="submit" variant="gold" size="lg" disabled={submitting}>
-              {submitting ? (
-                <Loader2 className="size-4 animate-spin" />
-              ) : (
-                <Sparkles className="size-4" />
-              )}{" "}
-              {t("home.launch")}
-            </Button>
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              {loggedIn && clarifyAvailable && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="lg"
+                  disabled={submitting}
+                  title={t("home.clarifyHint")}
+                  onClick={() => submit(true)}
+                >
+                  <ScanSearch className="size-4" /> {t("home.clarify")}
+                </Button>
+              )}
+              <Button type="submit" variant="gold" size="lg" disabled={submitting}>
+                {submitting ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <Sparkles className="size-4" />
+                )}{" "}
+                {t("home.launch")}
+              </Button>
+            </div>
           </div>
         </form>
 

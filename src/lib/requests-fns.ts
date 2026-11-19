@@ -4,6 +4,9 @@ import { eventParams, type EventParams } from "@/lib/event-params";
 import { canSeeAllRequests } from "@/lib/roles";
 import type { CriteriaCategory, RequestStatus } from "@/database/schema";
 import { ownerSeesMatches, requestFlow, type RequestFlow } from "@/lib/request-status";
+import type { ProposalView } from "@/server/clarification";
+
+export type { ProposalView };
 
 /** Shape the UI consumes; E3 will extend (criteria, pipeline progress…). */
 export type RequestSummary = {
@@ -159,6 +162,11 @@ export type ChatMessage = {
   id: string;
   role: "user" | "assistant";
   content: string;
+  /** What the assistant asked on this turn (V18); null on a buyer's message
+   *  and on a turn that did not reach the model. */
+  questions: string[] | null;
+  /** The criteria changes this turn proposed, each with the buyer's answer. */
+  proposals: ProposalView[];
   /** ISO timestamp */
   createdAt: string;
 };
@@ -226,6 +234,9 @@ export type RequestDetail = RequestSummary & {
   canEdit: boolean;
   /** Platform flag AI_CHAT — the assistant UI is hidden when false. */
   aiChatEnabled: boolean;
+  /** Clarifications this request may still run (V18). Zero when the flag is
+   *  off — nothing can be asked then. */
+  clarifyTurnsLeft: number;
   /** The last collection pass FAILED, so this dossier's Top-N was built
    *  without one. Derived at read time from research_run — never stored, so
    *  it cannot go stale against the runs it describes. False when research
@@ -293,6 +304,12 @@ export const createRequestFn = createServerFn({ method: "POST" })
        *  pipeline until it says go, so the worker doesn't research a request
        *  whose attachments have not landed yet. */
       attachmentsPending: z.boolean().optional(),
+      /** Keep the request a DRAFT (V18): the buyer wants the assistant to
+       *  read it before anything is searched. Created and counted like any
+       *  other, then left alone — no transition, no pipeline, until the buyer
+       *  launches it from the dossier. Ignored when AI_CHAT is off: there
+       *  would be nothing to do with a draft, and the flow must be today's. */
+      hold: z.boolean().optional(),
     }),
   )
   .handler(async ({ data }): Promise<CreateRequestResult> => {
@@ -386,9 +403,12 @@ export const createRequestFn = createServerFn({ method: "POST" })
     if ("ok" in outcome) return outcome;
     const id = outcome.id;
 
+    const { chatEnabled } = await import("@/server/ai/flags");
+    const held = data.hold === true && chatEnabled();
+
     const { recordEvent, transitionRequest } = await import("@/server/requests");
     await recordEvent(id, workspaceId, "request.created");
-    await transitionRequest(id, workspaceId, "draft", "received");
+    if (!held) await transitionRequest(id, workspaceId, "draft", "received");
 
     // Criteria at intake (instant, zero tokens). Structured form (S2): the
     // typed fields become rows directly — nothing is guessed, source "user".
@@ -421,8 +441,17 @@ export const createRequestFn = createServerFn({ method: "POST" })
       organizationId: workspaceId,
       action: "request.created",
       target: `#${id}`,
-      detail: { title, ...(categoryId ? { category: categoryId } : {}) },
+      detail: {
+        title,
+        ...(categoryId ? { category: categoryId } : {}),
+        ...(held ? { held: true } : {}),
+      },
     });
+
+    // A held draft stops here (V18). Nothing is enqueued and nothing sweeps
+    // it: `draft` is not an in-flight state, so the worker never adopts it.
+    // "A pending draft never spends money on its own."
+    if (held) return { ok: true, id };
 
     // Attachments coming: startRequestPipelineFn enqueues once they are stored.
     // If the browser dies in between, the worker's sweep re-adopts the request
@@ -438,6 +467,64 @@ export const createRequestFn = createServerFn({ method: "POST" })
     }
 
     return { ok: true, id };
+  });
+
+/**
+ * Launch a held draft (V18): `draft → received`, then the pipeline.
+ *
+ * The other half of `createRequestFn`'s `hold`. Deliberately NOT gated on
+ * AI_CHAT: a draft held while the flag was on must still be launchable after
+ * someone switches it off, or it is stranded with no way out but cancelling.
+ */
+export const launchDraftFn = createServerFn({ method: "POST" })
+  .inputValidator(z.object({ id: z.string() }))
+  .handler(async ({ data }): Promise<{ ok: boolean }> => {
+    const [{ auth }, { getRequest }, { db }, { eq }, schema] = await Promise.all([
+      import("@/server/auth"),
+      import("@tanstack/react-start/server"),
+      import("@/database"),
+      import("drizzle-orm"),
+      import("@/database/schema"),
+    ]);
+    const session = await auth.api.getSession({ headers: getRequest().headers });
+    const workspaceId = session?.session.activeOrganizationId;
+    if (!session || !workspaceId) return { ok: false };
+
+    const { requireMember } = await import("@/server/workspace-guard");
+    if (!(await requireMember(session.user.id, workspaceId, "buyer"))) return { ok: false };
+
+    const row = await db.query.request.findFirst({ where: eq(schema.request.id, data.id) });
+    if (!row || row.organizationId !== workspaceId || row.status !== "draft") {
+      return { ok: false };
+    }
+
+    const { transitionRequest, StaleTransitionError } = await import("@/server/requests");
+    try {
+      await transitionRequest(row.id, workspaceId, "draft", "received");
+    } catch (error) {
+      // Two clicks, or a cancel in another tab: the request is no longer a
+      // draft, and the page reloads to show where it is.
+      if (error instanceof StaleTransitionError) return { ok: false };
+      throw error;
+    }
+
+    const { logAudit, actorOf } = await import("@/server/audit");
+    await logAudit({
+      ...actorOf(session),
+      organizationId: workspaceId,
+      action: "request.launched",
+      target: `#${row.id}`,
+    });
+
+    try {
+      const { enqueuePipeline } = await import("@/server/queue");
+      await enqueuePipeline(row.id);
+    } catch (error) {
+      // Same as at creation: the request survives a queue failure, and the
+      // worker's sweep adopts it from "received" after two minutes.
+      console.error(`launchDraft: failed to enqueue pipeline for ${row.id}`, error);
+    }
+    return { ok: true };
   });
 
 /** Start the pipeline for a request whose attachments have finished uploading.
@@ -621,6 +708,19 @@ export const getRequestDetailFn = createServerFn({ method: "GET" })
         })
       : null;
 
+    // The clarification (V18): proposals per assistant turn, and how many
+    // turns are left. Both empty when the flag is off — like the transcript.
+    const { clarifyTurnsLeft: turnsLeft } = await import("@/lib/clarification");
+    let proposals = new Map<string, ProposalView[]>();
+    let clarifyTurnsLeft = 0;
+    if (aiChatEnabled) {
+      const { proposalsByMessage } = await import("@/server/clarification");
+      proposals = await proposalsByMessage(row.id);
+      clarifyTurnsLeft = turnsLeft(
+        messages.filter((m) => m.role === "assistant" && m.questions !== null).length,
+      );
+    }
+
     return {
       id: row.id,
       title: row.title,
@@ -650,6 +750,8 @@ export const getRequestDetailFn = createServerFn({ method: "GET" })
         id: message.id,
         role: message.role,
         content: message.content,
+        questions: message.questions,
+        proposals: proposals.get(message.id) ?? [],
         createdAt: message.createdAt.toISOString(),
       })),
       events: events.map((event) => ({
@@ -660,6 +762,7 @@ export const getRequestDetailFn = createServerFn({ method: "GET" })
       })),
       attachments,
       aiChatEnabled,
+      clarifyTurnsLeft,
       flow,
       unfulfilledReason: row.status === "unfulfilled" ? row.unfulfilledReason : null,
       matches: shownMatches.map((m) => ({

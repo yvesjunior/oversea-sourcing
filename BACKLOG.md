@@ -24,7 +24,7 @@
 | **E9** Notifications | In-app + email | 🟡 bell, emitters, **prefs (2026-08-26)** live; Phase P types (`quote_received`, `contract_to_sign`, `contract_signed`) + staff alert on `quotes.requested` (2026-09-07) live; **the bell alerts (2026-09-14)** — count badge, 30 s poll, chime, per-browser mute |
 | **E10** Admin surfaces | Verification, imports, ops queue | 🟡 **verification LIVE (S5b/S5c, 2026-08-26)**; imports/ops queue placeholders |
 | **R** Custom staff roles | Roles as data + the matrix | ✅ **BUILT 2026-08-29** (migration 0039) — create/delete roles, dynamic matrix, `requests.all` |
-| **E13** V6 architecture | Supplier portal · KPI #2 · Partner Hub · Decision Pack | 🔵 **NEW 2026-10-21** — scope opened by the V6 document; diagrams validated 2026-11-14; **34 tasks in seven slices — [Phase V](#phase-v--the-v6-parcours-task-by-task-e13--written-2026-11-14)**; **V01, V02, V04–V11 built 2026-11-14** (settings, contacts, states, fork + shortlist, RFQ batch, window closing, typed answer time + channel, KPI #2 v1, the Decision Pack record, the release queue); V01–V11 **live on prod — V01–V09 since deploy #45 (2026-11-14), V10–V11 since deploy #47 (2026-11-18) — with the pack-flow switch OFF**; **V12–V14 built 2026-11-18** (the buyer's pack page, choosing from it, automatic release built and switched off + the review report) — **slice 1 (V04–V14) is complete** — **live on prod since deploy #48 (2026-11-18), pack flow off, release manual** |
+| **E13** V6 architecture | Supplier portal · KPI #2 · Partner Hub · Decision Pack | 🔵 **NEW 2026-10-21** — scope opened by the V6 document; diagrams validated 2026-11-14; **34 tasks in seven slices — [Phase V](#phase-v--the-v6-parcours-task-by-task-e13--written-2026-11-14)**; **V01, V02, V04–V11 built 2026-11-14** (settings, contacts, states, fork + shortlist, RFQ batch, window closing, typed answer time + channel, KPI #2 v1, the Decision Pack record, the release queue); V01–V11 **live on prod — V01–V09 since deploy #45 (2026-11-14), V10–V11 since deploy #47 (2026-11-18) — with the pack-flow switch OFF**; **V12–V14 built 2026-11-18** (the buyer's pack page, choosing from it, automatic release built and switched off + the review report) — **slice 1 (V04–V14) is complete** — **live on prod since deploy #48 (2026-11-18), pack flow off, release manual**; **V18 built 2026-11-18** (the clarification before launch, behind `AI_CHAT`, off) — on `main`, not deployed |
 | **E11** Settings | Profile, sourcing rules | 🟡 Paramètres + notification prefs live; **password / 2FA / theme / rename (2026-08-27)** live; buyer Abonnement self-service waits for billing |
 
 **MVP1 = E0–E7 + E10.** Definition of done **restated 2026-08-29 by ADR-002**
@@ -41,7 +41,13 @@ tracked to delivery** — with the PDF report available throughout.
 **Prod = `e61b229` (deploy #48, 2026-11-18)** — Phase V tasks V01–V14: slice 1
 is complete and live, **with the pack-flow switch off and release manual**
 (`platform_setting` holds no row on prod, so every setting is at its default).
-`main` is ahead of prod only by this record. **What deploy #48 changed for the
+**`main` is ahead of prod and NOT deployed:** this record, then **V18** (the
+clarification before launch, migration **0055**, behind `AI_CHAT` — which is
+`false` on prod, read from the web container on 2026-11-18, so deploying it
+shows nothing new). **Before `AI_CHAT` is ever switched on in prod, read D16:**
+the clarification is the first call that honours the plan's `model_tier`, and
+prod's plans are `balanced` and `best` while every cost figure we have was
+measured on `cheap`. **What deploy #48 changed for the
 owner:** `/interne/parametres` now lets them select « Activé » for the pack
 flow and « Automatique » for the release — one select and one click each.
 Neither was touched. **Before the pack flow is switched on, `rfq.reply_to`
@@ -4299,6 +4305,9 @@ below are built on:
   route or component.**
 - **The per-request AI chat exists and is off**: `src/server/ai/chat.ts`
   returns criteria operations, behind `AI_CHAT=true` (default false).
+  *(2026-11-18: replaced by the clarification of V18 — same flag, still off;
+  the operations are now proposals the buyer accepts, never applied as
+  returned.)*
 - **`document` hangs from a quote and/or a request only**, with kinds
   `offer | other`.
 - **`transitionDeal` has one caller** (`signature-fns.ts`, `open →
@@ -4336,6 +4345,8 @@ report, exactly as today, because that report is all they get.
 | **D13** | A round closed early (staff, or the target reached) tells the suppliers who had not answered **nothing**: their RFQ still shows the original deadline. One who answers after the close but before that deadline is refused (V08: not in time for the round). Should they be told the RFQ is closed? | **Not told** (V07/V08 as built) — README §2c: a silent supplier is *"excluded, not chased"*. A closing notice is not chasing, and `buildRfqWithdrawnMail` shows the shape; it is one more email per silent supplier per early close. | V07, V08 |
 | **D14** | In `automatic` mode, a pack that came to a person (its round closed with no offer) and was **relaunched**: when the new round closes with offers, does it leave by itself? | **No — a pack that has reached a person stays a person's** (V14 as built). Automatic release happens only at the close that creates the pack. The other answer is simpler to state ("automatic means automatic") but lets a relaunched pack leave alone after the setting has gone back to `manual`, because a pack keeps the mode it was created with. | V14 |
 | **D15** | An automatically released pack passes through `pack_review` for an instant, so the request's timeline and activity feed — which the buyer reads — still show « Offres reçues — en revue chez OSI » a few seconds before « Decision Pack disponible ». The email and the pack page were made truthful in V14; the timeline was not. | **Left as is while the mode is off.** To settle before anyone selects `automatic`: either a different label for that step when the pack's release has no person, or no `pack_review` step at all on an automatic release. | V14 |
+| **D16** | The clarification (V18) is the **first AI call that reads the plan's `model_tier`** — research and extraction take their model from `ANTHROPIC_MODEL`, whatever the plan says (verified in the code 2026-11-18: nothing else reads `plan.model_tier`). On prod the plans are `free` / `internal` / `org_trial` = `balanced`, `pro` / `business` / `enterprise` = `best` (read from prod's `plan` table 2026-11-18), while `ANTHROPIC_MODEL` is `cheap`. So switching `AI_CHAT` on in prod would run clarifications on Sonnet and Opus, at a cost per turn **nobody has measured** — dev measured `cheap` only, about $0.003 a turn. | **Built as the task says: the plan's tier.** To settle before `AI_CHAT` goes on in prod: measure a turn on `balanced` and `best`, or set the plans' tiers to what the owner wants to pay, or decide that the clarification follows `ANTHROPIC_MODEL` like everything else. Separately: is it intended that research ignores the plan's tier? The plans page shows a per-request cost by tier that research does not follow. | switching `AI_CHAT` on |
+| **D17** | Two limits V18 had to invent. **(a) Six clarifications per request** (`CLARIFY_MAX_TURNS`): the quota counts requests, not calls, so nothing else bounds them. **(b) Drafts only**: once the search is launched the assistant no longer answers — a paid exchange that changes criteria after the search was built from them changes nothing the buyer receives. Proposals left open can still be accepted while the criteria are editable, like a manual edit. | **Built as stated.** Both are one constant / one condition to change. A held draft also has **no expiry**: it waits until its buyer launches or cancels it, counted in the quota since creation (V20's gotcha relies on that). | V18, V20 |
 
 #### Review of V01–V09 — 2026-11-14, after deploy #45
 
@@ -5940,27 +5951,111 @@ built in: **S** one, **M** two to three, **L** four or more.
 
 #### Slice 3 — Specification and validation (steps 02–04)
 
-- [ ] **V18 · The AI clarifies and restructures.** *Size M. Step 02. Depends
-      on: nothing. Blocks: V19.*
+- [x] **V18 · The AI clarifies and restructures — BUILT 2026-11-18**
+      (migration **0055**, not deployed; behind `AI_CHAT`, off).
+      `src/lib/clarification.ts` (pure: `absentBasics`, `normalizeProposals`,
+      `supersededAdds`, `normalizeQuestions`, `CLARIFY_MAX_TURNS`);
+      `src/server/ai/chat.ts` (`clarifyRequest` — replaces `chatAboutRequest`);
+      `src/server/clarification.ts` (`runClarification`, `resolveProposal`,
+      `proposalsByMessage`); `src/server/criteria.ts` (the ONE place criteria
+      are written after intake — the edit form and an accepted proposal both
+      call it); `src/lib/chat-fns.ts` (`askClarificationFn`,
+      `resolveProposalFn`, `clarificationAvailableFn`); `requests-fns.ts`
+      (`createRequestFn` takes `hold`, new `launchDraftFn`, the detail carries
+      questions, proposals and turns left); `HeroPrompt.tsx` (the second
+      button), `RequestChat.tsx` (rewritten), `demandes/$id.tsx` (the draft
+      banner, launch, cancel on a draft). Tables: `criterion_proposal`,
+      `request_message.questions`. 716 tests.
 
-      **What it does.** Before a request is launched, the assistant asks for
+      **How it answers the task.** « Préciser avec l'assistant » creates the
+      request and leaves it a `draft` — the state has existed since E3 and
+      nothing ever rested in it. On the draft the buyer asks for a reading,
+      answers, and accepts or ignores each proposal; « Lancer la recherche »
+      does `draft → received` and enqueues. **Before a request is launched**
+      therefore means what it says: nothing is searched, and the worker's
+      sweep does not adopt a draft (`IN_FLIGHT_STATUSES`).
+
+      **Where the build departs from the task text**, and why:
+      - *"`chat.ts` already returns criteria operations"* — it did, and
+        `chat-fns.ts` **applied them as returned**. The acceptance asks that
+        accepted proposals become rows, so the model's output now stops in
+        `criterion_proposal` and only the buyer's click writes.
+      - *"it uses the plan's `model_tier`"* — built so, and it turns out to be
+        the first call that does (D16).
+      - Two limits the task does not name: six turns, drafts only (D17).
+
+      *Verified live in dev with `AI_CHAT=true`, real calls on the `cheap`
+      tier (`claude-haiku-4-5`), then everything removed and the flag put
+      back:*
+      - **Held draft.** Form filled with no quantity → « Préciser avec
+        l'assistant » → #3050 in `draft`; events `request.created` +
+        `criteria.extracted` only, **no pg-boss job**, audit
+        `request.created` with `held: true`.
+      - **A draft missing a quantity gets asked for one.** First turn: a
+        restatement and five questions, the first two being the quantity and
+        the lead time; no proposal. Log: `in=1404 out=212 ~$0.0025`.
+      - **Proposals, and the buyer's answers.** Answering "500 pièces, 8
+        semaines, NSF/ANSI 61, commande manuelle" brought four proposals.
+        Accepting « Quantité » wrote `quantity | Quantité | 500 | pièces |
+        required | source user` and a `criteria.updated` event — the row and
+        the event a manual add produces. Ignoring « Commande » wrote nothing.
+        An accepted update (« Pression 16 bar → 10 bar ») rewrote the row in
+        place. The request stayed `draft` throughout.
+      - **Stale.** A pending update on « Matériau », the criterion deleted by
+        hand, then Accept → refused, « Non appliqué — le critère a changé »,
+        nothing written.
+      - **Launch.** « Lancer la recherche » → `received` → `searching`, audit
+        `request.launched`, the pipeline job ran; the panel closed. A proposal
+        left open was still accepted while `searching`. (The research worker
+        was stopped for this, so no research ran; the pipeline's own
+        translation call did.)
+      - **The limit.** Six counted turns simulated in the database: the page
+        shows « Aucun échange restant » and no input; `runClarification`
+        answers `limit` — and `not_draft` on the cancelled request — **without
+        calling the model** (zero `clarify:` log lines).
+      - **Read-only.** Staff, from the internal workspace: the draft banner
+        without its button, the transcript, no input, no Accept.
+      - **Cancel** on a draft works (the button was hidden at `draft` before).
+      - **Flag off.** No second button on the form, no assistant panel on the
+        dossier; the criteria accepted earlier are still there; a draft still
+        shows its banner with launch and cancel, in wording that no longer
+        mentions the assistant.
+
+      **Three things the first live run showed, fixed before this commit:**
+      a proposal the buyer had just ignored came back on the next turn; the
+      model proposed making a criterion mandatory that nobody had called
+      mandatory, and the page showed that change as if nothing changed; and
+      correcting an unanswered proposal left two competing ones on screen
+      ("8 semaines" and "10 semaines"). Declined proposals are now filtered
+      and named to the model, a flipped obligation is shown as « devient
+      obligatoire », and a replaced proposal is withdrawn as `superseded`.
+
+      **Not exercised:** the `balanced` and `best` tiers (D16) — they think by
+      default, and the call was only ever made on Haiku; a model refusal or an
+      unusable answer (`no_answer`) and an outage (`unavailable`) — coded,
+      never provoked; `hold` sent to the server with the flag off (the form
+      does not offer it then; the server ignores it by reading the same flag);
+      two clarifications started at the same instant on one request (the page
+      disables the button; the server does not lock, so both would run and
+      both would count); attachments on a held draft; the English pages;
+      production. **Known and left:** on the cheap tier nearly every proposal
+      comes back marked « obligatoire » — the buyer sees it before accepting
+      and can edit the criterion afterwards, as at intake where typed fields
+      are mandatory too.
+
+      ~~**What it does.** Before a request is launched, the assistant asks for
       what is missing and restates the need. The machinery exists:
       `src/server/ai/chat.ts` already returns criteria operations, behind
-      `AI_CHAT`, off by default.
-
-      **Files.** `src/server/ai/chat.ts` — a clarification prompt that takes
-      the draft and its parsed criteria and returns questions plus proposed
-      operations. `HeroPrompt.tsx` / `RequestChat.tsx` — the exchange on the
-      draft. `src/server/ai/flags.ts`. `parse-criteria.ts` stays as the free
-      first pass.
-
-      **Acceptance.** A draft missing a quantity gets asked for one. Accepted
-      proposals become `request_criterion` rows exactly as a manual edit
-      would. With the flag off the flow is today's.
-
-      **Gotcha.** "A pending draft never spends money on its own" (owner,
-      2026-08-29) — the clarification runs when the buyer asks for it, never
-      on a timer, and it uses the plan's `model_tier`.
+      `AI_CHAT`, off by default. **Files.** `src/server/ai/chat.ts` — a
+      clarification prompt that takes the draft and its parsed criteria and
+      returns questions plus proposed operations. `HeroPrompt.tsx` /
+      `RequestChat.tsx` — the exchange on the draft. `src/server/ai/flags.ts`.
+      `parse-criteria.ts` stays as the free first pass. **Acceptance.** A
+      draft missing a quantity gets asked for one. Accepted proposals become
+      `request_criterion` rows exactly as a manual edit would. With the flag
+      off the flow is today's. **Gotcha.** "A pending draft never spends money
+      on its own" (owner, 2026-08-29) — the clarification runs when the buyer
+      asks for it, never on a timer, and it uses the plan's `model_tier`.~~
 
 - [ ] **V19 · Cahier des charges and KPIProfile v1.** *Size L. Step 03.
       Depends on: V18. Blocks: V20.*
@@ -6422,7 +6517,7 @@ V32-V34 (settlement) wait on the legal opinion — full graph in Phase V
 - [x] File upload endpoint + storage adapter (`/api/upload`, `/api/files/$id`, local volume behind S3-shaped `src/server/storage.ts`)
 - [x] **Criteria at intake** — the pre-search AI analysis was **removed entirely (decided 2026-08-05)**: an ℹ️ info helper on the hero prompt guides buyers to structured input, and `src/server/parse-criteria.ts` parses criteria synchronously at creation (zero tokens). Requests go **straight to supplier search** — no pause, no `AI_PROMPT_ANALYSIS` flag. Legacy `analyzing` dossiers keep a manual launch button.
 - [x] Criteria review/edit UI (add/remove/edit) — editable on the dossier until it closes
-- [x] **Per-request AI chat** — behind `AI_CHAT` (default **false**: UI + transcripts hidden, server refuses; the hero prompt is the only AI-facing input): message → Claude with criteria context → optional criteria mutations applied (persisted in `request_message`)
+- [x] **Per-request AI chat** *(replaced 2026-11-18 by the clarification of V18 — same flag, still off; operations are proposed, no longer applied)* — behind `AI_CHAT` (default **false**: UI + transcripts hidden, server refuses; the hero prompt is the only AI-facing input): message → Claude with criteria context → optional criteria mutations applied (persisted in `request_message`)
 - [x] Worker recovery sweep: requests stranded mid-pipeline (crash/lost enqueue) are re-adopted on boot + every 60s
 - [x] Pipeline orchestrator job: `analyzing → searching → validating → report_ready` with progress events — **simulated stages (~10s each) until E4/E5 provide real search/matching**
 - [x] Wire demandes list + detail pages to real data (drop mock) — `request` table (migration 0001), workspace-scoped queries; detail criteria/top-5/chat remain showcase until E3/E5

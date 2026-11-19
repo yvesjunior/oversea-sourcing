@@ -49,6 +49,7 @@ import type { RiskLevel } from "@/database/schema";
 import {
   cancelRequestFn,
   getRequestDetailFn,
+  launchDraftFn,
   rerunResearchFn,
   type RequestDetail,
 } from "@/lib/requests-fns";
@@ -271,9 +272,25 @@ function DemandeDetail() {
     }
   };
 
+  // A held draft (V18): created, counted, and waiting for the buyer to launch
+  // it. Nothing runs until they do — this button is the only way forward.
+  const draft = demande.status === "draft";
+  const [launching, setLaunching] = useState(false);
+  const launchDraft = async () => {
+    if (launching) return;
+    setLaunching(true);
+    try {
+      await launchDraftFn({ data: { id: demande.id } });
+      await router.invalidate();
+    } finally {
+      setLaunching(false);
+    }
+  };
+
   const pct = progressPct(demande.status, demande.flow);
-  const canCancel =
-    demande.canEdit && !finished && !isTerminal(demande.status) && demande.status !== "draft";
+  // A draft can be cancelled too: before V18 none ever rested long enough to
+  // be seen, now one waits for as long as the buyer leaves it.
+  const canCancel = demande.canEdit && !finished && !isTerminal(demande.status);
 
   const activity = [...demande.events].reverse();
 
@@ -418,6 +435,38 @@ function DemandeDetail() {
               </p>
             )}
           </div>
+        </section>
+      )}
+
+      {draft && (
+        <section
+          role="status"
+          className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-3 rounded-xl border border-gold/40 bg-gold-soft/40 p-4 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center"
+        >
+          <Info className="mt-0.5 size-5 shrink-0 text-gold sm:mt-0" />
+          <div className="min-w-0">
+            <h2 className="text-sm font-semibold">{t("clarify.draftTitle")}</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {/* The assistant is only mentioned where it can be used: a
+                  draft outlives the flag that created it (AI_CHAT off). */}
+              {!demande.canEdit
+                ? t("clarify.draftTextReadOnly")
+                : demande.aiChatEnabled
+                  ? t("clarify.draftText")
+                  : t("clarify.draftTextNoAssistant")}
+            </p>
+          </div>
+          {demande.canEdit && (
+            <Button
+              type="button"
+              variant="gold"
+              className="col-span-2 sm:col-span-1"
+              disabled={launching}
+              onClick={() => void launchDraft()}
+            >
+              <ScanSearch className="size-4" /> {t("clarify.launch")}
+            </Button>
+          )}
         </section>
       )}
 
@@ -785,14 +834,18 @@ function DemandeDetail() {
             </section>
           )}
 
-          {/* Chat is platform-gated (AI_CHAT): when off, the whole section —
-              transcripts included — is hidden (a conversation that can't
-              continue is noise). The hero prompt is the AI entry point. */}
-          {demande.aiChatEnabled && (
+          {/* The clarification (V18) is platform-gated (AI_CHAT): when off,
+              the whole section is hidden, transcripts included. Shown on a
+              draft, where it can be used, and afterwards only if it was —
+              an empty panel on a launched request offers nothing. */}
+          {demande.aiChatEnabled && (draft || demande.messages.length > 0) && (
             <RequestChat
               requestId={demande.id}
               messages={demande.messages}
-              canChat={demande.canEdit}
+              canAsk={demande.canEdit && draft}
+              canResolve={demande.canEdit && criteriaEditable(demande.status)}
+              frozen={!criteriaEditable(demande.status)}
+              turnsLeft={demande.clarifyTurnsLeft}
             />
           )}
         </div>

@@ -1589,6 +1589,65 @@ dashboard stats are **pure read-models of the DB**.
 5. **Recovery sweep** — on boot and every 60 s the worker re-adopts requests
    stranded mid-pipeline (crash, lost enqueue) and runs them to completion.
 
+### The clarification before launch — built, and switched off (V18)
+
+Step 02 of the V6 parcours: *the AI clarifies, reformulates, asks what is
+missing*. Behind the platform flag **`AI_CHAT`, off by default and off on
+prod** — with it off none of this is visible and the flow is exactly the one
+above.
+
+With it on, the request form (signed-in buyers) has a second button,
+**« Préciser avec l'assistant »**. It creates the request like any other —
+same validation, same quota, counted at creation — and **leaves it a
+`draft`**: no transition, no pipeline job. `draft` is not an in-flight state,
+so the worker's sweep never adopts it either. The dossier of a draft says so,
+and carries the only way forward: **« Lancer la recherche »** (`launchDraftFn`,
+`draft → received`, then the pipeline as usual) — or cancel.
+
+On that draft, an **Assistant** panel:
+
+1. The buyer presses **« Faire relire ma demande »**. One model call
+   (`src/server/ai/chat.ts`) receives the buyer's words, the criteria rows,
+   and which basics no row carries yet (`absentBasics`: quantity, lead time).
+   It returns a **restatement**, up to five **questions**, and **proposed**
+   criteria operations.
+2. The buyer answers in the box; each answer is another call.
+3. Every proposal is shown with **Accepter / Ignorer**. Only an accept writes.
+
+**The assistant never writes a criterion.** Its operations stop in
+`criterion_proposal`; an accept goes through `src/server/criteria.ts`, the
+same three functions the edit form calls — same columns, `source: "user"`,
+the same `criteria.updated` event. The E3 chat this replaces (never switched
+on anywhere) applied the model's operations as returned.
+
+What the model returns is filtered before anyone sees it
+(`normalizeProposals`, pure, tested): an update or removal naming an id that
+is not one of the request's criteria is dropped, as is an addition without a
+label or value, a repeat of an existing criterion, an update that changes
+nothing, anything already proposed and waiting, and anything the buyer
+declined. A waiting addition that a later turn replaces ("8 weeks", then "10
+after all") is withdrawn as `superseded`, so two competing proposals are never
+both on the page. A proposal accepted after its criterion was deleted by hand
+is refused as `stale`.
+
+**Three rules, all enforced on the server:**
+
+- **It runs when the buyer asks, never on its own.** No job, no timer, no call
+  from the worker — "a pending draft never spends money on its own" (owner,
+  2026-08-29).
+- **It runs on a draft only.** Once launched, the exchange is closed (the
+  transcript stays; proposals left open can still be answered while the
+  criteria are editable, exactly as the edit form still works then).
+- **Six turns per request** (`CLARIFY_MAX_TURNS`), counted on turns that
+  reached the model. The plan's quota counts requests, not calls, so nothing
+  else bounds them. A turn lost to an outage is not counted.
+
+**The model is the workspace plan's `model_tier`** — the first AI call that
+reads it. Research and extraction still take their model from the environment
+(`ANTHROPIC_MODEL`), whatever the plan says. Measured in dev on the `cheap`
+tier: about **$0.003 per turn**. Not measured on `balanced` or `best`, which
+is what prod's plans are set to — see BACKLOG D16.
+
 ### The search runs in English; the pool is stored in two languages
 
 **Owner, 2026-08-29:** *"when we are receiving a request we should be looking
@@ -2568,7 +2627,7 @@ defaults from `docker-compose.dev.yml`, so a fresh clone needs only
 | Setting              | Default    | What it does                                                                          |
 | -------------------- | ---------- | ------------------------------------------------------------------------------------- |
 | `AI_RESEARCH`        | **`true`** | Real web search per request. Off falls back to a simulated search stage               |
-| `AI_CHAT`            | `false`    | Per-request assistant chat. Off hides the UI and the server refuses messages          |
+| `AI_CHAT`            | `false`    | The clarification before launch (V18): « Préciser avec l'assistant » on the form, the assistant on a draft. Off hides both and the server refuses; a draft already held stays launchable |
 | `ANTHROPIC_MODEL`    | `cheap`    | Tier (`cheap`/`balanced`/`best`) or a raw model id — registry in `ai/models.ts`        |
 | `SUPPLIERS_RETURNED` | `5`        | Suppliers shown per dossier. **Search count and candidate caps derive from it**       |
 | `SHOW_TEST_LOGIN`    | `true`     | One-click demo login on `/login`. **Set false before real users** — creds are public  |
@@ -2781,6 +2840,7 @@ erDiagram
 | `decision_pack`      | ✅ 2026-11-14 (0052, Phase V · V10; 0053, V11) — what a buyer is shown, as a record: `request_id`, `round_id`, `status` (`pending` · `released` · `refused` · `withdrawn`), `release_mode` (the setting when the pack was created), `kpi_run_id` (the ranking it was built from; null for an empty pack), `built_at`; `assigned_to` + name (whose desk), `released_at`, `released_by` + name (null = the system), `refused_reason`. **At most one `pending` pack per request** (partial unique index) |
 | `decision_pack_item` | ✅ 2026-11-14 (0052, V10; 0053, V11) — one offer in a pack: `quote_id`, `kpi_result_id`, `rank_computed` and `rank_shown` (**null = withheld by a person**), and `offer` — a frozen copy of the figures and of the supplier as they stood, so the pack outlives changes to the quote |
 | `decision_pack_event`| ✅ 2026-11-14 (0053, Phase V · V11) — what was done to a pack: `action` (`approved` · `corrected` · `relaunched` · `refused` · `assigned`, and since V14 the two the system writes, with no actor: `auto_released` · `held`), actor + name, `payload` (the note, the moves, the suppliers relaunched and what each had been closed as, the reason). Permanent — not `audit_log` |
+| `criterion_proposal` | ✅ 2026-11-18 (0055, Phase V · V18) — a criteria change the assistant PROPOSED: `op` (`add` · `update` · `remove`), the full criterion an accept would leave, `previous` / `previous_required` (what an update replaces), `status` (`pending` · `accepted` · `dismissed` · `stale` · `superseded`), who answered and their name as it was. `criterion_id` is deliberately not a foreign key: the proposal outlives a criterion deleted by hand, to say `stale`. Same migration: `request_message.questions` (jsonb) — what the assistant asked on a turn; non-null is what counts a turn against the request's six |
 | `kpi_result`         | ✅ 2026-11-14 (0051, Phase V · V09) — KPI #2: one row per offer per run. `run_id` groups a computation; `rank`, `score` (hundredths of a point), `breakdown` (per-factor state, points and weight, the notes, and the offer exactly as it was scored), `formula_version`, `inputs_hash`, `trigger`, `computed_at`. **Append-only** — the current ranking of a round is its latest run. KPI #1 is not here: it scores a supplier before anyone is asked and stays on `match` |
 | `platform_setting`   | ✅ 2026-11-14 (0046, Phase V · V01) — platform-wide settings, ONE value per key for every client; a missing row means the default. Keys, types, ranges and defaults live in the registry `src/lib/platform-settings.ts`, so a new knob is a registry entry and not a migration. Edited from `/interne/parametres` (`settings` permission, owner by default); every change is in `audit_log` with the old and new value |
 | `plan` / `subscription` | limits as rows (daily, lifetime, seats, `quota_scope`, `audience`, `suppliers_returned`, `model_tier`); one subscription per workspace |

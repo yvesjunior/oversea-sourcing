@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { DossierCard } from "@/components/osi/DossierCard";
 import { HeroPrompt } from "@/components/osi/HeroPrompt";
+import { clarificationAvailableFn } from "@/lib/chat-fns";
 import { accountOptions } from "@/components/osi/AccountFilter";
 import { applyListFilters, ListFiltersBar, useListFilters } from "@/components/osi/ListFilters";
 import { EmptyRequests } from "@/components/osi/EmptyRequests";
@@ -31,8 +32,12 @@ export const Route = createFileRoute("/demandes/")({
     ],
   }),
   loader: async () => {
-    const [miennes, toutes] = await Promise.all([getMyRequestsFn(), getAllRequestsFn()]);
-    return { miennes, toutes };
+    const [miennes, toutes, clarifyAvailable] = await Promise.all([
+      getMyRequestsFn(),
+      getAllRequestsFn(),
+      clarificationAvailableFn(),
+    ]);
+    return { miennes, toutes, clarifyAvailable };
   },
   component: Demandes,
 });
@@ -63,7 +68,7 @@ function Grille({ demandes, mine }: { demandes: RequestSummary[]; mine: boolean 
 function Demandes() {
   const { t } = useTranslation();
   const { session } = Route.useRouteContext();
-  const { miennes, toutes } = Route.useLoaderData();
+  const { miennes, toutes, clarifyAvailable } = Route.useLoaderData();
   const platformRole = (session?.user as { platformRole?: string } | undefined)?.platformRole;
   // Staff powers exist ONLY while standing in the internal workspace, so this
   // flag doubles as "I am in OSI's own workspace" — the same signal the nav
@@ -116,6 +121,7 @@ function Demandes() {
         <HeroPrompt
           user={session?.user ?? null}
           variant="embedded"
+          clarifyAvailable={clarifyAvailable}
           // A draft coming back from the auth gate must be VISIBLE: it is no
           // longer submitted automatically, so the buyer has to see it to
           // press the button.

@@ -445,7 +445,9 @@
       "status": "Status",
       "quotes": "Quotes",
       "updated": "Updated"
-    }
+    },
+    "clarify": "Clarify with the assistant",
+    "clarifyHint": "Saves the request as a draft: the assistant reads it, you launch the search afterwards."
   },
   "stats": {
     "activeRequests": "Active requests",
@@ -631,7 +633,8 @@
     "rfq_withdrawn": "RFQ withdrawn from {{count}} supplier(s)",
     "rfq_offer_added": "Offer that arrived in time, entered after the close — {{offers}} offer(s) in total",
     "rfq_holders_told": "{{count}} supplier(s) told the request is closed",
-    "pack_released": "Decision Pack available"
+    "pack_released": "Decision Pack available",
+    "clarification_asked": "Read by the assistant — questions: {{questions}}, proposals: {{proposals}}"
   },
   "stepsDemande": {
     "received": {
@@ -1139,7 +1142,8 @@
     "pack.refused": "Decision Pack refused",
     "pack.assigned": "Decision Pack assigned",
     "pack.offer_reasked": "Expired offer asked again from the Decision Pack",
-    "pack.auto_released": "Decision Pack sent automatically"
+    "pack.auto_released": "Decision Pack sent automatically",
+    "request.launched": "Search launched from a draft"
   },
   "twofa": {
     "title": "Two-step verification",
@@ -1807,5 +1811,47 @@
       "refused": "Refused",
       "automatic": "Sent automatically"
     }
+  },
+  "clarify": {
+    "draftTitle": "Draft — the search has not been launched",
+    "draftText": "Nothing is searched until you launch the search. You can ask the assistant to read the request, correct the criteria, then launch.",
+    "draftTextReadOnly": "Nothing is searched until the search has been launched.",
+    "launch": "Launch the search",
+    "intro": "The assistant reads your request: it restates it, points out what a supplier would need in order to quote, and proposes criteria. Nothing is added without your agreement.",
+    "ask": "Have my request read",
+    "turnsLeft_one": "{{count}} exchange left",
+    "turnsLeft_other": "{{count}} exchanges left",
+    "turnsLeft_zero": "No exchange left",
+    "questions": "What is missing",
+    "proposals": "Proposed criteria",
+    "op": {
+      "add": "Add",
+      "update": "Change",
+      "remove": "Remove"
+    },
+    "required": "required",
+    "accept": "Accept",
+    "dismiss": "Ignore",
+    "status": {
+      "pending": "Waiting",
+      "accepted": "Accepted",
+      "dismissed": "Ignored",
+      "stale": "Not applied — the criterion changed",
+      "superseded": "Replaced by a more recent proposal",
+      "unanswered": "Left unanswered"
+    },
+    "placeholder": "Answer the assistant’s questions…",
+    "limitReached": "Every exchange allowed for this request has been used. You can still edit the criteria by hand, then launch the search.",
+    "closed": "This request is no longer a draft: the exchange with the assistant is closed.",
+    "refused": {
+      "disabled": "The assistant is not available.",
+      "forbidden": "Your role does not allow this.",
+      "not_draft": "This request is no longer a draft.",
+      "limit": "Every exchange allowed for this request has been used.",
+      "stale": "This proposal could not be applied: the criterion changed in the meantime."
+    },
+    "becomes_required": "becomes required",
+    "becomes_optional": "becomes optional",
+    "draftTextNoAssistant": "Nothing is searched until you launch the search. You can still correct the criteria before launching."
   }
 }

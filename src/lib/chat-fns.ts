@@ -1,154 +1,104 @@
-// Per-request AI chat (E3) — inline gateway call (no job: chat is interactive).
+// The clarification before launch (Phase V · V18) — server functions.
+//
+// Inline model call (no job): the buyer is looking at the page and waiting
+// for the answer. Gated platform-wide by AI_CHAT; with it off every function
+// here refuses and the pages show none of this.
 
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { CLARIFY_MESSAGE_MAX } from "@/lib/clarification";
 
-export const postChatMessageFn = createServerFn({ method: "POST" })
-  .inputValidator(z.object({ requestId: z.string(), content: z.string().trim().min(1).max(2000) }))
-  .handler(async ({ data }): Promise<{ ok: boolean }> => {
-    // Chat is gated platform-wide (AI_CHAT) — the hero prompt is the only
-    // AI-facing input unless explicitly enabled.
-    const { chatEnabled } = await import("@/server/ai/flags");
-    if (!chatEnabled()) return { ok: false };
+export type ClarifyResult =
+  | { ok: true }
+  | {
+      ok: false;
+      reason:
+        | "disabled"
+        | "forbidden"
+        /** Launched or cancelled in the meantime. */
+        | "not_draft"
+        /** The request's allowance of clarifications is used up. */
+        | "limit"
+        /** The model could not be reached; nothing was counted. */
+        | "unavailable"
+        /** The model answered with nothing usable. */
+        | "no_answer";
+    };
 
-    const [{ auth }, { getRequest }, { db }, { asc, eq }, schema] = await Promise.all([
-      import("@/server/auth"),
-      import("@tanstack/react-start/server"),
-      import("@/database"),
-      import("drizzle-orm"),
-      import("@/database/schema"),
-    ]);
-    const session = await auth.api.getSession({ headers: getRequest().headers });
-    const workspaceId = session?.session.activeOrganizationId;
-    if (!session || !workspaceId) return { ok: false };
+/** The session, the working seat and the request — or why not. Shared by the
+ *  two writes below. */
+async function ownRequest(requestId: string) {
+  const { chatEnabled } = await import("@/server/ai/flags");
+  if (!chatEnabled()) return { refusal: "disabled" as const };
 
-    // B1: chat mutates the dossier (messages + criteria) — working seat only.
-    const { requireMember } = await import("@/server/workspace-guard");
-    if (!(await requireMember(session.user.id, workspaceId, "buyer"))) return { ok: false };
+  const [{ auth }, { getRequest }, { db }, { eq }, schema] = await Promise.all([
+    import("@/server/auth"),
+    import("@tanstack/react-start/server"),
+    import("@/database"),
+    import("drizzle-orm"),
+    import("@/database/schema"),
+  ]);
+  const session = await auth.api.getSession({ headers: getRequest().headers });
+  const workspaceId = session?.session.activeOrganizationId;
+  if (!session || !workspaceId) return { refusal: "forbidden" as const };
 
-    const request = await db.query.request.findFirst({
-      where: eq(schema.request.id, data.requestId),
-    });
-    if (!request || request.organizationId !== workspaceId) return { ok: false };
+  // B1: this spends the workspace's money and changes its dossier — working
+  // seat only, re-read per call.
+  const { requireMember } = await import("@/server/workspace-guard");
+  if (!(await requireMember(session.user.id, workspaceId, "buyer"))) {
+    return { refusal: "forbidden" as const };
+  }
 
-    await db.insert(schema.requestMessage).values({
-      id: crypto.randomUUID(),
-      requestId: request.id,
-      role: "user",
-      content: data.content,
-    });
+  const request = await db.query.request.findFirst({ where: eq(schema.request.id, requestId) });
+  if (!request || request.organizationId !== workspaceId) return { refusal: "forbidden" as const };
+  return { request, session };
+}
 
-    const [criteria, history] = await Promise.all([
-      db.query.requestCriterion.findMany({
-        where: eq(schema.requestCriterion.requestId, request.id),
-        orderBy: [asc(schema.requestCriterion.position)],
-      }),
-      db.query.requestMessage.findMany({
-        where: eq(schema.requestMessage.requestId, request.id),
-        orderBy: [asc(schema.requestMessage.createdAt)],
-      }),
-    ]);
-
-    let reply: string;
-    let operationsApplied = 0;
-    try {
-      const { chatAboutRequest } = await import("@/server/ai/chat");
-      const result = await chatAboutRequest({
-        title: request.title,
-        descriptionRaw: request.descriptionRaw,
-        locale: request.locale,
-        criteria: criteria.map((criterion) => ({
-          id: criterion.id,
-          category: criterion.category,
-          label: criterion.label,
-          value: criterion.value,
-          unit: criterion.unit,
-          required: criterion.required,
-        })),
-        // History already contains the just-inserted user message — pass the
-        // prior turns and send the new content as the final user message.
-        history: history.slice(0, -1).map((m) => ({ role: m.role, content: m.content })),
-        userMessage: data.content,
-      });
-      reply = result.reply;
-
-      const { and, max } = await import("drizzle-orm");
-      // The assistant may still ANSWER once the criteria are frozen, but it
-      // may not change them — same rule as criteria-fns.ts, same reason.
-      const { criteriaEditable } = await import("@/lib/request-status");
-      const operations = criteriaEditable(request.status) ? result.operations : [];
-      for (const op of operations) {
-        if (op.op === "add" && op.label && op.value) {
-          const [row] = await db
-            .select({ max: max(schema.requestCriterion.position) })
-            .from(schema.requestCriterion)
-            .where(eq(schema.requestCriterion.requestId, request.id));
-          await db.insert(schema.requestCriterion).values({
-            id: crypto.randomUUID(),
-            requestId: request.id,
-            category: op.category ?? "other",
-            label: op.label,
-            value: op.value,
-            unit: op.unit,
-            required: op.required ?? false,
-            source: "ai",
-            position: (row?.max ?? -1) + 1,
-          });
-          operationsApplied++;
-        } else if (op.op === "update" && op.id) {
-          await db
-            .update(schema.requestCriterion)
-            .set({
-              ...(op.category ? { category: op.category } : {}),
-              ...(op.label ? { label: op.label } : {}),
-              ...(op.value ? { value: op.value } : {}),
-              ...(op.unit !== null ? { unit: op.unit } : {}),
-              ...(op.required !== null ? { required: op.required } : {}),
-            })
-            .where(
-              and(
-                eq(schema.requestCriterion.id, op.id),
-                eq(schema.requestCriterion.requestId, request.id),
-              ),
-            );
-          operationsApplied++;
-        } else if (op.op === "remove" && op.id) {
-          await db
-            .delete(schema.requestCriterion)
-            .where(
-              and(
-                eq(schema.requestCriterion.id, op.id),
-                eq(schema.requestCriterion.requestId, request.id),
-              ),
-            );
-          operationsApplied++;
-        }
-      }
-    } catch (error) {
-      console.error(`chat: assistant call failed for request ${request.id}`, error);
-      reply =
-        request.locale === "en"
-          ? "The assistant is unavailable right now. Please try again shortly."
-          : "L'assistant est indisponible pour le moment. Veuillez réessayer dans un instant.";
-    }
-
-    await db.insert(schema.requestMessage).values({
-      id: crypto.randomUUID(),
-      requestId: request.id,
-      role: "assistant",
-      content: reply,
-    });
-
-    const { recordEvent } = await import("@/server/requests");
-    if (operationsApplied > 0) {
-      await recordEvent(request.id, workspaceId, "chat.refined", {
-        count: operationsApplied,
-      });
-    }
-    await db
-      .update(schema.request)
-      .set({ updatedAt: new Date() })
-      .where(eq(schema.request.id, request.id));
-
-    return { ok: true };
+/**
+ * Ask the assistant to read the draft, or answer what it asked.
+ *
+ * `content` absent = "read my draft". This is the only way a clarification
+ * starts: there is no timer and no job behind it.
+ */
+export const askClarificationFn = createServerFn({ method: "POST" })
+  .inputValidator(
+    z.object({
+      requestId: z.string(),
+      content: z.string().trim().min(1).max(CLARIFY_MESSAGE_MAX).optional(),
+    }),
+  )
+  .handler(async ({ data }): Promise<ClarifyResult> => {
+    const ctx = await ownRequest(data.requestId);
+    if ("refusal" in ctx) return { ok: false, reason: ctx.refusal };
+    const { runClarification } = await import("@/server/clarification");
+    return runClarification({ request: ctx.request, userMessage: data.content ?? null });
   });
+
+export type ResolveProposalResult =
+  { ok: true } | { ok: false; reason: "disabled" | "forbidden" | "not_pending" | "stale" };
+
+/** Accept or decline one proposal. An accept writes the criterion exactly as
+ *  the edit form would (`src/server/criteria.ts`). */
+export const resolveProposalFn = createServerFn({ method: "POST" })
+  .inputValidator(z.object({ requestId: z.string(), proposalId: z.string(), accept: z.boolean() }))
+  .handler(async ({ data }): Promise<ResolveProposalResult> => {
+    const ctx = await ownRequest(data.requestId);
+    if ("refusal" in ctx) return { ok: false, reason: ctx.refusal };
+    const { resolveProposal } = await import("@/server/clarification");
+    const outcome = await resolveProposal({
+      requestId: ctx.request.id,
+      proposalId: data.proposalId,
+      accept: data.accept,
+      actor: { id: ctx.session.user.id, name: ctx.session.user.name },
+    });
+    return outcome.ok ? { ok: true } : outcome;
+  });
+
+/** Whether the request form may offer « Préciser avec l'assistant ». The
+ *  flag is the server's; the form only learns the answer. */
+export const clarificationAvailableFn = createServerFn({ method: "GET" }).handler(
+  async (): Promise<boolean> => {
+    const { chatEnabled } = await import("@/server/ai/flags");
+    return chatEnabled();
+  },
+);
