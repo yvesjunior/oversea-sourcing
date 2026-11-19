@@ -35,7 +35,14 @@
 //    when it is not told WHO: "and 1 other party". A shared conversation is
 //    never mistaken for a private one.
 
-import type { ContractPartyRole, DealStatus } from "@/database/schema";
+import type { ContractPartyRole, DealStatus, QuoteChannel } from "@/database/schema";
+import {
+  MILESTONE_KINDS,
+  mayRecordMilestone,
+  milestoneOwner,
+  milestonesOpen,
+  type MilestoneKind,
+} from "@/lib/milestones";
 import { caseNeeds, factsForCase, type CaseFacts } from "@/lib/partner-need";
 import type { PartnerKind } from "@/lib/partners";
 
@@ -75,6 +82,21 @@ export type DossierDocument = {
   sharedWith: string[];
   uploadedByName: string | null;
   createdAt: string;
+  /** Set on a PROOF: the milestone it is evidence of (V27). Such a document
+   *  is shown under its milestone, not in the dossier's general list. */
+  milestoneId?: string | null;
+};
+
+/** A milestone as recorded (V27). A kind nobody has touched has no row. */
+export type DossierMilestone = {
+  id: string;
+  kind: MilestoneKind;
+  plannedAt: string | null;
+  completedAt: string | null;
+  note: string | null;
+  channel: QuoteChannel;
+  updatedByName: string | null;
+  updatedAt: string;
 };
 
 export type DossierMessage = {
@@ -122,6 +144,8 @@ export type FullDossier = {
   parties: DossierParty[];
   documents: DossierDocument[];
   threads: DossierThread[];
+  /** Absent on a dossier built before V27's reader: the same as none. */
+  milestones?: DossierMilestone[];
 };
 
 export type PartyView = {
@@ -157,6 +181,33 @@ export type DocumentView = DocumentVersionView & {
   alsoSharedWith: number;
   /** The versions it replaced, newest first — each still readable. */
   earlier: DocumentVersionView[];
+};
+
+/**
+ * One step of the dossier's execution (V27), as a reader sees it. Every kind
+ * is listed, in order, recorded or not: a buyer reads what has happened AND
+ * what has not yet. WHERE it stands — done, late, planned — is not in here:
+ * it is derived when the page is read (`milestoneState`), so a milestone
+ * turns late by itself.
+ */
+export type MilestoneView = {
+  kind: MilestoneKind;
+  /** Whose work it is. */
+  owner: ContractPartyRole;
+  plannedAt: string | null;
+  completedAt: string | null;
+  /** Who typed the last update — the party itself, or OSI on its behalf.
+   *  Null while nothing has been recorded. */
+  channel: QuoteChannel | null;
+  updatedAt: string | null;
+  /** What was said about it. Not sent to a partner. */
+  note?: string | null;
+  /** STAFF ONLY — the person who recorded it. */
+  recordedByName?: string | null;
+  /** The evidence attached, for the readers it is shared with. */
+  proofs: DocumentVersionView[];
+  /** This reader may plan or complete it. */
+  canRecord: boolean;
 };
 
 export type MessageView = {
@@ -205,6 +256,7 @@ export type DossierView = {
   buyerDisclosedAt?: string | null;
   documents: DocumentView[];
   threads: ThreadView[];
+  milestones: MilestoneView[];
 };
 
 // ── reading ─────────────────────────────────────────────────────────────────
@@ -332,7 +384,36 @@ export function projectDossier(full: FullDossier, audience: DossierAudience): Do
     ...(audience.kind === "staff" || audience.kind === "supplier"
       ? { buyerDisclosedAt: full.deal.buyerDisclosedAt }
       : {}),
-    documents: documentChains(full.documents, audience).map(({ current, earlier }) => ({
+    milestones: MILESTONE_KINDS.map((kind): MilestoneView => {
+      const recorded = (full.milestones ?? []).find((milestone) => milestone.kind === kind);
+      return {
+        kind,
+        owner: milestoneOwner(kind),
+        plannedAt: recorded?.plannedAt ?? null,
+        completedAt: recorded?.completedAt ?? null,
+        channel: recorded?.channel ?? null,
+        updatedAt: recorded?.updatedAt ?? null,
+        // A partner is told what happened and when — not what a supplier
+        // wrote about its production, nor shown its photos.
+        ...(audience.kind === "partner" ? {} : { note: recorded?.note ?? null }),
+        ...(staff ? { recordedByName: recorded?.updatedByName ?? null } : {}),
+        proofs:
+          recorded && audience.kind !== "partner"
+            ? full.documents
+                .filter(
+                  (doc) => doc.milestoneId === recorded.id && mayRead(audience, doc.sharedWith),
+                )
+                .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+                .map(version)
+            : [],
+        canRecord: milestonesOpen(full.deal.status) && mayRecordMilestone(audience, kind),
+      };
+    }),
+    // A proof is shown under its milestone, not in the general list.
+    documents: documentChains(
+      full.documents.filter((doc) => !doc.milestoneId),
+      audience,
+    ).map(({ current, earlier }) => ({
       ...version(current),
       label: current.label,
       sharedWith: named(current.sharedWith),

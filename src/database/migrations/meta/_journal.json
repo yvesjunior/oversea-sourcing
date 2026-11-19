@@ -456,6 +456,13 @@
       "when": 1795099412094,
       "tag": "0064_illegal_wonder_man",
       "breakpoints": true
+    },
+    {
+      "idx": 65,
+      "version": "7",
+      "when": 1795101028587,
+      "tag": "0065_thick_iceman",
+      "breakpoints": true
     }
   ]
 }

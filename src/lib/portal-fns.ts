@@ -11,7 +11,9 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import type { DossierView } from "@/lib/dossier";
+import { MILESTONE_KINDS, isMilestoneKind } from "@/lib/milestones";
 import type { DossierSummary, DossierWriteResult } from "@/server/dossier";
+import type { MilestoneWriteResult } from "@/server/milestones";
 import type { PortalRfqDetail, PortalRfqSummary, PortalWriteResult } from "@/server/portal";
 import type {
   SupplierContractSummary,
@@ -218,4 +220,58 @@ export const signMyContractFn = createServerFn({ method: "POST" })
       ip: headers.get("cf-connecting-ip") ?? headers.get("x-forwarded-for") ?? null,
       userAgent: headers.get("user-agent") ?? null,
     });
+  });
+
+// ── production, recorded by the supplier (V27) ──────────────────────────────
+//
+// The supplier says when its production is meant to start and finish, and
+// records that it did — the milestones that are its own work
+// (`mayRecordMilestone`). The buyer reads them, dated, with which side
+// recorded them. Proofs are uploaded through /api/portal/milestone-proof.
+
+const milestoneKind = z.enum(MILESTONE_KINDS as [string, ...string[]]);
+
+/** Say when one of the caller's own milestones is meant to happen. */
+export const planMyMilestoneFn = createServerFn({ method: "POST" })
+  .inputValidator(
+    z.object({
+      dealId: z.string().min(1).max(100),
+      kind: milestoneKind,
+      plannedAt: z
+        .string()
+        .regex(/^\d{4}-\d{2}-\d{2}$/)
+        .nullable(),
+    }),
+  )
+  .handler(async ({ data }): Promise<MilestoneWriteResult> => {
+    const who = await caller();
+    if (!who || !isMilestoneKind(data.kind)) return { ok: false, reason: "not_found" };
+    const { planMilestone } = await import("@/server/milestones");
+    return planMilestone(
+      { kind: "supplier", ...who },
+      data.dealId,
+      data.kind,
+      data.plannedAt ? new Date(`${data.plannedAt}T00:00:00.000Z`) : null,
+    );
+  });
+
+/** Record that one of the caller's own milestones happened. */
+export const completeMyMilestoneFn = createServerFn({ method: "POST" })
+  .inputValidator(
+    z.object({
+      dealId: z.string().min(1).max(100),
+      kind: milestoneKind,
+      note: z
+        .string()
+        .trim()
+        .max(1000)
+        .nullable()
+        .transform((value) => (value ? value : null)),
+    }),
+  )
+  .handler(async ({ data }): Promise<MilestoneWriteResult> => {
+    const who = await caller();
+    if (!who || !isMilestoneKind(data.kind)) return { ok: false, reason: "not_found" };
+    const { completeMilestone } = await import("@/server/milestones");
+    return completeMilestone({ kind: "supplier", ...who }, data.dealId, data.kind, data.note);
   });

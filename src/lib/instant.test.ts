@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  OSI_TIME_ZONE,
+  formatCalendarDay,
   formatDay,
   formatDayTime,
   formatInstant,
   formatShortDateTime,
-  OSI_TIME_ZONE,
 } from "@/lib/instant";
 
 // 01:30 UTC is the PREVIOUS day in Toronto — the case that makes a date-only
@@ -73,5 +74,18 @@ describe("formatShortDateTime", () => {
     // neither is the host's idea of "now-ish".
     expect(formatShortDateTime(AFTERNOON, "fr")).toContain("14:29");
     expect(formatShortDateTime(AFTERNOON, "en")).toMatch(/2:29|14:29/);
+  });
+});
+
+// Found in V27's live run: a milestone planned for the 17th was shown to the
+// buyer as planned for the 16th.
+describe("formatCalendarDay", () => {
+  it("shows the day that was typed, not the evening before on OSI's clock", () => {
+    const planned = "2026-11-17T00:00:00.000Z";
+    expect(formatCalendarDay(planned, "fr")).toBe("17 nov. 2026");
+    expect(formatCalendarDay(planned, "en")).toBe("Nov 17, 2026");
+    // The instant formatter, on the same value, is a day early — which is
+    // right for an instant and wrong for a day.
+    expect(formatDay(planned, "fr")).toBe("16 nov. 2026");
   });
 });

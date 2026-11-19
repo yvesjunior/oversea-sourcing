@@ -1,11 +1,18 @@
 import { useState, type FormEvent, type ReactNode } from "react";
-import { Download, FileText, Loader2, MessageSquare, Upload } from "lucide-react";
+import { Download, FileText, ListChecks, Loader2, MessageSquare, Upload } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import type { DocumentView, DossierView, PartyView, ThreadView } from "@/lib/dossier";
-import { formatDay, formatDayTime } from "@/lib/instant";
+import type {
+  DocumentView,
+  DossierView,
+  MilestoneView,
+  PartyView,
+  ThreadView,
+} from "@/lib/dossier";
+import { milestoneState, wasLate, type MilestoneKind } from "@/lib/milestones";
+import { formatCalendarDay, formatDay, formatDayTime } from "@/lib/instant";
 import { cn } from "@/lib/utils";
 
 /**
@@ -30,6 +37,7 @@ export function DossierRoom({
   onStartThread,
   onPost,
   upload,
+  milestones,
   children,
 }: {
   view: DossierView;
@@ -43,6 +51,20 @@ export function DossierRoom({
   onPost: (threadId: string, body: string) => Promise<RoomResult>;
   /** Set for a reader who may add documents: staff and the buyer. */
   upload?: { onDone: () => void } | undefined;
+  /**
+   * How this reader records a milestone (V27) — the page passes its own
+   * side's functions. Left out for a reader who records none (the buyer, a
+   * partner): they read the same section without the controls.
+   */
+  milestones?:
+    | {
+        onPlan: (kind: MilestoneKind, plannedAt: string | null) => Promise<RoomResult>;
+        onComplete: (kind: MilestoneKind, note: string | null) => Promise<RoomResult>;
+        /** Where this side posts a proof (multipart: dealId, milestone, file). */
+        proofEndpoint: string;
+        onDone: () => void;
+      }
+    | undefined;
   /** Staff's own controls (parties, disclosure), placed under the parties. */
   children?: ReactNode;
 }) {
@@ -96,6 +118,25 @@ export function DossierRoom({
           </p>
         )}
         {children}
+      </section>
+
+      {/* ── what has happened, and what was meant to (V27) ── */}
+      <section className="card-surface p-5">
+        <h2 className="flex items-center gap-2 text-sm font-semibold">
+          <ListChecks className="size-4" /> {t("room.progress")}
+        </h2>
+        <ol className="mt-3 space-y-3">
+          {view.milestones.map((milestone) => (
+            <MilestoneRow
+              key={milestone.kind}
+              milestone={milestone}
+              dealId={view.deal.id}
+              staff={staff}
+              fileUrl={fileUrl}
+              actions={milestone.canRecord ? milestones : undefined}
+            />
+          ))}
+        </ol>
       </section>
 
       {/* ── the retained offer — or, for a partner, what its work needs ── */}
@@ -246,6 +287,200 @@ export function DossierRoom({
         )}
       </section>
     </div>
+  );
+}
+
+const STATE_STYLE: Record<ReturnType<typeof milestoneState>, string> = {
+  done: "bg-success/15 text-success",
+  late: "bg-destructive/15 text-destructive",
+  planned: "bg-gold-soft text-gold",
+  unplanned: "bg-secondary text-muted-foreground",
+};
+
+/**
+ * One milestone. WHERE it stands — done, late, planned — is worked out here,
+ * at the moment the page is read (`milestoneState`): nobody marks a
+ * milestone late, and nothing stored says it is.
+ */
+function MilestoneRow({
+  milestone,
+  dealId,
+  staff,
+  fileUrl,
+  actions,
+}: {
+  milestone: MilestoneView;
+  dealId: string;
+  staff: boolean;
+  fileUrl: (fileId: string) => string;
+  actions:
+    | {
+        onPlan: (kind: MilestoneKind, plannedAt: string | null) => Promise<RoomResult>;
+        onComplete: (kind: MilestoneKind, note: string | null) => Promise<RoomResult>;
+        proofEndpoint: string;
+        onDone: () => void;
+      }
+    | undefined;
+}) {
+  const { t, i18n } = useTranslation();
+  const lang = i18n.language;
+  const state = milestoneState(milestone, new Date());
+  const [planned, setPlanned] = useState(milestone.plannedAt?.slice(0, 10) ?? "");
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [refusal, setRefusal] = useState<string | null>(null);
+  const recorded = milestone.plannedAt !== null || milestone.completedAt !== null;
+
+  const run = async (action: () => Promise<RoomResult>) => {
+    if (busy) return;
+    setBusy(true);
+    setRefusal(null);
+    try {
+      const result = await action();
+      if (!result.ok) setRefusal(result.reason ?? "not_found");
+      else {
+        setNote("");
+        actions?.onDone();
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const attach = async (file: File | undefined) => {
+    if (!file || !actions) return;
+    await run(async () => {
+      const form = new FormData();
+      form.set("dealId", dealId);
+      form.set("milestone", milestone.kind);
+      form.set("file", file);
+      const response = await fetch(actions.proofEndpoint, { method: "POST", body: form });
+      return response.ok ? { ok: true } : { ok: false, reason: `upload_${response.status}` };
+    });
+  };
+
+  return (
+    <li className="rounded-lg border border-border p-3 text-sm">
+      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
+        <div className="min-w-0">
+          <p className="font-medium">{t(`room.milestone.${milestone.kind}`)}</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            {milestone.completedAt
+              ? t("room.doneOn", { when: formatDay(milestone.completedAt, lang) })
+              : milestone.plannedAt
+                ? // A planned date is a calendar day, not an instant.
+                  t("room.plannedFor", { when: formatCalendarDay(milestone.plannedAt, lang) })
+                : t("room.notPlanned")}
+            {milestone.completedAt && milestone.plannedAt && (
+              <>
+                {" · "}
+                {t(wasLate(milestone) ? "room.wasLate" : "room.wasPlannedFor", {
+                  when: formatCalendarDay(milestone.plannedAt, lang),
+                })}
+              </>
+            )}
+          </p>
+          {/* Who recorded it: the side whose work it is, itself or through
+              OSI. The person's name is staff's alone. */}
+          {milestone.channel && (
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              {t(`room.recordedBy.${milestone.channel}`, {
+                party: t(`contrats.role.${milestone.owner}`).toLowerCase(),
+              })}
+              {staff && milestone.recordedByName ? ` — ${milestone.recordedByName}` : ""}
+              {milestone.updatedAt ? ` · ${formatDayTime(milestone.updatedAt, lang)}` : ""}
+            </p>
+          )}
+          {milestone.note && <p className="mt-1 whitespace-pre-line">{milestone.note}</p>}
+          {milestone.proofs.length > 0 && (
+            <ul className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs">
+              {milestone.proofs.map((proof) => (
+                <li key={proof.id}>
+                  <a
+                    href={fileUrl(proof.fileId)}
+                    className="inline-flex items-center gap-1 text-gold underline-offset-4 hover:underline"
+                  >
+                    <Download className="size-3" /> {proof.filename}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+        <span
+          className={cn(
+            "shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold",
+            STATE_STYLE[state],
+          )}
+        >
+          {t(`room.state.${state}`)}
+        </span>
+      </div>
+
+      {actions && (
+        <div className="mt-3 space-y-2 border-t border-border pt-3">
+          {!milestone.completedAt && (
+            <>
+              <form
+                className="grid grid-cols-[minmax(0,12rem)_auto] gap-2"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void run(() => actions.onPlan(milestone.kind, planned || null));
+                }}
+              >
+                <Input
+                  type="date"
+                  value={planned}
+                  onChange={(e) => setPlanned(e.target.value)}
+                  aria-label={t("room.plannedDate")}
+                  title={t("room.plannedDate")}
+                />
+                <Button type="submit" size="sm" variant="outline" disabled={busy}>
+                  {t("room.plan")}
+                </Button>
+              </form>
+              <form
+                className="grid grid-cols-[minmax(0,1fr)_auto] gap-2"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void run(() => actions.onComplete(milestone.kind, note.trim() || null));
+                }}
+              >
+                <Input
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  maxLength={1000}
+                  placeholder={t("room.milestoneNote")}
+                  aria-label={t("room.milestoneNote")}
+                />
+                <Button type="submit" size="sm" variant="gold" disabled={busy}>
+                  {busy && <Loader2 className="size-4 animate-spin" />}
+                  {t("room.markDone")}
+                </Button>
+              </form>
+            </>
+          )}
+          {/* A proof hangs from a milestone that exists: planned or done. */}
+          {recorded && (
+            <label className="inline-flex cursor-pointer items-center gap-1.5 text-xs font-medium text-gold underline-offset-4 hover:underline">
+              <Upload className="size-3.5" /> {t("room.addProof")}
+              <input
+                type="file"
+                className="sr-only"
+                accept="application/pdf,image/png,image/jpeg"
+                disabled={busy}
+                onChange={(e) => void attach(e.target.files?.[0])}
+              />
+            </label>
+          )}
+        </div>
+      )}
+      {refusal && (
+        <p role="alert" className="mt-2 text-xs text-destructive">
+          {t(`room.milestoneRefused.${refusal}`, t("room.milestoneRefused.other"))}
+        </p>
+      )}
+    </li>
   );
 }
 

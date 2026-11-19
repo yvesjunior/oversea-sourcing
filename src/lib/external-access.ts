@@ -71,6 +71,10 @@ export const EXTERNAL_FNS = {
   getMyContractsFn: "the caller's own contracts on a dossier",
   getMyContractFn: "one of the caller's own contracts",
   signMyContractFn: "the caller's own signature",
+  // Production (V27): the milestones that are the supplier's own work, on a
+  // dossier their supplier is a party to.
+  planMyMilestoneFn: "the planned date of the caller's own milestone",
+  completeMyMilestoneFn: "the caller's own milestone, recorded as done",
   // ── the Partner Hub (V23): each through `requirePartnerSession`, each
   //    filtered by the caller's own `partnerIds` in src/server/partner-hub.ts,
   //    each case cut down to what its kind needs (src/lib/partner-need.ts) ──
@@ -107,6 +111,8 @@ export const EXTERNAL_FN_FILES = {
 export const EXTERNAL_API_ROUTES = [
   "src/routes/api/portal/quote-document.ts",
   "src/routes/api/portal/file.$id.ts",
+  // V27: a supplier attaches a proof to one of its own milestones.
+  "src/routes/api/portal/milestone-proof.ts",
 ] as const;
 
 /**

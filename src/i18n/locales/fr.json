@@ -646,7 +646,11 @@
     "rfq_suppliers_told": "Fournisseurs informés de la clôture de l’appel d’offres : {{count}}",
     "rfq_outcome_told": "Fournisseurs informés de la suite donnée à leur offre : {{count}}",
     "buyer_disclosed": "Identité du client communiquée au fournisseur",
-    "party_added": "Un partenaire d’OSI a rejoint le dossier"
+    "party_added": "Un partenaire d’OSI a rejoint le dossier",
+    "milestone_production_started": "Production démarrée",
+    "milestone_production_finished": "Production terminée",
+    "milestone_shipped": "Marchandise expédiée",
+    "milestone_delivered": "Marchandise livrée"
   },
   "stepsDemande": {
     "received": {
@@ -1180,7 +1184,8 @@
     "dossier.party_added": "Partenaire ajouté à un dossier",
     "dossier.buyer_disclosed": "Identité du client communiquée au fournisseur",
     "dossier.document_added": "Document ajouté à un dossier",
-    "dossier.document_versioned": "Nouvelle version d’un document de dossier"
+    "dossier.document_versioned": "Nouvelle version d’un document de dossier",
+    "dossier.milestone_completed": "Étape de dossier enregistrée comme faite"
   },
   "twofa": {
     "title": "Vérification en deux étapes",
@@ -2401,7 +2406,47 @@
     "listEmpty": "Aucun dossier pour le moment. Un dossier s’ouvre lorsqu’une offre est acceptée.",
     "yourDossiers": "Dossiers en cours",
     "others_one": "{{count}} autre partie du dossier",
-    "others_other": "{{count}} autres parties du dossier"
+    "others_other": "{{count}} autres parties du dossier",
+    "progress": "Suivi",
+    "milestone": {
+      "production_started": "Début de production",
+      "production_finished": "Fin de production",
+      "shipped": "Expédition",
+      "delivered": "Livraison"
+    },
+    "state": {
+      "done": "Fait",
+      "late": "En retard",
+      "planned": "Prévu",
+      "unplanned": "Non planifié"
+    },
+    "doneOn": "Fait le {{when}}",
+    "plannedFor": "Prévu le {{when}}",
+    "notPlanned": "Aucune date prévue",
+    "wasLate": "en retard sur la date prévue ({{when}})",
+    "wasPlannedFor": "prévu le {{when}}",
+    "recordedBy": {
+      "portal": "Enregistré par le {{party}}",
+      "staff": "Enregistré par OSI pour le {{party}}"
+    },
+    "plannedDate": "Date prévue",
+    "plan": "Planifier",
+    "milestoneNote": "Précision (facultatif)",
+    "markDone": "Marquer comme fait",
+    "addProof": "Joindre une preuve (photo, rapport)",
+    "milestoneRefused": {
+      "not_found": "Ce dossier est introuvable.",
+      "forbidden": "Cette étape n’est pas la vôtre à enregistrer.",
+      "closed": "Ce dossier n’accepte plus de mise à jour.",
+      "out_of_order": "Les étapes précédentes doivent d’abord être faites.",
+      "wrong_status": "Le dossier n’est pas encore à ce stade.",
+      "contracts_pending": "La production ne peut pas démarrer tant que les contrats du dossier ne sont pas tous signés.",
+      "already_done": "Cette étape est déjà enregistrée comme faite.",
+      "not_recorded": "Planifiez ou enregistrez l’étape avant d’y joindre une preuve.",
+      "upload_413": "Fichier trop volumineux (10 Mo au plus).",
+      "upload_415": "Format non accepté : PDF, PNG ou JPEG.",
+      "other": "La mise à jour n’a pas pu être enregistrée."
+    }
   },
   "portalContract": {
     "listTitle": "Contrats",

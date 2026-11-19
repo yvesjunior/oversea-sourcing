@@ -252,7 +252,19 @@ type Loaded = {
   audience: DossierAudience;
 };
 
-/** The dossier's rows and what the reader is on it. Null = not theirs. */
+/**
+ * The dossier's rows and what the reader is on it. Null = not theirs.
+ *
+ * Exported for the modules that write to a dossier (milestones, V27): they
+ * start from the same question — WHO is this reader on this dossier — and
+ * must not answer it a second way.
+ */
+export async function openDossier(reader: DossierReader, dealId: string): Promise<Loaded | null> {
+  return open(reader, dealId);
+}
+
+export type OpenedDossier = Loaded;
+
 async function open(reader: DossierReader, dealId: string): Promise<Loaded | null> {
   const deal = await db.query.deal.findFirst({ where: eq(schema.deal.id, dealId) });
   if (!deal) return null;
@@ -280,7 +292,7 @@ async function full(loaded: Loaded): Promise<FullDossier> {
   const quote = deal.quoteId
     ? await db.query.quote.findFirst({ where: eq(schema.quote.id, deal.quoteId) })
     : null;
-  const [spec, supplier, documents, threads] = await Promise.all([
+  const [spec, supplier, documents, threads, milestones] = await Promise.all([
     deal.requestId ? specForReading(deal.requestId, quote?.specVersion ?? null) : null,
     deal.supplierId
       ? db.query.supplier.findFirst({
@@ -294,6 +306,7 @@ async function full(loaded: Loaded): Promise<FullDossier> {
       .innerJoin(schema.file, eq(schema.file.id, schema.document.fileId))
       .where(eq(schema.document.dealId, deal.id)),
     db.select().from(schema.messageThread).where(eq(schema.messageThread.dealId, deal.id)),
+    db.select().from(schema.orderMilestone).where(eq(schema.orderMilestone.dealId, deal.id)),
   ]);
   const messages =
     threads.length === 0
@@ -357,6 +370,17 @@ async function full(loaded: Loaded): Promise<FullDossier> {
       sharedWith: document.sharedWith ?? [],
       uploadedByName: document.uploadedByName,
       createdAt: document.createdAt.toISOString(),
+      milestoneId: document.milestoneId,
+    })),
+    milestones: milestones.map((milestone) => ({
+      id: milestone.id,
+      kind: milestone.kind,
+      plannedAt: milestone.plannedAt ? milestone.plannedAt.toISOString() : null,
+      completedAt: milestone.completedAt ? milestone.completedAt.toISOString() : null,
+      note: milestone.note,
+      channel: milestone.channel,
+      updatedByName: milestone.updatedByName,
+      updatedAt: milestone.updatedAt.toISOString(),
     })),
     threads: threads.map((thread) => ({
       id: thread.id,

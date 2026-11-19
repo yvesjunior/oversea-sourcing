@@ -1569,6 +1569,51 @@ this version (`/api/dossier-document`).
 that give them something to upload, V27–V29); a notification or an email on
 a new message; removing a party; the dossier's milestones (V27).
 
+### Milestones — what moves a dossier (V27)
+
+Until V27 a dossier stopped at `contracting`: nothing moved it past the
+contracts. A **milestone** does now. The dossier's status is never set by a
+button of its own — it *follows* what somebody recorded as done:
+
+| Milestone | Completed from | Moves the dossier to | Whose work |
+| --- | --- | --- | --- |
+| Début de production | `contracting`, every live contract signed | `in_production` | supplier |
+| Fin de production | `in_production` | — | supplier |
+| Expédition | `in_production` | `shipping` | carrier |
+| Livraison | `shipping` | `delivered` | carrier |
+
+(`MILESTONES`, `src/lib/milestones.ts`; rows in `order_milestone`. V28 and
+V29 add inspection, booking and customs to the list.)
+
+- **Who records.** The party whose work it is, or OSI for it — which answers
+  the question P7 left open. A supplier records its production in the portal;
+  staff record any milestone on a party's behalf. What is stored says which
+  (`channel`: `portal` / `staff`), and the buyer reads « Enregistré par le
+  fournisseur » or « Enregistré par OSI pour le fournisseur ». A person's
+  name is staff's alone.
+- **Lateness is derived.** A milestone has a planned day and, once done, a
+  completion date. It is *late* when its planned day is over and it is not
+  done — worked out when the page is read (`milestoneState`). There is no
+  status column, no "late" flag and no job. Something done after its planned
+  day stays « en retard sur la date prévue » in the record (`wasLate`).
+- **In order.** A step is completed only when the ones before it are, and
+  only from the dossier status it belongs to. Production does not start on a
+  contract nobody signed. A date can be planned at any time while the dossier
+  is live; the plan of something already done cannot be changed.
+- **Proofs.** A photo or a report attached to a milestone is a `document`
+  (`kind = proof`, `milestone_id`), shown under that milestone and read by
+  the supplier and the buyer. A supplier uploads through
+  `/api/portal/milestone-proof`, staff through `/api/dossier-document`.
+- **A partner** sees what happened and when — not what the supplier wrote
+  about its production, nor its photos.
+- **A planned day is a calendar day**, stored as midnight UTC and shown with
+  `formatCalendarDay` — not as an instant on OSI's clock, where it would read
+  the evening before.
+
+**Not built:** undoing a milestone marked done by mistake; a notification
+when one is recorded (the buyer's activity feed shows it); a carrier
+recording its own milestones (V29).
+
 ### A supplier signs in the portal — behind a setting, off (V26)
 
 Until V26 a supplier's signature was always a countersigned PDF recorded by
@@ -3414,6 +3459,7 @@ erDiagram
 | `document`           | ✅ 2026-09-12 (P8 slice 1, 0041) — the typed row over `file` (kind `offer\|other`, hangs from a quote and/or request); `orphaned_at` (0042) drives the 36-month retention sweep |
 | `deal_party`         | ✅ 2026-11-19 (0064, Phase V · V25) — who is ON a dossier: `deal_id`, `role` (the contracts' vocabulary — buyer · osi · supplier · carrier · customs_broker · inspector · other), one of `organization_id` / `supplier_id` / `partner_id` (OSI's row has none), `name` snapshot, `added_by` + name. A partner is on a dossier once (partial unique index). A reader's slice of the dossier is defined by its row |
 | `message_thread` / `message` | ✅ 2026-11-19 (0064, V25) — an exchange on a dossier. `message_thread.parties` (jsonb) lists the `deal_party` ids in it; OSI is in every thread and never listed. `message`: author tombstone + name snapshot, `author_role`, `author_party_id` (null for OSI) |
+| `order_milestone`    | ✅ 2026-11-19 (0065, Phase V · V27; P7's table) — one row per (dossier, kind): `planned_at`, `completed_at`, `note`, `channel` (`portal` · `staff`), `updated_by` + name, `updated_by_role` (the side it is attributed to). No status column and no late flag: both are derived when read. `document.milestone_id` (0065) + kind `proof`: the evidence attached to a milestone |
 | `document` (V25 columns) | ✅ 2026-11-19 (0064) — `deal_id`, `shared_with` (jsonb: the parties that may read it — the buyer included only when listed), `version` + `supersedes_id` (a new version is a new row), `label`; kind `dossier`. `deal.buyer_disclosed_at` + `buyer_disclosed_by_name` (0064): decision D6's disclosure, null until the step is taken |
 
 **Not yet built:** `order_milestone` (P7), `payment` (P9), `message_thread`

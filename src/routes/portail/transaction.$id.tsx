@@ -3,8 +3,10 @@ import { ArrowLeft } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { DossierRoom } from "@/components/osi/DossierRoom";
 import {
+  completeMyMilestoneFn,
   getMyContractsFn,
   getMyDossierFn,
+  planMyMilestoneFn,
   postMyMessageFn,
   startMyThreadFn,
   type SupplierContractSummary,
@@ -66,6 +68,15 @@ function SupplierDossier() {
           const result = await postMyMessageFn({ data: { threadId, body } });
           if (result.ok) refresh();
           return result;
+        }}
+        // Production is the supplier's to record (V27), with its proofs.
+        milestones={{
+          onPlan: (kind, plannedAt) =>
+            planMyMilestoneFn({ data: { dealId: view.deal.id, kind, plannedAt } }),
+          onComplete: (kind, note) =>
+            completeMyMilestoneFn({ data: { dealId: view.deal.id, kind, note } }),
+          proofEndpoint: "/api/portal/milestone-proof",
+          onDone: refresh,
         }}
       />
     </section>

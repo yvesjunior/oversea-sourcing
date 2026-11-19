@@ -64,21 +64,45 @@ export const Route = createFileRoute("/api/dossier-document")({
         }
         const supersedesId = form.get("supersedesId");
         const label = form.get("label");
+        const reader = {
+          kind: "workspace" as const,
+          userId: caller.userId,
+          userName: caller.userName,
+          workspaceId: caller.workspaceId,
+          staff: await guard.effectiveHasPermission(session, "deals"),
+        };
 
-        const plan = await dossier.planUpload(
-          {
-            kind: "workspace",
-            userId: caller.userId,
-            userName: caller.userName,
-            workspaceId: caller.workspaceId,
-            staff: await guard.effectiveHasPermission(session, "deals"),
-          },
-          dealId,
-          {
-            sharedWith: form.getAll("sharedWith").filter((v): v is string => typeof v === "string"),
-            supersedesId: typeof supersedesId === "string" && supersedesId ? supersedesId : null,
-          },
-        );
+        // A PROOF of a milestone (V27): `milestone` names the kind. Its own
+        // plan — who may attach one and who reads it is the milestone's rule,
+        // not the general document's.
+        const milestone = form.get("milestone");
+        if (typeof milestone === "string" && milestone) {
+          const [milestones, { isMilestoneKind }] = await Promise.all([
+            import("@/server/milestones"),
+            import("@/lib/milestones"),
+          ]);
+          if (!isMilestoneKind(milestone)) {
+            return Response.json({ error: "not_found" }, { status: 404 });
+          }
+          const proof = await milestones.planProof(reader, dealId, milestone);
+          if (!proof.ok) {
+            const status =
+              proof.reason === "not_found" ? 404 : proof.reason === "forbidden" ? 403 : 409;
+            return Response.json({ error: proof.reason }, { status });
+          }
+          const key = await storage.putFile(Buffer.from(await upload.arrayBuffer()), upload.name);
+          const saved = await milestones.recordProof(
+            proof,
+            { storageKey: key, filename: upload.name, mime: upload.type, size: upload.size },
+            { id: caller.userId, name: caller.userName },
+          );
+          return Response.json({ document: { id: saved.id, filename: upload.name } });
+        }
+
+        const plan = await dossier.planUpload(reader, dealId, {
+          sharedWith: form.getAll("sharedWith").filter((v): v is string => typeof v === "string"),
+          supersedesId: typeof supersedesId === "string" && supersedesId ? supersedesId : null,
+        });
         if (!plan.ok) {
           const status =
             plan.reason === "not_found" ? 404 : plan.reason === "forbidden" ? 403 : 409;

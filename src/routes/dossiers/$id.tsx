@@ -13,6 +13,7 @@ import {
   type DossierPage,
 } from "@/lib/dossier-fns";
 import { formatDay } from "@/lib/instant";
+import { completeMilestoneFn, planMilestoneFn } from "@/lib/milestone-fns";
 
 // The Transaction Room, for the WORKSPACE side (Phase V · V25): the buyer's
 // members and OSI's staff open the same address and are sent different pages
@@ -83,6 +84,16 @@ function DossierPageView() {
           return result;
         }}
         upload={{ onDone: refresh }}
+        // Staff record any milestone, on the owning party's behalf. A buyer
+        // is sent none it may record, so the controls never show for one.
+        milestones={{
+          onPlan: (kind, plannedAt) =>
+            planMilestoneFn({ data: { dealId: view.deal.id, kind, plannedAt } }),
+          onComplete: (kind, note) =>
+            completeMilestoneFn({ data: { dealId: view.deal.id, kind, note } }),
+          proofEndpoint: "/api/dossier-document",
+          onDone: refresh,
+        }}
       >
         {view.audience === "staff" && <StaffControls page={page} onChanged={refresh} />}
       </DossierRoom>

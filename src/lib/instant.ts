@@ -68,6 +68,28 @@ export function formatDay(
 }
 
 /**
+ * A CALENDAR DAY — "planned for the 12th" — stored as midnight UTC of that
+ * day (Phase V · V27).
+ *
+ * Not an instant: it has no hour and belongs to no clock. Passing it through
+ * `formatDay` would read midnight UTC on OSI's clock, where it is still the
+ * evening before, and show the 11th. It is rendered in UTC, the zone it was
+ * written in, so the day typed is the day shown — to everyone.
+ */
+export function formatCalendarDay(
+  value: string | number | Date,
+  lang: Lang,
+  month: "short" | "long" = "short",
+): string {
+  return new Date(value).toLocaleString(lang, {
+    day: "numeric",
+    month,
+    year: "numeric",
+    timeZone: "UTC",
+  });
+}
+
+/**
  * "29 août 2026 · 14:29" — the timeline stamp.
  *
  * Composed from two calls rather than `dateStyle`/`timeStyle` so the

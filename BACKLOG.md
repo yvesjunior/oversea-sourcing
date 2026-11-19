@@ -24,7 +24,7 @@
 | **E9** Notifications | In-app + email | 🟡 bell, emitters, **prefs (2026-08-26)** live; Phase P types (`quote_received`, `contract_to_sign`, `contract_signed`) + staff alert on `quotes.requested` (2026-09-07) live; **the bell alerts (2026-09-14)** — count badge, 30 s poll, chime, per-browser mute |
 | **E10** Admin surfaces | Verification, imports, ops queue | 🟡 **verification LIVE (S5b/S5c, 2026-08-26)**; imports/ops queue placeholders |
 | **R** Custom staff roles | Roles as data + the matrix | ✅ **BUILT 2026-08-29** (migration 0039) — create/delete roles, dynamic matrix, `requests.all` |
-| **E13** V6 architecture | Supplier portal · KPI #2 · Partner Hub · Decision Pack | 🔵 **NEW 2026-10-21** — scope opened by the V6 document; diagrams validated 2026-11-14; **34 tasks in seven slices — [Phase V](#phase-v--the-v6-parcours-task-by-task-e13--written-2026-11-14)**; **V01, V02, V04–V11 built 2026-11-14** (settings, contacts, states, fork + shortlist, RFQ batch, window closing, typed answer time + channel, KPI #2 v1, the Decision Pack record, the release queue); V01–V11 **live on prod — V01–V09 since deploy #45 (2026-11-14), V10–V11 since deploy #47 (2026-11-18) — with the pack-flow switch OFF**; **V12–V14 built 2026-11-18** (the buyer's pack page, choosing from it, automatic release built and switched off + the review report) — **slice 1 (V04–V14) is complete** — **live on prod since deploy #48 (2026-11-18), pack flow off, release manual**; **V18–V20 built 2026-11-18** (the clarification, behind `AI_CHAT`, off; the cahier des charges and the KPI profile as versioned records; the buyer's validation before any search, behind `flow.spec_validation`, ON by default) — **slice 3 complete**; **V03 and V15–V17 built 2026-11-18** (external accounts: a supplier is not a customer; the RFQ link that creates a supplier account; the portal where they answer, decline and attach; what suppliers are told and the response funnel) — **slice 2 complete**; **V21–V23 built 2026-11-18** (partners and their adapter; cases opened on an offer and the figures partners add to it; the Partner Hub where a partner's person answers) — **V15–V23 and V03 live on prod since deploy #49 (2026-11-18)**; **V24 built 2026-11-19** (KPI #2 on landed cost per unit, stored exchange rates) — **slice 4 complete**; **V25–V26 built 2026-11-19** (the Transaction Room: one dossier, four readers; a supplier signs in the portal, behind a setting that is OFF) — all on `main`, not deployed |
+| **E13** V6 architecture | Supplier portal · KPI #2 · Partner Hub · Decision Pack | 🔵 **NEW 2026-10-21** — scope opened by the V6 document; diagrams validated 2026-11-14; **34 tasks in seven slices — [Phase V](#phase-v--the-v6-parcours-task-by-task-e13--written-2026-11-14)**; **V01, V02, V04–V11 built 2026-11-14** (settings, contacts, states, fork + shortlist, RFQ batch, window closing, typed answer time + channel, KPI #2 v1, the Decision Pack record, the release queue); V01–V11 **live on prod — V01–V09 since deploy #45 (2026-11-14), V10–V11 since deploy #47 (2026-11-18) — with the pack-flow switch OFF**; **V12–V14 built 2026-11-18** (the buyer's pack page, choosing from it, automatic release built and switched off + the review report) — **slice 1 (V04–V14) is complete** — **live on prod since deploy #48 (2026-11-18), pack flow off, release manual**; **V18–V20 built 2026-11-18** (the clarification, behind `AI_CHAT`, off; the cahier des charges and the KPI profile as versioned records; the buyer's validation before any search, behind `flow.spec_validation`, ON by default) — **slice 3 complete**; **V03 and V15–V17 built 2026-11-18** (external accounts: a supplier is not a customer; the RFQ link that creates a supplier account; the portal where they answer, decline and attach; what suppliers are told and the response funnel) — **slice 2 complete**; **V21–V23 built 2026-11-18** (partners and their adapter; cases opened on an offer and the figures partners add to it; the Partner Hub where a partner's person answers) — **V15–V23 and V03 live on prod since deploy #49 (2026-11-18)**; **V24 built 2026-11-19** (KPI #2 on landed cost per unit, stored exchange rates) — **slice 4 complete**; **V25–V27 built 2026-11-19** (the Transaction Room: one dossier, four readers; a supplier signs in the portal, behind a setting that is OFF; milestones and proofs — the dossier now moves from contracts to delivered) — all on `main`, not deployed |
 | **E11** Settings | Profile, sourcing rules | 🟡 Paramètres + notification prefs live; **password / 2FA / theme / rename (2026-08-27)** live; buyer Abonnement self-service waits for billing |
 
 **MVP1 = E0–E7 + E10.** Definition of done **restated 2026-08-29 by ADR-002**
@@ -40,12 +40,14 @@ tracked to delivery** — with the PDF report available throughout.
 
 **Prod = `dc0964b` (deploy #49, 2026-11-18)** — Phase V tasks V01–V23:
 slices 1, 2 and 3 complete, slice 4 up to V23. **`main` is ahead of prod by
-three tasks, NOT deployed: V24** (KPI #2 on landed cost; migration **0063**,
+four tasks, NOT deployed: V24** (KPI #2 on landed cost; migration **0063**,
 additive — two nullable columns), **V25** (the Transaction Room;
 migration **0064**, additive — three tables, seven nullable or defaulted
-columns) **and V26** (a supplier signs in the portal; no migration; behind
+columns), **V26** (a supplier signs in the portal; no migration; behind
 `contracts.supplier_signature`, **off** by default — nothing changes until
-someone switches it on, and the legal question comes first). Deploying them changes no ranking on prod (no round, no partner
+someone switches it on, and the legal question comes first) **and V27**
+(milestones and proofs; migration **0065**, additive — one table, one
+nullable column). Four tasks in all. Deploying them changes no ranking on prod (no round, no partner
 figure, no pack) and opens no dossier (prod holds no deal); what a user
 sees is « Commandes » enabled in the menu, leading to an empty list. Deploy #49 carried eleven tasks at once — V18, V19, the search-model
 fix, V20, V03, V15, V16, V17, V21, V22, V23 — and eight additive migrations
@@ -6979,29 +6981,90 @@ P10 in V25, P11 in V31.
       pour … signatures"*), default off. The five contract types beyond the
       two built are separate work and not part of this task.~~
 
-- [ ] **V27 · Production: milestones and proofs.** *Size L. Step 16. Depends
-      on: V25. Replaces P7.*
+- [x] **V27 · Production: milestones and proofs — BUILT 2026-11-19**
+      (migration **0065**, not deployed). `src/lib/milestones.ts` (pure: the
+      list, who records, the order, derived lateness);
+      `src/server/milestones.ts` (`planMilestone`, `completeMilestone`,
+      `planProof`, `recordProof`); `src/lib/milestone-fns.ts` (staff), two
+      functions added to `portal-fns.ts` (supplier);
+      `/api/portal/milestone-proof` (new), `/api/dossier-document` extended; a
+      « Suivi » section in `DossierRoom.tsx` for all four readers;
+      `formatCalendarDay`. Table `order_milestone`; `document.milestone_id`.
+      988 tests.
 
-      **What it does.** The dossier moves after contracts are signed — today
+      **As built.** Four milestones in order — production started, production
+      finished, shipped, delivered — and **`transitionDeal` gets its callers**:
+      completing one moves the dossier (`contracting → in_production →
+      shipping → delivered`). The supplier records production; staff record
+      anything for a party. See README.
+
+      **P7's open question is answered** ("who updates milestones?"): the
+      party whose work it is, or OSI for it; the row says which.
+
+      **Deviations from the task as written.**
+      - **No `status` column.** With `planned_at` and `completed_at` a status
+        is derivable, and the task's own gotcha forbids storing lateness. A
+        stored status would be a second source for the same fact.
+      - **No "dépôt" milestone** (P7 listed one): a deposit is money, and
+        nothing financial is built before the legal gate.
+      - **Production cannot start while a contract of the dossier is
+        unsigned** — my reading of "the dossier moves after contracts are
+        signed". If production really starts before the paperwork, this rule
+        is the one to relax.
+      - Inspection, booking and customs milestones are V28–V29's; shipped and
+        delivered are staff's to record until a carrier can (V29).
+
+      **Found in the live run and fixed.** A milestone planned for the 17th
+      was shown to the buyer as planned for the 16th: the planned DAY, stored
+      as midnight UTC, went through the instant formatter on OSI's clock.
+      `formatCalendarDay` renders it in UTC; a regression test pins it.
+
+      **Acceptance, as tests** (`milestones.test.ts`, `dossier.test.ts`):
+      lateness derived from the planned day alone, late from the day after;
+      a supplier records production and nothing else, staff everything, the
+      buyer and a partner nothing; steps refused out of order, from the wrong
+      status, twice, or before the contracts are signed; every milestone's
+      transition is one the deal machine allows; the buyer is shown the date,
+      the photo and which side recorded — not the person.
+
+      *Verified live in dev* (the V25 dossier): as the supplier — two dates
+      planned, the carrier's milestone refused (`forbidden`), a proof
+      attached, production refused while the mandate was unsigned
+      (`contracts_pending`); the buyer and OSI signed the mandate; a buyer
+      recording → `forbidden`; staff shipping before production →
+      `out_of_order`; the supplier started production with a note and a
+      second proof → dossier `in_production`; a second time →
+      `already_done`; re-planning it → `already_done`. Staff then recorded
+      production finished, shipped (with a proof) and delivered on the
+      parties' behalf → `shipping`, then `delivered`; planning after delivery
+      → `closed`. The buyer's page: each step dated, « Enregistré par le
+      fournisseur » / « par OSI pour le fournisseur », the proofs, and « en
+      retard sur la date prévue » on the two steps done after their planned
+      day. The carrier's page: four steps done, no note, no proof.
+
+      **Not exercised live:** a milestone turning late on screen by the
+      passage of a day (unit-tested: late from the day after); the forms
+      through the page (the functions and routes were called from the page's
+      session); a proof larger than 10 MB; the English page.
+      **Not built:** undoing a milestone marked done by mistake; a
+      notification when one is recorded.
+
+      ~~**What it does.** The dossier moves after contracts are signed — today
       nothing moves it. Milestones with dates, and the evidence for each.
-
-      **Schema.** `order_milestone` as P7 specified it (deal_id, kind,
-      status, planned_at, completed_at, note, updated_by + name snapshot),
-      plus `channel` (`portal | staff`) and proof documents by `document`.
-
+      **Schema.** `order_milestone` as P7 specified it (deal_id, kind, status,
+      planned_at, completed_at, note, updated_by + name snapshot), plus
+      `channel` (`portal | staff`) and proof documents by `document`.
       **Files.** `src/lib/milestone-fns.ts`; the dossier; the portal — the
-      supplier updates production and attaches photos or reports; staff can
-      do the same on their behalf. `transitionDeal` finally gets its callers:
-      `contracting → in_production → shipping → delivered`.
-
-      **Acceptance.** A supplier marks production started with a photo → the
-      buyer sees it, dated, with who recorded it. A milestone past its
-      planned date shows late without anyone marking it late. Staff can enter
-      the same update for a supplier off the platform.
-
-      **Gotcha.** This answers P7's open question — who updates milestones —
-      with "the supplier, or staff for them". Lateness is **derived** from
-      `planned_at`, never a stored flag and never a cron.
+      supplier updates production and attaches photos or reports; staff can do
+      the same on their behalf. `transitionDeal` finally gets its callers:
+      `contracting → in_production → shipping → delivered`. **Acceptance.** A
+      supplier marks production started with a photo → the buyer sees it,
+      dated, with who recorded it. A milestone past its planned date shows
+      late without anyone marking it late. Staff can enter the same update for
+      a supplier off the platform. **Gotcha.** This answers P7's open question
+      — who updates milestones — with "the supplier, or staff for them".
+      Lateness is **derived** from `planned_at`, never a stored flag and never
+      a cron.~~
 
 - [ ] **V28 · Inspection and conformity.** *Size M. Step 17. Depends on: V22,
       V27.*

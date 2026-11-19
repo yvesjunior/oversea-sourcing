@@ -420,3 +420,84 @@ describe("the vocabulary", () => {
     expect(dossierIsLive("cancelled")).toBe(false);
   });
 });
+
+// V27: every reader follows the dossier's execution; what differs is who may
+// record it and who reads the supplier's own words and photos.
+describe("milestones on the page", () => {
+  const withProduction = (): FullDossier => ({
+    ...dossier(),
+    deal: { ...dossier().deal, status: "in_production" },
+    milestones: [
+      {
+        id: "m-start",
+        kind: "production_started",
+        plannedAt: "2026-12-01T00:00:00.000Z",
+        completedAt: "2026-12-02T09:00:00.000Z",
+        note: "Ligne 3 lancée",
+        channel: "portal",
+        updatedByName: "Mei Lin",
+        updatedAt: "2026-12-02T09:00:00.000Z",
+      },
+    ],
+    documents: [
+      doc("photo", [BUYER, SUPPLIER], { milestoneId: "m-start" }),
+      doc("proforma", [BUYER]),
+    ],
+  });
+
+  it("lists every milestone to every reader, recorded or not, in order", () => {
+    for (const audience of [staff, buyer, supplier, carrier]) {
+      const view = projectDossier(withProduction(), audience);
+      expect(view.milestones.map((m) => m.kind)).toEqual([
+        "production_started",
+        "production_finished",
+        "shipped",
+        "delivered",
+      ]);
+      expect(view.milestones[0]!.completedAt).toBe("2026-12-02T09:00:00.000Z");
+      expect(view.milestones[1]!.completedAt).toBeNull();
+    }
+  });
+
+  // "A supplier marks production started with a photo → the buyer sees it,
+  // dated, with who recorded it."
+  it("shows the buyer the date, the photo and which side recorded it — not the person", () => {
+    const first = projectDossier(withProduction(), buyer).milestones[0]!;
+    expect(first.channel).toBe("portal");
+    expect(first.owner).toBe("supplier");
+    expect(first.note).toBe("Ligne 3 lancée");
+    expect(first.proofs.map((p) => p.id)).toEqual(["photo"]);
+    expect("recordedByName" in first).toBe(false);
+    expect(projectDossier(withProduction(), staff).milestones[0]!.recordedByName).toBe("Mei Lin");
+  });
+
+  it("keeps a proof under its milestone, out of the general documents list", () => {
+    const view = projectDossier(withProduction(), buyer);
+    expect(view.documents.map((d) => d.id)).toEqual(["proforma"]);
+  });
+
+  it("tells a partner what happened and when — not the supplier's words or photos", () => {
+    const first = projectDossier(withProduction(), carrier).milestones[0]!;
+    expect(first.completedAt).toBe("2026-12-02T09:00:00.000Z");
+    expect("note" in first).toBe(false);
+    expect(first.proofs).toEqual([]);
+    expect(JSON.stringify(projectDossier(withProduction(), carrier))).not.toContain("Ligne 3");
+  });
+
+  it("lets the supplier record production, staff everything, the buyer nothing", () => {
+    const can = (audience: DossierAudience) =>
+      projectDossier(withProduction(), audience).milestones.map((m) => m.canRecord);
+    expect(can(supplier)).toEqual([true, true, false, false]);
+    expect(can(staff)).toEqual([true, true, true, true]);
+    expect(can(buyer)).toEqual([false, false, false, false]);
+    expect(can(carrier)).toEqual([false, false, false, false]);
+  });
+
+  it("lets nobody record on a dossier that is delivered or closed", () => {
+    const delivered = {
+      ...withProduction(),
+      deal: { ...dossier().deal, status: "delivered" as const },
+    };
+    expect(projectDossier(delivered, staff).milestones.every((m) => !m.canRecord)).toBe(true);
+  });
+});

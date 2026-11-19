@@ -17,6 +17,7 @@ import {
 // code from src/lib.
 import type { PackOfferSnapshot } from "@/lib/decision-pack";
 import type { FxRate } from "@/lib/landed-cost";
+import type { MilestoneKind } from "@/lib/milestones";
 import type { KpiProfileSource, KpiProfileWeights } from "@/lib/kpi-profile";
 import type { EnrichmentKind } from "@/lib/partner-case";
 import type { PartnerKind, PartnerProvider } from "@/lib/partners";
@@ -2212,6 +2213,45 @@ export const dealParty = pgTable(
 );
 
 /**
+ * What has happened on a dossier, and when it was meant to (Phase V · V27;
+ * P7's table, with the supplier able to write it).
+ *
+ * One row per (dossier, kind). `kind` is the vocabulary in
+ * src/lib/milestones.ts — production started, production finished, shipped,
+ * delivered; later tasks add inspection, booking and customs.
+ *
+ * NO STATUS COLUMN, and NO "LATE" FLAG. A milestone is done when
+ * `completed_at` is set, and late when its `planned_at` has passed without
+ * it — both derived every time it is read (`milestoneState`). A stored
+ * "late" would need something to set it at midnight, and would be wrong
+ * every time that something did not run.
+ *
+ * `channel` says who typed the last update — the party itself in its portal,
+ * or staff on its behalf (the same distinction as an offer's). `updated_by_role`
+ * is the SIDE it is attributed to, which is what the buyer is shown.
+ */
+export const orderMilestone = pgTable(
+  "order_milestone",
+  {
+    id: text("id").primaryKey(),
+    dealId: text("deal_id")
+      .notNull()
+      .references(() => deal.id, { onDelete: "cascade" }),
+    kind: text("kind").$type<MilestoneKind>().notNull(),
+    plannedAt: timestamp("planned_at"),
+    completedAt: timestamp("completed_at"),
+    note: text("note"),
+    channel: text("channel").$type<QuoteChannel>().notNull().default("staff"),
+    updatedBy: text("updated_by").references(() => user.id, { onDelete: "set null" }),
+    updatedByName: text("updated_by_name"),
+    updatedByRole: text("updated_by_role").$type<ContractPartyRole>().notNull(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex("order_milestone_deal_kind_uq").on(table.dealId, table.kind)],
+);
+
+/**
  * An exchange on a dossier (Phase V · V25; P10's thread).
  *
  * A thread STATES WHO IS IN IT: `parties` holds the `deal_party` ids that can
@@ -2455,7 +2495,7 @@ export const contractEvent = pgTable(
  * capability. `valid_until` on `quote` sat unwritten for two weeks and taught
  * that lesson.
  */
-export const DOCUMENT_KINDS = ["offer", "other", "dossier"] as const;
+export const DOCUMENT_KINDS = ["offer", "other", "dossier", "proof"] as const;
 export type DocumentKind = (typeof DOCUMENT_KINDS)[number];
 
 /**
@@ -2501,6 +2541,12 @@ export const document = pgTable(
     supersedesId: text("supersedes_id"),
     /** A short name for what the document is — "Facture proforma". */
     label: text("label"),
+    /** The milestone this document is PROOF of (V27) — a photo of the goods
+     *  on the line, a production report. Shown under that milestone, not in
+     *  the dossier's general list. */
+    milestoneId: text("milestone_id").references(() => orderMilestone.id, {
+      onDelete: "set null",
+    }),
     /** Snapshot beside the reference, same tombstone rule as everywhere else:
      *  the list must stay readable after the uploader's account is gone. */
     uploadedBy: text("uploaded_by").references(() => user.id, { onDelete: "set null" }),

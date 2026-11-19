@@ -646,7 +646,11 @@
     "rfq_suppliers_told": "Suppliers told the request for quotation closed: {{count}}",
     "rfq_outcome_told": "Suppliers told the outcome of their offer: {{count}}",
     "buyer_disclosed": "Client’s identity disclosed to the supplier",
-    "party_added": "An OSI partner joined the dossier"
+    "party_added": "An OSI partner joined the dossier",
+    "milestone_production_started": "Production started",
+    "milestone_production_finished": "Production finished",
+    "milestone_shipped": "Goods shipped",
+    "milestone_delivered": "Goods delivered"
   },
   "stepsDemande": {
     "received": {
@@ -1180,7 +1184,8 @@
     "dossier.party_added": "Partner added to a dossier",
     "dossier.buyer_disclosed": "Client’s identity disclosed to the supplier",
     "dossier.document_added": "Document added to a dossier",
-    "dossier.document_versioned": "New version of a dossier document"
+    "dossier.document_versioned": "New version of a dossier document",
+    "dossier.milestone_completed": "Dossier step recorded as done"
   },
   "twofa": {
     "title": "Two-step verification",
@@ -2401,7 +2406,47 @@
     "listEmpty": "No dossier yet. A dossier opens when an offer is accepted.",
     "yourDossiers": "Dossiers in progress",
     "others_one": "{{count}} other party to the dossier",
-    "others_other": "{{count}} other parties to the dossier"
+    "others_other": "{{count}} other parties to the dossier",
+    "progress": "Progress",
+    "milestone": {
+      "production_started": "Production started",
+      "production_finished": "Production finished",
+      "shipped": "Shipment",
+      "delivered": "Delivery"
+    },
+    "state": {
+      "done": "Done",
+      "late": "Late",
+      "planned": "Planned",
+      "unplanned": "Not planned"
+    },
+    "doneOn": "Done on {{when}}",
+    "plannedFor": "Planned for {{when}}",
+    "notPlanned": "No date planned",
+    "wasLate": "later than planned ({{when}})",
+    "wasPlannedFor": "planned for {{when}}",
+    "recordedBy": {
+      "portal": "Recorded by the {{party}}",
+      "staff": "Recorded by OSI for the {{party}}"
+    },
+    "plannedDate": "Planned date",
+    "plan": "Plan",
+    "milestoneNote": "Details (optional)",
+    "markDone": "Mark as done",
+    "addProof": "Attach proof (photo, report)",
+    "milestoneRefused": {
+      "not_found": "This dossier cannot be found.",
+      "forbidden": "This step is not yours to record.",
+      "closed": "This dossier no longer accepts updates.",
+      "out_of_order": "The earlier steps must be done first.",
+      "wrong_status": "The dossier is not at this stage yet.",
+      "contracts_pending": "Production cannot start until every contract of the dossier is signed.",
+      "already_done": "This step is already recorded as done.",
+      "not_recorded": "Plan or record the step before attaching proof to it.",
+      "upload_413": "File too large (10 MB at most).",
+      "upload_415": "Format not accepted: PDF, PNG or JPEG.",
+      "other": "The update could not be recorded."
+    }
   },
   "portalContract": {
     "listTitle": "Contracts",
