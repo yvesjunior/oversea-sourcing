@@ -2863,6 +2863,42 @@ the same honesty rule that makes an unmatched numeric criterion `unverifiable`
 rather than a miss. Numbering is `OSI-2026-0000`, per-year sequential and
 platform-global (`contract_number_seq`).
 
+**The price a contract states is a UNIT price, and no total is printed**
+(template version 2, 2026-11-19). The amount on the deal is a copy of the
+accepted offer's amount, and that is what the supplier was asked for — « Prix
+unitaire et devise » in the RFQ, « Prix unitaire » in the portal. The quantity
+is free text on the offer, so a total cannot be computed, and a figure worked
+out from a guess would be signed as if it had been agreed. Each document says
+it in words instead:
+
+| Document | Clause | What it states |
+|---|---|---|
+| Bon de commande | 3. Prix | « Prix unitaire convenu : … » · the total results from that unit price applied to the quantity of article 2 (Marchandise) · the unit price is firm |
+| Mandat de facilitation | 4. Transaction visée | « Prix unitaire de la soumission acceptée : … » · « Quantité : … » · the value of the transaction results from the two |
+
+Version 1 printed the same amount as « Prix total convenu » and « Valeur de la
+transaction ». A **draft** written under it is stale (`isStaleContent`) and
+« Régénérer le texte » rewrites it under version 2; a contract already sent or
+signed keeps the text its parties saw — that rule is unchanged.
+
+**A stale draft says so on its page.** On `/contrats/$id`, a draft whose text
+predates the current template shows a notice above the text — « Ce texte a
+été rédigé avec une version antérieure du gabarit (version 1), corrigé
+depuis. Régénérez le texte avant de l'envoyer aux parties. » It is shown under
+the same two conditions as the regenerate button (the `contracts` permission,
+status `draft`), so a buyer never sees it, and it disappears once the text is
+regenerated. It asks; it does not block « Envoyer aux parties ».
+
+**The screens label that amount the same way**: « Prix unitaire » on the
+contract page and as the `/contrats` column (`contrats.col.unitPrice`; it was
+« Valeur »), and « Prix unitaire du fournisseur » where an insurance or a
+customs partner reads it — their case page and their view of the Transaction
+Room (`partnerHub.fact.goods_value`; it was « Valeur de la marchandise »).
+The fact is still called `goods_value` in the code; `src/lib/partner-need.ts`
+says what it holds, and a test keeps it from travelling without the quantity
+it applies to. **A partner still gets no value of the shipment** — only the
+unit price and the quantity as the supplier wrote it.
+
 #### ADR-002 §6 · Documents: one typed table *(first slice built 2026-09-12 — P8)*
 
 A single `document` row — kind, what it hangs from, a `file_id`, an issuer, a

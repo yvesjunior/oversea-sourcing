@@ -32,8 +32,14 @@ import { formatInstant } from "@/lib/instant";
 
 /** Bump when a template's WORDING changes, so a contract can always be traced
  *  to the text that produced it. Contracts drafted under an older version
- *  keep their content untouched — that is the whole point of freezing it. */
-export const CONTRACT_TEMPLATE_VERSION = 1;
+ *  keep their content untouched — that is the whole point of freezing it.
+ *
+ *  1 — P5, 2026-08-29. The first wording.
+ *  2 — 2026-11-19. The price is stated as what it is: a UNIT price. Version 1
+ *      printed the accepted offer's amount as « Prix total convenu » in the
+ *      purchase order and as « Valeur de la transaction » in the mandate,
+ *      while the supplier was asked for — and gave — a price per unit. */
+export const CONTRACT_TEMPLATE_VERSION = 2;
 
 export type TemplateLocale = "fr" | "en";
 
@@ -48,6 +54,10 @@ export type TemplateFacts = {
   osiName: string;
   supplierName: string;
   dealTitle: string;
+  /** The accepted offer's price — a UNIT price. The RFQ asks the supplier for
+   *  « Prix unitaire et devise » and the portal's field carries the same
+   *  label; `deal.amount_cents` is a copy of it. It is never a total, and no
+   *  template may present it as one. */
   amountCents: number | null;
   currency: string | null;
   incoterm: string | null;
@@ -99,6 +109,12 @@ function formatLeadTime(days: number | null, locale: TemplateLocale): string {
 }
 
 // ── The templates ───────────────────────────────────────────────────────────
+// THE PRICE IS A UNIT PRICE, AND NO TOTAL IS PRINTED. The quantity on an offer
+// is free text (« 5 000 unités », « 2 conteneurs 40' », or nothing), so a total
+// cannot be computed — and a figure these templates worked out from a guess at
+// the quantity would be signed by two parties as if it had been agreed. Each
+// document therefore states the unit price, states the quantity as the offer
+// gave it, and says in words that the total results from the two.
 // Each returns the sections of one contract, in one language. Adding the five
 // deferred types (transporteur, courtier, inspection, NDA, annexes) means
 // adding a branch here and a spec in `contract-types.ts` — no caller changes.
@@ -121,7 +137,7 @@ function mandateSections(facts: TemplateFacts, locale: TemplateLocale): Contract
       },
       {
         heading: "4. Transaction visée",
-        body: `Fournisseur retenu : ${facts.supplierName}. Valeur de la transaction : ${money}. Incoterm : ${orBlank(facts.incoterm, locale)}.`,
+        body: `Fournisseur retenu : ${facts.supplierName}. Prix unitaire de la soumission acceptée : ${money}. Quantité : ${orBlank(facts.quantity, locale)}. La valeur de la transaction résulte de ce prix unitaire appliqué à cette quantité. Incoterm : ${orBlank(facts.incoterm, locale)}.`,
       },
       {
         heading: "5. Obligations du Client",
@@ -152,7 +168,7 @@ function mandateSections(facts: TemplateFacts, locale: TemplateLocale): Contract
     },
     {
       heading: "4. Transaction covered",
-      body: `Selected supplier: ${facts.supplierName}. Transaction value: ${money}. Incoterm: ${orBlank(facts.incoterm, locale)}.`,
+      body: `Selected supplier: ${facts.supplierName}. Unit price of the accepted quotation: ${money}. Quantity: ${orBlank(facts.quantity, locale)}. The value of the transaction results from this unit price applied to that quantity. Incoterm: ${orBlank(facts.incoterm, locale)}.`,
     },
     {
       heading: "5. Client obligations",
@@ -183,7 +199,7 @@ function purchaseOrderSections(facts: TemplateFacts, locale: TemplateLocale): Co
       },
       {
         heading: "3. Prix",
-        body: `Prix total convenu : ${money}, selon la soumission acceptée par l'Acheteur. Ce prix est ferme, sauf modification écrite acceptée par les deux parties.`,
+        body: `Prix unitaire convenu : ${money}, selon la soumission acceptée par l'Acheteur. Le prix total de la commande résulte de ce prix unitaire appliqué à la quantité indiquée à l'article 2 (Marchandise). Ce prix unitaire est ferme, sauf modification écrite acceptée par les deux parties.`,
       },
       {
         heading: "4. Livraison",
@@ -214,7 +230,7 @@ function purchaseOrderSections(facts: TemplateFacts, locale: TemplateLocale): Co
     },
     {
       heading: "3. Price",
-      body: `Total agreed price: ${money}, per the quotation accepted by the Buyer. This price is firm unless amended in writing by both parties.`,
+      body: `Agreed unit price: ${money}, per the quotation accepted by the Buyer. The total price of the order results from this unit price applied to the quantity stated in section 2 (Goods). This unit price is firm unless amended in writing by both parties.`,
     },
     {
       heading: "4. Delivery",
@@ -269,9 +285,9 @@ export function renderContract(
 }
 
 /** True when the stored text predates the current template wording. The fiche
- *  uses it to offer staff a re-draft — and only ever on a `draft` contract,
- *  because re-rendering something already sent or signed would rewrite what
- *  the parties saw. */
+ *  uses it to ask staff for a re-draft before sending (« staleNotice ») — and
+ *  only ever on a `draft` contract, because re-rendering something already
+ *  sent or signed would rewrite what the parties saw. */
 export function isStaleContent(content: ContractContent | null): boolean {
   return content !== null && content.version < CONTRACT_TEMPLATE_VERSION;
 }

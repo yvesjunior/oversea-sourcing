@@ -55,6 +55,11 @@ in all: **slices 4 and 5 are complete.** The one thing among them that moves
 a number buyers see is V31: once a dossier is closed, its supplier's KPI #1
 score carries that history on the next request. Prod has no dossier, so
 deploying changes no score.
+**Plus one correction, also not deployed: contract template version 2**
+(2026-11-19, no migration): the purchase order and the mandate state the
+accepted offer's amount as a unit price instead of a total, a stale draft
+says so on its page, and the screens label that amount « Prix unitaire »;
+see P5.
 **What is left of Phase V is slice 6 — V32, V33, V34: the settlement record,
 the providers, the fee's document. All three wait on the legal opinion
 (README §2c: "for anything financial: do not build it yet"). Nothing else in
@@ -527,6 +532,8 @@ quotes · 0 deals · 0 contracts — prod has still not run the new flow, as at
 - **P5 · templates** (mig 0038) — the two v1 contracts render their own text,
   frozen at draft time in the REQUEST's language; a missing mandatory contract
   surfaces on the dossier, visible to the buyer, actionable only by staff.
+  **Template version 2 (2026-11-19, not deployed):** the price is stated as a
+  unit price and no total is printed — version 1 called it the total.
 - **P6 · signatures** — send · sign in-platform · record an offline signature
   (optional countersigned PDF) · remind. `src/lib/signature.ts` (pure rules,
   19 tests), `src/lib/signature-fns.ts` (the only writer), `src/server/esign.ts`
@@ -4143,6 +4150,101 @@ in the browser before committing; deploy only when the owner asks.
       did not predict. All five extra types from brief §5 are still deferred,
       so there is nothing to pick from — it lands with them.
 
+      **Corrected 2026-11-19 — template version 2: a unit price was printed
+      as the total** (no migration, not deployed).
+      *What was wrong (read on a rendered contract in dev, 2026-11-19):* the
+      purchase order's « 3. Prix » said « Prix total convenu : 980,00 $ US,
+      selon la soumission acceptée par l'Acheteur ». That amount is
+      `deal.amount_cents`, copied from `quote.amount_cents` when the offer is
+      accepted — and the offer's amount is a UNIT price: the RFQ asks for
+      « Prix unitaire et devise » (`src/lib/rfq-mail.ts`), the portal's field
+      is « Prix unitaire ». The mandate carried the same assumption in
+      « 4. Transaction visée » : « Valeur de la transaction : … ».
+      *What the text says now, FR and EN:*
+      • **Bon de commande, 3. Prix** — « Prix unitaire convenu : … , selon la
+        soumission acceptée par l'Acheteur. Le prix total de la commande
+        résulte de ce prix unitaire appliqué à la quantité indiquée à
+        l'article 2 (Marchandise). Ce prix unitaire est ferme, sauf
+        modification écrite acceptée par les deux parties. »
+      • **Mandat, 4. Transaction visée** — « Prix unitaire de la soumission
+        acceptée : … . Quantité : … . La valeur de la transaction résulte de
+        ce prix unitaire appliqué à cette quantité. » The mandate has no
+        goods clause, so it now states the quantity beside the price.
+      **No total is printed, on purpose.** `quote.quantity` is free text
+      (« 5 000 unités », or nothing — then the clause reads
+      « Quantité : [à compléter] »), so a total cannot be computed, and one
+      worked out from a guess would be signed as if agreed.
+      **`CONTRACT_TEMPLATE_VERSION` 1 → 2.** A draft written under version 1
+      is stale (`isStaleContent`) and « Régénérer le texte » rewrites it; a
+      contract already sent or signed keeps its text — the P5 rule, unchanged
+      and still enforced server-side (`not_draft`).
+      4 tests added (14 in `contract-templates.test.ts`): the order states a
+      unit price with one figure in the clause and points at the clause that
+      carries the quantity, in both languages; the mandate no longer calls it
+      the value of the transaction; an offer without a quantity leaves a
+      blank; version 1 content is stale.
+      **A stale draft now says so** (`contrats.staleNotice`, FR + EN, on
+      `/contrats/$id`). `contentStale` had been computed since P5 and read by
+      no screen: the regenerate button was on every draft, and nothing told
+      staff that a given draft needed it. The notice sits above the text,
+      under the same two conditions as the button — the `contracts`
+      permission and status `draft` — and names the version the text was
+      written under. **It asks; it does not block « Envoyer aux parties ».**
+      *Verified live in dev, on a server started from this branch against
+      the dev database, with one version-1 draft inserted for the check and
+      deleted after:* the Owner standing in the internal workspace saw the
+      notice above « Prix total convenu : 5 000,00 $ »; « Régénérer le
+      texte » replaced the text with the seven version-2 clauses (« Prix
+      unitaire convenu : 5 000,00 $ … quantité indiquée à l'article 2
+      (Marchandise) », « Quantité : [à compléter] »), the notice went, and
+      « Texte régénéré · Owner » appeared in the history; the English string
+      was read with the interface switched to English; the buyer of that
+      workspace saw the draft with neither the notice nor the button.
+      **Not exercised live:** a mandate; an English document; the notice on
+      the list (there is none — it is on the contract's page only); the
+      Owner in a personal workspace is a buyer there and got a 404, as
+      designed.
+      **The screens say « Prix unitaire » too.** The contract page and the
+      `/contrats` column labelled that amount « Valeur » / "Value"; the key
+      is now `contrats.col.unitPrice` (« Prix unitaire » / "Unit price").
+      *Verified live in dev, same way, one test contract inserted and
+      deleted:* the column header on `/contrats` and the field on
+      `/contrats/$id`, in French and in English, as the buyer of the
+      workspace. The staff list (one more column, same header cell) was not
+      opened.
+      **Partners were shown the same amount as the value of the goods —
+      relabelled.** `goods_value` in a case's facts is `deal.amount_cents`
+      (`src/server/dossier.ts`) or `quote.amount_cents`
+      (`src/server/partner-hub.ts`): the unit price. `partner-need.ts` gives
+      it to the **insurance** and **customs** kinds — the two that price on
+      a goods value — and it read « Valeur de la marchandise » on their case
+      page (`/partenaires/dossier/$id`) and in their view of the Transaction
+      Room. It now reads **« Prix unitaire du fournisseur »** / "Supplier's
+      unit price". Both kinds already receive `quantity` beside it; a test
+      keeps that true (`partner-need.test.ts`; 1049 tests in all once
+      rebased on V28–V31).
+      The fact keeps its name `goods_value` in the code — a rename touches
+      the partner types, two server readers and their tests, and was not
+      asked; its doc comment now says what it holds.
+      **Not verified in the browser:** the dev database holds no partner and
+      no case, so neither partner screen could be opened. The buyer's
+      Transaction Room was opened and already said « Prix unitaire » (a
+      different label, `view.offer`). The change is one string per language
+      under a key two components read.
+      **Left as they are, each a decision for the owner:**
+      • contracts **sent or signed under version 1** still say « Prix total
+        convenu » — correcting one means a new contract, not an edit. How
+        many exist was not counted here;
+      • **a value of the shipment for insurance and customs partners** —
+        they now read a unit price and a free-text quantity, and work the
+        value out themselves. Giving them the figure needs the numeric
+        quantity below;
+      • **sending a stale draft is not refused** — the notice asks, the
+        server does not check. Refusing it would be a rule in
+        `sendContractFn`, not a wording change;
+      • a **numeric quantity on offers** — the only thing that would let a
+        contract print a total. Not added (owner decision, separate).
+
 - [ ] ~~**P5 · Required-contract derivation + templates.**~~
       *Parcours step 11 (the automatic half). Depends on: P4.*
 
@@ -6791,6 +6893,10 @@ built in: **S** one, **M** two to three, **L** four or more.
       cost (slice 6); validity is judged at the round's close for the ranking
       and at reading time on the buyer's page; a unit price takes two
       decimals at most (`parseAmountToCents`).
+      **Followed up 2026-11-19 — the contracts said the opposite.** The same
+      decision (the supplier's price is a unit price) was contradicted by the
+      two contract templates, which printed that amount as the total. Fixed
+      as template version 2 — see P5, « Corrected 2026-11-19 ».
 
       ~~**What it does.** The version of KPI #2 the diagram describes: offers
       re-ranked on what the goods cost delivered, and on risk. **Files.**

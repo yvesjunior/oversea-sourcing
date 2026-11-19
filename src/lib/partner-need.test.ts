@@ -37,6 +37,16 @@ describe("what each kind of case is shown", () => {
     expect(caseNeeds("inspection", "goods_value")).toBe(false);
   });
 
+  it("never gives the unit price without the quantity it applies to", () => {
+    // `goods_value` is the supplier's UNIT price (the name predates that
+    // understanding). An insurer or a broker needs the value of the shipment:
+    // the unit price alone would be read as that value, which is the mistake
+    // the label made until 2026-11-19.
+    for (const facts of Object.values(CASE_NEEDS)) {
+      if (facts.includes("goods_value")) expect(facts).toContain("quantity");
+    }
+  });
+
   it("names the supplier to the inspector, who goes there, and to nobody else", () => {
     const named = PARTNER_KINDS.filter((kind) => caseNeeds(kind, "supplier_identity"));
     expect(named).toEqual(["inspection"]);

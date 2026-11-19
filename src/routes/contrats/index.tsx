@@ -206,7 +206,7 @@ function Contrats() {
                 <th className="px-4 py-3 font-medium">{t("contrats.col.subject")}</th>
                 {canDraft && <th className="px-4 py-3 font-medium">{t("contrats.col.account")}</th>}
                 <th className="px-4 py-3 font-medium">{t("contrats.col.parties")}</th>
-                <th className="px-4 py-3 font-medium">{t("contrats.col.value")}</th>
+                <th className="px-4 py-3 font-medium">{t("contrats.col.unitPrice")}</th>
                 <th className="px-4 py-3 font-medium">{t("contrats.col.status")}</th>
                 <th className="px-4 py-3 font-medium">{t("contrats.col.signatures")}</th>
                 <th className="px-4 py-3 font-medium">{t("contrats.col.date")}</th>

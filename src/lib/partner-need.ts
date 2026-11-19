@@ -30,7 +30,13 @@ export const CASE_FACTS = [
   "incoterm",
   /** How long the supplier needs before the goods are ready. */
   "lead_time",
-  /** The supplier's price and its currency — the value of the goods. */
+  /** The supplier's UNIT price and its currency. The name is older than the
+   *  understanding: this was taken for the value of the goods and labelled
+   *  so until 2026-11-19. It is what the RFQ asks for — « Prix unitaire et
+   *  devise » — so the value of a shipment is this figure applied to
+   *  `quantity`, which is free text. A case that carries this fact carries
+   *  `quantity` beside it for that reason; the label says « Prix unitaire du
+   *  fournisseur », never a value. */
   "goods_value",
   /** Who the supplier is. */
   "supplier_identity",

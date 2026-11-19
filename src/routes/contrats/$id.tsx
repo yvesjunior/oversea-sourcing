@@ -1,7 +1,7 @@
 // The contract fiche (Phase P4 §3.2/§3.3, signatures added by P6).
 //
 // Everything the brief asks a contract to show — number, subject, linked
-// dossier, buyer, supplier, value, incoterm, terms, dates, status — the
+// dossier, buyer, supplier, unit price, incoterm, terms, dates, status — the
 // parties table with each one's signature state and available action, and the
 // contract's own permanent trail.
 //
@@ -11,7 +11,7 @@
 
 import { useState } from "react";
 import { createFileRoute, Link, notFound, useRouter } from "@tanstack/react-router";
-import { ArrowLeft, Bell, PenLine, RefreshCw, Send, Upload } from "lucide-react";
+import { ArrowLeft, Bell, PenLine, RefreshCw, Send, TriangleAlert, Upload } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -155,7 +155,9 @@ function ContractDetail() {
       <section className="card-surface p-6">
         <dl className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
           <Field label={t("contrats.type.label")} value={t(`contrats.type.${contract.type}`)} />
-          <Field label={t("contrats.col.value")} value={money} />
+          {/* The contract's amount is the accepted offer's UNIT price (see
+              contract-templates.ts) — labelled as that, never as a value. */}
+          <Field label={t("contrats.col.unitPrice")} value={money} />
           <Field label={t("contrats.incoterm")} value={contract.incoterm ?? "—"} />
           <Field label={t("contrats.dueAt")} value={date(contract.dueAt)} />
           <Field label={t("contrats.supplier")} value={contract.supplierName} />
@@ -209,6 +211,22 @@ function ContractDetail() {
         {contract.status === "draft" && (
           <p className="mt-4 rounded-lg border border-gold/40 bg-gold-soft px-4 py-2.5 text-xs text-muted-foreground">
             {t("contrats.draftNotice")}
+          </p>
+        )}
+
+        {/* A draft written under an older template says something the
+            current one was changed to stop saying. Shown under the same two
+            conditions as the button that fixes it — whoever reads this can
+            act on it, and past `draft` there is nothing left to regenerate.
+            It asks; it does not block « Envoyer »: staff may have edited
+            nothing and still have a reason to send the text as it stands. */}
+        {canDraft && contract.status === "draft" && contract.content && contract.contentStale && (
+          <p
+            role="status"
+            className="mt-3 flex items-start gap-2 rounded-lg border border-warning/60 bg-warning/10 px-4 py-2.5 text-xs text-foreground"
+          >
+            <TriangleAlert className="mt-px size-3.5 shrink-0 text-warning" />
+            <span>{t("contrats.staleNotice", { version: contract.content.version })}</span>
           </p>
         )}
 

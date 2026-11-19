@@ -44,6 +44,60 @@ describe("renderContract", () => {
     expect(text).toMatch(/16[\s\u00a0\u202f]?990/);
   });
 
+  it("states the price as a unit price, and prints no total", () => {
+    // The supplier is asked for « Prix unitaire et devise » and the amount on
+    // the deal is a copy of that answer. Version 1 printed it as « Prix total
+    // convenu »: a contract two parties sign, stating a unit price as the
+    // total. The quantity is free text, so no total can be computed either —
+    // the text says where it comes from instead of printing a figure.
+    const fr = renderContract("purchase_order", "fr", FACTS);
+    const price = fr.sections.find((s) => s.heading === "3. Prix")?.body ?? "";
+    expect(price).toMatch(/Prix unitaire convenu : 16[\s\u00a0\u202f]?990/);
+    expect(price).toContain("quantité indiquée à l'article 2 (Marchandise)");
+    expect(price).not.toMatch(/prix total convenu/i);
+    // One figure in the clause: the unit price. Anything else would be a
+    // total somebody computed.
+    expect(price.match(/\d[\d\s\u00a0\u202f]*,\d{2}/g)).toHaveLength(1);
+    // The clause points at section 2, so section 2 has to be the one that
+    // carries the quantity.
+    expect(fr.sections[1]?.heading).toBe("2. Marchandise");
+    expect(fr.sections[1]?.body).toContain("Quantité : 5 000 unités");
+
+    const en = renderContract("purchase_order", "en", FACTS);
+    const enPrice = en.sections.find((s) => s.heading === "3. Price")?.body ?? "";
+    expect(enPrice).toContain("Agreed unit price: $16,990.00");
+    expect(enPrice).toContain("quantity stated in section 2 (Goods)");
+    expect(enPrice).not.toMatch(/total agreed price/i);
+    expect(en.sections[1]?.heading).toBe("2. Goods");
+    expect(en.sections[1]?.body).toContain("Quantity: 5 000 unités");
+  });
+
+  it("does not call the unit price the value of the transaction, in the mandate", () => {
+    // Same amount, same mistake, other document: the mandate has no goods
+    // section, so it states the quantity beside the price it applies to.
+    const fr = renderContract("mandate_osi_client", "fr", FACTS).sections[3]?.body ?? "";
+    expect(fr).toMatch(/Prix unitaire de la soumission acceptée : 16[\s\u00a0\u202f]?990/);
+    expect(fr).toContain("Quantité : 5 000 unités");
+    expect(fr).not.toMatch(/Valeur de la transaction : /);
+
+    const en = renderContract("mandate_osi_client", "en", FACTS).sections[3]?.body ?? "";
+    expect(en).toContain("Unit price of the accepted quotation: $16,990.00");
+    expect(en).toContain("Quantity: 5 000 unités");
+    expect(en).not.toMatch(/Transaction value: /);
+  });
+
+  it("leaves the quantity a blank to fill when the offer gave none", () => {
+    // The sentence about the total then points at a line somebody has to
+    // complete before sending — which is the point: no quantity, no total.
+    for (const type of ["mandate_osi_client", "purchase_order"] as const) {
+      const text = renderContract(type, "fr", { ...FACTS, quantity: null })
+        .sections.map((s) => s.body)
+        .join(" ");
+      expect(text).toContain("Quantité : [à compléter]");
+      expect(text).toMatch(/[Pp]rix unitaire[^.]*16[\s\u00a0\u202f]?990/);
+    }
+  });
+
   it("states OSI is not a party to the sale, in both documents", () => {
     // The one substantive claim the platform makes about itself: it
     // facilitates, it does not sell. A template edit that loses it would
@@ -110,6 +164,13 @@ describe("renderContract", () => {
 describe("isStaleContent", () => {
   it("flags text drafted under an older template", () => {
     expect(isStaleContent({ version: 0, locale: "fr", title: "x", sections: [] })).toBe(true);
+  });
+
+  it("flags a draft written under the wording that called a unit price the total", () => {
+    // Version 1 is that wording. If this stops being stale, the drafts that
+    // carry « Prix total convenu » can no longer be told from corrected ones.
+    expect(CONTRACT_TEMPLATE_VERSION).toBeGreaterThanOrEqual(2);
+    expect(isStaleContent({ version: 1, locale: "fr", title: "x", sections: [] })).toBe(true);
   });
 
   it("does not flag current text, or a contract drafted before templates", () => {
