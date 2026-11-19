@@ -3,7 +3,6 @@ import {
   ENRICHMENT_KINDS,
   ENRICHMENT_OF,
   enrichmentsFingerprint,
-  enrichmentStanding,
   isExpired,
   latestPerCase,
   type OfferEnrichment,
@@ -57,30 +56,6 @@ describe("latestPerCase", () => {
   });
 });
 
-describe("whether a figure can stand next to the supplier's price", () => {
-  it("can, in the offer's currency, while it is valid", () => {
-    expect(enrichmentStanding(freight, "USD", now)).toBe("addable");
-    expect(enrichmentStanding(freight, "usd", now)).toBe("addable");
-  });
-
-  // Decision D7: a freight quote in USD on an offer in EUR is not added to it.
-  it("cannot in another currency, or when the offer states none", () => {
-    expect(enrichmentStanding(freight, "EUR", now)).toBe("other_currency");
-    expect(enrichmentStanding(freight, null, now)).toBe("other_currency");
-    expect(enrichmentStanding(freight, " ", now)).toBe("other_currency");
-  });
-
-  it("cannot once its validity has run out — whatever the currency", () => {
-    const stale = { ...freight, validUntil: "2026-11-01T00:00:00.000Z" };
-    expect(isExpired(stale, now)).toBe(true);
-    expect(enrichmentStanding(stale, "USD", now)).toBe("expired");
-  });
-
-  it("stands with no end date", () => {
-    expect(enrichmentStanding({ ...freight, validUntil: null }, "USD", now)).toBe("addable");
-  });
-});
-
 describe("enrichmentsFingerprint", () => {
   it("is the same whatever the order, and for none or a missing list", () => {
     const insurance: OfferEnrichment = {
@@ -93,6 +68,15 @@ describe("enrichmentsFingerprint", () => {
       enrichmentsFingerprint([{ ...insurance, currency: "USD" }, freight]),
     );
     expect(enrichmentsFingerprint([])).toBe(enrichmentsFingerprint(undefined));
+  });
+
+  it("changes with the units a figure covers", () => {
+    expect(enrichmentsFingerprint([{ ...freight, units: 20000 }])).not.toBe(
+      enrichmentsFingerprint([freight]),
+    );
+    expect(enrichmentsFingerprint([{ ...freight, units: null }])).toBe(
+      enrichmentsFingerprint([freight]),
+    );
   });
 
   it("changes with the amount, the currency or the validity", () => {

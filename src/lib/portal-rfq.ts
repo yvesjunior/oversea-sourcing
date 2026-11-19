@@ -91,3 +91,19 @@ export function parseAmountToCents(input: string): number | null {
   const cents = Math.round(Number(cleaned) * 100);
   return Number.isSafeInteger(cents) ? cents : null;
 }
+
+/**
+ * A number of units as a form takes it (V24) — "20000", "20 000", "1500,5".
+ * Null for an empty field: not saying is allowed (the figure is then added to
+ * nothing). "invalid" for anything that is not a positive number: a quantity
+ * is what a shipment figure is divided by, and a guess there moves a ranking.
+ */
+export function parseUnits(input: string): number | null | "invalid" {
+  // Spaces of any kind (\s covers the narrow and non-breaking ones a locale
+  // inserts), as thousands separators are typed: "20 000".
+  const cleaned = input.replace(/\s/g, "").replace(",", ".");
+  if (cleaned === "") return null;
+  if (!/^\d{1,12}(\.\d{1,3})?$/.test(cleaned)) return "invalid";
+  const value = Number(cleaned);
+  return value > 0 ? value : "invalid";
+}

@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { formatDay, formatDayTime } from "@/lib/instant";
 import { answerHubCaseFn, getHubCaseFn, type HubCaseDetail } from "@/lib/partner-portal-fns";
-import { parseAmountToCents } from "@/lib/portal-rfq";
+import { parseAmountToCents, parseUnits } from "@/lib/portal-rfq";
 
 // One case in the Partner Hub (Phase V · V23): what OSI asks, what answering
 // it takes, and the partner's own figure.
@@ -166,6 +166,10 @@ function HubCase() {
                   {money(figure.amountCents, figure.currency, lang)}
                 </span>{" "}
                 <span className="text-xs text-muted-foreground no-underline">
+                  {figure.units
+                    ? t("partnerWork.forUnits", { units: figure.units.toLocaleString(lang) })
+                    : t("partnerWork.noUnits")}
+                  {" · "}
                   {figure.validUntil
                     ? t("partnerWork.validUntil", { date: formatDay(figure.validUntil, lang) })
                     : t("partnerWork.noValidity")}
@@ -198,6 +202,7 @@ function AnswerForm({ item }: { item: HubCaseDetail }) {
     current?.currency ?? item.facts.goods_value?.currency ?? "USD",
   );
   const [validUntil, setValidUntil] = useState("");
+  const [units, setUnits] = useState(current?.units ? String(current.units) : "");
   const [note, setNote] = useState("");
   const [pending, setPending] = useState(false);
   const [refusal, setRefusal] = useState<string | null>(null);
@@ -212,6 +217,11 @@ function AnswerForm({ item }: { item: HubCaseDetail }) {
       setRefusal("amount");
       return;
     }
+    const covered = parseUnits(units);
+    if (covered === "invalid") {
+      setRefusal("units");
+      return;
+    }
     setPending(true);
     setRefusal(null);
     try {
@@ -221,6 +231,7 @@ function AnswerForm({ item }: { item: HubCaseDetail }) {
           amountCents,
           currency: currency.trim(),
           validUntil: validUntil || null,
+          units: covered,
           note: note || null,
         },
       });
@@ -279,6 +290,19 @@ function AnswerForm({ item }: { item: HubCaseDetail }) {
             onChange={(e) => setValidUntil(e.target.value)}
           />
         </div>
+      </div>
+      <div>
+        <label htmlFor="hub-units" className={label}>
+          {t("partnerHub.units")}
+        </label>
+        <Input
+          id="hub-units"
+          value={units}
+          onChange={(e) => setUnits(e.target.value)}
+          inputMode="decimal"
+          className="sm:max-w-xs"
+        />
+        <p className="mt-1 text-xs text-muted-foreground">{t("partnerHub.unitsHint")}</p>
       </div>
       <div>
         <label htmlFor="hub-note" className={label}>

@@ -1169,7 +1169,9 @@
     "partner_case.cancelled": "Dossier partenaire annulé",
     "partner.user_invited": "Personne invitée au Partner Hub",
     "partner.account_created": "Compte partenaire créé depuis une invitation",
-    "partner.account_attached": "Invitation rattachée à un compte partenaire existant"
+    "partner.account_attached": "Invitation rattachée à un compte partenaire existant",
+    "pack.fx_rate_set": "Taux de change enregistré sur un Decision Pack",
+    "pack.fx_rate_removed": "Taux de change retiré d’un Decision Pack"
   },
   "twofa": {
     "title": "Vérification en deux étapes",
@@ -1504,7 +1506,7 @@
   },
   "ranking": {
     "title": "Classement des offres (KPI n° 2)",
-    "subtitle": "Les offres reçues à la fermeture du tour, classées sur ce que les fournisseurs ont déclaré. Interne : le client ne voit rien avant le Decision Pack.",
+    "subtitle": "Les offres reçues à la fermeture du tour, classées sur ce que les fournisseurs ont déclaré et sur ce que les partenaires y ont ajouté, ramené à l’unité. Interne : le client ne voit rien avant le Decision Pack.",
     "computed": "Calculé le {{date}} — {{trigger}} · {{version}}",
     "recompute": "Recalculer",
     "recomputed": "Classement recalculé. Le précédent reste consultable ci-dessous.",
@@ -1543,7 +1545,9 @@
       "mixed_currencies": "Prix non comparés : les offres sont dans des devises différentes et aucun montant n'est converti. Le classement repose sur les autres facteurs.",
       "mixed_incoterms": "Les prix sont comparés alors que les incoterms diffèrent : ils ne couvrent pas les mêmes frais.",
       "validity_expired": "La validité de cette offre était déjà échue à la fermeture du tour.",
-      "verification_rejected": "La vérification de ce fournisseur a été rejetée."
+      "verification_rejected": "La vérification de ce fournisseur a été rejetée.",
+      "landed_incomplete": "Cette offre n’a pas de chiffre pour une ligne de coût qu’une autre offre a : la ligne est écartée de la comparaison pour toutes.",
+      "converted": "Le coût de cette offre a été converti à un taux de change enregistré."
     },
     "trigger": {
       "round_closed": "fermeture du tour",
@@ -1551,7 +1555,8 @@
       "offer_corrected": "offre corrigée",
       "offer_removed": "offre retirée",
       "manual": "recalcul demandé",
-      "enrichment_changed": "chiffre d’un partenaire modifié"
+      "enrichment_changed": "chiffre d’un partenaire modifié",
+      "fx_rates_changed": "taux de change modifié"
     },
     "refusal": {
       "forbidden": "Action non autorisée.",
@@ -1629,7 +1634,8 @@
       "refused": "Refusé",
       "assigned": "Attribution",
       "auto_released": "Envoyé automatiquement",
-      "held": "Retenu pour décision — tour fermé sans offre"
+      "held": "Retenu pour décision — tour fermé sans offre",
+      "rates_changed": "Taux de change modifié"
     },
     "assignedTo": "Pris par {{name}}.",
     "putBack": "Remis dans la file.",
@@ -1658,9 +1664,42 @@
       "not_eligible": "Un fournisseur coché ne peut plus être sollicité.",
       "missing_contact": "Un fournisseur coché n'a aucun contact",
       "no_reply_address": "Aucune adresse de réponse n'est définie : la relance ne peut pas partir.",
-      "partly_sent": "Le tour est ouvert, mais l'appel d'offres n'a pas pu partir pour certains fournisseurs — renvoyez-le depuis le panneau « Appel d'offres »"
+      "partly_sent": "Le tour est ouvert, mais l'appel d'offres n'a pas pu partir pour certains fournisseurs — renvoyez-le depuis le panneau « Appel d'offres »",
+      "same_currency": "Les deux devises sont identiques."
     },
-    "autoHeld": "Ce pack était en envoi automatique et n'est pas parti : un tour fermé sans offre revient toujours à une personne, et un pack arrivé chez une personne ne part plus tout seul."
+    "autoHeld": "Ce pack était en envoi automatique et n'est pas parti : un tour fermé sans offre revient toujours à une personne, et un pack arrivé chez une personne ne part plus tout seul.",
+    "landed": {
+      "unit": "Coût rendu comparé : {{amount}} par unité",
+      "goods": "marchandise {{amount}}",
+      "added": "{{line}} {{amount}}",
+      "included": "{{line}} compris dans le prix",
+      "goodsOnly": "Comparé sur le prix unitaire seul : aucune autre ligne n’est connue pour toutes les offres.",
+      "compared": "comparé en {{currency}} : {{amount}} (taux {{rate}}, {{source}}, {{asOf}})",
+      "notCompared": "Prix non comparé : les offres sont dans des devises différentes et aucun taux n’est enregistré.",
+      "unused": "Chiffre non retenu dans la comparaison (une autre offre n’en a pas) : {{lines}}",
+      "incomplete": "Sans chiffre utilisable pour : {{lines}}. Ces lignes sont écartées de la comparaison pour toutes les offres.",
+      "reason": {
+        "not_provided": "non fourni",
+        "expired": "expiré",
+        "no_quantity": "sans nombre d’unités",
+        "other_currency": "autre devise, sans taux"
+      }
+    },
+    "rates": {
+      "title": "Taux de change",
+      "intro": "Aucun montant n’est converti sans un taux enregistré ici, avec sa source et sa date. Un taux vaut dans un seul sens.",
+      "none": "Aucun taux enregistré.",
+      "from": "De",
+      "to": "Vers",
+      "rate": "Taux",
+      "source": "Source",
+      "asOf": "Date du taux",
+      "add": "Enregistrer le taux",
+      "remove": "Retirer",
+      "done": "Taux enregistré : le classement a été recalculé.",
+      "removed": "Taux retiré : le classement a été recalculé.",
+      "invalid": "Indiquez deux devises (3 lettres), un taux positif, une source et une date."
+    }
   },
   "packQueue": {
     "title": "Decision Packs",
@@ -1785,8 +1824,19 @@
       "other_currency": "fourni par un partenaire d’OSI, dans une autre devise que l’offre : ne s’additionne pas au prix",
       "expired": "fourni par un partenaire d’OSI — ce chiffre a expiré le {{date}}",
       "addable_open": "fourni par un partenaire d’OSI — sans date de validité",
-      "already_included": "fourni par un partenaire d’OSI — déjà couvert par le prix du fournisseur ({{incoterm}}) : ne s’additionne pas au prix"
-    }
+      "already_included": "fourni par un partenaire d’OSI — déjà couvert par le prix du fournisseur ({{incoterm}}) : ne s’additionne pas au prix",
+      "no_quantity": "fourni par un partenaire d’OSI, sans le nombre d’unités couvert : ne s’additionne pas au prix unitaire",
+      "converted": "fourni par un partenaire d’OSI — converti au taux de {{rate}} ({{source}}, {{asOf}})"
+    },
+    "perUnit": "soit {{amount}} par unité (pour {{units}} unités)",
+    "knownUnitCost": "Coût connu par unité",
+    "knownUnitCostHint": "Prix unitaire du fournisseur + {{added}}.",
+    "knownUnitCostIncluded": "Déjà compris dans le prix : {{included}}.",
+    "knownUnitCostMissing": "Non compris, faute de chiffre : {{missing}}. Les honoraires OSI et les frais du partenaire de règlement s’y ajouteront aussi.",
+    "knownUnitCostFees": "Les honoraires OSI et les frais du partenaire de règlement s’y ajouteront.",
+    "ratesTitle": "Taux de change utilisés",
+    "rateLine": "1 {{from}} = {{rate}} {{to}} — {{source}}, {{asOf}}",
+    "goodsUnit": "Marchandise (prix unitaire du fournisseur)"
   },
   "packReport": {
     "tab": "Ce que la revue a changé",
@@ -2155,10 +2205,12 @@
     "correct": "Corriger le chiffre",
     "cancel": "Annuler le dossier",
     "standing": {
-      "addable": "chiffre d’un partenaire, même devise que l’offre",
+      "addable": "chiffre d’un partenaire, s’ajoute au prix unitaire",
       "other_currency": "chiffre d’un partenaire, dans une autre devise que l’offre : non additionnable",
       "expired": "chiffre d’un partenaire, expiré",
-      "already_included": "chiffre d’un partenaire, déjà couvert par le prix ({{incoterm}}) : non additionnable"
+      "already_included": "chiffre d’un partenaire, déjà couvert par le prix ({{incoterm}}) : non additionnable",
+      "no_quantity": "chiffre d’un partenaire, sans nombre d’unités : non additionnable",
+      "converted": "chiffre d’un partenaire, converti au taux enregistré"
     },
     "refused": {
       "forbidden": "Votre rôle ne permet pas cette action.",
@@ -2170,8 +2222,13 @@
       "case_not_found": "Ce dossier est introuvable.",
       "case_cancelled": "Ce dossier a été annulé.",
       "validity_past": "La date de validité doit être dans le futur.",
-      "amount": "Indiquez un montant valide, par exemple 1250.00."
-    }
+      "amount": "Indiquez un montant valide, par exemple 1250.00.",
+      "units": "Le nombre d’unités doit être un nombre positif (ou laissez le champ vide)."
+    },
+    "units": "Nb d’unités couvertes",
+    "unitsHint": "Le fournisseur donne un prix UNITAIRE : indiquez pour combien de ses unités vaut ce chiffre (ex. 20 000). Sans ce nombre, le chiffre est affiché mais ne s’additionne à rien.",
+    "forUnits": "pour {{units}} unités",
+    "noUnits": "nombre d’unités non indiqué"
   },
   "partnerHub": {
     "shellTitle": "Partner Hub",
@@ -2215,11 +2272,14 @@
       "amount": "Indiquez un montant valide.",
       "not_found": "Ce dossier est introuvable, ou ne vous est pas adressé.",
       "cancelled": "OSI a retiré ce dossier : il n’attend plus de réponse.",
-      "validity_past": "La date de validité est déjà passée."
+      "validity_past": "La date de validité est déjà passée.",
+      "units": "Le nombre d’unités doit être un nombre positif (ou laissez le champ vide)."
     },
     "saved": "Votre chiffre est enregistré.",
     "correct": "Remplacer mon chiffre",
-    "send": "Transmettre mon chiffre"
+    "send": "Transmettre mon chiffre",
+    "units": "Pour combien d’unités vaut ce chiffre ?",
+    "unitsHint": "Le nombre d’unités du fournisseur que couvre votre prix (ex. 20 000). OSI ramène votre chiffre à l’unité pour le comparer."
   },
   "partnerSignup": {
     "title": "Créez votre compte partenaire",

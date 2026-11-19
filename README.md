@@ -1421,12 +1421,68 @@ figure on its line, and says what it is next to the supplier's price:
 | `expired` | its validity has passed | « … ce chiffre a expiré le … » |
 | `already_included` | the incoterm puts that line INSIDE the supplier's price (freight on a CIF offer) | « … déjà couvert par le prix du fournisseur (CIF) : ne s'additionne pas au prix » |
 
-`already_included` is decided first, whatever the currency or the validity
-(`costQuoteStanding` in `src/lib/pack-explain.ts`). **Still no total** — an
-absent figure is « non fourni », never zero; summing is V24's job, and it
-must skip everything that is not `addable`. The partner is never named to the
-buyer: the frozen copy of the offer holds kind, amount, currency and
-validity only.
+`already_included` is decided first, whatever the currency or the validity.
+Since V24 there are two more — `no_quantity` (the figure does not say how many
+units it covers) and `converted` (added through a stored rate) — and the
+verdict is read off the calculation itself (`landedComponent` in
+`src/lib/landed-cost.ts`). An absent figure is « non fourni », never zero. The
+partner is never named to the buyer: the frozen copy of the offer holds kind,
+amount, currency, validity and units only.
+
+### KPI #2 on landed cost (V24)
+
+**The basis is one unit** (owner, 2026-11-19). A supplier quotes a *unit*
+price — the RFQ asks for one, and the quantity is free text. A partner quotes
+a figure for a *shipment*. Adding the two as they stand would be a wrong
+number, so every partner figure records **how many of the supplier's units it
+covers** (`partner_enrichment.units`), and:
+
+```
+landed unit cost = unit price + Σ ( partner figure ÷ units it covers )
+```
+
+A figure with no number of units is shown and added to nothing. The whole
+calculation is `src/lib/landed-cost.ts` (pure); the ranking, the staff panel
+and the buyer's cost block all read it.
+
+**Each cost line of an offer is one of three things:** *included* in the price
+by the incoterm (nothing added — and a partner's figure for that line is not
+added on top), *added* from a partner's figure, or *unknown*, with the reason:
+not provided · expired · no number of units · another currency with no stored
+rate.
+
+**A missing figure is never zero.** KPI #2's price factor compares the landed
+unit cost over the lines **known for every priced offer**, and no other. One
+offer with no freight figure takes freight out of the comparison for all of
+them, and that offer is noted `landed_incomplete` — otherwise the least
+documented offer would rank first. A figure somebody recorded that the
+comparison could not use is still shown on the ranking, as unused.
+
+**Exchange rates are stored, never looked up** (decision D7). A staff member
+stores a rate on the pack under review (`decision_pack.fx_rates`: from, to,
+rate, source, date) from the Decision Pack panel of the dossier; doing so
+recomputes the ranking. A rate is used for exactly its pair, in its direction
+— never inverted, never chained through a third currency. With one:
+- a partner figure in another currency is added to its offer's unit price;
+- offers in several currencies are compared in the currency of most of them
+  (alphabetical on a tie), provided every other one has a stored rate into it.
+
+Without one, nothing is converted and the behaviour is version 1's. The rates
+are frozen with the pack when it is released.
+
+**Where it shows.** Staff: the ranking on the dossier spells the arithmetic
+out per offer (« Coût rendu comparé : 1 060,00 $US par unité = marchandise
+980,00 + transport principal 80,00 »), what was left out and why. The buyer:
+each partner figure with what it comes to per unit, the rate it was converted
+at with its source and date, and **« Coût connu par unité »** — unit price
+plus what was added — with what it does not cover named beside it (the lines
+nobody provided, OSI's fee, the settlement partner's fees). The buyer gets
+only the rates a figure *they are shown* uses.
+
+**Not done:** the buyer's « Ce que nous avons relevé » lines still compare the
+*stated* unit prices; the fees are not in the landed cost (slice 6); a
+figure's validity is judged at the round's close for the ranking and at the
+moment of reading on the buyer's page.
 
 ### The Partner Hub — where a partner's person answers (V23)
 
@@ -1622,9 +1678,11 @@ scored *suppliers* (who is worth asking); this scores what they *answered*.
 
 Four rules decide what is compared, and they matter more than the weights:
 
-- **Money is never converted** (ADR-002; decision D7 as its default). If the
-  priced offers are not all in one currency, price is compared **for nobody**:
-  the factor is dropped from every score and each offer says *non comparable*.
+- **Money is never converted on a rate nobody stored** (ADR-002; decision D7
+  as its default). If the priced offers are not all in one currency, price is
+  compared only when the pack holds a stored rate from each other currency
+  into one of them (V24, below); otherwise it is compared **for nobody**: the
+  factor is dropped from every score and each offer says *non comparable*.
   Comparing it inside one currency only would still let price decide the
   order between a USD offer and a EUR one.
 - **A factor nobody stated is dropped**; one that others stated and an offer
@@ -1633,10 +1691,11 @@ Four rules decide what is compared, and they matter more than the weights:
 - **MOQ is not scored.** It is free text on the quote and the quantity needed
   is a free-text criterion; scoring it would mean parsing prose. It is shown
   beside the ranking.
-- **There is no landed cost.** Duties, freight, inspection and FX are what
-  partners supply (slice 4). Until then this ranks on what suppliers stated —
-  and when prices are compared across different incoterms, the panel says
-  they do not cover the same costs.
+- **The price factor compares LANDED cost per unit** (V24, `kpi2.v2` — see
+  "KPI #2 on landed cost" below). With no partner figure it rests on the
+  stated price and on what the incoterms put inside it, which is the order
+  version 1 gave; when prices are compared across different incoterms, the
+  panel still says they do not cover the same costs.
 
 The ranking covers **every offer the request holds, across its rounds**: after
 a relaunch, the offers kept from the first round are ranked with the new ones.
@@ -1735,12 +1794,12 @@ who filed the request (`pack_ready`, in the app and by email), and
   supplier's fit with the need and its verification. Not a score: the order
   may have been corrected by a person, and a number that disagreed with it
   would explain nothing;
-- **a landed-cost block that labels what is not known.** The supplier's price
-  as stated; transport, insurance and import duties either *included in the
-  price* by the incoterm quoted (CIF covers carriage and insurance, DDP
-  duties) or *non fourni*; inspection *non fourni*. **No total is computed** —
-  the price is a stated unit price against a free-text quantity, and a sum
-  that left the unknowns out would be the one wrong number on the page;
+- **a landed-cost block that labels what is not known.** The supplier's unit
+  price as stated; transport, insurance and import duties either *included in
+  the price* by the incoterm quoted (CIF covers carriage and insurance, DDP
+  duties), a partner's figure (V22), or *non fourni*. **No total is
+  computed.** Since V24 one figure is stated when a partner's figure could be
+  added: the **known cost per unit**, beside the list of what it leaves out;
 - **OSI's fee and the settlement partner's fee are listed, and not quoted.**
   The buyer must not read the supplier's price as the whole cost, so both
   lines are there — « s'appliquent, montant non communiqué à ce stade ». No
@@ -3256,8 +3315,9 @@ erDiagram
 | `partner`            | ✅ 2026-11-18 (0060, Phase V · V21) — a company filling a slot on a dossier: `name`, `kind` (`transport` · `inspection` · `customs` · `insurance` · `settlement` — the last one not creatable until the legal gate lifts), `provider` (`manual`, the only adapter), `active`, contact fields, `locale`. A record, not an account |
 | `partner_user`       | ✅ 2026-11-18 (0060, V21) — which partner(s) an external account answers for; `supplier_user`'s counterpart, read by `requirePartnerSession` |
 | `partner_case`       | ✅ 2026-11-18 (0061, Phase V · V22) — a question put to a partner about ONE offer: `partner_id`, `quote_id`, `request_id`, `kind` (the partner's, copied), `status` (`open` · `answered` · `cancelled`), `brief`, `external_ref` (what an integrated provider would return — null with `manual`), `opened_by` + name. One live case per offer per kind, enforced in `openCase`. No `deal_id` yet (slice 5) |
-| `partner_enrichment` | ✅ 2026-11-18 (0061, V22) — a partner's figure: `case_id`, `quote_id`, `kind` (`main_carriage` · `insurance` · `import_duties` · `inspection`), `amount_cents` + `currency` (its own — never converted), `details` (jsonb, a note), `valid_until`, `channel` (`staff` today; `portal` from V23), `version` (unique per case — a correction is the next version), `created_by` + name. `kpi_result` runs gain the trigger `enrichment_changed` |
+| `partner_enrichment` | ✅ 2026-11-18 (0061, V22) — a partner's figure: `case_id`, `quote_id`, `kind` (`main_carriage` · `insurance` · `import_duties` · `inspection`), `amount_cents` + `currency` (its own — never converted), `details` (jsonb, a note), `valid_until`, `units` (0063, V24 — how many of the supplier's units the figure covers; null = added to nothing), `channel` (`staff` · `portal`), `version` (unique per case — a correction is the next version), `created_by` + name. `kpi_result` runs gain the trigger `enrichment_changed` |
 | `partner_invitation` | ✅ 2026-11-18 (0062, Phase V · V23) — the link that opens the Partner Hub to one person: `partner_id`, `email`, `token_hash` (unique; the token exists only in the email), `expires_at` (30 days), `opened_at`, `registered_user_id` + `registered_at` (non-null = used), `invited_by` + name. `rfq_invitation`'s counterpart — sent by staff on purpose, once per person, not per case |
+| `decision_pack.fx_rates` | ✅ 2026-11-19 (0063, Phase V · V24) — jsonb: the exchange rates a staff member stored on the pack (`from`, `to`, `rate`, `source`, `asOf`). The only rates anything is converted with; each applies to its pair in its direction. Frozen with the pack on release. `kpi_result` runs gain the trigger `fx_rates_changed`, pack events the action `rates_changed`; `formula_version` is `kpi2.v2` from V24 |
 | `criterion_proposal` | ✅ 2026-11-18 (0055, Phase V · V18) — a criteria change the assistant PROPOSED: `op` (`add` · `update` · `remove`), the full criterion an accept would leave, `previous` / `previous_required` (what an update replaces), `status` (`pending` · `accepted` · `dismissed` · `stale` · `superseded`), who answered and their name as it was. `criterion_id` is deliberately not a foreign key: the proposal outlives a criterion deleted by hand, to say `stale`. Same migration: `request_message.questions` (jsonb) — what the assistant asked on a turn; non-null is what counts a turn against the request's six |
 | `kpi_result`         | ✅ 2026-11-14 (0051, Phase V · V09) — KPI #2: one row per offer per run. `run_id` groups a computation; `rank`, `score` (hundredths of a point), `breakdown` (per-factor state, points and weight, the notes, and the offer exactly as it was scored), `formula_version`, `inputs_hash`, `trigger`, `computed_at`. **Append-only** — the current ranking of a round is its latest run. KPI #1 is not here: it scores a supplier before anyone is asked and stays on `match` |
 | `platform_setting`   | ✅ 2026-11-14 (0046, Phase V · V01) — platform-wide settings, ONE value per key for every client; a missing row means the default. Keys, types, ranges and defaults live in the registry `src/lib/platform-settings.ts`, so a new knob is a registry entry and not a migration. Edited from `/interne/parametres` (`settings` permission, owner by default); every change is in `audit_log` with the old and new value |

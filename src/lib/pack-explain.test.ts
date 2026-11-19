@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { PackOfferSnapshot } from "@/lib/decision-pack";
-import { COST_LINES, costQuoteStanding, explainOffer, landedCostLines } from "@/lib/pack-explain";
+import {
+  COST_LINES,
+  costQuoteStanding,
+  explainOffer,
+  knownUnitCostOf,
+  landedCostLines,
+} from "@/lib/pack-explain";
 
 const offer = (patch: Partial<PackOfferSnapshot> = {}): PackOfferSnapshot => ({
   supplierName: "Acme",
@@ -204,6 +210,8 @@ describe("the cost block with a partner's figure", () => {
     amountCents: 125000,
     currency: "USD",
     validUntil: "2026-12-18T00:00:00.000Z",
+    // 1 250.00 USD to ship 20 000 units.
+    units: 20000,
   };
   const lineOf = (lines: ReturnType<typeof landedCostLines>, key: string) =>
     lines.find((line) => line.key === key)!;
@@ -223,8 +231,50 @@ describe("the cost block with a partner's figure", () => {
       amountCents: 125000,
       currency: "USD",
       validUntil: freight.validUntil,
+      units: 20000,
       standing: "addable",
+      // 125 000 cents over 20 000 units.
+      unitCents: 6.25,
+      rate: null,
     });
+  });
+
+  // V24 (owner, 2026-11-19): the supplier quotes a UNIT price. A shipment
+  // figure that does not say how many units it covers is added to nothing.
+  it("shows a figure with no quantity, and adds it to nothing", () => {
+    const line = lineOf(
+      landedCostLines({ ...offer, enrichments: [{ ...freight, units: null }] }, at),
+      "main_carriage",
+    );
+    expect(line.quote?.amountCents).toBe(125000);
+    expect(line.quote?.standing).toBe("no_quantity");
+    expect(line.quote?.unitCents).toBeNull();
+  });
+
+  it("converts a figure in another currency only with a stored rate for that pair", () => {
+    const cad = { ...freight, currency: "CAD" };
+    const rate = {
+      from: "CAD",
+      to: "USD",
+      rate: 0.72,
+      source: "Banque du Canada",
+      asOf: "2026-11-18",
+    };
+    const without = lineOf(landedCostLines({ ...offer, enrichments: [cad] }, at), "main_carriage");
+    expect(without.quote?.standing).toBe("other_currency");
+    const withRate = lineOf(
+      landedCostLines({ ...offer, enrichments: [cad] }, at, [rate]),
+      "main_carriage",
+    );
+    expect(withRate.quote?.standing).toBe("converted");
+    expect(withRate.quote?.unitCents).toBe(4.5); // 125 000 × 0.72 ÷ 20 000
+    expect(withRate.quote?.rate).toEqual(rate);
+    // The inverse pair is a rate nobody stored.
+    const inverse = { ...rate, from: "USD", to: "CAD" };
+    expect(
+      lineOf(landedCostLines({ ...offer, enrichments: [cad] }, at, [inverse]), "main_carriage")
+        .quote?.standing,
+    ).toBe("other_currency");
   });
 
   // Decision D7: a freight quote in USD on an offer in EUR is not added to it.
@@ -276,5 +326,40 @@ describe("the cost block with a partner's figure", () => {
     expect(lineOf(lines, "inspection").state).toBe("not_provided");
     expect(lineOf(lines, "osi_fee").state).toBe("applies_unquoted");
     expect(lineOf(lines, "settlement_fee").state).toBe("applies_unquoted");
+  });
+
+  // ── the one figure the block may state (V24) ──────────────────────────────
+  it("states what one unit costs over what is known, and what that leaves out", () => {
+    const known = knownUnitCostOf({ ...offer, enrichments: [freight] }, at);
+    expect(known).toEqual({
+      unitCents: 98006.25, // 98 000 + 6.25
+      currency: "USD",
+      added: ["main_carriage"],
+      included: [],
+      missing: ["insurance", "import_duties", "inspection"],
+    });
+  });
+
+  it("states no landed figure when nothing was added to the price", () => {
+    expect(knownUnitCostOf(offer, at)).toBeNull();
+    // A figure that cannot be added does not make one either.
+    expect(
+      knownUnitCostOf({ ...offer, enrichments: [{ ...freight, units: null }] }, at),
+    ).toBeNull();
+    // Nor does a price nobody stated.
+    expect(knownUnitCostOf({ ...offer, amountCents: null, enrichments: [freight] }, at)).toBeNull();
+  });
+
+  it("does not add on a CIF offer what the price already carries", () => {
+    const cif = { ...offer, incoterm: "CIF Montreal" };
+    expect(knownUnitCostOf({ ...cif, enrichments: [freight] }, at)).toBeNull();
+    const duties = { ...freight, kind: "import_duties" as const, amountCents: 40000 };
+    expect(knownUnitCostOf({ ...cif, enrichments: [freight, duties] }, at)).toEqual({
+      unitCents: 98002, // duties only: 40 000 ÷ 20 000
+      currency: "USD",
+      added: ["import_duties"],
+      included: ["main_carriage", "insurance"],
+      missing: ["inspection"],
+    });
   });
 });

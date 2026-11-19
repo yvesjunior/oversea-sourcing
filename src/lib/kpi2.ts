@@ -5,21 +5,31 @@
 // KPI #1 (src/server/matching.ts) scored SUPPLIERS: who is worth asking. This
 // scores what they actually ANSWERED.
 //
-// ── What version 1 is, and is not ───────────────────────────────────────────
+// ── What it ranks on ────────────────────────────────────────────────────────
 //
-// It ranks on what the suppliers stated — price, lead time, incoterm, validity
-// — plus two things the platform knows about the supplier: its verification
-// as it stands now, and its KPI #1 score. That is all. There is NO landed
-// cost: duties, freight, inspection and FX are what partners supply (slice
-// 4), and until they do, inventing those figures to make this scorer look
-// different from KPI #1 would be a number with nothing behind it (README §2c
-// says the same of the first packs).
+// What the suppliers stated — price, lead time, incoterm, validity — plus two
+// things the platform knows about the supplier: its verification as it stands
+// now, and its KPI #1 score.
+//
+// VERSION 2 (V24): the PRICE factor compares the LANDED cost of one unit —
+// the supplier's unit price plus what partners added (freight, insurance,
+// duties, inspection), each brought to one unit (src/lib/landed-cost.ts).
+// Version 1 compared the stated price alone, whatever the incoterm.
+//
+// The landed cost is compared over the cost lines known for EVERY priced
+// offer, and over no other: a line one offer has no figure for is left out
+// for all of them, and that offer is noted `landed_incomplete`. A missing
+// figure is never read as zero — that would rank the least documented offer
+// first. With no partner figure at all, the comparison rests on the price and
+// on what the incoterms put inside it: version 1's order.
 //
 // ── Three rules that decide what is compared ────────────────────────────────
 //
-//  1. MONEY IS NEVER CONVERTED (ADR-002, decision D7). When the offers that
-//     state a price are not all in one currency, price is compared for
-//     NOBODY: the factor is dropped from every score and each breakdown says
+//  1. MONEY IS NEVER CONVERTED ON A RATE NOBODY STORED (ADR-002, decision
+//     D7). When the offers that state a price are not all in one currency,
+//     price is compared only if the pack holds a stored rate from each other
+//     currency into one of them; otherwise it is compared for NOBODY: the
+//     factor is dropped from every score and each breakdown says
 //     `not_comparable`. Comparing it inside one currency and not across would
 //     still let price decide the order between a USD offer and a EUR one.
 //  2. A factor nobody stated is not compared (`not_stated`): there is nothing
@@ -37,10 +47,25 @@
 // in the inputs so a reader sees it beside the ranking.
 
 import type { VerificationStatus } from "@/database/schema";
+import { readIncoterm, type Incoterm } from "@/lib/incoterm";
+import {
+  commonBasis,
+  findRate,
+  landedCost,
+  missingLines,
+  ratesFingerprint,
+  unitCostOn,
+  type FxRate,
+  type LandedComponent,
+  type LandedCost,
+} from "@/lib/landed-cost";
+import type { EnrichmentKind, OfferEnrichment } from "@/lib/partner-case";
+
+export { readIncoterm };
 
 /** Bumped whenever the formula or the default weights change, so a stored
  *  result always says which rules produced it. */
-export const KPI2_VERSION = "kpi2.v1";
+export const KPI2_VERSION = "kpi2.v2";
 
 export const KPI2_FACTORS = [
   "price",
@@ -82,6 +107,9 @@ export type Kpi2Offer = {
   kpi1Score: number | null;
   /** Carried, never scored — see the header. */
   moq: string | null;
+  /** What partners added to the offer (V24) — the figures that count, each
+   *  with the units it covers. Absent = none. */
+  enrichments?: OfferEnrichment[];
 };
 
 export type FactorState =
@@ -114,7 +142,34 @@ export type Kpi2Note =
   | "validity_expired"
   /** The supplier's verification was rejected. Ranked all the same — whether
    *  it belongs in a pack is a person's call, not the scorer's. */
-  | "verification_rejected";
+  | "verification_rejected"
+  /** This offer has no usable figure for a cost line another offer has one
+   *  for: that line was left out of the comparison for everyone (V24). */
+  | "landed_incomplete"
+  /** A stored exchange rate was used to compare this offer's cost (V24). */
+  | "converted";
+
+/**
+ * The arithmetic behind the price factor (V24) — everything a reader needs to
+ * redo it by hand.
+ */
+export type LandedBreakdown = {
+  /** The offer's own currency: `goodsUnitCents`, `components` and `unitCents`
+   *  are in it. */
+  currency: string;
+  goodsUnitCents: number;
+  /** Every cost line of this offer: included, added, or unknown and why. */
+  components: LandedComponent[];
+  /** The lines the comparison rested on — known for every priced offer. */
+  basis: EnrichmentKind[];
+  /** Unit price + the added components on `basis`. */
+  unitCents: number;
+  /** The lines THIS offer has nothing usable for. */
+  missing: EnrichmentKind[];
+  /** What was actually compared: `unitCents` in the comparison currency.
+   *  Null when price was not compared at all (mixed currencies, no rate). */
+  compared: { currency: string; unitCents: number; rate: FxRate | null } | null;
+};
 
 export type Kpi2Breakdown = {
   version: string;
@@ -124,6 +179,9 @@ export type Kpi2Breakdown = {
   notes: Kpi2Note[];
   /** The offer exactly as it was scored — the audit trail for "why". */
   inputs: Kpi2Offer;
+  /** The landed cost behind the price factor. Null when the offer states no
+   *  price; absent on a run stored before version 2. */
+  landed?: LandedBreakdown | null;
 };
 
 export type Kpi2Result = {
@@ -138,9 +196,9 @@ export type Kpi2Result = {
 
 // ── factor scoring ──────────────────────────────────────────────────────────
 
-/** Incoterms 2020, ordered by how much the SELLER takes on. An ordinal scale,
- *  not a cost: the spacing is ours, which is why the factor weighs little. */
-const INCOTERM_POINTS: Record<string, number> = {
+/** How much the SELLER takes on, as points. An ordinal scale, not a cost:
+ *  the spacing is ours, which is why the factor weighs little. */
+const INCOTERM_POINTS: Record<Incoterm, number> = {
   EXW: 0,
   FCA: 10,
   FAS: 20,
@@ -153,13 +211,6 @@ const INCOTERM_POINTS: Record<string, number> = {
   DPU: 85,
   DDP: 100,
 };
-
-/** "fob Shanghai" → "FOB"; null when no known term is in the text. */
-export function readIncoterm(raw: string | null): string | null {
-  if (!raw) return null;
-  const tokens = raw.toUpperCase().match(/[A-Z]{3}/g) ?? [];
-  return tokens.find((token) => token in INCOTERM_POINTS) ?? null;
-}
 
 const VERIFICATION_POINTS: Record<VerificationStatus, number> = {
   verified: 100,
@@ -190,6 +241,40 @@ const notCompared = (state: "not_comparable" | "not_stated"): FactorResult => ({
   weight: 0,
 });
 
+const round4 = (value: number) => Math.round(value * 10_000) / 10_000;
+
+/**
+ * The currency the priced offers are compared in, and the stored rate that
+ * brings each other currency to it — or null when they cannot be compared.
+ *
+ * One currency: that one, no rate. Several: the first of them — most offers
+ * first, then alphabetical, so the choice never depends on input order — into
+ * which every other one has a STORED rate. No inverse, no detour through a
+ * third currency (see landed-cost.ts).
+ */
+function comparisonCurrency(
+  costs: readonly LandedCost[],
+  rates: readonly FxRate[],
+): { currency: string; rates: Map<string, FxRate> } | null {
+  const counts = new Map<string, number>();
+  for (const cost of costs) counts.set(cost.currency, (counts.get(cost.currency) ?? 0) + 1);
+  if (counts.size === 0) return null;
+  const candidates = [...counts.keys()].sort(
+    (a, b) => (counts.get(b) as number) - (counts.get(a) as number) || a.localeCompare(b),
+  );
+  for (const target of candidates) {
+    const used = new Map<string, FxRate>();
+    const covered = candidates.every((currency) => {
+      if (currency === target) return true;
+      const rate = findRate(rates, currency, target);
+      if (rate) used.set(currency, rate);
+      return rate !== null;
+    });
+    if (covered) return { currency: target, rates: used };
+  }
+  return null;
+}
+
 /**
  * Rank the offers of one round.
  *
@@ -201,15 +286,37 @@ export function rankOffers(
   offers: readonly Kpi2Offer[],
   weights: Kpi2Weights,
   at: Date,
+  /** The rates stored on the pack under review. None = nothing is converted. */
+  rates: readonly FxRate[] = [],
 ): Kpi2Result[] {
   if (offers.length === 0) return [];
 
   // ── what is compared at all ───────────────────────────────────────────────
   const priced = offers.filter((o) => o.amountCents !== null && o.amountCents > 0);
-  const currencies = new Set(priced.map((o) => (o.currency ?? "").toUpperCase()));
-  const priceCompared = priced.length > 0 && currencies.size === 1 && !currencies.has("");
-  const bestPrice = priceCompared ? Math.min(...priced.map((o) => o.amountCents as number)) : 0;
   const pricedIncoterms = new Set(priced.map((o) => readIncoterm(o.incoterm) ?? "?"));
+
+  // The landed cost of each priced offer, in ITS currency (V24). An offer
+  // that states a price and no currency has none: it is what makes the
+  // comparison impossible, as in version 1.
+  const costs = new Map<string, LandedCost>();
+  for (const offer of priced) {
+    const cost = landedCost(offer, rates, at);
+    if (cost) costs.set(offer.quoteId, cost);
+  }
+  const comparison =
+    costs.size === priced.length ? comparisonCurrency([...costs.values()], rates) : null;
+  const priceCompared = priced.length > 0 && comparison !== null;
+  // The lines every priced offer is known for — the only ones compared.
+  const basis = commonBasis([...costs.values()]);
+  const comparedCost = (quoteId: string): number | null => {
+    const cost = costs.get(quoteId);
+    if (!cost || !comparison) return null;
+    const rate = comparison.rates.get(cost.currency);
+    return round4(unitCostOn(cost, basis) * (rate ? rate.rate : 1));
+  };
+  const bestPrice = priceCompared
+    ? Math.min(...priced.map((o) => comparedCost(o.quoteId) as number))
+    : 0;
 
   const timed = offers.filter((o) => o.leadTimeDays !== null);
   const bestLead =
@@ -237,13 +344,47 @@ export function rankOffers(
       priceCompared,
       priced.length === 0 ? "not_stated" : "not_comparable",
       "price",
-      () =>
-        offer.amountCents !== null && offer.amountCents > 0
-          ? { state: "scored", points: relativeToBest(offer.amountCents, bestPrice) }
-          : { state: "missing", points: 0 },
+      () => {
+        const own = comparedCost(offer.quoteId);
+        return own !== null
+          ? { state: "scored", points: relativeToBest(own, bestPrice) }
+          : { state: "missing", points: 0 };
+      },
     );
     if (priced.length > 0 && !priceCompared) notes.push("mixed_currencies");
     if (priceCompared && pricedIncoterms.size > 1) notes.push("mixed_incoterms");
+
+    // The arithmetic, for the reader — and whether THIS offer is the reason a
+    // line was left out for everyone.
+    const cost = costs.get(offer.quoteId) ?? null;
+    let landed: LandedBreakdown | null = null;
+    if (cost) {
+      const missing = missingLines(cost);
+      const own = comparedCost(offer.quoteId);
+      const rate = comparison?.rates.get(cost.currency) ?? null;
+      landed = {
+        currency: cost.currency,
+        goodsUnitCents: cost.goodsUnitCents,
+        components: cost.components,
+        basis,
+        unitCents: unitCostOn(cost, basis),
+        missing,
+        compared:
+          comparison && own !== null
+            ? { currency: comparison.currency, unitCents: own, rate }
+            : null,
+      };
+      const othersKnow = (line: EnrichmentKind) =>
+        [...costs.values()].some(
+          (other) =>
+            other !== cost &&
+            other.components.some((c) => c.line === line && c.state !== "unknown"),
+        );
+      if (missing.some(othersKnow)) notes.push("landed_incomplete");
+      if (rate || cost.components.some((c) => c.state === "added" && c.rate)) {
+        notes.push("converted");
+      }
+    }
 
     const leadTime = factor(timed.length > 0, "not_stated", "leadTime", () =>
       offer.leadTimeDays !== null
@@ -297,7 +438,7 @@ export function rankOffers(
             (sum, key) => sum + (factors[key].points ?? 0) * factors[key].weight,
             0,
           ) / totalWeight;
-    return { offer, raw, factors, notes };
+    return { offer, raw, factors, notes, landed };
   });
 
   // A TOTAL order, so the same inputs can never come out two ways: score,
@@ -322,6 +463,7 @@ export function rankOffers(
       factors: entry.factors,
       notes: entry.notes,
       inputs: entry.offer,
+      landed: entry.landed,
     },
   }));
 }
@@ -333,6 +475,7 @@ export function kpi2Fingerprint(
   offers: readonly Kpi2Offer[],
   weights: Kpi2Weights,
   at: Date,
+  rates: readonly FxRate[] = [],
 ): string {
   const canonical = [...offers]
     .sort((a, b) => a.quoteId.localeCompare(b.quoteId))
@@ -347,11 +490,22 @@ export function kpi2Fingerprint(
       o.verification,
       o.kpi1Score,
       o.moq,
+      // A partner's figure added, corrected or withdrawn is a new ranking.
+      [...(o.enrichments ?? [])]
+        .sort((a, b) => a.kind.localeCompare(b.kind))
+        .map((e) => [
+          e.kind,
+          e.amountCents,
+          e.currency.toUpperCase(),
+          e.validUntil,
+          e.units ?? null,
+        ]),
     ]);
   return JSON.stringify([
     KPI2_VERSION,
     at.toISOString(),
     KPI2_FACTORS.map((key) => weights[key]),
     canonical,
+    ratesFingerprint(rates),
   ]);
 }

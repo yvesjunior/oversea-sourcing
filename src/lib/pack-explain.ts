@@ -9,21 +9,31 @@
 //    buyer sees may have been corrected by a person, and a number that
 //    disagreed with the order shown would explain nothing.
 //  • `landedCostLines` — the "coût total rendu" block, which says what is
-//    known and LABELS what is not. No total is ever computed: the price is
-//    what the supplier stated (a unit price, against a quantity kept as
-//    free text), and transport, duties, inspection and fees are either
-//    inside that price by the incoterm, or simply not known yet. A sum that
-//    silently left them out would be the one number on the page that is
-//    wrong.
+//    known and LABELS what is not: each line is the supplier's price, inside
+//    that price by the incoterm, a partner's figure, or simply not provided.
+//  • `knownUnitCostOf` — the one figure the block states (V24): what ONE
+//    UNIT costs over what is known. The supplier quotes a unit price, so a
+//    partner's shipment figure is brought to one unit before it is added
+//    (src/lib/landed-cost.ts). It is never called a total: the lines nobody
+//    provided and the two fees are named beside it. A sum that silently left
+//    them out would be the one number on the page that is wrong.
 
 import type { PackOfferSnapshot } from "@/lib/decision-pack";
-import { readIncoterm } from "@/lib/kpi2";
+import { readIncoterm, termCovers } from "@/lib/incoterm";
 import {
-  enrichmentStanding,
-  type EnrichmentKind,
-  type EnrichmentStanding,
-  type OfferEnrichment,
-} from "@/lib/partner-case";
+  costQuoteStanding,
+  knownUnitCost,
+  landedComponent,
+  landedCost,
+  missingLines,
+  type CostQuoteStanding,
+  type FxRate,
+} from "@/lib/landed-cost";
+import type { EnrichmentKind, OfferEnrichment } from "@/lib/partner-case";
+
+// One verdict, one place (V24): the calculation and the label agree because
+// the label is read off the calculation.
+export { costQuoteStanding, type CostQuoteStanding };
 
 /** One statement about an offer: an i18n key under `packView.explain.` and
  *  the values it interpolates. */
@@ -133,83 +143,46 @@ export type CostLine = {
   state: CostLineState;
   /**
    * Set when `state` is `quoted`: the partner's figure, in ITS currency, and
-   * whether it can stand next to the supplier's price — `addable` (same
-   * currency, still valid), `other_currency`, `expired`, or
-   * `already_included` (the incoterm puts this line inside the supplier's
-   * price). The amount is shown in every case; only what is said changes.
+   * what can be said of it next to the supplier's price (`CostQuoteStanding`).
+   * The amount is shown in every case; only what is said changes.
    */
   quote?: {
     amountCents: number;
     currency: string;
     validUntil: string | null;
+    /** How many of the supplier's units the figure covers — null = not said. */
+    units: number | null;
     standing: CostQuoteStanding;
+    /** What it comes to PER UNIT in the offer's currency, when it is added. */
+    unitCents: number | null;
+    /** The stored rate it was converted with, when one was. */
+    rate: FxRate | null;
   };
 };
 
-/** Incoterms 2020: what the seller's price covers. Only what the rules say —
- *  main carriage to the named place, insurance where the seller must insure,
- *  import duties under DDP alone. */
-const CARRIAGE_INCLUDED = new Set(["CFR", "CIF", "CPT", "CIP", "DAP", "DPU", "DDP"]);
-const INSURANCE_INCLUDED = new Set(["CIF", "CIP"]);
-const DUTIES_INCLUDED = new Set(["DDP"]);
-
-/**
- * The lines of the landed-cost block for one offer.
- *
- * The two FEES are always `applies_unquoted`: OSI's and the settlement
- * partner's will both be charged, and the buyer must not read the supplier's
- * price as the whole cost — but no rate is quoted here. The rates await the
- * legal review of the money circuit (README §2c: for anything financial, do
- * not build it yet), and the partner's schedule "needs confirming before it
- * is quoted to anyone".
- */
-/**
- * What can be said of a partner's figure next to the supplier's price.
- *
- * `already_included` comes first: when the incoterm puts that line INSIDE the
- * supplier's price (freight on a CIF offer), a partner's figure for the same
- * line must never be added on top — whatever its currency or validity. It is
- * still shown: somebody asked for it, and it is a useful second opinion.
- */
-export type CostQuoteStanding = EnrichmentStanding | "already_included";
-
-const INCLUDED_BY_TERM: Record<EnrichmentKind, Set<string>> = {
-  main_carriage: CARRIAGE_INCLUDED,
-  insurance: INSURANCE_INCLUDED,
-  import_duties: DUTIES_INCLUDED,
-  inspection: new Set(),
+type CostOffer = {
+  amountCents: number | null;
+  currency?: string | null;
+  incoterm: string | null;
+  enrichments?: readonly OfferEnrichment[];
 };
 
-export function costQuoteStanding(
-  enrichment: OfferEnrichment,
-  offer: { currency?: string | null; incoterm: string | null },
-  at: Date,
-): CostQuoteStanding {
-  const term = readIncoterm(offer.incoterm);
-  if (term !== null && INCLUDED_BY_TERM[enrichment.kind].has(term)) return "already_included";
-  return enrichmentStanding(enrichment, offer.currency ?? null, at);
-}
-
 export function landedCostLines(
-  offer: {
-    amountCents: number | null;
-    currency?: string | null;
-    incoterm: string | null;
-    enrichments?: readonly OfferEnrichment[];
-  },
+  offer: CostOffer,
   /** The instant validity is judged at — the page's "now". */
   at: Date = new Date(),
+  /** The rates stored on the pack (V24). None = nothing is converted. */
+  rates: readonly FxRate[] = [],
 ): CostLine[] {
-  const term = readIncoterm(offer.incoterm);
-  const covered = (key: EnrichmentKind): CostLineState =>
-    term !== null && INCLUDED_BY_TERM[key].has(term) ? "included" : "not_provided";
   // A partner's figure for a line (V22) is SHOWN whatever the incoterm says:
   // somebody asked for it on purpose. It keeps its own currency and validity;
-  // whether it can be ADDED to the supplier's price is said, never assumed —
-  // and still no total is computed here.
+  // whether it is ADDED to the supplier's price is said, never assumed.
   const line = (key: EnrichmentKind): CostLine => {
     const enrichment = offer.enrichments?.find((e) => e.kind === key);
-    if (!enrichment) return { key, state: covered(key) };
+    if (!enrichment) {
+      return { key, state: termCovers(offer.incoterm, key) ? "included" : "not_provided" };
+    }
+    const component = landedComponent(key, offer, rates, at);
     return {
       key,
       state: "quoted",
@@ -217,7 +190,10 @@ export function landedCostLines(
         amountCents: enrichment.amountCents,
         currency: enrichment.currency,
         validUntil: enrichment.validUntil,
-        standing: costQuoteStanding(enrichment, offer, at),
+        units: enrichment.units ?? null,
+        standing: costQuoteStanding(enrichment, offer, at, rates),
+        unitCents: component.state === "added" ? component.unitCents : null,
+        rate: component.state === "added" ? component.rate : null,
       },
     };
   };
@@ -230,4 +206,43 @@ export function landedCostLines(
     { key: "osi_fee", state: "applies_unquoted" },
     { key: "settlement_fee", state: "applies_unquoted" },
   ];
+}
+
+/**
+ * The one figure the cost block may state (V24): what ONE UNIT costs over
+ * everything known about this offer — the supplier's unit price plus each
+ * partner figure brought to one unit.
+ *
+ * It is NOT a total, and the page says what it leaves out: the lines nobody
+ * provided, and the two fees, which are not quoted at this stage. Null when
+ * the supplier stated no price, or when nothing was added to it — a "landed
+ * cost" equal to the price would claim an arithmetic that did not happen.
+ */
+export type KnownUnitCost = {
+  unitCents: number;
+  currency: string;
+  /** The lines added to the price, in order. */
+  added: EnrichmentKind[];
+  /** The lines already inside the price by the incoterm. */
+  included: EnrichmentKind[];
+  /** The lines not known — what the figure does NOT cover. */
+  missing: EnrichmentKind[];
+};
+
+export function knownUnitCostOf(
+  offer: CostOffer,
+  at: Date = new Date(),
+  rates: readonly FxRate[] = [],
+): KnownUnitCost | null {
+  const cost = landedCost(offer, rates, at);
+  if (!cost) return null;
+  const added = cost.components.filter((c) => c.state === "added").map((c) => c.line);
+  if (added.length === 0) return null;
+  return {
+    unitCents: knownUnitCost(cost),
+    currency: cost.currency,
+    added,
+    included: cost.components.filter((c) => c.state === "included").map((c) => c.line),
+    missing: missingLines(cost),
+  };
 }

@@ -13,7 +13,7 @@
 // button, and the reasons are not optional: they are what lets anyone ask
 // later whether the review changed what the buyer saw.
 
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
 import { Link } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import {
@@ -27,6 +27,7 @@ import {
   RotateCcw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { formatDayTime, formatInstant } from "@/lib/instant";
@@ -36,6 +37,7 @@ import {
   correctPackFn,
   refusePackFn,
   relaunchPackFn,
+  setPackFxRateFn,
   type PackEventView,
   type PackItemView,
   type RequestPackView,
@@ -123,6 +125,162 @@ function ItemRow({ item }: { item: PackItemView }) {
         </span>
       )}
     </li>
+  );
+}
+
+/**
+ * The exchange rates stored on a pack (V24). Decision D7: no amount is
+ * converted on a rate nobody stored — this is where a staff member stores
+ * one, with where the number comes from and the day it is of. Storing or
+ * removing one recomputes the ranking.
+ */
+function FxRates({
+  pack,
+  editable,
+  onChanged,
+}: {
+  pack: RequestPackView["pack"];
+  editable: boolean;
+  onChanged: () => void;
+}) {
+  const { t } = useTranslation();
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+  const [rate, setRate] = useState("");
+  const [source, setSource] = useState("");
+  const [asOf, setAsOf] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<{ text: string; error: boolean } | null>(null);
+
+  const send = async (
+    input: { from: string; to: string; rate: number | null; source: string; asOf: string },
+    done: string,
+  ) => {
+    setBusy(true);
+    setMessage(null);
+    try {
+      const result = await setPackFxRateFn({ data: { packId: pack.id, ...input } });
+      if (!result.ok) {
+        setMessage({ text: t(`pack.refusal.${result.reason}`), error: true });
+        return;
+      }
+      setMessage({ text: done, error: false });
+      onChanged();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const add = (event: FormEvent) => {
+    event.preventDefault();
+    const value = Number(rate.replace(/\s/g, "").replace(",", "."));
+    const valid =
+      /^[A-Za-z]{3}$/.test(from.trim()) &&
+      /^[A-Za-z]{3}$/.test(to.trim()) &&
+      Number.isFinite(value) &&
+      value > 0 &&
+      source.trim().length >= 2 &&
+      /^\d{4}-\d{2}-\d{2}$/.test(asOf);
+    if (!valid) {
+      setMessage({ text: t("pack.rates.invalid"), error: true });
+      return;
+    }
+    void send({ from, to, rate: value, source, asOf }, t("pack.rates.done")).then(() => {
+      setRate("");
+    });
+  };
+
+  return (
+    <div className="mt-4 border-t border-border pt-4 text-xs">
+      <p className="font-semibold">{t("pack.rates.title")}</p>
+      <p className="mt-1 text-muted-foreground">{t("pack.rates.intro")}</p>
+      {pack.fxRates.length === 0 ? (
+        <p className="mt-2 text-muted-foreground">{t("pack.rates.none")}</p>
+      ) : (
+        <ul className="mt-2 space-y-1">
+          {pack.fxRates.map((stored) => (
+            <li
+              key={`${stored.from}-${stored.to}`}
+              className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3"
+            >
+              <span>
+                {t("packView.rateLine", {
+                  from: stored.from,
+                  to: stored.to,
+                  rate: stored.rate,
+                  source: stored.source,
+                  asOf: stored.asOf,
+                })}
+              </span>
+              {editable && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled={busy}
+                  onClick={() => void send({ ...stored, rate: null }, t("pack.rates.removed"))}
+                >
+                  {t("pack.rates.remove")}
+                </Button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+      {editable && (
+        <form
+          className="mt-3 grid gap-2 sm:grid-cols-[4.5rem_4.5rem_6rem_minmax(0,1fr)_9rem_auto]"
+          onSubmit={add}
+        >
+          <Input
+            value={from}
+            onChange={(e) => setFrom(e.target.value.toUpperCase())}
+            maxLength={3}
+            placeholder={t("pack.rates.from")}
+            aria-label={t("pack.rates.from")}
+          />
+          <Input
+            value={to}
+            onChange={(e) => setTo(e.target.value.toUpperCase())}
+            maxLength={3}
+            placeholder={t("pack.rates.to")}
+            aria-label={t("pack.rates.to")}
+          />
+          <Input
+            value={rate}
+            onChange={(e) => setRate(e.target.value)}
+            inputMode="decimal"
+            placeholder={t("pack.rates.rate")}
+            aria-label={t("pack.rates.rate")}
+          />
+          <Input
+            value={source}
+            onChange={(e) => setSource(e.target.value)}
+            maxLength={120}
+            placeholder={t("pack.rates.source")}
+            aria-label={t("pack.rates.source")}
+          />
+          <Input
+            type="date"
+            value={asOf}
+            onChange={(e) => setAsOf(e.target.value)}
+            aria-label={t("pack.rates.asOf")}
+            title={t("pack.rates.asOf")}
+          />
+          <Button type="submit" size="sm" variant="outline" disabled={busy}>
+            {t("pack.rates.add")}
+          </Button>
+        </form>
+      )}
+      {message && (
+        <p
+          role={message.error ? "alert" : "status"}
+          className={cn("mt-2", message.error ? "text-destructive" : "text-muted-foreground")}
+        >
+          {message.text}
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -348,6 +506,12 @@ export function DecisionPackPanel({
         <p className="mt-3 text-xs text-muted-foreground">
           {t("pack.capped", { left, target: targetOffers })}
         </p>
+      )}
+
+      {/* The rates this pack's costs may be converted with (V24). Shown on a
+          pack that holds some, editable while it is under review. */}
+      {(pack.status === "pending" || pack.fxRates.length > 0) && (
+        <FxRates pack={pack} editable={canAct} onChanged={onChanged} />
       )}
 
       {pack.status === "pending" && !canAct && (

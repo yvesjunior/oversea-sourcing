@@ -442,6 +442,13 @@
       "when": 1795055103353,
       "tag": "0062_spotty_mordo",
       "breakpoints": true
+    },
+    {
+      "idx": 63,
+      "version": "7",
+      "when": 1795098619081,
+      "tag": "0063_sturdy_hellcat",
+      "breakpoints": true
     }
   ]
 }

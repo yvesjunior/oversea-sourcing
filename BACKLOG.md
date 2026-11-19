@@ -24,7 +24,7 @@
 | **E9** Notifications | In-app + email | 🟡 bell, emitters, **prefs (2026-08-26)** live; Phase P types (`quote_received`, `contract_to_sign`, `contract_signed`) + staff alert on `quotes.requested` (2026-09-07) live; **the bell alerts (2026-09-14)** — count badge, 30 s poll, chime, per-browser mute |
 | **E10** Admin surfaces | Verification, imports, ops queue | 🟡 **verification LIVE (S5b/S5c, 2026-08-26)**; imports/ops queue placeholders |
 | **R** Custom staff roles | Roles as data + the matrix | ✅ **BUILT 2026-08-29** (migration 0039) — create/delete roles, dynamic matrix, `requests.all` |
-| **E13** V6 architecture | Supplier portal · KPI #2 · Partner Hub · Decision Pack | 🔵 **NEW 2026-10-21** — scope opened by the V6 document; diagrams validated 2026-11-14; **34 tasks in seven slices — [Phase V](#phase-v--the-v6-parcours-task-by-task-e13--written-2026-11-14)**; **V01, V02, V04–V11 built 2026-11-14** (settings, contacts, states, fork + shortlist, RFQ batch, window closing, typed answer time + channel, KPI #2 v1, the Decision Pack record, the release queue); V01–V11 **live on prod — V01–V09 since deploy #45 (2026-11-14), V10–V11 since deploy #47 (2026-11-18) — with the pack-flow switch OFF**; **V12–V14 built 2026-11-18** (the buyer's pack page, choosing from it, automatic release built and switched off + the review report) — **slice 1 (V04–V14) is complete** — **live on prod since deploy #48 (2026-11-18), pack flow off, release manual**; **V18–V20 built 2026-11-18** (the clarification, behind `AI_CHAT`, off; the cahier des charges and the KPI profile as versioned records; the buyer's validation before any search, behind `flow.spec_validation`, ON by default) — **slice 3 complete**; **V03 and V15–V17 built 2026-11-18** (external accounts: a supplier is not a customer; the RFQ link that creates a supplier account; the portal where they answer, decline and attach; what suppliers are told and the response funnel) — **slice 2 complete**; **V21–V23 built 2026-11-18** (partners and their adapter; cases opened on an offer and the figures partners add to it; the Partner Hub where a partner's person answers) — **V15–V23 and V03 live on prod since deploy #49 (2026-11-18)** |
+| **E13** V6 architecture | Supplier portal · KPI #2 · Partner Hub · Decision Pack | 🔵 **NEW 2026-10-21** — scope opened by the V6 document; diagrams validated 2026-11-14; **34 tasks in seven slices — [Phase V](#phase-v--the-v6-parcours-task-by-task-e13--written-2026-11-14)**; **V01, V02, V04–V11 built 2026-11-14** (settings, contacts, states, fork + shortlist, RFQ batch, window closing, typed answer time + channel, KPI #2 v1, the Decision Pack record, the release queue); V01–V11 **live on prod — V01–V09 since deploy #45 (2026-11-14), V10–V11 since deploy #47 (2026-11-18) — with the pack-flow switch OFF**; **V12–V14 built 2026-11-18** (the buyer's pack page, choosing from it, automatic release built and switched off + the review report) — **slice 1 (V04–V14) is complete** — **live on prod since deploy #48 (2026-11-18), pack flow off, release manual**; **V18–V20 built 2026-11-18** (the clarification, behind `AI_CHAT`, off; the cahier des charges and the KPI profile as versioned records; the buyer's validation before any search, behind `flow.spec_validation`, ON by default) — **slice 3 complete**; **V03 and V15–V17 built 2026-11-18** (external accounts: a supplier is not a customer; the RFQ link that creates a supplier account; the portal where they answer, decline and attach; what suppliers are told and the response funnel) — **slice 2 complete**; **V21–V23 built 2026-11-18** (partners and their adapter; cases opened on an offer and the figures partners add to it; the Partner Hub where a partner's person answers) — **V15–V23 and V03 live on prod since deploy #49 (2026-11-18)**; **V24 built 2026-11-19** (KPI #2 on landed cost per unit, stored exchange rates) — **slice 4 complete**, on `main`, not deployed |
 | **E11** Settings | Profile, sourcing rules | 🟡 Paramètres + notification prefs live; **password / 2FA / theme / rename (2026-08-27)** live; buyer Abonnement self-service waits for billing |
 
 **MVP1 = E0–E7 + E10.** Definition of done **restated 2026-08-29 by ADR-002**
@@ -39,8 +39,10 @@ tracked to delivery** — with the PDF report available throughout.
 ### START HERE — handoff, 2026-09-14 (read this first)
 
 **Prod = `dc0964b` (deploy #49, 2026-11-18)** — Phase V tasks V01–V23:
-slices 1, 2 and 3 complete, slice 4 up to V23. **`main` = prod**; nothing is
-waiting. Deploy #49 carried eleven tasks at once — V18, V19, the search-model
+slices 1, 2 and 3 complete, slice 4 up to V23. **`main` is ahead of prod by
+one task, NOT deployed: V24** (KPI #2 on landed cost; migration **0063**,
+additive — two nullable columns). Deploying it changes no ranking on prod:
+prod holds no round, no partner figure and no pack. Deploy #49 carried eleven tasks at once — V18, V19, the search-model
 fix, V20, V03, V15, V16, V17, V21, V22, V23 — and eight additive migrations
 (**0055–0062**). In one line each: the assistant on a draft (behind `AI_CHAT`,
 `false` on prod, so invisible); the specification and the weights as
@@ -4376,7 +4378,7 @@ report, exactly as today, because that report is all they get.
 | ~~**D4**~~ | ~~The window is per request or per supplier (README §2c).~~ | ✅ **Decided 2026-11-14: per round.** One clock, started when the batch leaves; every supplier in the round shares its deadline. | V06, V07 |
 | **D5** | On relaunch, do offers already held survive, and whose clock restarts? | They survive; a new round has its own clock, for the suppliers newly asked only. **Built as this default in V11 (2026-11-14)** — and one thing follows from it that is worth confirming: the offer TARGET counts what the request holds across rounds, so two offers kept plus three new ones close the new window. Still the owner's to confirm. | V11 |
 | **D6** | What does a supplier see of the buyer before a dossier opens? | The specification, never the buyer's name or workspace. Identity is disclosed when the deal opens. | V16 |
-| **D7** | Offers arrive in different currencies and money is never converted (ADR-002). What does KPI #2 compare? | Landed cost is compared only within one currency; across currencies the pack says so instead of ranking on a rate nobody stored. A rate entered by staff or supplied by the settlement partner is stored on the pack when one exists. **Built as this default in V09 (2026-11-14), read strictly: with mixed currencies price is compared for no offer at all, and the ranking rests on the other factors.** Still the owner's to confirm. | V09, V24 |
+| **D7** | Offers arrive in different currencies and money is never converted (ADR-002). What does KPI #2 compare? | Landed cost is compared only within one currency; across currencies the pack says so instead of ranking on a rate nobody stored. A rate entered by staff or supplied by the settlement partner is stored on the pack when one exists. **Built as this default in V09 (2026-11-14), read strictly: with mixed currencies price is compared for no offer at all, and the ranking rests on the other factors.** **V24 (2026-11-19) built the second half: a staff member stores a rate on the pack (source, date); it is used for its pair in its direction only, never inverted or chained. With rates covering the gap, offers in several currencies are compared in the currency of most of them.** Still the owner's to confirm. | V09, V24 |
 | **D8** | Who sets the KPIProfile weights? | The platform proposes them from the criteria; the buyer adjusts and validates them with the cahier des charges. **Built in V19 (2026-11-18) as far as "the platform proposes": the default profile is the scorers' former constants, written per criterion — it moves no ranking. The buyer adjusting and validating is V20.** | V19, V20 |
 | **D9** | `quote.sent_at` is nullable. What does the window do with an RFQ nobody marked sent? | Such a quote is not in a round and has no clock; the batch send (V06) is the only thing that opens one. | V06 |
 | **D10** | Who assigns a partner to a case, and which partner kinds exist at launch? | Staff assign, per offer. Kinds: settlement, transport, inspection, customs, insurance. | V21, V22 |
@@ -6705,24 +6707,85 @@ built in: **S** one, **M** two to three, **L** four or more.
       with a *different* need-to-know from a supplier's. Do not reuse the
       supplier guard with a flag; write the rule down per case kind.~~
 
-- [ ] **V24 · KPI #2 on landed cost.** *Size M. Step 09. Depends on: V09,
-      V22.*
+- [x] **V24 · KPI #2 on landed cost — BUILT 2026-11-19** (migration
+      **0063**, not deployed). **This completes slice 4 (V21–V24).**
+      `src/lib/landed-cost.ts` (pure: the calculation), `src/lib/incoterm.ts`
+      (what a term puts inside the price — moved out of kpi2 and
+      pack-explain); `src/lib/kpi2.ts` → **`kpi2.v2`**; `src/server/kpi.ts`
+      (partner figures and stored rates are inputs of a run);
+      `setPackFxRate` / `setPackFxRateFn`; a units field on the staff panel
+      and in the Partner Hub; the arithmetic on `OfferRankingPanel`; rates on
+      `DecisionPackPanel`; « Coût connu par unité » on the buyer's pack.
+      Columns `partner_enrichment.units`, `decision_pack.fx_rates`. 913 tests.
 
-      **What it does.** The version of KPI #2 the diagram describes: offers
-      re-ranked on what the goods cost delivered, and on risk.
+      **The decision that shaped it (owner, 2026-11-19).** The task says
+      "landed cost = price + enrichments". The supplier's price is a UNIT
+      price (the RFQ and the portal both ask for « Prix unitaire »; quantity
+      is free text) and a partner's figure is for a shipment: the sum as
+      written is a wrong number. Chosen: **each partner figure records how
+      many of the supplier's units it covers, and landed cost is compared per
+      unit.** A figure with no quantity is shown and added to nothing.
 
-      **Files.** `src/lib/kpi2.ts` — landed cost = price + enrichments (+ the
-      fees, once slice 6 exists), computed **only** when every component
-      shares a currency or a stored rate covers the gap. `decision_pack`
-      gains `fx_rates` (jsonb): the rates used, their source and date.
+      **As built.**
+      - `landed unit cost = unit price + Σ (figure ÷ units)`. Each line of an
+        offer is *included* by the incoterm, *added* from a figure, or
+        *unknown* with its reason (not provided · expired · no quantity ·
+        other currency without a rate).
+      - **Incomplete is a state, not a number.** The price factor compares
+        over the lines known for EVERY priced offer; a line one offer lacks
+        is left out for all, and that offer is noted `landed_incomplete`. The
+        documented offer is not punished, the silent one is not flattered.
+      - **Rates are stored on the pack by staff** (`fx_rates`: from, to, rate,
+        source, date), used for their pair in their direction only. Storing
+        or removing one recomputes the ranking (`fx_rates_changed`) and
+        leaves a pack event. Frozen with the pack.
+      - **With no partner figure the order is version 1's** (tested).
+      - The buyer gets only the rates a figure they are shown is converted
+        with — a rate that serves a withheld offer would reveal it.
 
+      **Acceptance, as tests** (`kpi2.test.ts`): an EXW offer at 0.90 with
+      0.20 of freight ranks below a CIF offer at 1.05, and on stated price
+      alone the order is the reverse; the breakdown carries each component;
+      a missing figure takes the line out for everyone; an expired figure, one
+      with no quantity, one in another currency and one duplicating the
+      incoterm add nothing; a rate is never used backwards.
+
+      *Verified live in dev, on the V14 fixture put back under review:* first
+      run on `kpi2.v2` with figures lacking a quantity → compared on the unit
+      price alone, the FOB offer noted incomplete; freight corrected from the
+      staff panel to 1 600,00 USD for 20 units → new run
+      (`enrichment_changed`), 1 060,00 against the CIF offer's 1 050,00 — the
+      price points flipped (100 / 93 → 99 / 100); a duty figure in CAD stayed
+      out until the rate CAD → USD 0,72 was stored from the pack panel → new
+      run (`fx_rates_changed`), duties in the basis at 15,12 a unit; `USD →
+      USD` refused, a rate on a released pack refused, a buyer and a signed-
+      out caller refused; pack approved; the buyer's page shows each figure
+      per unit, the rate with its source and date, and « Coût connu par
+      unité » 1 075,12 and 1 065,00 with what each leaves out.
+
+      **Not exercised live:** offers in two currencies compared through a
+      rate (unit-tested); removing a rate from the panel; the units field in
+      the Partner Hub (rendered by the same code path, not submitted); a
+      relaunch; the English screens.
+      **Known limits, not built:** the buyer's « Ce que nous avons relevé »
+      lines still compare the STATED unit prices, so "le prix le plus bas"
+      can sit above a higher known unit cost; the fees are not in the landed
+      cost (slice 6); validity is judged at the round's close for the ranking
+      and at reading time on the buyer's page; a unit price takes two
+      decimals at most (`parseAmountToCents`).
+
+      ~~**What it does.** The version of KPI #2 the diagram describes: offers
+      re-ranked on what the goods cost delivered, and on risk. **Files.**
+      `src/lib/kpi2.ts` — landed cost = price + enrichments (+ the fees, once
+      slice 6 exists), computed **only** when every component shares a
+      currency or a stored rate covers the gap. `decision_pack` gains
+      `fx_rates` (jsonb): the rates used, their source and date.
       **Acceptance.** Two offers, one cheaper ex-works and dearer delivered:
       KPI #2 puts the delivered-cheaper one first and the breakdown shows the
       arithmetic. An offer missing a component is ranked on what exists and
-      marked incomplete — never treated as zero.
-
-      **Gotcha.** A missing freight figure read as zero makes the least
-      documented offer look cheapest. Incomplete is a state, not a number.
+      marked incomplete — never treated as zero. **Gotcha.** A missing freight
+      figure read as zero makes the least documented offer look cheapest.
+      Incomplete is a state, not a number.~~
 
 ---
 

@@ -46,6 +46,13 @@ export type OfferEnrichment = {
   currency: string;
   /** ISO instant; null = no end date given. */
   validUntil: string | null;
+  /**
+   * How many of the supplier's pricing units the figure covers (V24). The
+   * supplier quotes a unit price; a figure is brought to one unit by this
+   * number before it is added to anything. Absent or null = not said: shown,
+   * added to nothing.
+   */
+  units?: number | null;
 };
 
 type Versioned = { caseId: string; version: number };
@@ -69,27 +76,9 @@ export function isExpired(enrichment: Pick<OfferEnrichment, "validUntil">, at: D
   );
 }
 
-/**
- * Can this figure stand NEXT TO the supplier's price as part of one cost?
- *
- * Only in the same currency (decision D7 — no amount is converted on a rate
- * nobody stored) and only while it is valid. Otherwise it is still shown, as
- * what it is: a figure in another currency, or an expired one.
- */
-export type EnrichmentStanding = "addable" | "other_currency" | "expired";
-
-export function enrichmentStanding(
-  enrichment: OfferEnrichment,
-  offerCurrency: string | null,
-  at: Date,
-): EnrichmentStanding {
-  if (isExpired(enrichment, at)) return "expired";
-  const same =
-    offerCurrency !== null &&
-    offerCurrency.trim() !== "" &&
-    enrichment.currency.toUpperCase() === offerCurrency.toUpperCase();
-  return same ? "addable" : "other_currency";
-}
+// Whether a figure can be ADDED to the supplier's price — its currency, its
+// validity, the units it covers, the incoterm — is decided in one place:
+// `landedComponent` (src/lib/landed-cost.ts, V24).
 
 /** A stable text form of an offer's enrichments, for "did the pack change?". */
 export function enrichmentsFingerprint(
@@ -98,6 +87,6 @@ export function enrichmentsFingerprint(
   return JSON.stringify(
     [...(enrichments ?? [])]
       .sort((a, b) => a.kind.localeCompare(b.kind))
-      .map((e) => [e.kind, e.amountCents, e.currency.toUpperCase(), e.validUntil]),
+      .map((e) => [e.kind, e.amountCents, e.currency.toUpperCase(), e.validUntil, e.units ?? null]),
   );
 }

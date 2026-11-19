@@ -140,6 +140,8 @@ export const recordEnrichmentFn = createServerFn({ method: "POST" })
         .string()
         .regex(/^\d{4}-\d{2}-\d{2}$/)
         .nullable(),
+      /** How many of the supplier's units the figure covers (V24). */
+      units: z.number().positive().max(1_000_000_000_000).nullable().default(null),
       note: optional(500),
     }),
   )
@@ -154,6 +156,7 @@ export const recordEnrichmentFn = createServerFn({ method: "POST" })
           amountCents: data.amountCents,
           currency: data.currency,
           validUntil: data.validUntil ? new Date(`${data.validUntil}T23:59:59.000Z`) : null,
+          units: data.units,
           note: data.note,
         },
         { id: session.user.id, name: session.user.name },

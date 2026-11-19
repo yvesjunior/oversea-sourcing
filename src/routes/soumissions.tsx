@@ -729,6 +729,9 @@ function QuoteList({
                                 {money(enrichment.amountCents, enrichment.currency, i18n.language)}
                               </span>{" "}
                               —{" "}
+                              {enrichment.units
+                                ? `${t("partnerWork.forUnits", { units: enrichment.units.toLocaleString(i18n.language) })} — `
+                                : ""}
                               {t(`partnerWork.standing.${standing}`, {
                                 incoterm: quote.incoterm ?? "",
                               })}

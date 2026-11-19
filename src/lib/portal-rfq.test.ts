@@ -3,6 +3,7 @@ import {
   canDecline,
   canSubmitOffer,
   parseAmountToCents,
+  parseUnits,
   portalRfqState,
   windowOpen,
   type PortalRfqFacts,
@@ -137,6 +138,28 @@ describe("parseAmountToCents", () => {
   it("refuses what is not an amount rather than guessing", () => {
     for (const input of ["", "abc", "12.345", "-5", "1,2,3", "1e3", "12 USD"]) {
       expect(parseAmountToCents(input), input).toBeNull();
+    }
+  });
+});
+
+describe("parseUnits", () => {
+  it("reads a quantity as people type it", () => {
+    expect(parseUnits("20000")).toBe(20000);
+    expect(parseUnits("20 000")).toBe(20000);
+    expect(parseUnits("20\u202f000")).toBe(20000);
+    expect(parseUnits("1500,5")).toBe(1500.5);
+    expect(parseUnits("0.25")).toBe(0.25);
+  });
+
+  it("lets the field stay empty: not saying is allowed", () => {
+    expect(parseUnits("")).toBeNull();
+    expect(parseUnits("   ")).toBeNull();
+  });
+
+  // What a figure is divided by: a guess here moves a ranking.
+  it("refuses what is not a positive number rather than guessing", () => {
+    for (const input of ["0", "-5", "abc", "12 palettes", "1e3", "1.2345", "1,2,3"]) {
+      expect(parseUnits(input), input).toBe("invalid");
     }
   });
 });

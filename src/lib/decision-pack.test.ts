@@ -130,6 +130,65 @@ describe("projectPack", () => {
     assignedTo: "u1",
     assignedToName: "Dana",
   });
+  // V24: the rates stored on a pack, and who reads which.
+  describe("exchange rates", () => {
+    const cadToUsd = { from: "CAD", to: "USD", rate: 0.72, source: "BdC", asOf: "2026-11-18" };
+    const eurToUsd = { from: "EUR", to: "USD", rate: 1.08, source: "BCE", asOf: "2026-11-18" };
+    const duty = (currency: string) => ({
+      kind: "import_duties" as const,
+      amountCents: 42_000,
+      currency,
+      validUntil: null,
+      units: 20_000,
+    });
+    const withRates = (status: PackRow["status"]): PackRow => ({
+      ...pack(status),
+      fxRates: [cadToUsd, eurToUsd],
+    });
+    const rows: PackItemRow[] = [
+      {
+        quoteId: "shown",
+        rankComputed: 1,
+        rankShown: 1,
+        offer: snapshot({ supplierName: "Shown", currency: "USD", enrichments: [duty("CAD")] }),
+        reason: null,
+      },
+      {
+        // Taken out of what the buyer sees — its figure is in EUR.
+        quoteId: "withheld",
+        rankComputed: 2,
+        rankShown: null,
+        offer: snapshot({ supplierName: "Withheld", currency: "USD", enrichments: [duty("EUR")] }),
+        reason: null,
+      },
+    ];
+
+    it("gives staff every rate stored on the pack", () => {
+      expect(projectPack(withRates("pending"), rows, "staff")?.fxRates).toEqual([
+        cadToUsd,
+        eurToUsd,
+      ]);
+    });
+
+    // A rate that only a withheld offer needs would tell the buyer that an
+    // offer with a figure in that currency exists.
+    it("gives the buyer only the rates a figure they are shown is converted with", () => {
+      expect(projectPack(withRates("released"), rows, "buyer")?.fxRates).toEqual([cadToUsd]);
+    });
+
+    it("gives nobody a rate when the pack holds none", () => {
+      expect(projectPack(pack("released"), rows, "buyer")?.fxRates).toEqual([]);
+      expect(projectPack(pack("pending"), rows, "staff")?.fxRates).toEqual([]);
+    });
+
+    it("lists no rate for a figure already in the offer's own currency", () => {
+      const own: PackItemRow[] = [
+        { ...rows[0]!, offer: snapshot({ currency: "USD", enrichments: [duty("USD")] }) },
+      ];
+      expect(projectPack(withRates("released"), own, "buyer")?.fxRates).toEqual([]);
+    });
+  });
+
   // Corrected: the second by KPI #2 is shown first.
   const items: PackItemRow[] = [
     {

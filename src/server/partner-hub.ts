@@ -36,6 +36,8 @@ export type HubFigure = {
   amountCents: number;
   currency: string;
   validUntil: string | null;
+  /** How many of the supplier's units the figure covers (V24). */
+  units: number | null;
   note: string | null;
   /** Who typed it: the partner in the Hub, or OSI on their behalf. Never a
    *  staff member's name. */
@@ -113,6 +115,7 @@ async function figuresOf(caseIds: string[]): Promise<Map<string, HubFigure[]>> {
       amountCents: row.amountCents,
       currency: row.currency,
       validUntil: row.validUntil ? row.validUntil.toISOString() : null,
+      units: row.units,
       note: row.details?.note ?? null,
       channel: row.channel,
       createdAt: row.createdAt.toISOString(),

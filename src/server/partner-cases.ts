@@ -30,6 +30,8 @@ export type EnrichmentView = {
   amountCents: number;
   currency: string;
   validUntil: string | null;
+  /** How many of the supplier's units the figure covers (V24); null = not said. */
+  units: number | null;
   note: string | null;
   channel: schema.QuoteChannel;
   createdByName: string | null;
@@ -87,6 +89,7 @@ export async function casesForQuote(quoteId: string): Promise<PartnerCaseView[]>
         amountCents: e.amountCents,
         currency: e.currency,
         validUntil: e.validUntil ? e.validUntil.toISOString() : null,
+        units: e.units,
         note: e.details?.note ?? null,
         channel: e.channel,
         createdByName: e.createdByName,
@@ -124,6 +127,7 @@ export async function currentEnrichments(
       amountCents: row.amountCents,
       currency: row.currency,
       validUntil: row.validUntil ? row.validUntil.toISOString() : null,
+      units: row.units,
     });
     byQuote.set(row.quoteId, list);
   }
@@ -220,6 +224,9 @@ export type EnrichmentInput = {
   amountCents: number;
   currency: string;
   validUntil: Date | null;
+  /** How many of the supplier's pricing units the figure covers (V24). Null
+   *  = not said: the figure is kept and shown, and added to nothing. */
+  units: number | null;
   note: string | null;
 };
 
@@ -272,6 +279,7 @@ export async function recordEnrichment(
       currency: input.currency.toUpperCase(),
       details: input.note ? { note: input.note } : null,
       validUntil: input.validUntil,
+      units: input.units !== null && input.units > 0 ? input.units : null,
       channel,
       version,
       createdBy: actor.id,
@@ -294,6 +302,7 @@ export async function recordEnrichment(
       kind: outcome.kind,
       amountCents: input.amountCents,
       currency: input.currency.toUpperCase(),
+      units: input.units,
       version: outcome.version,
       channel,
     },

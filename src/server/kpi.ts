@@ -36,6 +36,7 @@ import {
   type Kpi2Offer,
   type Kpi2Weights,
 } from "@/lib/kpi2";
+import type { FxRate } from "@/lib/landed-cost";
 
 export type Kpi2RunOutcome =
   /** A new run was written. */
@@ -89,6 +90,10 @@ async function gatherOffers(requestId: string): Promise<Kpi2Offer[]> {
       ),
     )
     .orderBy(asc(schema.quote.id));
+  // What partners added to each offer (V24): the figures that count, with
+  // the units each covers. They are inputs of the ranking now.
+  const { currentEnrichments } = await import("@/server/partner-cases");
+  const enrichments = await currentEnrichments(rows.map((row) => row.quote.id));
   return rows.map(({ quote, verification, kpi1Score }) => ({
     quoteId: quote.id,
     amountCents: quote.amountCents,
@@ -100,16 +105,40 @@ async function gatherOffers(requestId: string): Promise<Kpi2Offer[]> {
     verification: verification ?? null,
     kpi1Score: kpi1Score ?? null,
     moq: quote.moq,
+    // Absent rather than empty when there is none: the stored inputs of an
+    // offer nobody enriched read as they always did.
+    ...(enrichments.has(quote.id) ? { enrichments: enrichments.get(quote.id)! } : {}),
   }));
 }
 
 /** The run fingerprint for these offers under today's rules and the
  *  request's weights. The weights are part of it: the same offers under a
  *  different profile are a different ranking, and a new run. */
-function hashInputs(offers: readonly Kpi2Offer[], weights: Kpi2Weights, closedAt: Date): string {
+function hashInputs(
+  offers: readonly Kpi2Offer[],
+  weights: Kpi2Weights,
+  closedAt: Date,
+  rates: readonly FxRate[],
+): string {
   return createHash("sha256")
-    .update(kpi2Fingerprint(offers, weights, closedAt))
+    .update(kpi2Fingerprint(offers, weights, closedAt, rates))
     .digest("hex");
+}
+
+/**
+ * The exchange rates the request's pack under review holds (V24) — the only
+ * rates anything is converted with. None until a staff member stores one;
+ * none at all on the first run, when the pack does not exist yet.
+ */
+async function storedRates(requestId: string): Promise<FxRate[]> {
+  const pack = await db.query.decisionPack.findFirst({
+    where: and(
+      eq(schema.decisionPack.requestId, requestId),
+      eq(schema.decisionPack.status, "pending"),
+    ),
+    columns: { fxRates: true },
+  });
+  return pack?.fxRates ?? [];
 }
 
 /**
@@ -145,7 +174,8 @@ export async function runKpi2(roundId: string, trigger: KpiRunTrigger): Promise<
   const weights = ensured.weights.kpi2;
   // What the offers ANSWERED is the spec their round carried.
   const specVersion = round.specVersion ?? ensured.specVersion;
-  const inputsHash = hashInputs(offers, weights, round.closedAt);
+  const rates = await storedRates(request.id);
+  const inputsHash = hashInputs(offers, weights, round.closedAt, rates);
 
   // The error nobody notices (V19's gotcha): an offer that answered one
   // version of the spec, ranked beside offers that answered another. It
@@ -177,7 +207,7 @@ export async function runKpi2(roundId: string, trigger: KpiRunTrigger): Promise<
     return { ok: true, written: false, runId: latest.runId, offers: offers.length };
   }
 
-  const results = rankOffers(offers, weights, round.closedAt);
+  const results = rankOffers(offers, weights, round.closedAt, rates);
   const runId = crypto.randomUUID();
   const computedAt = new Date();
   await db.insert(schema.kpiResult).values(
@@ -280,7 +310,10 @@ export async function loadOfferRanking(requestId: string): Promise<OfferRankingV
   // A read path: the profile as stored, never written from here.
   const { latestProfile } = await import("@/server/spec");
   const weightsNow = (await latestProfile(requestId))?.weights.kpi2 ?? KPI2_DEFAULT_WEIGHTS;
-  const hashNow = offers.length > 0 ? hashInputs(offers, weightsNow, round.closedAt) : null;
+  const hashNow =
+    offers.length > 0
+      ? hashInputs(offers, weightsNow, round.closedAt, await storedRates(requestId))
+      : null;
   const latestHash = rows[0]?.result.inputsHash ?? null;
 
   const runs: RankingRunView[] = [];

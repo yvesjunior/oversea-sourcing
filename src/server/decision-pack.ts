@@ -42,6 +42,7 @@ import {
   type RelaunchState,
 } from "@/lib/decision-pack";
 import type { Kpi2Breakdown } from "@/lib/kpi2";
+import type { FxRate } from "@/lib/landed-cost";
 import { logAudit } from "@/server/audit";
 import { runKpi2 } from "@/server/kpi";
 import { notifyUser } from "@/server/notify";
@@ -291,6 +292,7 @@ async function loadPack(pack: PackRecord, audience: PackAudience): Promise<PackV
     refusedReason: pack.refusedReason,
     assignedTo: pack.assignedTo,
     assignedToName: pack.assignedToName,
+    fxRates: pack.fxRates,
   };
   const items: PackItemRow[] = rows.map(({ item, breakdown }) => {
     const reason = breakdown as Kpi2Breakdown | null;
@@ -299,7 +301,9 @@ async function loadPack(pack: PackRecord, audience: PackAudience): Promise<PackV
       rankComputed: item.rankComputed,
       rankShown: item.rankShown,
       offer: item.offer,
-      reason: reason ? { factors: reason.factors, notes: reason.notes } : null,
+      reason: reason
+        ? { factors: reason.factors, notes: reason.notes, landed: reason.landed ?? null }
+        : null,
     };
   });
   return projectPack(row, items, audience);
@@ -1034,6 +1038,63 @@ export async function assignPack(
     });
     return { ok: true as const };
   });
+}
+
+export type FxRateResult =
+  | { ok: true }
+  | {
+      ok: false;
+      reason:
+        | "not_found"
+        | "not_pending"
+        /** A rate from a currency to itself says nothing. */
+        | "same_currency";
+    };
+
+/**
+ * Store an exchange rate on the pack under review — or replace the one it
+ * holds for that pair (V24).
+ *
+ * Decision D7: money is never converted on a rate nobody stored. This is
+ * where one gets stored: by a staff member, with where the number comes from
+ * and the day it is of. It serves this pack only, and is frozen with it.
+ * `rate` null removes the pair.
+ */
+export async function setPackFxRate(
+  packId: string,
+  input: { from: string; to: string; rate: number | null; source: string; asOf: string },
+  actor: Actor,
+): Promise<FxRateResult> {
+  const from = input.from.trim().toUpperCase();
+  const to = input.to.trim().toUpperCase();
+  if (from === to) return { ok: false, reason: "same_currency" };
+  const outcome = await db.transaction(async (tx) => {
+    const locked = await lockForDecision(tx, packId);
+    if ("refusal" in locked) return { refusal: locked.refusal };
+    const kept = (locked.pack.fxRates ?? []).filter(
+      (rate) => !(rate.from === from && rate.to === to),
+    );
+    const next: FxRate[] =
+      input.rate === null
+        ? kept
+        : [...kept, { from, to, rate: input.rate, source: input.source.trim(), asOf: input.asOf }];
+    await tx
+      .update(schema.decisionPack)
+      .set({ fxRates: next.length > 0 ? next : null })
+      .where(eq(schema.decisionPack.id, packId));
+    await recordPackEvent(tx, packId, "rates_changed", actor, {
+      note:
+        input.rate === null
+          ? `${from} → ${to} : retiré`
+          : `1 ${from} = ${input.rate} ${to} (${input.source.trim()}, ${input.asOf})`,
+    });
+    return { roundId: locked.pack.roundId };
+  });
+  if ("refusal" in outcome) return { ok: false, reason: outcome.refusal };
+  // What can be converted changed, so what can be compared did: rank again,
+  // then bring the pack's items in line.
+  await refreshPack(outcome.roundId, "fx_rates_changed");
+  return { ok: true };
 }
 
 /** The buyer cancelled the request: its pending pack, if any, is withdrawn

@@ -274,3 +274,253 @@ describe("the fingerprint", () => {
     expect(kpi2Fingerprint(offers, { ...KPI2_DEFAULT_WEIGHTS, price: 41 }, at)).not.toBe(base);
   });
 });
+
+// ── version 2: the price factor compares LANDED unit cost (V24) ─────────────
+describe("landed cost", () => {
+  // 20 000 units in every case, so a shipment figure divides cleanly.
+  const figure = (
+    kind: "main_carriage" | "insurance" | "import_duties" | "inspection",
+    amountCents: number,
+    patch: Partial<NonNullable<Kpi2Offer["enrichments"]>[number]> = {},
+  ) => ({
+    kind,
+    amountCents,
+    currency: "USD",
+    validUntil: "2026-12-18T12:00:00Z",
+    units: 20_000,
+    ...patch,
+  });
+  const landedOf = (results: ReturnType<typeof rank>, id: string) => {
+    const landed = of(results, id).breakdown.landed;
+    if (!landed) throw new Error(`no landed cost for ${id}`);
+    return landed;
+  };
+
+  // V24's acceptance: "Two offers, one cheaper ex-works and dearer delivered:
+  // KPI #2 puts the delivered-cheaper one first and the breakdown shows the
+  // arithmetic."
+  it("puts the delivered-cheaper offer first, and shows the arithmetic", () => {
+    const exWorks = offer("exw", {
+      amountCents: 90, // 0.90 a unit, at the factory gate
+      incoterm: "EXW Changzhou",
+      // 4 000.00 to ship 20 000 units: 0.20 a unit.
+      enrichments: [figure("main_carriage", 400_000)],
+    });
+    const delivered = offer("cif", { amountCents: 105, incoterm: "CIF Montreal" });
+    const results = rank([exWorks, delivered]);
+    expect(results.map((r) => r.quoteId)).toEqual(["cif", "exw"]);
+
+    const exw = landedOf(results, "exw");
+    expect(exw.basis).toEqual(["main_carriage"]);
+    expect(exw.goodsUnitCents).toBe(90);
+    expect(exw.components[0]).toMatchObject({
+      line: "main_carriage",
+      state: "added",
+      unitCents: 20,
+      amountCents: 400_000,
+      units: 20_000,
+      rate: null,
+    });
+    expect(exw.unitCents).toBe(110);
+    expect(exw.compared).toEqual({ currency: "USD", unitCents: 110, rate: null });
+
+    const cif = landedOf(results, "cif");
+    expect(cif.components[0]).toEqual({ line: "main_carriage", state: "included" });
+    expect(cif.unitCents).toBe(105);
+    expect(of(results, "cif").breakdown.factors.price.points).toBe(100);
+    expect(of(results, "exw").breakdown.factors.price.points).toBe(95.45); // 105 / 110
+
+    // On the stated price alone — version 1 — the order was the other way.
+    expect(order([{ ...exWorks, enrichments: [] }, delivered])).toEqual(["exw", "cif"]);
+  });
+
+  // The gotcha: "A missing freight figure read as zero makes the least
+  // documented offer look cheapest. Incomplete is a state, not a number."
+  it("never reads a missing figure as zero: the line is left out for everyone", () => {
+    const documented = offer("doc", {
+      amountCents: 90,
+      enrichments: [figure("main_carriage", 400_000)],
+    });
+    const silent = offer("silent", { amountCents: 95 });
+    const results = rank([documented, silent]);
+    // Compared on the goods alone — the one thing known for both.
+    expect(landedOf(results, "doc").basis).toEqual([]);
+    expect(landedOf(results, "doc").unitCents).toBe(90);
+    expect(landedOf(results, "silent").unitCents).toBe(95);
+    expect(results.map((r) => r.quoteId)).toEqual(["doc", "silent"]);
+    // The documented offer is not punished for its freight figure…
+    expect(of(results, "doc").breakdown.factors.price.points).toBe(100);
+    expect(of(results, "doc").breakdown.notes).not.toContain("landed_incomplete");
+    // …and the silent one is marked, with what it lacks.
+    expect(of(results, "silent").breakdown.notes).toContain("landed_incomplete");
+    expect(landedOf(results, "silent").missing).toContain("main_carriage");
+    // The figure itself stays in the breakdown: the arithmetic not used.
+    expect(landedOf(results, "doc").components[0]).toMatchObject({ state: "added", unitCents: 20 });
+  });
+
+  it("does not mark an offer incomplete for a line nobody has", () => {
+    const results = rank([offer("a"), offer("b", { amountCents: 90_000 })]);
+    for (const id of ["a", "b"]) {
+      expect(of(results, id).breakdown.notes).not.toContain("landed_incomplete");
+      expect(landedOf(results, id).missing).toEqual([
+        "main_carriage",
+        "insurance",
+        "import_duties",
+        "inspection",
+      ]);
+    }
+  });
+
+  it("ranks as version 1 did when no partner added anything", () => {
+    const offers = [
+      offer("a", { amountCents: 100_000, incoterm: "FOB" }),
+      offer("b", { amountCents: 90_000, incoterm: "CIF" }),
+      offer("c", { amountCents: 120_000, incoterm: "DDP" }),
+    ];
+    const results = rank(offers);
+    // Price points are still the stated prices against the best of them.
+    expect(of(results, "b").breakdown.factors.price.points).toBe(100);
+    expect(of(results, "a").breakdown.factors.price.points).toBe(90);
+    expect(of(results, "c").breakdown.factors.price.points).toBe(75);
+  });
+
+  it("adds nothing for a figure that is expired, has no quantity, or duplicates the incoterm", () => {
+    const base = { amountCents: 90, incoterm: "FOB" };
+    const other = offer("other", {
+      amountCents: 100,
+      enrichments: [figure("main_carriage", 400_000)],
+    });
+    const reasonOf = (enrichment: ReturnType<typeof figure>) => {
+      const results = rank([offer("x", { ...base, enrichments: [enrichment] }), other]);
+      return landedOf(results, "x").components[0];
+    };
+    expect(
+      reasonOf(figure("main_carriage", 400_000, { validUntil: "2026-11-01T00:00:00Z" })),
+    ).toEqual({ line: "main_carriage", state: "unknown", reason: "expired" });
+    expect(reasonOf(figure("main_carriage", 400_000, { units: null }))).toEqual({
+      line: "main_carriage",
+      state: "unknown",
+      reason: "no_quantity",
+    });
+    expect(reasonOf(figure("main_carriage", 400_000, { currency: "CAD" }))).toEqual({
+      line: "main_carriage",
+      state: "unknown",
+      reason: "other_currency",
+    });
+    // Freight quoted on a CIF offer: inside the price, never added on top.
+    const cif = rank([
+      offer("x", {
+        amountCents: 105,
+        incoterm: "CIF",
+        enrichments: [figure("main_carriage", 400_000)],
+      }),
+      other,
+    ]);
+    expect(landedOf(cif, "x").components[0]).toEqual({ line: "main_carriage", state: "included" });
+    expect(landedOf(cif, "x").unitCents).toBe(105);
+  });
+
+  describe("with stored exchange rates", () => {
+    const cadToUsd = {
+      from: "CAD",
+      to: "USD",
+      rate: 0.72,
+      source: "Banque du Canada",
+      asOf: "2026-11-18",
+    };
+    const ranked = (offers: Kpi2Offer[], rates = [cadToUsd]) =>
+      rankOffers(offers, KPI2_DEFAULT_WEIGHTS, at, rates);
+
+    it("converts a partner's figure with the rate for exactly that pair", () => {
+      const results = ranked([
+        offer("a", {
+          amountCents: 90,
+          enrichments: [figure("import_duties", 500_000, { currency: "CAD" })],
+        }),
+        offer("b", { amountCents: 100, enrichments: [figure("import_duties", 200_000)] }),
+      ]);
+      const duties = landedOf(results, "a").components.find((c) => c.line === "import_duties");
+      // 5 000.00 CAD × 0.72 ÷ 20 000 units = 0.18 USD a unit.
+      expect(duties).toMatchObject({ state: "added", unitCents: 18, rate: cadToUsd });
+      expect(landedOf(results, "a").unitCents).toBe(108);
+      expect(landedOf(results, "b").unitCents).toBe(110);
+      expect(of(results, "a").breakdown.notes).toContain("converted");
+      expect(of(results, "b").breakdown.notes).not.toContain("converted");
+    });
+
+    it("compares offers in two currencies only when a rate is stored between them", () => {
+      const offers = [
+        offer("usd", { amountCents: 100, currency: "USD" }),
+        offer("usd2", { amountCents: 104, currency: "USD" }),
+        offer("cad", { amountCents: 130, currency: "CAD" }),
+      ];
+      // No rate: price is compared for nobody, as before.
+      const without = ranked(offers, []);
+      expect(of(without, "usd").breakdown.factors.price.state).toBe("not_comparable");
+      expect(of(without, "usd").breakdown.notes).toContain("mixed_currencies");
+      expect(landedOf(without, "cad").compared).toBeNull();
+
+      // CAD → USD stored: everything is compared in USD, the majority's.
+      const withRate = ranked(offers);
+      expect(landedOf(withRate, "cad").compared).toEqual({
+        currency: "USD",
+        unitCents: 93.6, // 130 × 0.72
+        rate: cadToUsd,
+      });
+      expect(of(withRate, "cad").breakdown.factors.price.points).toBe(100);
+      expect(of(withRate, "cad").breakdown.notes).toContain("converted");
+      expect(of(withRate, "usd").breakdown.notes).not.toContain("mixed_currencies");
+    });
+
+    it("never uses a rate backwards", () => {
+      const usdToCad = { ...cadToUsd, from: "USD", to: "CAD", rate: 1.39 };
+      const results = ranked(
+        [
+          offer("usd", { amountCents: 100, currency: "USD" }),
+          offer("usd2", { amountCents: 104, currency: "USD" }),
+          offer("cad", { amountCents: 130, currency: "CAD" }),
+        ],
+        [usdToCad],
+      );
+      // USD → CAD is stored, so the comparison is made in CAD — not in USD by
+      // inverting it.
+      expect(landedOf(results, "usd").compared).toEqual({
+        currency: "CAD",
+        unitCents: 139,
+        rate: usdToCad,
+      });
+      expect(landedOf(results, "cad").compared).toEqual({
+        currency: "CAD",
+        unitCents: 130,
+        rate: null,
+      });
+    });
+  });
+
+  it("gives an offer with no price no landed cost, and no points for price", () => {
+    const results = rank([offer("a"), offer("none", { amountCents: null })]);
+    expect(of(results, "none").breakdown.landed).toBeNull();
+    expect(of(results, "none").breakdown.factors.price).toMatchObject({
+      state: "missing",
+      points: 0,
+    });
+  });
+
+  it("is a new ranking when a figure or a rate changes", () => {
+    const base = [offer("a", { enrichments: [figure("main_carriage", 400_000)] })];
+    const print = (list: Kpi2Offer[], rates: Parameters<typeof kpi2Fingerprint>[3] = []) =>
+      kpi2Fingerprint(list, KPI2_DEFAULT_WEIGHTS, at, rates);
+    expect(print([offer("a", { enrichments: [figure("main_carriage", 400_001)] })])).not.toBe(
+      print(base),
+    );
+    expect(
+      print([offer("a", { enrichments: [figure("main_carriage", 400_000, { units: 10_000 })] })]),
+    ).not.toBe(print(base));
+    expect(print([offer("a")])).not.toBe(print(base));
+    expect(
+      print(base, [{ from: "CAD", to: "USD", rate: 0.72, source: "x", asOf: "2026-11-18" }]),
+    ).not.toBe(print(base));
+    // No figure and an empty list are the same thing.
+    expect(print([offer("a", { enrichments: [] })])).toBe(print([offer("a")]));
+  });
+});

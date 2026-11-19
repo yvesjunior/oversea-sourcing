@@ -269,6 +269,54 @@ export const assignPackFn = createServerFn({ method: "POST" })
     },
   );
 
+/**
+ * Store (or remove, with `rate` null) an exchange rate on a pack under review
+ * (V24). The ranking is recomputed with it.
+ */
+export const setPackFxRateFn = createServerFn({ method: "POST" })
+  .inputValidator(
+    z.object({
+      packId: z.string().min(1),
+      from: z
+        .string()
+        .trim()
+        .regex(/^[A-Za-z]{3}$/),
+      to: z
+        .string()
+        .trim()
+        .regex(/^[A-Za-z]{3}$/),
+      rate: z.number().positive().max(1_000_000).nullable(),
+      source: z.string().trim().min(2).max(120),
+      asOf: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    }),
+  )
+  .handler(
+    async ({
+      data,
+    }): Promise<
+      | { ok: true }
+      | { ok: false; reason: "forbidden" | "not_found" | "not_pending" | "same_currency" }
+    > => {
+      const session = await requirePackStaff();
+      if (!session) return FORBIDDEN;
+      const { setPackFxRate } = await import("@/server/decision-pack");
+      const result = await setPackFxRate(data.packId, data, {
+        id: session.user.id,
+        name: session.user.name,
+      });
+      if (result.ok) {
+        const { logAudit, actorOf } = await import("@/server/audit");
+        await logAudit({
+          ...actorOf(session),
+          action: data.rate === null ? "pack.fx_rate_removed" : "pack.fx_rate_set",
+          target: data.packId,
+          detail: { from: data.from.toUpperCase(), to: data.to.toUpperCase(), rate: data.rate },
+        });
+      }
+      return result;
+    },
+  );
+
 // ── the buyer reads the pack (V12) ──────────────────────────────────────────
 
 export type BuyerPackData = BuyerPackView & {

@@ -23,7 +23,8 @@ import { ArrowLeft, CheckCircle2, Download, FileText, Info, RotateCcw } from "lu
 import { Button } from "@/components/ui/button";
 import { CountryTag } from "@/components/osi/CountryTag";
 import { formatDay, formatDayTime, formatInstant } from "@/lib/instant";
-import { explainOffer, landedCostLines } from "@/lib/pack-explain";
+import { formatUnitCost, type FxRate } from "@/lib/landed-cost";
+import { explainOffer, knownUnitCostOf, landedCostLines } from "@/lib/pack-explain";
 import {
   getRequestPackFn,
   reaskExpiredOfferFn,
@@ -176,6 +177,7 @@ function Offer({
   documents,
   state,
   actions,
+  rates,
 }: {
   item: PackItemView;
   /** Every offer on this page — what this one is compared with. */
@@ -185,12 +187,20 @@ function Offer({
   state: PackOfferState;
   /** The buttons, when this reader may act and the pack is current. */
   actions: React.ReactNode;
+  /** The rates stored on the pack that a figure on this page uses (V24). */
+  rates: FxRate[];
 }) {
   const { t, i18n } = useTranslation();
   const { offer } = item;
   const price = money(offer.amountCents, offer.currency, i18n.language);
   const observed = explainOffer(offer, shown, item);
-  const costs = landedCostLines(offer);
+  // One instant for the lines and for the figure under them, so the two
+  // cannot disagree about an expiry.
+  const now = new Date();
+  const costs = landedCostLines(offer, now, rates);
+  const known = knownUnitCostOf(offer, now, rates);
+  const lineNames = (lines: readonly string[]) =>
+    lines.map((line) => t(`packView.cost.${line}`).toLowerCase()).join(", ");
 
   return (
     <li className="card-surface break-inside-avoid p-6 print:border print:shadow-none">
@@ -276,7 +286,9 @@ function Offer({
         <dl className="mt-2 divide-y divide-border text-sm">
           {costs.map((line) => (
             <div key={line.key} className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 py-1.5">
-              <dt>{t(`packView.cost.${line.key}`)}</dt>
+              <dt>
+                {t(line.key === "goods" ? "packView.goodsUnit" : `packView.cost.${line.key}`)}
+              </dt>
               <dd
                 className={cn(
                   "text-right",
@@ -321,19 +333,51 @@ function Offer({
                         ? formatDay(line.quote.validUntil, i18n.language, "long")
                         : "",
                       incoterm: offer.incoterm ?? "",
+                      rate: line.quote.rate?.rate ?? "",
+                      source: line.quote.rate?.source ?? "",
+                      asOf: line.quote.rate?.asOf ?? "",
                     },
+                  )}
+                  {/* The supplier's price is per unit: what this figure comes
+                      to per unit is what stands next to it (V24). */}
+                  {line.quote.unitCents !== null && offer.currency && line.quote.units && (
+                    <span className="block font-medium text-foreground">
+                      {t("packView.perUnit", {
+                        amount: formatUnitCost(line.quote.unitCents, offer.currency, i18n.language),
+                        units: line.quote.units.toLocaleString(i18n.language),
+                      })}
+                    </span>
                   )}
                 </dd>
               )}
             </div>
           ))}
         </dl>
-        {/* No total, and the page says why — a sum that left out what is not
-            known would be the one wrong number here. */}
-        <p className="mt-3 flex items-start gap-2 text-xs text-muted-foreground">
-          <Info className="mt-0.5 size-3.5 shrink-0" />
-          {t("packView.noTotal")}
-        </p>
+        {known ? (
+          // The one figure the block states (V24): what a unit costs over
+          // what is KNOWN — and, in the same breath, what that leaves out.
+          <div className="mt-3 rounded-lg bg-secondary/40 p-3 text-sm">
+            <p className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 font-semibold">
+              <span>{t("packView.knownUnitCost")}</span>
+              <span>{formatUnitCost(known.unitCents, known.currency, i18n.language)}</span>
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {t("packView.knownUnitCostHint", { added: lineNames(known.added) })}
+              {known.included.length > 0 &&
+                ` ${t("packView.knownUnitCostIncluded", { included: lineNames(known.included) })}`}{" "}
+              {known.missing.length > 0
+                ? t("packView.knownUnitCostMissing", { missing: lineNames(known.missing) })
+                : t("packView.knownUnitCostFees")}
+            </p>
+          </div>
+        ) : (
+          // No figure, and the page says why — a sum that left out what is
+          // not known would be the one wrong number here.
+          <p className="mt-3 flex items-start gap-2 text-xs text-muted-foreground">
+            <Info className="mt-0.5 size-3.5 shrink-0" />
+            {t("packView.noTotal")}
+          </p>
+        )}
       </div>
 
       {documents.length > 0 && (
@@ -446,6 +490,7 @@ function DecisionPackPage() {
             item={item}
             shown={pack.items.map((other) => other.offer)}
             documents={item.quoteId ? (data.documents[item.quoteId] ?? []) : []}
+            rates={pack.fxRates}
             state={stateOf(item)}
             actions={
               data.canAct && data.current && !accepted ? (

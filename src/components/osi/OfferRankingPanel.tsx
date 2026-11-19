@@ -20,6 +20,7 @@ import {
   type RankingRunView,
 } from "@/lib/kpi-fns";
 import { KPI2_FACTORS, type Kpi2Note } from "@/lib/kpi2";
+import { formatUnitCost } from "@/lib/landed-cost";
 import { cn } from "@/lib/utils";
 
 /** Notes that describe the RUN (every offer carries them), shown once above
@@ -103,6 +104,8 @@ function OfferRow({ offer }: { offer: RankedOfferView }) {
         })}
       </ul>
 
+      <LandedArithmetic offer={offer} />
+
       {ownNotes.length > 0 && (
         <p className="mt-2 flex items-center gap-1.5 text-[11px] text-warning">
           <AlertTriangle className="size-3.5 shrink-0" />
@@ -110,6 +113,88 @@ function OfferRow({ offer }: { offer: RankedOfferView }) {
         </p>
       )}
     </li>
+  );
+}
+
+/**
+ * The arithmetic behind the price factor (V24): what one unit costs, line by
+ * line, and what the comparison rested on. Everything needed to redo it by
+ * hand — and to see which figure is missing when an offer is incomplete.
+ * Nothing is shown for a ranking stored before version 2.
+ */
+function LandedArithmetic({ offer }: { offer: RankedOfferView }) {
+  const { t, i18n } = useTranslation();
+  const landed = offer.breakdown.landed;
+  if (!landed) return null;
+  const lang = i18n.language;
+  const unit = (cents: number, currency = landed.currency) => formatUnitCost(cents, currency, lang);
+  const label = (line: string) => t(`packView.cost.${line}`).toLowerCase();
+
+  const onBasis = landed.components.filter((c) => landed.basis.includes(c.line));
+  const parts = [
+    t("pack.landed.goods", { amount: unit(landed.goodsUnitCents) }),
+    ...onBasis.map((c) =>
+      c.state === "added"
+        ? t("pack.landed.added", { line: label(c.line), amount: unit(c.unitCents) })
+        : t("pack.landed.included", { line: label(c.line) }),
+    ),
+  ];
+  // A figure somebody recorded that the comparison could not use, because
+  // another offer has none for that line.
+  const unused = landed.components.filter(
+    (c) => c.state === "added" && !landed.basis.includes(c.line),
+  );
+  const incomplete = offer.breakdown.notes.includes("landed_incomplete");
+  const lacking = landed.components.filter((c) => c.state === "unknown");
+
+  return (
+    <div className="mt-3 space-y-1 rounded-lg bg-secondary/40 px-3 py-2 text-[11px]">
+      <p>
+        <span className="font-semibold">
+          {t("pack.landed.unit", { amount: unit(landed.unitCents) })}
+        </span>
+        <span className="text-muted-foreground"> = {parts.join(" + ")}</span>
+      </p>
+      {landed.basis.length === 0 && (
+        <p className="text-muted-foreground">{t("pack.landed.goodsOnly")}</p>
+      )}
+      {landed.compared === null ? (
+        <p className="text-warning">{t("pack.landed.notCompared")}</p>
+      ) : (
+        landed.compared.rate && (
+          <p className="text-muted-foreground">
+            {t("pack.landed.compared", {
+              currency: landed.compared.currency,
+              amount: unit(landed.compared.unitCents, landed.compared.currency),
+              rate: landed.compared.rate.rate,
+              source: landed.compared.rate.source,
+              asOf: landed.compared.rate.asOf,
+            })}
+          </p>
+        )
+      )}
+      {unused.length > 0 && (
+        <p className="text-muted-foreground">
+          {t("pack.landed.unused", {
+            lines: unused
+              .map((c) => `${label(c.line)} ${c.state === "added" ? unit(c.unitCents) : ""}`.trim())
+              .join(", "),
+          })}
+        </p>
+      )}
+      {incomplete && (
+        <p className="text-warning">
+          {t("pack.landed.incomplete", {
+            lines: lacking
+              .map(
+                (c) =>
+                  `${label(c.line)} (${t(`pack.landed.reason.${c.state === "unknown" ? c.reason : "not_provided"}`)})`,
+              )
+              .join(", "),
+          })}
+        </p>
+      )}
+    </div>
   );
 }
 

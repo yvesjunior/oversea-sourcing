@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  doublePrecision,
   bigint,
   boolean,
   index,
@@ -15,6 +16,7 @@ import {
 // Type-only, so erased at compile time: the schema still pulls in no runtime
 // code from src/lib.
 import type { PackOfferSnapshot } from "@/lib/decision-pack";
+import type { FxRate } from "@/lib/landed-cost";
 import type { KpiProfileSource, KpiProfileWeights } from "@/lib/kpi-profile";
 import type { EnrichmentKind } from "@/lib/partner-case";
 import type { PartnerKind, PartnerProvider } from "@/lib/partners";
@@ -1690,9 +1692,12 @@ export const KPI_RUN_TRIGGERS = [
    *  result landed). */
   "manual",
   /** A partner's figure was added, corrected or withdrawn on an offer of the
-   *  round (V22). The ranking does not read those figures before V24, so this
-   *  usually writes no new run — but the pack's frozen copies must change. */
+   *  round (V22). Since V24 those figures are inputs of the ranking: this
+   *  writes a new run whenever the figure counts. */
   "enrichment_changed",
+  /** A staff member stored or removed an exchange rate on the pack under
+   *  review (V24): what can be converted, and so compared, changed. */
+  "fx_rates_changed",
 ] as const;
 export type KpiRunTrigger = (typeof KPI_RUN_TRIGGERS)[number];
 
@@ -1820,6 +1825,14 @@ export const partnerEnrichment = pgTable(
     kind: text("kind").$type<EnrichmentKind>().notNull(),
     amountCents: bigint("amount_cents", { mode: "number" }).notNull(),
     currency: text("currency").notNull(),
+    /**
+     * How many of the SUPPLIER'S pricing units this figure covers (V24) —
+     * "1 310 USD for 20 000 units". The supplier quotes a unit price and a
+     * partner a figure for a shipment: without this number the two are not on
+     * the same basis and cannot be added (owner, 2026-11-19). Null = not
+     * said: the figure is shown, and added to nothing.
+     */
+    units: doublePrecision("units"),
     /** Whatever else the partner said — route, transit time, conditions. */
     details: jsonb("details").$type<{ note?: string }>(),
     validUntil: timestamp("valid_until"),
@@ -1961,6 +1974,14 @@ export const decisionPack = pgTable(
     /** Whose desk it is on. Null = nobody has taken it — shown as such. */
     assignedTo: text("assigned_to").references(() => user.id, { onDelete: "set null" }),
     assignedToName: text("assigned_to_name"),
+    /**
+     * The exchange rates this pack's landed costs were computed with (V24):
+     * each one entered by a staff member, with its source and its date.
+     * Money is never converted on a rate nobody stored (decision D7) — a
+     * pair absent from here is simply not converted. Frozen with the pack
+     * once it is released.
+     */
+    fxRates: jsonb("fx_rates").$type<FxRate[]>(),
     releasedAt: timestamp("released_at"),
     releasedBy: text("released_by").references(() => user.id, { onDelete: "set null" }),
     releasedByName: text("released_by_name"),
@@ -2032,6 +2053,9 @@ export const PACK_EVENT_ACTIONS = [
    *  no offer (`payload.reason`). Never has an actor. From this row on the
    *  pack is a person's: no later close releases it by itself. */
   "held",
+  /** An exchange rate was stored on, or removed from, the pack (V24) —
+   *  `payload.note` says which. The pack stays pending. */
+  "rates_changed",
 ] as const;
 export type PackEventAction = (typeof PACK_EVENT_ACTIONS)[number];
 

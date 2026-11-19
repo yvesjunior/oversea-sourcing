@@ -13,7 +13,8 @@
 
 import { enrichmentsFingerprint, type OfferEnrichment } from "@/lib/partner-case";
 import type { PackStatus, QuoteChannel, VerificationStatus } from "@/database/schema";
-import type { FactorResult, Kpi2Factor, Kpi2Note } from "@/lib/kpi2";
+import type { FactorResult, Kpi2Factor, Kpi2Note, LandedBreakdown } from "@/lib/kpi2";
+import { findRate, type FxRate } from "@/lib/landed-cost";
 import type { ReleaseMode } from "@/lib/platform-settings";
 
 /**
@@ -161,6 +162,9 @@ export type PackAudience = "staff" | "buyer";
 export type PackRankingReason = {
   factors: Record<Kpi2Factor, FactorResult>;
   notes: Kpi2Note[];
+  /** The landed cost behind the price factor (V24). Null when the offer
+   *  states no price; absent on a ranking stored before version 2. */
+  landed?: LandedBreakdown | null;
 };
 
 export type PackItemRow = {
@@ -186,6 +190,8 @@ export type PackRow = {
   refusedReason: string | null;
   assignedTo: string | null;
   assignedToName: string | null;
+  /** The exchange rates stored on the pack (V24). Absent = none. */
+  fxRates?: FxRate[] | null;
 };
 
 export type PackItemView = {
@@ -223,6 +229,14 @@ export type PackView = {
    *  "reviewed by our team" when somebody did. */
   reviewed: boolean;
   items: PackItemView[];
+  /**
+   * The exchange rates the costs on this page were converted with (V24),
+   * each with its source and its date. Staff get every rate stored on the
+   * pack. The buyer gets only those used by a figure of an offer THEY are
+   * shown — a rate stored for a withheld offer's currency would say that a
+   * withheld offer exists.
+   */
+  fxRates: FxRate[];
   /** STAFF ONLY. */
   internal?: {
     roundId: string;
@@ -235,6 +249,25 @@ export type PackView = {
     assignedToName: string | null;
   };
 };
+
+/**
+ * Of the stored rates, those a figure of these offers is converted with:
+ * from a partner figure's currency into its offer's own. A rate that only
+ * serves to compare offers with each other is the ranking's, not the page's.
+ */
+export function ratesUsedBy(
+  offers: readonly PackOfferSnapshot[],
+  rates: readonly FxRate[],
+): FxRate[] {
+  const used = new Set<FxRate>();
+  for (const offer of offers) {
+    for (const figure of offer.enrichments ?? []) {
+      const rate = offer.currency ? findRate(rates, figure.currency, offer.currency) : null;
+      if (rate && figure.currency.toUpperCase() !== offer.currency?.toUpperCase()) used.add(rate);
+    }
+  }
+  return rates.filter((rate) => used.has(rate));
+}
 
 /**
  * The pack as one audience may read it — or null when it may not read it at
@@ -270,6 +303,13 @@ export function projectPack(
     // The name is a snapshot kept when the account goes, so null means
     // nobody ever was there — the system released it.
     reviewed: pack.releasedByName !== null,
+    fxRates:
+      audience === "staff"
+        ? [...(pack.fxRates ?? [])]
+        : ratesUsedBy(
+            shown.map((item) => item.offer),
+            pack.fxRates ?? [],
+          ),
     items: [...shown, ...withheld].map((item) => {
       const fit = item.reason?.factors.kpi1;
       return {

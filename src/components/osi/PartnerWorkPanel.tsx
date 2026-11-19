@@ -13,7 +13,7 @@ import {
   type PartnerCaseView,
   type PartnerWork,
 } from "@/lib/partner-fns";
-import { parseAmountToCents } from "@/lib/portal-rfq";
+import { parseAmountToCents, parseUnits } from "@/lib/portal-rfq";
 
 /**
  * Partners on one offer (Phase V · V22) — staff only.
@@ -183,6 +183,9 @@ function CaseRow({
   const [amount, setAmount] = useState("");
   const [currency, setCurrency] = useState(current?.currency ?? offerCurrency ?? "USD");
   const [validUntil, setValidUntil] = useState("");
+  // How many of the supplier's units the figure covers (V24): it starts on
+  // the previous figure's, since a correction is usually for the same lot.
+  const [units, setUnits] = useState(current?.units ? String(current.units) : "");
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [refusal, setRefusal] = useState<string | null>(null);
@@ -196,6 +199,11 @@ function CaseRow({
       setRefusal("amount");
       return;
     }
+    const covered = parseUnits(units);
+    if (covered === "invalid") {
+      setRefusal("units");
+      return;
+    }
     setBusy(true);
     setRefusal(null);
     try {
@@ -205,6 +213,7 @@ function CaseRow({
           amountCents,
           currency: currency.trim(),
           validUntil: validUntil || null,
+          units: covered,
           note: note || null,
         },
       });
@@ -251,6 +260,10 @@ function CaseRow({
                 }).format(current.amountCents / 100)}
               </span>{" "}
               <span className="text-muted-foreground">
+                {current.units
+                  ? t("partnerWork.forUnits", { units: current.units.toLocaleString(lang) })
+                  : t("partnerWork.noUnits")}
+                {" · "}
                 {current.validUntil
                   ? t("partnerWork.validUntil", { date: formatDay(current.validUntil, lang) })
                   : t("partnerWork.noValidity")}
@@ -281,7 +294,7 @@ function CaseRow({
 
       {!cancelled && (
         <form
-          className="mt-3 grid gap-2 sm:grid-cols-[minmax(0,1fr)_5rem_minmax(0,1fr)_minmax(0,1.5fr)_auto]"
+          className="mt-3 grid gap-2 sm:grid-cols-[minmax(0,1fr)_5rem_minmax(0,1fr)_minmax(0,1fr)]"
           onSubmit={(e) => void record(e)}
         >
           <Input
@@ -300,6 +313,14 @@ function CaseRow({
             required
           />
           <Input
+            value={units}
+            onChange={(e) => setUnits(e.target.value)}
+            inputMode="decimal"
+            placeholder={t("partnerWork.units")}
+            aria-label={t("partnerWork.units")}
+            title={t("partnerWork.unitsHint")}
+          />
+          <Input
             type="date"
             value={validUntil}
             onChange={(e) => setValidUntil(e.target.value)}
@@ -307,15 +328,25 @@ function CaseRow({
             title={t("partnerWork.validity")}
           />
           <Input
+            className="sm:col-span-2"
             value={note}
             onChange={(e) => setNote(e.target.value)}
             maxLength={500}
             placeholder={t("partnerWork.note")}
             aria-label={t("partnerWork.note")}
           />
-          <Button type="submit" size="sm" variant="outline" disabled={busy}>
+          <Button
+            type="submit"
+            size="sm"
+            variant="outline"
+            disabled={busy}
+            className="sm:col-span-2 sm:justify-self-end"
+          >
             {current ? t("partnerWork.correct") : t("partnerWork.record")}
           </Button>
+          <p className="text-[11px] text-muted-foreground sm:col-span-4">
+            {t("partnerWork.unitsHint")}
+          </p>
         </form>
       )}
       {refusal && (
