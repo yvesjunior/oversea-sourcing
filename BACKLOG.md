@@ -24,7 +24,7 @@
 | **E9** Notifications | In-app + email | 🟡 bell, emitters, **prefs (2026-08-26)** live; Phase P types (`quote_received`, `contract_to_sign`, `contract_signed`) + staff alert on `quotes.requested` (2026-09-07) live; **the bell alerts (2026-09-14)** — count badge, 30 s poll, chime, per-browser mute |
 | **E10** Admin surfaces | Verification, imports, ops queue | 🟡 **verification LIVE (S5b/S5c, 2026-08-26)**; imports/ops queue placeholders |
 | **R** Custom staff roles | Roles as data + the matrix | ✅ **BUILT 2026-08-29** (migration 0039) — create/delete roles, dynamic matrix, `requests.all` |
-| **E13** V6 architecture | Supplier portal · KPI #2 · Partner Hub · Decision Pack | 🔵 **NEW 2026-10-21** — scope opened by the V6 document; diagrams validated 2026-11-14; **34 tasks in seven slices — [Phase V](#phase-v--the-v6-parcours-task-by-task-e13--written-2026-11-14)**; **V01, V02, V04–V11 built 2026-11-14** (settings, contacts, states, fork + shortlist, RFQ batch, window closing, typed answer time + channel, KPI #2 v1, the Decision Pack record, the release queue); V01–V11 **live on prod — V01–V09 since deploy #45 (2026-11-14), V10–V11 since deploy #47 (2026-11-18) — with the pack-flow switch OFF**; **V12–V14 built 2026-11-18** (the buyer's pack page, choosing from it, automatic release built and switched off + the review report) — **slice 1 (V04–V14) is complete** — **live on prod since deploy #48 (2026-11-18), pack flow off, release manual**; **V18–V20 built 2026-11-18** (the clarification, behind `AI_CHAT`, off; the cahier des charges and the KPI profile as versioned records; the buyer's validation before any search, behind `flow.spec_validation`, ON by default) — **slice 3 complete**; **V03 and V15–V17 built 2026-11-18** (external accounts: a supplier is not a customer; the RFQ link that creates a supplier account; the portal where they answer, decline and attach; what suppliers are told and the response funnel) — **slice 2 complete**; **V21 built 2026-11-18** (partners and their adapter) — on `main`, not deployed |
+| **E13** V6 architecture | Supplier portal · KPI #2 · Partner Hub · Decision Pack | 🔵 **NEW 2026-10-21** — scope opened by the V6 document; diagrams validated 2026-11-14; **34 tasks in seven slices — [Phase V](#phase-v--the-v6-parcours-task-by-task-e13--written-2026-11-14)**; **V01, V02, V04–V11 built 2026-11-14** (settings, contacts, states, fork + shortlist, RFQ batch, window closing, typed answer time + channel, KPI #2 v1, the Decision Pack record, the release queue); V01–V11 **live on prod — V01–V09 since deploy #45 (2026-11-14), V10–V11 since deploy #47 (2026-11-18) — with the pack-flow switch OFF**; **V12–V14 built 2026-11-18** (the buyer's pack page, choosing from it, automatic release built and switched off + the review report) — **slice 1 (V04–V14) is complete** — **live on prod since deploy #48 (2026-11-18), pack flow off, release manual**; **V18–V20 built 2026-11-18** (the clarification, behind `AI_CHAT`, off; the cahier des charges and the KPI profile as versioned records; the buyer's validation before any search, behind `flow.spec_validation`, ON by default) — **slice 3 complete**; **V03 and V15–V17 built 2026-11-18** (external accounts: a supplier is not a customer; the RFQ link that creates a supplier account; the portal where they answer, decline and attach; what suppliers are told and the response funnel) — **slice 2 complete**; **V21–V22 built 2026-11-18** (partners and their adapter; cases opened on an offer and the figures partners add to it) — on `main`, not deployed |
 | **E11** Settings | Profile, sourcing rules | 🟡 Paramètres + notification prefs live; **password / 2FA / theme / rename (2026-08-27)** live; buyer Abonnement self-service waits for billing |
 
 **MVP1 = E0–E7 + E10.** Definition of done **restated 2026-08-29 by ADR-002**
@@ -41,9 +41,12 @@ tracked to delivery** — with the PDF report available throughout.
 **Prod = `e61b229` (deploy #48, 2026-11-18)** — Phase V tasks V01–V14: slice 1
 is complete and live, **with the pack-flow switch off and release manual**
 (`platform_setting` holds no row on prod, so every setting is at its default).
-**`main` is ahead of prod by eight tasks and NOT deployed** — V18, V19, the
-search-model fix, V20, V03, V15, V16, V17; migrations **0055–0059**, all
-additive. In one line each: the assistant on a draft (off); the specification
+**`main` is ahead of prod by ten tasks and NOT deployed** — V18, V19, the
+search-model fix, V20, V03, V15, V16, V17, V21, V22; migrations
+**0055–0061**, all additive. V21–V22 (partners as records; cases and the
+figures a partner adds to an offer) are staff tools: nothing appears to a
+buyer until a staff member records a figure on an offer of a round, and
+rounds only exist on the pack flow, which is OFF on prod. In one line each: the assistant on a draft (off); the specification
 and the weights as versioned records; searches follow the plan's model tier;
 the buyer validates before any search (ON by default); a supplier account
 type that is not a customer; the RFQ link that creates one; the portal where
@@ -6532,29 +6535,94 @@ built in: **S** one, **M** two to three, **L** four or more.
       provider directly — only the adapter. **Gotcha.** Do not write an
       escrow.com or Globex client here.~~
 
-- [ ] **V22 · Cases and enrichments.** *Size L. Step 08. Depends on: V21.
-      Blocks: V23, V24.*
+- [x] **V22 · Cases and enrichments — BUILT 2026-11-18** (migration
+      **0061**, not deployed). `src/lib/partner-case.ts` (pure: which cost
+      line each kind of partner fills, the figure that counts, whether it can
+      stand next to the supplier's price); `src/server/partner-cases.ts`
+      (`openCase`, `recordEnrichment`, `cancelCase`, `casesForQuote`,
+      `currentEnrichments`); four functions added to `src/lib/partner-fns.ts`
+      (permission `partners`); `PartnerWorkPanel.tsx` on each received offer
+      of `/soumissions`; the offer snapshot of a pack carries `enrichments`;
+      `landedCostLines` gains the state `quoted`. Tables `partner_case`,
+      `partner_enrichment`. 861 tests.
 
-      **What it does.** Lets a partner add to an offer what only a partner
+      **As built.**
+      - **A case is opened with a partner, about one offer** (D10: staff
+        assign, per offer) — through `adapterFor(partner.provider).createCase`,
+        never a provider. One live case per offer per kind of partner; a
+        cancelled one frees the slot. A switched-off partner is not offered.
+      - **The kind of partner decides which line its answer fills** —
+        transport → main carriage, insurance → insurance, customs → import
+        duties, inspection → inspection. Nobody picks a line by hand.
+      - **A figure is never edited: a correction is the next version**, and
+        the earlier one stays (`unique (case_id, version)`). The latest
+        version of each non-cancelled case is the one that counts.
+      - **Each figure keeps ITS currency and ITS validity.** Next to the
+        supplier's price it is one of four things, and the screen says which:
+        addable (same currency, still valid) · in another currency (D7 — not
+        added) · expired · **already covered by the supplier's price** (see
+        below). **No total is computed** — that is V24.
+      - **Step 08 blocks nothing.** A round closes, ranks and produces its
+        pack with no case at all. A figure recorded or cancelled while a pack
+        is under review rebuilds that pack (trigger `enrichment_changed`);
+        one recorded after release changes nothing that was sent.
+      - **The buyer never sees the partner's name** — the frozen copy holds
+        kind, amount, currency, validity. Their counterpart is OSI.
+
+      **Found in the live run and fixed.** A freight figure recorded on a
+      **CIF** offer was shown to the buyer as a cost on top of a price that
+      already carries the freight. The figure is still shown — somebody asked
+      for it — with the standing `already_included` (« déjà couvert par le
+      prix du fournisseur (CIF) : ne s'additionne pas au prix »), which comes
+      before currency and validity. **V24 must not add such a figure.** Also
+      fixed: the note beside the amount squeezed the line's name in the cost
+      block (now its own row); a validity shown as a raw ISO date.
+
+      **Deviations from the task as written.** `partner_case` has `quote_id`
+      only — no `deal_id`: nothing opens a case on a deal before slice 5
+      (V28, V29), and a nullable column nobody writes is a guess. An
+      **exchange rate** is not an enrichment kind: a rate is not a cost line;
+      it belongs to V24's `fx_rates`. The enrichment functions live in the
+      existing `partner-fns.ts` (the task said "new").
+
+      *Verified live in dev, on the V14 fixture (request #3049, two USD
+      offers, FOB and CIF):* case opened from the panel with a brief; figure
+      recorded from the form and shown on the offer's card; a second
+      transport case on the same offer → `already_open`; a correction →
+      version 2, version 1 kept; a validity in the past → `validity_past`;
+      an unknown offer → `quote_not_found`; a customs figure in CAD on the
+      USD offer → « autre devise … non additionnable »; a cancelled case
+      stops counting, refuses a new figure (`case_cancelled`) and frees its
+      slot; the round closed by the sweep → the pending pack's frozen copies
+      carry the figures, the offer without any carries none; a figure
+      recorded during review → `pack: … rebuilt (enrichment_changed)`; pack
+      approved, a later correction left the released copy untouched; the
+      buyer's pack page shows each figure on its line with its standing; a
+      buyer calling the four functions gets `null`, `forbidden` or
+      `ok: false`; signed out, `null`. The switched-off inspection partner was not offered.
+
+      **Not exercised:** an `insurance` or `inspection` case; a figure shown
+      as expired on a real page (unit-tested only); the `portal` channel —
+      nothing writes it before V23; a relaunch (an offer of round 1 reviewed
+      in round 2's pack — the code looks up the request's latest round, never
+      run); the adapter's four other operations; a manager's access; the
+      English pages.
+
+      ~~**What it does.** Lets a partner add to an offer what only a partner
       knows — freight, duties, inspection cost, insurance, an exchange rate.
-
       **Schema.** `partner_case` — `partner_id`, `quote_id` and/or `deal_id`,
       `kind`, `status`, `opened_by`, timestamps. `partner_enrichment` —
       `case_id`, `quote_id`, `kind`, `amount_cents` + `currency`, `details`
       (jsonb), `valid_until`, `channel` (`portal | staff`), `version`,
-      `created_by`.
-
-      **Files.** New `src/lib/partner-fns.ts` — staff open a case on an offer
-      and record an enrichment on the partner's behalf (rule 3). The offer
-      view on `/soumissions` shows what has been added.
-
-      **Acceptance.** Staff attach a freight figure to an offer; it appears
-      on the offer and in the pack's total-cost block. Step 08 blocks
-      nothing: a round with no enrichment at all still produces a pack
-      (owner, 2026-10-24).
-
-      **Gotcha.** An enrichment has a validity and a currency of its own. A
-      freight quote in USD on an offer in EUR is not added to it — D7 again.
+      `created_by`. **Files.** New `src/lib/partner-fns.ts` — staff open a
+      case on an offer and record an enrichment on the partner's behalf (rule
+      3). The offer view on `/soumissions` shows what has been added.
+      **Acceptance.** Staff attach a freight figure to an offer; it appears on
+      the offer and in the pack's total-cost block. Step 08 blocks nothing: a
+      round with no enrichment at all still produces a pack (owner,
+      2026-10-24). **Gotcha.** An enrichment has a validity and a currency of
+      its own. A freight quote in USD on an offer in EUR is not added to it —
+      D7 again.~~
 
 - [ ] **V23 · The Partner Hub surface.** *Size L. Step 08. Depends on: V03,
       V22.*

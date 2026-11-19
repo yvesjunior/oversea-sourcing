@@ -11,6 +11,7 @@
 //    ranking, the difference between the two orders is OSI's working, and
 //    the correction note beside it is not the buyer's to read (V11, V12).
 
+import { enrichmentsFingerprint, type OfferEnrichment } from "@/lib/partner-case";
 import type { PackStatus, QuoteChannel, VerificationStatus } from "@/database/schema";
 import type { FactorResult, Kpi2Factor, Kpi2Note } from "@/lib/kpi2";
 import type { ReleaseMode } from "@/lib/platform-settings";
@@ -42,6 +43,13 @@ export type PackOfferSnapshot = {
   /** The route the offer came by: the supplier's own entry, or OSI's
    *  transcription of an email. */
   channel: QuoteChannel | null;
+  /**
+   * What partners added to this offer (V22) — freight, insurance, duties,
+   * inspection — frozen with the rest: a pack that was sent keeps the figures
+   * it was sent with. Absent on a pack built before V22, which is the same
+   * as none.
+   */
+  enrichments?: OfferEnrichment[];
 };
 
 /** One ranked offer, as the builder receives it. */
@@ -88,7 +96,8 @@ export function selectPackItems(
     }));
 }
 
-const SNAPSHOT_KEYS: readonly (keyof PackOfferSnapshot)[] = [
+/** The scalar fields. `enrichments` is a list and is compared on its own. */
+const SNAPSHOT_KEYS: readonly Exclude<keyof PackOfferSnapshot, "enrichments">[] = [
   "supplierName",
   "supplierCountry",
   "supplierVerification",
@@ -105,7 +114,11 @@ const SNAPSHOT_KEYS: readonly (keyof PackOfferSnapshot)[] = [
 ];
 
 function sameSnapshot(a: PackOfferSnapshot, b: PackOfferSnapshot): boolean {
-  return SNAPSHOT_KEYS.every((key) => (a[key] ?? null) === (b[key] ?? null));
+  return (
+    SNAPSHOT_KEYS.every((key) => (a[key] ?? null) === (b[key] ?? null)) &&
+    // A partner's figure added, corrected or withdrawn changes the pack too.
+    enrichmentsFingerprint(a.enrichments) === enrichmentsFingerprint(b.enrichments)
+  );
 }
 
 /** An item as the table holds it: its references can have been nulled by a

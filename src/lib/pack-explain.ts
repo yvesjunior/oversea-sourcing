@@ -18,6 +18,12 @@
 
 import type { PackOfferSnapshot } from "@/lib/decision-pack";
 import { readIncoterm } from "@/lib/kpi2";
+import {
+  enrichmentStanding,
+  type EnrichmentKind,
+  type EnrichmentStanding,
+  type OfferEnrichment,
+} from "@/lib/partner-case";
 
 /** One statement about an offer: an i18n key under `packView.explain.` and
  *  the values it interpolates. */
@@ -118,9 +124,27 @@ export type CostLineState =
   /** Nobody has provided it. Said, not skipped. */
   | "not_provided"
   /** It WILL apply, and its amount is not quoted at this stage. */
-  | "applies_unquoted";
+  | "applies_unquoted"
+  /** A partner gave a figure for it (V22) — see `quote`. */
+  | "quoted";
 
-export type CostLine = { key: CostLineKey; state: CostLineState };
+export type CostLine = {
+  key: CostLineKey;
+  state: CostLineState;
+  /**
+   * Set when `state` is `quoted`: the partner's figure, in ITS currency, and
+   * whether it can stand next to the supplier's price — `addable` (same
+   * currency, still valid), `other_currency`, `expired`, or
+   * `already_included` (the incoterm puts this line inside the supplier's
+   * price). The amount is shown in every case; only what is said changes.
+   */
+  quote?: {
+    amountCents: number;
+    currency: string;
+    validUntil: string | null;
+    standing: CostQuoteStanding;
+  };
+};
 
 /** Incoterms 2020: what the seller's price covers. Only what the rules say —
  *  main carriage to the named place, insurance where the seller must insure,
@@ -139,19 +163,70 @@ const DUTIES_INCLUDED = new Set(["DDP"]);
  * not build it yet), and the partner's schedule "needs confirming before it
  * is quoted to anyone".
  */
-export function landedCostLines(offer: {
-  amountCents: number | null;
-  incoterm: string | null;
-}): CostLine[] {
+/**
+ * What can be said of a partner's figure next to the supplier's price.
+ *
+ * `already_included` comes first: when the incoterm puts that line INSIDE the
+ * supplier's price (freight on a CIF offer), a partner's figure for the same
+ * line must never be added on top — whatever its currency or validity. It is
+ * still shown: somebody asked for it, and it is a useful second opinion.
+ */
+export type CostQuoteStanding = EnrichmentStanding | "already_included";
+
+const INCLUDED_BY_TERM: Record<EnrichmentKind, Set<string>> = {
+  main_carriage: CARRIAGE_INCLUDED,
+  insurance: INSURANCE_INCLUDED,
+  import_duties: DUTIES_INCLUDED,
+  inspection: new Set(),
+};
+
+export function costQuoteStanding(
+  enrichment: OfferEnrichment,
+  offer: { currency?: string | null; incoterm: string | null },
+  at: Date,
+): CostQuoteStanding {
   const term = readIncoterm(offer.incoterm);
-  const covered = (set: Set<string>): CostLineState =>
-    term !== null && set.has(term) ? "included" : "not_provided";
+  if (term !== null && INCLUDED_BY_TERM[enrichment.kind].has(term)) return "already_included";
+  return enrichmentStanding(enrichment, offer.currency ?? null, at);
+}
+
+export function landedCostLines(
+  offer: {
+    amountCents: number | null;
+    currency?: string | null;
+    incoterm: string | null;
+    enrichments?: readonly OfferEnrichment[];
+  },
+  /** The instant validity is judged at — the page's "now". */
+  at: Date = new Date(),
+): CostLine[] {
+  const term = readIncoterm(offer.incoterm);
+  const covered = (key: EnrichmentKind): CostLineState =>
+    term !== null && INCLUDED_BY_TERM[key].has(term) ? "included" : "not_provided";
+  // A partner's figure for a line (V22) is SHOWN whatever the incoterm says:
+  // somebody asked for it on purpose. It keeps its own currency and validity;
+  // whether it can be ADDED to the supplier's price is said, never assumed —
+  // and still no total is computed here.
+  const line = (key: EnrichmentKind): CostLine => {
+    const enrichment = offer.enrichments?.find((e) => e.kind === key);
+    if (!enrichment) return { key, state: covered(key) };
+    return {
+      key,
+      state: "quoted",
+      quote: {
+        amountCents: enrichment.amountCents,
+        currency: enrichment.currency,
+        validUntil: enrichment.validUntil,
+        standing: costQuoteStanding(enrichment, offer, at),
+      },
+    };
+  };
   return [
     { key: "goods", state: offer.amountCents !== null ? "stated" : "not_provided" },
-    { key: "main_carriage", state: covered(CARRIAGE_INCLUDED) },
-    { key: "insurance", state: covered(INSURANCE_INCLUDED) },
-    { key: "import_duties", state: covered(DUTIES_INCLUDED) },
-    { key: "inspection", state: "not_provided" },
+    line("main_carriage"),
+    line("insurance"),
+    line("import_duties"),
+    line("inspection"),
     { key: "osi_fee", state: "applies_unquoted" },
     { key: "settlement_fee", state: "applies_unquoted" },
   ];

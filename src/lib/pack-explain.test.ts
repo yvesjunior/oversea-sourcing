@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { PackOfferSnapshot } from "@/lib/decision-pack";
-import { COST_LINES, explainOffer, landedCostLines } from "@/lib/pack-explain";
+import { COST_LINES, costQuoteStanding, explainOffer, landedCostLines } from "@/lib/pack-explain";
 
 const offer = (patch: Partial<PackOfferSnapshot> = {}): PackOfferSnapshot => ({
   supplierName: "Acme",
@@ -192,5 +192,89 @@ describe("landedCostLines", () => {
 
   it("says the price is not provided when the supplier gave none", () => {
     expect(state(landedCostLines(offer({ amountCents: null })), "goods")).toBe("not_provided");
+  });
+});
+
+// V22 — what a partner added to an offer.
+describe("the cost block with a partner's figure", () => {
+  const at = new Date("2026-11-18T12:00:00Z");
+  const offer = { amountCents: 98000, currency: "USD", incoterm: "FOB Shanghai" };
+  const freight = {
+    kind: "main_carriage" as const,
+    amountCents: 125000,
+    currency: "USD",
+    validUntil: "2026-12-18T00:00:00.000Z",
+  };
+  const lineOf = (lines: ReturnType<typeof landedCostLines>, key: string) =>
+    lines.find((line) => line.key === key)!;
+
+  it("is unchanged when nobody added anything — step 08 blocks nothing", () => {
+    expect(landedCostLines(offer, at)).toEqual(landedCostLines({ ...offer, enrichments: [] }, at));
+    expect(lineOf(landedCostLines(offer, at), "main_carriage")).toEqual({
+      key: "main_carriage",
+      state: "not_provided",
+    });
+  });
+
+  it("shows a freight figure on its line, addable in the offer's currency", () => {
+    const line = lineOf(landedCostLines({ ...offer, enrichments: [freight] }, at), "main_carriage");
+    expect(line.state).toBe("quoted");
+    expect(line.quote).toEqual({
+      amountCents: 125000,
+      currency: "USD",
+      validUntil: freight.validUntil,
+      standing: "addable",
+    });
+  });
+
+  // Decision D7: a freight quote in USD on an offer in EUR is not added to it.
+  it("shows a figure in another currency as one — the amount stays, the standing says so", () => {
+    const line = lineOf(
+      landedCostLines({ ...offer, currency: "EUR", enrichments: [freight] }, at),
+      "main_carriage",
+    );
+    expect(line.quote?.amountCents).toBe(125000);
+    expect(line.quote?.standing).toBe("other_currency");
+  });
+
+  it("shows an expired figure as expired", () => {
+    const stale = { ...freight, validUntil: "2026-11-01T00:00:00.000Z" };
+    expect(
+      lineOf(landedCostLines({ ...offer, enrichments: [stale] }, at), "main_carriage").quote
+        ?.standing,
+    ).toBe("expired");
+  });
+
+  // Found in the live run: freight quoted by a partner on a CIF offer was
+  // shown as if it came on top of a price that already carries the freight.
+  it("shows a figure the incoterm already covers, and says it must not be added", () => {
+    const cif = { ...offer, incoterm: "CIF Montreal" };
+    expect(lineOf(landedCostLines(cif, at), "main_carriage").state).toBe("included");
+    const line = lineOf(landedCostLines({ ...cif, enrichments: [freight] }, at), "main_carriage");
+    expect(line.state).toBe("quoted");
+    expect(line.quote?.amountCents).toBe(125000);
+    expect(line.quote?.standing).toBe("already_included");
+  });
+
+  it("says 'already included' before anything else — currency and validity do not matter", () => {
+    const cif = { currency: "EUR", incoterm: "CIF" };
+    const stale = { ...freight, validUntil: "2026-11-01T00:00:00.000Z" };
+    expect(costQuoteStanding(stale, cif, at)).toBe("already_included");
+    // Insurance under CIF, duties under DDP alone, inspection never.
+    const of = (kind: "insurance" | "import_duties" | "inspection", incoterm: string) =>
+      costQuoteStanding({ ...freight, kind }, { currency: "USD", incoterm }, at);
+    expect(of("insurance", "CIF")).toBe("already_included");
+    expect(of("insurance", "CFR")).toBe("addable");
+    expect(of("import_duties", "DDP")).toBe("already_included");
+    expect(of("import_duties", "DAP")).toBe("addable");
+    expect(of("inspection", "DDP")).toBe("addable");
+  });
+
+  it("leaves the other lines and the two fees as they were", () => {
+    const lines = landedCostLines({ ...offer, enrichments: [freight] }, at);
+    expect(lineOf(lines, "insurance").state).toBe("not_provided");
+    expect(lineOf(lines, "inspection").state).toBe("not_provided");
+    expect(lineOf(lines, "osi_fee").state).toBe("applies_unquoted");
+    expect(lineOf(lines, "settlement_fee").state).toBe("applies_unquoted");
   });
 });

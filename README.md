@@ -1385,6 +1385,49 @@ A partner's people get accounts of their own (`partner_user`, the counterpart
 of `supplier_user`); `requirePartnerSession` is a separate guard from the
 supplier's on purpose — a partner's need-to-know is not a supplier's (V23).
 
+### Cases and enrichments — what a partner adds to an offer (V22)
+
+A partner knows what the supplier's price does not say: what it costs to
+bring the goods here, to insure them, to clear them, to inspect them. Since
+2026-11-18 staff **open a case** with a partner about one offer and record
+what the partner answers — an **enrichment**: an amount, in its own currency,
+with its own validity.
+
+Where: each received offer on `/soumissions` has a block « Partenaires sur
+cette offre » (permission `partners`). The rules are in
+`src/lib/partner-case.ts`, the rows in `src/server/partner-cases.ts`.
+
+- **One live case per offer per kind of partner.** A cancelled case frees the
+  slot; its figures stay on record and stop counting.
+- **The kind of partner decides the cost line** — transport → main carriage,
+  insurance → insurance, customs → import duties, inspection → inspection.
+  Nobody files a freight quote under duties.
+- **A correction is a new version**, never an edit. The latest version of
+  each live case is the figure that counts (`currentEnrichments`).
+- **A case goes through the adapter** (`createCase`). With `manual` nothing
+  is handed over: the case is ours to follow.
+- **Step 08 blocks nothing** (owner, 2026-10-24). A round closes and produces
+  its pack whether or not anyone opened a case. A figure recorded while the
+  pack is under review rebuilds it (`enrichment_changed`); one recorded after
+  release changes nothing the buyer was sent.
+
+**What the buyer sees.** The pack's « Coût total rendu » block shows the
+figure on its line, and says what it is next to the supplier's price:
+
+| Standing | When | Said as |
+| --- | --- | --- |
+| `addable` | same currency as the offer, still valid | « fourni par un partenaire d'OSI — valable jusqu'au … » |
+| `other_currency` | another currency (decision D7: nothing is converted) | « … dans une autre devise que l'offre : ne s'additionne pas au prix » |
+| `expired` | its validity has passed | « … ce chiffre a expiré le … » |
+| `already_included` | the incoterm puts that line INSIDE the supplier's price (freight on a CIF offer) | « … déjà couvert par le prix du fournisseur (CIF) : ne s'additionne pas au prix » |
+
+`already_included` is decided first, whatever the currency or the validity
+(`costQuoteStanding` in `src/lib/pack-explain.ts`). **Still no total** — an
+absent figure is « non fourni », never zero; summing is V24's job, and it
+must skip everything that is not `addable`. The partner is never named to the
+buyer: the frozen copy of the offer holds kind, amount, currency and
+validity only.
+
 ## 2 · How a request works
 
 ```
@@ -3182,6 +3225,8 @@ erDiagram
 | `rfq_invitation`     | ✅ 2026-11-18 (0059, Phase V · V15) — one row per RFQ email that carried a portal link: `quote_id`, `contact_id`, `email` (as sent), `token_hash` (SHA-256 — **the token is never stored**), `expires_at` (30 days), `opened_at`, `registered_user_id` + `registered_at`. The only way a supplier account comes to exist, and the first two steps of the response funnel (V17) |
 | `partner`            | ✅ 2026-11-18 (0060, Phase V · V21) — a company filling a slot on a dossier: `name`, `kind` (`transport` · `inspection` · `customs` · `insurance` · `settlement` — the last one not creatable until the legal gate lifts), `provider` (`manual`, the only adapter), `active`, contact fields, `locale`. A record, not an account |
 | `partner_user`       | ✅ 2026-11-18 (0060, V21) — which partner(s) an external account answers for; `supplier_user`'s counterpart, read by `requirePartnerSession` |
+| `partner_case`       | ✅ 2026-11-18 (0061, Phase V · V22) — a question put to a partner about ONE offer: `partner_id`, `quote_id`, `request_id`, `kind` (the partner's, copied), `status` (`open` · `answered` · `cancelled`), `brief`, `external_ref` (what an integrated provider would return — null with `manual`), `opened_by` + name. One live case per offer per kind, enforced in `openCase`. No `deal_id` yet (slice 5) |
+| `partner_enrichment` | ✅ 2026-11-18 (0061, V22) — a partner's figure: `case_id`, `quote_id`, `kind` (`main_carriage` · `insurance` · `import_duties` · `inspection`), `amount_cents` + `currency` (its own — never converted), `details` (jsonb, a note), `valid_until`, `channel` (`staff` today; `portal` from V23), `version` (unique per case — a correction is the next version), `created_by` + name. `kpi_result` runs gain the trigger `enrichment_changed` |
 | `criterion_proposal` | ✅ 2026-11-18 (0055, Phase V · V18) — a criteria change the assistant PROPOSED: `op` (`add` · `update` · `remove`), the full criterion an accept would leave, `previous` / `previous_required` (what an update replaces), `status` (`pending` · `accepted` · `dismissed` · `stale` · `superseded`), who answered and their name as it was. `criterion_id` is deliberately not a foreign key: the proposal outlives a criterion deleted by hand, to say `stale`. Same migration: `request_message.questions` (jsonb) — what the assistant asked on a turn; non-null is what counts a turn against the request's six |
 | `kpi_result`         | ✅ 2026-11-14 (0051, Phase V · V09) — KPI #2: one row per offer per run. `run_id` groups a computation; `rank`, `score` (hundredths of a point), `breakdown` (per-factor state, points and weight, the notes, and the offer exactly as it was scored), `formula_version`, `inputs_hash`, `trigger`, `computed_at`. **Append-only** — the current ranking of a round is its latest run. KPI #1 is not here: it scores a supplier before anyone is asked and stays on `match` |
 | `platform_setting`   | ✅ 2026-11-14 (0046, Phase V · V01) — platform-wide settings, ONE value per key for every client; a missing row means the default. Keys, types, ranges and defaults live in the registry `src/lib/platform-settings.ts`, so a new knob is a registry entry and not a migration. Edited from `/interne/parametres` (`settings` permission, owner by default); every change is in `audit_log` with the old and new value |

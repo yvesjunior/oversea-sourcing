@@ -136,6 +136,10 @@ async function latestRanking(requestId: string): Promise<{
     .leftJoin(schema.supplier, eq(schema.supplier.id, schema.quote.supplierId))
     .where(and(eq(schema.kpiResult.runId, latest.runId), eq(schema.quote.status, "received")))
     .orderBy(asc(schema.kpiResult.rank));
+  // What partners added to each offer (V22), frozen into the copy with the
+  // rest. An offer nobody enriched carries no list at all.
+  const { currentEnrichments } = await import("@/server/partner-cases");
+  const enrichments = await currentEnrichments(rows.map((row) => row.quote.id));
   return {
     runId: latest.runId,
     ranked: rows.map(({ result, quote, country, verification }) => ({
@@ -156,6 +160,7 @@ async function latestRanking(requestId: string): Promise<{
         validUntil: quote.validUntil ? quote.validUntil.toISOString() : null,
         respondedAt: quote.respondedAt ? quote.respondedAt.toISOString() : null,
         channel: quote.channel ?? null,
+        ...(enrichments.has(quote.id) ? { enrichments: enrichments.get(quote.id)! } : {}),
       } satisfies PackOfferSnapshot,
     })),
   };

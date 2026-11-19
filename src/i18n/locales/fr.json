@@ -1163,7 +1163,10 @@
     "supplier.account_created": "Compte fournisseur créé depuis une invitation",
     "supplier.account_attached": "Invitation rattachée à un compte fournisseur existant",
     "partner.created": "Partenaire créé",
-    "partner.updated": "Partenaire modifié"
+    "partner.updated": "Partenaire modifié",
+    "partner_case.opened": "Dossier partenaire ouvert",
+    "partner_case.enriched": "Chiffre d’un partenaire enregistré",
+    "partner_case.cancelled": "Dossier partenaire annulé"
   },
   "twofa": {
     "title": "Vérification en deux étapes",
@@ -1544,7 +1547,8 @@
       "offer_added": "offre ajoutée après la fermeture",
       "offer_corrected": "offre corrigée",
       "offer_removed": "offre retirée",
-      "manual": "recalcul demandé"
+      "manual": "recalcul demandé",
+      "enrichment_changed": "chiffre d’un partenaire modifié"
     },
     "refusal": {
       "forbidden": "Action non autorisée.",
@@ -1741,7 +1745,8 @@
       "stated": "indiqué",
       "included": "inclus dans le prix ({{incoterm}})",
       "not_provided": "non fourni",
-      "applies_unquoted": "s'appliquent — montant non communiqué à ce stade"
+      "applies_unquoted": "s'appliquent — montant non communiqué à ce stade",
+      "quoted": "chiffré par un partenaire"
     },
     "noTotal": "Aucun total n'est calculé : le prix est celui annoncé par le fournisseur, et les éléments « non fourni » s'y ajouteront. Un total qui les passerait sous silence serait faux.",
     "documentsTitle": "Documents du fournisseur",
@@ -1771,7 +1776,14 @@
       "cannot_send": "Nous ne pouvons pas écrire à ce fournisseur pour le moment. Contactez OSI."
     },
     "introAutomatic_one": "{{count}} offre obtenue par OSI pour votre demande, présentée dans l'ordre de notre classement.",
-    "introAutomatic_other": "{{count}} offres obtenues par OSI pour votre demande, présentées dans l'ordre de notre classement."
+    "introAutomatic_other": "{{count}} offres obtenues par OSI pour votre demande, présentées dans l'ordre de notre classement.",
+    "quoteStanding": {
+      "addable": "fourni par un partenaire d’OSI — valable jusqu’au {{date}}",
+      "other_currency": "fourni par un partenaire d’OSI, dans une autre devise que l’offre : ne s’additionne pas au prix",
+      "expired": "fourni par un partenaire d’OSI — ce chiffre a expiré le {{date}}",
+      "addable_open": "fourni par un partenaire d’OSI — sans date de validité",
+      "already_included": "fourni par un partenaire d’OSI — déjà couvert par le prix du fournisseur ({{incoterm}}) : ne s’additionne pas au prix"
+    }
   },
   "packReport": {
     "tab": "Ce que la revue a changé",
@@ -2097,6 +2109,49 @@
       "kind_unavailable": "Ce type de partenaire n’est pas encore disponible.",
       "name_taken": "Un partenaire de ce type porte déjà ce nom.",
       "not_found": "Ce partenaire est introuvable."
+    }
+  },
+  "partnerWork": {
+    "title": "Partenaires sur cette offre",
+    "denied": "Votre rôle ne donne pas accès aux partenaires.",
+    "none": "Aucun partenaire n’a été sollicité pour cette offre.",
+    "noPartner": "Aucun partenaire actif à solliciter : créez-en un dans Partenaires.",
+    "choosePartner": "Choisir un partenaire…",
+    "brief": "Ce que vous lui demandez (facultatif)",
+    "open": "Ouvrir le dossier",
+    "status": {
+      "open": "en attente du partenaire",
+      "answered": "chiffre reçu",
+      "cancelled": "annulé"
+    },
+    "waiting": "Aucun chiffre enregistré pour l’instant.",
+    "validUntil": "valable jusqu’au {{date}}",
+    "noValidity": "sans date de validité",
+    "version": "version {{version}}, {{when}}",
+    "amount": "Montant",
+    "currency": "Devise",
+    "validity": "Valable jusqu’au",
+    "note": "Précision (trajet, conditions…)",
+    "record": "Enregistrer le chiffre",
+    "correct": "Corriger le chiffre",
+    "cancel": "Annuler le dossier",
+    "standing": {
+      "addable": "chiffre d’un partenaire, même devise que l’offre",
+      "other_currency": "chiffre d’un partenaire, dans une autre devise que l’offre : non additionnable",
+      "expired": "chiffre d’un partenaire, expiré",
+      "already_included": "chiffre d’un partenaire, déjà couvert par le prix ({{incoterm}}) : non additionnable"
+    },
+    "refused": {
+      "forbidden": "Votre rôle ne permet pas cette action.",
+      "quote_not_found": "Cette offre est introuvable.",
+      "partner_not_found": "Ce partenaire est introuvable.",
+      "partner_inactive": "Ce partenaire est inactif.",
+      "kind_not_applicable": "Ce type de partenaire n’ajoute pas de chiffre à une offre.",
+      "already_open": "Un dossier de ce type est déjà ouvert sur cette offre : corrigez-le ou annulez-le.",
+      "case_not_found": "Ce dossier est introuvable.",
+      "case_cancelled": "Ce dossier a été annulé.",
+      "validity_past": "La date de validité doit être dans le futur.",
+      "amount": "Indiquez un montant valide, par exemple 1250.00."
     }
   }
 }

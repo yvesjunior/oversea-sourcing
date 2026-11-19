@@ -22,7 +22,7 @@ import { useTranslation } from "react-i18next";
 import { ArrowLeft, CheckCircle2, Download, FileText, Info, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CountryTag } from "@/components/osi/CountryTag";
-import { formatDayTime, formatInstant } from "@/lib/instant";
+import { formatDay, formatDayTime, formatInstant } from "@/lib/instant";
 import { explainOffer, landedCostLines } from "@/lib/pack-explain";
 import {
   getRequestPackFn,
@@ -275,7 +275,7 @@ function Offer({
         <h3 className="text-sm font-semibold">{t("packView.costTitle")}</h3>
         <dl className="mt-2 divide-y divide-border text-sm">
           {costs.map((line) => (
-            <div key={line.key} className="grid grid-cols-[minmax(0,1fr)_auto] gap-4 py-1.5">
+            <div key={line.key} className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 py-1.5">
               <dt>{t(`packView.cost.${line.key}`)}</dt>
               <dd
                 className={cn(
@@ -283,12 +283,48 @@ function Offer({
                   line.state === "stated" && "font-semibold",
                   line.state === "not_provided" && "text-warning",
                   line.state === "applies_unquoted" && "text-muted-foreground",
+                  line.state === "quoted" &&
+                    line.quote?.standing === "expired" &&
+                    "text-destructive",
                 )}
               >
-                {line.key === "goods" && line.state === "stated"
-                  ? price
-                  : t(`packView.costState.${line.state}`, { incoterm: offer.incoterm ?? "" })}
+                {line.key === "goods" && line.state === "stated" ? (
+                  price
+                ) : line.state === "quoted" && line.quote ? (
+                  // A partner's figure (V22): its own amount, in its own
+                  // currency. What can be said about it next to the
+                  // supplier's price is the row below.
+                  <span className="font-semibold">
+                    {money(line.quote.amountCents, line.quote.currency, i18n.language)}
+                  </span>
+                ) : (
+                  t(`packView.costState.${line.state}`, { incoterm: offer.incoterm ?? "" })
+                )}
               </dd>
+              {line.state === "quoted" && line.quote && (
+                // Its own row, full width: beside the amount it squeezed the
+                // line's name off the grid.
+                <dd
+                  className={cn(
+                    "col-span-2 text-right text-xs",
+                    line.quote.standing === "expired"
+                      ? "text-destructive"
+                      : "text-muted-foreground",
+                  )}
+                >
+                  {t(
+                    line.quote.standing === "addable" && !line.quote.validUntil
+                      ? "packView.quoteStanding.addable_open"
+                      : `packView.quoteStanding.${line.quote.standing}`,
+                    {
+                      date: line.quote.validUntil
+                        ? formatDay(line.quote.validUntil, i18n.language, "long")
+                        : "",
+                      incoterm: offer.incoterm ?? "",
+                    },
+                  )}
+                </dd>
+              )}
             </div>
           ))}
         </dl>

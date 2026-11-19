@@ -1163,7 +1163,10 @@
     "supplier.account_created": "Supplier account created from an invitation",
     "supplier.account_attached": "Invitation attached to an existing supplier account",
     "partner.created": "Partner created",
-    "partner.updated": "Partner updated"
+    "partner.updated": "Partner updated",
+    "partner_case.opened": "Partner case opened",
+    "partner_case.enriched": "Partner figure recorded",
+    "partner_case.cancelled": "Partner case cancelled"
   },
   "twofa": {
     "title": "Two-step verification",
@@ -1544,7 +1547,8 @@
       "offer_added": "offer added after the close",
       "offer_corrected": "offer corrected",
       "offer_removed": "offer removed",
-      "manual": "recomputation requested"
+      "manual": "recomputation requested",
+      "enrichment_changed": "a partner’s figure changed"
     },
     "refusal": {
       "forbidden": "Not allowed.",
@@ -1741,7 +1745,8 @@
       "stated": "stated",
       "included": "included in the price ({{incoterm}})",
       "not_provided": "not provided",
-      "applies_unquoted": "applies — amount not quoted at this stage"
+      "applies_unquoted": "applies — amount not quoted at this stage",
+      "quoted": "quoted by a partner"
     },
     "noTotal": "No total is computed: the price is the one the supplier stated, and the items marked “not provided” will come on top. A total that left them out would be wrong.",
     "documentsTitle": "Supplier's documents",
@@ -1771,7 +1776,14 @@
       "cannot_send": "We cannot write to this supplier at the moment. Please contact OSI."
     },
     "introAutomatic_one": "{{count}} offer obtained by OSI for your request, in the order of our ranking.",
-    "introAutomatic_other": "{{count}} offers obtained by OSI for your request, in the order of our ranking."
+    "introAutomatic_other": "{{count}} offers obtained by OSI for your request, in the order of our ranking.",
+    "quoteStanding": {
+      "addable": "provided by an OSI partner — valid until {{date}}",
+      "other_currency": "provided by an OSI partner, in another currency than the offer: it does not add to the price",
+      "expired": "provided by an OSI partner — this figure expired on {{date}}",
+      "addable_open": "provided by an OSI partner — no validity date given",
+      "already_included": "provided by an OSI partner — already covered by the supplier’s price ({{incoterm}}): not added to the price"
+    }
   },
   "packReport": {
     "tab": "What review changed",
@@ -2097,6 +2109,49 @@
       "kind_unavailable": "This kind of partner is not available yet.",
       "name_taken": "A partner of this kind already has this name.",
       "not_found": "This partner cannot be found."
+    }
+  },
+  "partnerWork": {
+    "title": "Partners on this offer",
+    "denied": "Your role does not give access to partners.",
+    "none": "No partner has been asked about this offer.",
+    "noPartner": "No active partner to ask: create one under Partners.",
+    "choosePartner": "Choose a partner…",
+    "brief": "What you are asking them (optional)",
+    "open": "Open the case",
+    "status": {
+      "open": "waiting on the partner",
+      "answered": "figure received",
+      "cancelled": "cancelled"
+    },
+    "waiting": "No figure on record yet.",
+    "validUntil": "valid until {{date}}",
+    "noValidity": "no validity date",
+    "version": "version {{version}}, {{when}}",
+    "amount": "Amount",
+    "currency": "Currency",
+    "validity": "Valid until",
+    "note": "Detail (route, conditions…)",
+    "record": "Record the figure",
+    "correct": "Correct the figure",
+    "cancel": "Cancel the case",
+    "standing": {
+      "addable": "a partner’s figure, same currency as the offer",
+      "other_currency": "a partner’s figure, in another currency than the offer: cannot be added",
+      "expired": "a partner’s figure, expired",
+      "already_included": "partner figure, already covered by the price ({{incoterm}}): cannot be added"
+    },
+    "refused": {
+      "forbidden": "Your role does not allow this.",
+      "quote_not_found": "This offer cannot be found.",
+      "partner_not_found": "This partner cannot be found.",
+      "partner_inactive": "This partner is inactive.",
+      "kind_not_applicable": "This kind of partner adds no figure to an offer.",
+      "already_open": "A case of this kind is already open on this offer: correct it or cancel it.",
+      "case_not_found": "This case cannot be found.",
+      "case_cancelled": "This case was cancelled.",
+      "validity_past": "The validity date must be in the future.",
+      "amount": "Enter a valid amount, for example 1250.00."
     }
   }
 }

@@ -16,6 +16,7 @@ import {
 // code from src/lib.
 import type { PackOfferSnapshot } from "@/lib/decision-pack";
 import type { KpiProfileSource, KpiProfileWeights } from "@/lib/kpi-profile";
+import type { EnrichmentKind } from "@/lib/partner-case";
 import type { PartnerKind, PartnerProvider } from "@/lib/partners";
 import type { SpecContent } from "@/lib/request-spec";
 import type { ReleaseMode } from "@/lib/platform-settings";
@@ -1652,6 +1653,10 @@ export const KPI_RUN_TRIGGERS = [
   /** A staff member asked for a recomputation (e.g. after a verification
    *  result landed). */
   "manual",
+  /** A partner's figure was added, corrected or withdrawn on an offer of the
+   *  round (V22). The ranking does not read those figures before V24, so this
+   *  usually writes no new run — but the pack's frozen copies must change. */
+  "enrichment_changed",
 ] as const;
 export type KpiRunTrigger = (typeof KPI_RUN_TRIGGERS)[number];
 
@@ -1698,6 +1703,101 @@ export const rfqInvitation = pgTable(
   (table) => [
     uniqueIndex("rfq_invitation_token_uq").on(table.tokenHash),
     index("rfq_invitation_quote_idx").on(table.quoteId),
+  ],
+);
+
+/**
+ * A case opened with a partner about ONE offer (Phase V · V22).
+ *
+ * Staff open it (decision D10): "ask our transport partner what it costs to
+ * bring THIS supplier's goods here". What the partner answers is a
+ * `partner_enrichment`. At most one live case per offer per partner kind —
+ * two freight figures on one offer would leave the pack to choose between
+ * them, and nothing has said how.
+ *
+ * - `open`       waiting on the partner
+ * - `answered`   an enrichment is on record (a later one supersedes it)
+ * - `cancelled`  staff withdrew it; its enrichments no longer count
+ */
+export const PARTNER_CASE_STATUSES = ["open", "answered", "cancelled"] as const;
+export type PartnerCaseStatus = (typeof PARTNER_CASE_STATUSES)[number];
+
+export const partnerCase = pgTable(
+  "partner_case",
+  {
+    id: text("id").primaryKey(),
+    partnerId: text("partner_id")
+      .notNull()
+      .references(() => partner.id, { onDelete: "restrict" }),
+    /** The offer it is about. */
+    quoteId: text("quote_id")
+      .notNull()
+      .references(() => quote.id, { onDelete: "cascade" }),
+    /** Denormalised from the quote: every list of cases is per request. */
+    requestId: text("request_id")
+      .notNull()
+      .references(() => request.id, { onDelete: "cascade" }),
+    /** The partner's kind when the case was opened — the slot being filled. */
+    kind: text("kind").$type<PartnerKind>().notNull(),
+    status: text("status").$type<PartnerCaseStatus>().notNull().default("open"),
+    /** What staff ask the partner, in their own words. */
+    brief: text("brief"),
+    /** The provider's own id for the case, when it has one (`manual`: never). */
+    externalRef: text("external_ref"),
+    openedBy: text("opened_by").references(() => user.id, { onDelete: "set null" }),
+    openedByName: text("opened_by_name"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (table) => [
+    index("partner_case_quote_idx").on(table.quoteId),
+    index("partner_case_partner_idx").on(table.partnerId),
+    index("partner_case_request_idx").on(table.requestId),
+  ],
+);
+
+/**
+ * What a partner adds to an offer (V22): a cost only a partner knows —
+ * freight, insurance, duties, an inspection.
+ *
+ * IMMUTABLE AND VERSIONED: a corrected figure is a new row with the next
+ * `version`, and the latest version of a live case is the one that counts.
+ * The earlier figure stays, because a pack may already have been sent with
+ * it.
+ *
+ * It has ITS OWN currency and ITS OWN validity. A freight quote in USD on an
+ * offer in EUR is not added to it (decision D7: no amount is ever converted
+ * on a rate nobody stored), and a figure past its `valid_until` is shown as
+ * expired, not used.
+ */
+export const partnerEnrichment = pgTable(
+  "partner_enrichment",
+  {
+    id: text("id").primaryKey(),
+    caseId: text("case_id")
+      .notNull()
+      .references(() => partnerCase.id, { onDelete: "cascade" }),
+    quoteId: text("quote_id")
+      .notNull()
+      .references(() => quote.id, { onDelete: "cascade" }),
+    /** Which line of the offer's cost it fills (`EnrichmentKind`). */
+    kind: text("kind").$type<EnrichmentKind>().notNull(),
+    amountCents: bigint("amount_cents", { mode: "number" }).notNull(),
+    currency: text("currency").notNull(),
+    /** Whatever else the partner said — route, transit time, conditions. */
+    details: jsonb("details").$type<{ note?: string }>(),
+    validUntil: timestamp("valid_until"),
+    /** `staff` = recorded by OSI on the partner's behalf; `portal` = entered
+     *  by the partner in the Partner Hub (V23). */
+    channel: text("channel").$type<QuoteChannel>().notNull().default("staff"),
+    version: integer("version").notNull().default(1),
+    createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+    createdByName: text("created_by_name"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => [
+    index("partner_enrichment_quote_idx").on(table.quoteId),
+    uniqueIndex("partner_enrichment_case_version_uq").on(table.caseId, table.version),
   ],
 );
 

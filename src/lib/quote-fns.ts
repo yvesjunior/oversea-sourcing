@@ -10,6 +10,7 @@
 // a by-product of the tab the brief asked for.
 
 import { createServerFn } from "@tanstack/react-start";
+import type { OfferEnrichment } from "@/lib/partner-case";
 import type { QuoteChannel, QuoteDeclineReason } from "@/database/schema";
 import { z } from "zod";
 import { isQuoteExpired } from "@/lib/deal-status";
@@ -73,6 +74,9 @@ export type QuoteView = {
    *  does not apply. Only ever true on the staff list; a workspace's own list
    *  contains no pack-flow quote at all. */
   onPackFlow: boolean;
+  /** What partners added to this offer (V22) — freight, insurance, duties,
+   *  inspection: the figure that counts for each. Empty when nobody did. */
+  enrichments: OfferEnrichment[];
 };
 
 /** The decline reasons a staff member may choose. Everything else in
@@ -161,7 +165,18 @@ function toView(
     channel: quote.channel ?? null,
     lateAnswerUntil: staff.lateAnswerUntil ?? null,
     onPackFlow: staff.onPackFlow ?? false,
+    // Filled in by `withEnrichments` once the list is known: one query for
+    // the whole page rather than one per offer.
+    enrichments: [],
   };
+}
+
+/** Attach to each offer the partner figures that count for it (V22). */
+async function withEnrichments(quotes: QuoteView[]): Promise<QuoteView[]> {
+  if (quotes.length === 0) return quotes;
+  const { currentEnrichments } = await import("@/server/partner-cases");
+  const byQuote = await currentEnrichments(quotes.map((q) => q.id));
+  return quotes.map((quote) => ({ ...quote, enrichments: byQuote.get(quote.id) ?? [] }));
 }
 
 /**
@@ -429,9 +444,11 @@ export const getMyQuotesFn = createServerFn({ method: "GET" }).handler(
     // Decision Pack (`ownerSeesQuotes`).
     const { packFlowRequestIds } = await import("@/server/request-flow");
     const packFlow = await packFlowRequestIds(rows.map((r) => r.quote.requestId));
-    const quotes = rows
-      .filter((r) => !packFlow.has(r.quote.requestId))
-      .map((r) => toView(r.quote, r.title, r.workspaceName));
+    const quotes = await withEnrichments(
+      rows
+        .filter((r) => !packFlow.has(r.quote.requestId))
+        .map((r) => toView(r.quote, r.title, r.workspaceName)),
+    );
     return {
       quotes,
       needs: await loadNeeds(quotes.map((q) => q.requestId)),
@@ -493,7 +510,7 @@ export const getAllQuotesFn = createServerFn({ method: "GET" }).handler(
       import("@/lib/rfq-round"),
     ]);
     const packFlow = await packFlowRequestIds(rows.map((r) => r.quote.requestId));
-    const quotes = rows.map((r) =>
+    const views = rows.map((r) =>
       toView(r.quote, r.title, r.workspaceName, {
         onPackFlow: packFlow.has(r.quote.requestId),
         // The late-keyed answer (V08): only where `recordQuoteFn` would
@@ -510,6 +527,7 @@ export const getAllQuotesFn = createServerFn({ method: "GET" }).handler(
             : null,
       }),
     );
+    const quotes = await withEnrichments(views);
     // Only the suppliers staff still have to write to: an address is working
     // data for an open solicitation, not something to ship for every row.
     const { primaryContactsFor } = await import("@/server/supplier-contacts");
@@ -595,7 +613,7 @@ export const getQuotesForRequestFn = createServerFn({ method: "GET" })
       )
       .orderBy(asc(schema.quote.requestedAt));
 
-    return rows.map((r) => toView(r.quote, r.title, r.workspaceName));
+    return withEnrichments(rows.map((r) => toView(r.quote, r.title, r.workspaceName)));
   });
 
 /** Why an offer was not recorded — typed, so the form can say which. */

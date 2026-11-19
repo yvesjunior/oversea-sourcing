@@ -31,6 +31,8 @@ import { applyListFilters, ListFiltersBar, useListFilters } from "@/components/o
 import { offerEntryMode } from "@/lib/deal-status";
 import type { QuoteStatus } from "@/database/schema";
 import { formatInstant } from "@/lib/instant";
+import { costQuoteStanding } from "@/lib/pack-explain";
+import { PartnerWorkPanel } from "@/components/osi/PartnerWorkPanel";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/soumissions")({
@@ -706,6 +708,33 @@ function QuoteList({
                             )}
                           </span>
                         )}
+                        {/* What partners added to this offer (V22). Each with
+                            ITS currency and validity: nothing is summed here,
+                            and a figure in another currency than the offer's
+                            is said to be one. */}
+                        {quote.enrichments.map((enrichment) => {
+                          const standing = costQuoteStanding(enrichment, quote, new Date());
+                          return (
+                            <span
+                              key={enrichment.kind}
+                              className={cn(
+                                "block text-[11px]",
+                                standing === "expired"
+                                  ? "text-destructive"
+                                  : "text-muted-foreground",
+                              )}
+                            >
+                              {t(`packView.cost.${enrichment.kind}`)} :{" "}
+                              <span className="font-medium text-foreground">
+                                {money(enrichment.amountCents, enrichment.currency, i18n.language)}
+                              </span>{" "}
+                              —{" "}
+                              {t(`partnerWork.standing.${standing}`, {
+                                incoterm: quote.incoterm ?? "",
+                              })}
+                            </span>
+                          );
+                        })}
                       </div>
                       <div className="flex items-center gap-3">
                         {/* WHY it is out of the running, not just that it is —
@@ -839,6 +868,12 @@ function QuoteList({
                           void router.invalidate();
                         }}
                       />
+                    )}
+                    {/* Step 08 (V22): ask a partner what only a partner knows
+                        about THIS offer. Staff only, and only on an offer
+                        that exists. */}
+                    {canRecord && (quote.status === "received" || quote.status === "accepted") && (
+                      <PartnerWorkPanel quoteId={quote.id} offerCurrency={quote.currency} />
                     )}
                   </li>
                 ))}
