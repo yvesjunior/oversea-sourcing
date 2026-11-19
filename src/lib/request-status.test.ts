@@ -7,8 +7,10 @@ import fr from "@/i18n/locales/fr.json";
 import en from "@/i18n/locales/en.json";
 import { REQUEST_STATUSES, type RequestStatus } from "@/database/schema";
 import {
+  beforeLaunch,
   canTransition,
   criteriaEditable,
+  entryStatus,
   forksToPack,
   IN_FLIGHT_STATUSES,
   isInFlight,
@@ -68,7 +70,8 @@ describe("re-running a failed research reopens the search", () => {
  *  the test below walks all 144 pairs, so an edge added to the machine without
  *  being added here fails, and so does one removed. */
 const LEGAL: Record<RequestStatus, RequestStatus[]> = {
-  draft: ["received", "cancelled"],
+  draft: ["spec_review", "received", "cancelled"],
+  spec_review: ["received", "cancelled"],
   received: ["searching", "cancelled"],
   analyzing: ["searching", "cancelled"],
   searching: ["validating", "cancelled"],
@@ -236,7 +239,47 @@ describe("what moves on its own", () => {
 describe("when the criteria can still change", () => {
   it("is before the search has answered, and never once suppliers are asked", () => {
     const editable = REQUEST_STATUSES.filter(criteriaEditable);
-    expect(editable).toEqual(["draft", "received", "analyzing", "searching", "validating"]);
+    expect(editable).toEqual([
+      "draft",
+      "spec_review",
+      "received",
+      "analyzing",
+      "searching",
+      "validating",
+    ]);
+  });
+});
+
+// ── Phase V · V20: the buyer validates before anything is searched ──────────
+
+describe("where a request goes when it leaves the form", () => {
+  it("waits for validation while the step is on, and launches at once while it is off", () => {
+    expect(entryStatus("on")).toBe("spec_review");
+    expect(entryStatus("off")).toBe("received");
+  });
+
+  it("can only leave the validation by being validated or cancelled", () => {
+    expect(REQUEST_TRANSITIONS.spec_review).toEqual(["received", "cancelled"]);
+    // Not the search, not a later stage: validating is the one door.
+    expect(canTransition("spec_review", "searching")).toBe(false);
+    expect(canTransition("spec_review", "report_ready")).toBe(false);
+  });
+
+  it("never strands a request when the setting changes under it", () => {
+    // Held as a draft, then the step is switched on — or off.
+    expect(canTransition("draft", entryStatus("on"))).toBe(true);
+    expect(canTransition("draft", entryStatus("off"))).toBe(true);
+  });
+
+  it("is a resting state: nothing polls it and the sweep never adopts it", () => {
+    expect(isInFlight("spec_review")).toBe(false);
+    expect(isTerminal("spec_review")).toBe(false);
+  });
+});
+
+describe("where the assistant may be asked", () => {
+  it("is before the launch only: a held draft, or a request awaiting validation", () => {
+    expect(REQUEST_STATUSES.filter(beforeLaunch)).toEqual(["draft", "spec_review"]);
   });
 });
 

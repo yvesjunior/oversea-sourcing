@@ -177,6 +177,11 @@ export const requestIdSeq = pgSequence("request_id_seq", { startWith: "3000" });
 
 export const REQUEST_STATUSES = [
   "draft",
+  /** The buyer is reading the cahier des charges and has not approved it yet
+   *  (Phase V · V20). A RESTING state: nothing is searched, and nothing moves
+   *  until the buyer validates. Entered at creation while the platform
+   *  setting `flow.spec_validation` is on. */
+  "spec_review",
   "received",
   "analyzing",
   "searching",
@@ -244,6 +249,16 @@ export const request = pgTable(
     compatibilityScore: integer("compatibility_score"),
     launchedAt: timestamp("launched_at"),
     completedAt: timestamp("completed_at"),
+    /** The buyer's approval of the specification (V20): when, who — with the
+     *  name as it was, which survives the account — and exactly WHICH
+     *  versions of the spec and of the KPI profile they had in front of them.
+     *  All null on a request launched without the validation step (the
+     *  setting off, or before the step existed). */
+    validatedAt: timestamp("validated_at"),
+    validatedBy: text("validated_by").references(() => user.id, { onDelete: "set null" }),
+    validatedByName: text("validated_by_name"),
+    validatedSpecVersion: integer("validated_spec_version"),
+    validatedProfileVersion: integer("validated_profile_version"),
     /**
      * Why staff refused to send a Decision Pack (Phase V · V11) — set
      * together, by `refusePack`, when the request goes `unfulfilled`. The

@@ -1182,10 +1182,15 @@ themselves) as an interim: same tables, no email.
 ## 2 · How a request works
 
 ```
-draft → received → searching → validating → report_ready → closed
+draft → spec_review → received → searching → validating → report_ready → closed
                                     ↓
                               (cancelled)
 ```
+
+**`spec_review` since 2026-11-18** (V20): a new request waits there until its
+buyer validates the specification — see "The buyer validates before anything
+is searched" below. It is skipped (`draft → received`) while the platform
+setting `flow.spec_validation` is off.
 
 **Two flows since 2026-11-14** (BACKLOG Phase V · V04). The line above is the
 **report flow**, and it is still the only one any request takes today. The
@@ -1589,6 +1594,54 @@ dashboard stats are **pure read-models of the DB**.
 5. **Recovery sweep** — on boot and every 60 s the worker re-adopts requests
    stranded mid-pipeline (crash, lost enqueue) and runs them to completion.
 
+### The buyer validates before anything is searched (V20)
+
+Step 04 of the V6 parcours, **behind the platform setting
+`flow.spec_validation` — ON by default** (owner, 2026-11-18). Unlike the pack
+flow, deploying this changes what every buyer does on their next request; the
+switch in Paramètres is the way back.
+
+With it on, the form's button reads **« Vérifier le cahier des charges »**.
+Submitting creates the request exactly as before — same checks, same quota,
+counted at creation — and takes it to **`spec_review`**, a resting state:
+no pipeline job, nothing polled, nothing the worker's sweep adopts. Version 1
+of the specification is written at that moment. The dossier then shows one
+screen:
+
+- **what will be searched and sent to suppliers** — the « Cahier des charges »
+  panel, with the weights;
+- **what is missing** — quantity and lead time when no criterion carries them
+  (`absentBasics`). Plain code, no model, so it is there whether or not the
+  assistant is switched on. The buyer may validate without them;
+- **the criteria, editable in place** — every edit makes the next version,
+  and the button always names the version it will validate;
+- **the assistant**, when `AI_CHAT` is on (V18, folded into this screen —
+  owner, 2026-11-18): it restates, asks, proposes; the buyer accepts or
+  ignores;
+- **« Valider la version N et lancer la recherche »**.
+
+`validateSpecFn` is the **one door from `spec_review` to `received`**. It
+takes the version the buyer had on screen, rebuilds the spec from the request
+as it is at that instant, and refuses (`stale`) if they differ — an edit in
+another tab, a colleague, a file that finished uploading — showing the current
+version instead. A validation records who, when, and exactly which spec and
+which KPI profile version it covered (`request.validated_*`), in the same
+transaction as the move to `received`. A read-only seat cannot validate.
+There is no "back to draft": correcting happens on the same screen.
+
+With the setting **off** it is the older flow: the search starts on submit,
+and the form's second button (below) returns when `AI_CHAT` is on. A request
+already waiting when the switch goes off keeps waiting, and its buyer's
+validation launches it. A draft held before the switch went on is presented
+for validation rather than launched.
+
+**Two limits, stated plainly.** The buyer validates and sees the weights but
+cannot yet change them by number — marking a criterion mandatory is the one
+adjustment (it counts double); `kpi_profile.source = buyer` is still written
+by nothing. And criteria that the research stage later reads out of an
+attachment make a version AFTER the validated one, by the platform; the panel
+says which version the buyer validated.
+
 ### The clarification before launch — built, and switched off (V18)
 
 Step 02 of the V6 parcours: *the AI clarifies, reformulates, asks what is
@@ -1596,7 +1649,14 @@ missing*. Behind the platform flag **`AI_CHAT`, off by default and off on
 prod** — with it off none of this is visible and the flow is exactly the one
 above.
 
-With it on, the request form (signed-in buyers) has a second button,
+**Since V20 the assistant lives on the validation screen** (above): with
+`flow.spec_validation` on, every request already stops before the search, so
+the assistant is offered there and the form has one button. What follows —
+the second button and the held draft — is how it works with the validation
+step **off**.
+
+With `AI_CHAT` on and the validation step off, the request form (signed-in
+buyers) has a second button,
 **« Préciser avec l'assistant »**. It creates the request like any other —
 same validation, same quota, counted at creation — and **leaves it a
 `draft`**: no transition, no pipeline job. `draft` is not an in-flight state,
@@ -1635,7 +1695,8 @@ is refused as `stale`.
 - **It runs when the buyer asks, never on its own.** No job, no timer, no call
   from the worker — "a pending draft never spends money on its own" (owner,
   2026-08-29).
-- **It runs on a draft only.** Once launched, the exchange is closed (the
+- **It runs before the launch only** — on a held draft, or on a request
+  awaiting validation (`beforeLaunch`). Once launched, the exchange is closed (the
   transcript stays; proposals left open can still be answered while the
   criteria are editable, exactly as the edit form still works then).
 - **Six turns per request** (`CLARIFY_MAX_TURNS`), counted on turns that
@@ -2416,7 +2477,9 @@ things follow, and they are design constraints rather than preferences:
   with it: the RFQ window (72 h), the number of offers that closes it (5), the
   release mode (`manual`) and the fee rate (300 basis points). Two were added
   since: `flow.pack_enabled` (V05, the pack-flow switch) and `rfq.reply_to`
-  (V06, where suppliers' answers arrive — no default, on purpose).
+  (V06, where suppliers' answers arrive — no default, on purpose), then
+  `flow.spec_validation` (V20, the buyer validates the specification before
+  any search — the one switch that is ON by default).
   **Two honesty rules are built into it.** Every key is marked *not applied
   yet* on the page for as long as nothing reads it — today the fee rate
   only, because the settlement that will read it is not built; the window
@@ -2884,7 +2947,7 @@ erDiagram
 | `user`               | email (uq), name, locale, **`platform_role`** `user\|owner\|manager\|accountant`                                                          |
 | `organization`       | name, slug — **the workspace** (better-auth organization plugin)                                                                         |
 | `member`             | organization_id, user_id, role `owner\|admin\|buyer\|viewer`                                                                             |
-| `request`            | organization_id, created_by, title, description_raw, **status**, locale, compatibility_score, launched_at, completed_at; `unfulfilled_reason` / `_at` / `_by` + name (0053, V11 — why staff refused to send a pack, written for the buyer) |
+| `request`            | organization_id, created_by, title, description_raw, **status**, locale, compatibility_score, launched_at, completed_at; `unfulfilled_reason` / `_at` / `_by` + name (0053, V11 — why staff refused to send a pack, written for the buyer) · since 0057 (V20): `validated_at`, `validated_by` + name snapshot, `validated_spec_version`, `validated_profile_version` — the buyer's approval of the specification, null when the request was launched without that step |
 | `request_criterion`  | request_id, category `material\|flow\|pressure\|certification\|quantity\|lead_time\|other`, label, value, unit, required, source `ai\|user` |
 | `request_event`      | request_id, organization_id, type (`status.*`, `research.*`, `criteria.*`), message (JSON params)                                        |
 | `supplier`           | name, descriptor, country_code, website, description, **provenance**, **verification_status**, confidence_score, risk_level, source_ref, **`dedup_key` (uq)**, **`discovered_by_request_id`** |

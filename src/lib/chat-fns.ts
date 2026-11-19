@@ -93,12 +93,3 @@ export const resolveProposalFn = createServerFn({ method: "POST" })
     });
     return outcome.ok ? { ok: true } : outcome;
   });
-
-/** Whether the request form may offer « Préciser avec l'assistant ». The
- *  flag is the server's; the form only learns the answer. */
-export const clarificationAvailableFn = createServerFn({ method: "GET" }).handler(
-  async (): Promise<boolean> => {
-    const { chatEnabled } = await import("@/server/ai/flags");
-    return chatEnabled();
-  },
-);

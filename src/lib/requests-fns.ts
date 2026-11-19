@@ -237,6 +237,16 @@ export type RequestDetail = RequestSummary & {
   /** Clarifications this request may still run (V18). Zero when the flag is
    *  off — nothing can be asked then. */
   clarifyTurnsLeft: number;
+  /** The basics no criterion carries yet — quantity, lead time (V20). Plain
+   *  code, no model: shown on the validation screen so "what is missing" does
+   *  not depend on the assistant being switched on. Empty once launched. */
+  missingBasics: CriteriaCategory[];
+  /** The buyer's validation of the specification (V20); null when the
+   *  request was launched without that step, or has not been validated yet. */
+  validated: { at: string; byName: string | null; specVersion: number } | null;
+  /** The validation step is on: a held draft is presented for validation
+   *  rather than launched. */
+  validationOn: boolean;
   /** The last collection pass FAILED, so this dossier's Top-N was built
    *  without one. Derived at read time from research_run — never stored, so
    *  it cannot go stale against the runs it describes. False when research
@@ -258,7 +268,10 @@ export type RequestDetail = RequestSummary & {
 /** Outcome of a create attempt. A refusal is data, not an exception: the UI has
  *  to tell the buyer *why* — expired session vs daily allowance used up. */
 export type CreateRequestResult =
-  | { ok: true; id: string }
+  /** `launched` false = the request exists and WAITS: for its buyer's
+   *  validation (V20), or as a held draft (V18). Nothing is searched yet, and
+   *  the form must not ask for the pipeline to start. */
+  | { ok: true; id: string; launched: boolean }
   | { ok: false; reason: "unauthenticated" }
   /** Authenticated but the workspace role forbids it (viewer — read-only). */
   | { ok: false; reason: "forbidden" }
@@ -403,12 +416,23 @@ export const createRequestFn = createServerFn({ method: "POST" })
     if ("ok" in outcome) return outcome;
     const id = outcome.id;
 
-    const { chatEnabled } = await import("@/server/ai/flags");
-    const held = data.hold === true && chatEnabled();
+    // Where the request goes when it leaves the form (V20). With the
+    // validation step on — the default — it waits in `spec_review` for its
+    // buyer to approve the specification, and `hold` has nothing to add: every
+    // request already stops before the search. With the step off it is the
+    // older flow: straight to the search, or held as a draft for the
+    // assistant when the form asked for that (V18).
+    const [{ chatEnabled }, { getSetting }, { entryStatus }] = await Promise.all([
+      import("@/server/ai/flags"),
+      import("@/server/platform-settings"),
+      import("@/lib/request-status"),
+    ]);
+    const entry = entryStatus(await getSetting("flow.spec_validation"));
+    const held = entry === "received" && data.hold === true && chatEnabled();
 
     const { recordEvent, transitionRequest } = await import("@/server/requests");
     await recordEvent(id, workspaceId, "request.created");
-    if (!held) await transitionRequest(id, workspaceId, "draft", "received");
+    if (!held) await transitionRequest(id, workspaceId, "draft", entry);
 
     // Criteria at intake (instant, zero tokens). Structured form (S2): the
     // typed fields become rows directly — nothing is guessed, source "user".
@@ -445,24 +469,32 @@ export const createRequestFn = createServerFn({ method: "POST" })
         title,
         ...(categoryId ? { category: categoryId } : {}),
         ...(held ? { held: true } : {}),
+        ...(entry === "spec_review" ? { awaitingValidation: true } : {}),
       },
     });
 
     // A held draft stops here (V18). Nothing is enqueued and nothing sweeps
     // it: `draft` is not an in-flight state, so the worker never adopts it.
     // "A pending draft never spends money on its own."
-    if (held) return { ok: true, id };
+    if (held) return { ok: true, id, launched: false };
 
-    // Launched: version 1 of the cahier des charges and of the KPI profile
-    // (V19) — what this request asks for, as it leaves the buyer's hands.
-    // Never allowed to fail the creation: the ranking writes it if this
-    // could not.
+    // Version 1 of the cahier des charges and of the KPI profile (V19): what
+    // the buyer is about to validate, or — with the validation step off —
+    // what the request asks for as it leaves their hands.
     try {
       const { ensureSpec } = await import("@/server/spec");
       await ensureSpec(id, { id: session.user.id, name: session.user.name });
     } catch (error) {
+      // With the step off this must never fail the creation: the ranking
+      // writes the spec if this could not. With the step on, the validation
+      // itself writes it (`validateSpecFn` ensures before it compares).
       console.error(`createRequest: could not write the spec of ${id}`, error);
     }
+
+    // Waiting for validation (V20): nothing is enqueued, and `spec_review` is
+    // not an in-flight state, so nothing adopts it. The search starts when
+    // the buyer validates — `validateSpecFn`.
+    if (entry === "spec_review") return { ok: true, id, launched: false };
 
     // Attachments coming: startRequestPipelineFn enqueues once they are stored.
     // If the browser dies in between, the worker's sweep re-adopts the request
@@ -477,11 +509,15 @@ export const createRequestFn = createServerFn({ method: "POST" })
       }
     }
 
-    return { ok: true, id };
+    return { ok: true, id, launched: true };
   });
 
 /**
- * Launch a held draft (V18): `draft → received`, then the pipeline.
+ * Launch a held draft (V18): `draft → received`, then the pipeline — or,
+ * while the validation step is on (V20), `draft → spec_review`: the draft is
+ * presented for validation like any other request, and it is the validation
+ * that launches it. A draft can only exist under that setting if it was held
+ * before the step was switched on.
  *
  * The other half of `createRequestFn`'s `hold`. Deliberately NOT gated on
  * AI_CHAT: a draft held while the flag was on must still be launchable after
@@ -509,9 +545,15 @@ export const launchDraftFn = createServerFn({ method: "POST" })
       return { ok: false };
     }
 
+    const [{ getSetting }, { entryStatus }] = await Promise.all([
+      import("@/server/platform-settings"),
+      import("@/lib/request-status"),
+    ]);
+    const entry = entryStatus(await getSetting("flow.spec_validation"));
+
     const { transitionRequest, StaleTransitionError } = await import("@/server/requests");
     try {
-      await transitionRequest(row.id, workspaceId, "draft", "received");
+      await transitionRequest(row.id, workspaceId, "draft", entry);
     } catch (error) {
       // Two clicks, or a cancel in another tab: the request is no longer a
       // draft, and the page reloads to show where it is.
@@ -526,6 +568,9 @@ export const launchDraftFn = createServerFn({ method: "POST" })
     } catch (error) {
       console.error(`launchDraft: could not write the spec of ${row.id}`, error);
     }
+    // Presented for validation, not launched: no audit line claiming a launch
+    // and no job. `validateSpecFn` does both when the buyer approves.
+    if (entry === "spec_review") return { ok: true };
 
     const { logAudit, actorOf } = await import("@/server/audit");
     await logAudit({
@@ -545,6 +590,152 @@ export const launchDraftFn = createServerFn({ method: "POST" })
     }
     return { ok: true };
   });
+
+export type ValidateSpecResult =
+  | { ok: true }
+  | {
+      ok: false;
+      reason:
+        /** No session, a read-only seat, or someone else's request. */
+        | "forbidden"
+        /** Already validated, or cancelled, in another tab. */
+        | "not_in_review"
+        /** The specification changed after the page was loaded — an edit in
+         *  another tab, a colleague, a file that finished uploading. What the
+         *  buyer approved is no longer what would be launched. */
+        | "stale";
+    };
+
+/**
+ * The buyer validates the specification, and the search starts (V20).
+ *
+ * The ONE door from `spec_review` to `received`: with the validation step on,
+ * a request cannot be searched without passing through here.
+ *
+ * `version` is the spec version the buyer had on screen. The server rebuilds
+ * the spec from the request as it is now; if that is not the version they
+ * approved, nothing is validated and the page shows them the current one. A
+ * validation records exactly which spec and which KPI profile it covered.
+ */
+export const validateSpecFn = createServerFn({ method: "POST" })
+  .inputValidator(z.object({ id: z.string(), version: z.number().int().positive() }))
+  .handler(async ({ data }): Promise<ValidateSpecResult> => {
+    const [{ auth }, { getRequest }, { db }, { eq }, schema] = await Promise.all([
+      import("@/server/auth"),
+      import("@tanstack/react-start/server"),
+      import("@/database"),
+      import("drizzle-orm"),
+      import("@/database/schema"),
+    ]);
+    const session = await auth.api.getSession({ headers: getRequest().headers });
+    const workspaceId = session?.session.activeOrganizationId;
+    if (!session || !workspaceId) return { ok: false, reason: "forbidden" };
+
+    // A working seat validates; a viewer reads. Re-read per call, like every
+    // other write on the dossier.
+    const { requireMember } = await import("@/server/workspace-guard");
+    if (!(await requireMember(session.user.id, workspaceId, "buyer"))) {
+      return { ok: false, reason: "forbidden" };
+    }
+
+    const row = await db.query.request.findFirst({ where: eq(schema.request.id, data.id) });
+    if (!row || row.organizationId !== workspaceId) return { ok: false, reason: "forbidden" };
+    if (row.status !== "spec_review") return { ok: false, reason: "not_in_review" };
+
+    const actor = { id: session.user.id, name: session.user.name };
+    const [{ ensureSpec }, { transitionRequest, StaleTransitionError, recordEvent }] =
+      await Promise.all([import("@/server/spec"), import("@/server/requests")]);
+
+    let validated: { spec: number; profile: number };
+    try {
+      const outcome = await db.transaction(async (tx) => {
+        // Inside the transaction and under the spec's own lock: an edit
+        // racing this validation either lands first — and makes the version
+        // on the buyer's screen stale — or waits and meets a request that is
+        // no longer editable by the time it is weighed.
+        const ensured = await ensureSpec(row.id, actor, tx);
+        if (ensured.specVersion !== data.version) return { stale: true as const };
+        await tx
+          .update(schema.request)
+          .set({
+            validatedAt: new Date(),
+            validatedBy: actor.id,
+            validatedByName: actor.name,
+            validatedSpecVersion: ensured.specVersion,
+            validatedProfileVersion: ensured.profileVersion,
+          })
+          .where(eq(schema.request.id, row.id));
+        await recordEvent(
+          row.id,
+          workspaceId,
+          "spec.validated",
+          { version: ensured.specVersion },
+          tx,
+        );
+        await transitionRequest(row.id, workspaceId, "spec_review", "received", tx);
+        return { spec: ensured.specVersion, profile: ensured.profileVersion };
+      });
+      if ("stale" in outcome) return { ok: false, reason: "stale" };
+      validated = outcome;
+    } catch (error) {
+      // Two clicks, or a cancel in another tab: nothing was validated (the
+      // transaction rolled back), and the page reloads to show where it is.
+      if (error instanceof StaleTransitionError) return { ok: false, reason: "not_in_review" };
+      throw error;
+    }
+
+    const { logAudit, actorOf } = await import("@/server/audit");
+    await logAudit({
+      ...actorOf(session),
+      organizationId: workspaceId,
+      action: "request.validated",
+      target: `#${row.id}`,
+      detail: { specVersion: validated.spec, profileVersion: validated.profile },
+    });
+
+    try {
+      const { enqueuePipeline } = await import("@/server/queue");
+      await enqueuePipeline(row.id);
+    } catch (error) {
+      // As at creation: the request survives a queue failure, and the
+      // worker's sweep adopts it from "received" after two minutes.
+      console.error(`validateSpec: failed to enqueue pipeline for ${row.id}`, error);
+    }
+    return { ok: true };
+  });
+
+/**
+ * What the request form needs to know about the flow it feeds (V18, V20):
+ * whether a new request waits for validation, and whether the form should
+ * offer « Préciser avec l'assistant ». Neither is a secret — the form is
+ * public — and both are the server's to decide.
+ */
+export const getIntakeOptionsFn = createServerFn({ method: "GET" }).handler(
+  async (): Promise<{ validation: boolean; clarify: boolean }> => {
+    const [{ chatEnabled }, { getSetting }, { defaultSetting }] = await Promise.all([
+      import("@/server/ai/flags"),
+      import("@/server/platform-settings"),
+      import("@/lib/platform-settings"),
+    ]);
+    // This runs in the loader of the PUBLIC landing page, which until V20
+    // touched no table for an anonymous visitor. It must not be the reason
+    // that page fails: if the setting cannot be read, the form shows the
+    // default's wording. Nothing is decided here — `createRequestFn` reads
+    // the setting itself when the request is actually created. (Caught by
+    // scripts/verify-build.sh, which boots the bundle with no database: the
+    // landing answered 500.)
+    let validation = defaultSetting("flow.spec_validation") === "on";
+    try {
+      validation = (await getSetting("flow.spec_validation")) === "on";
+    } catch (error) {
+      console.error("getIntakeOptions: could not read flow.spec_validation", error);
+    }
+    // The form's second button holds a draft for the assistant. With the
+    // validation step on, every request already stops before the search and
+    // the assistant is offered there — the button would be a second stop.
+    return { validation, clarify: chatEnabled() && !validation };
+  },
+);
 
 /** Start the pipeline for a request whose attachments have finished uploading.
  *  Idempotent: pg-boss dedupes nothing, so the worker's own "already has
@@ -730,6 +921,14 @@ export const getRequestDetailFn = createServerFn({ method: "GET" })
     // The clarification (V18): proposals per assistant turn, and how many
     // turns are left. Both empty when the flag is off — like the transcript.
     const { clarifyTurnsLeft: turnsLeft } = await import("@/lib/clarification");
+    const [{ absentBasics }, { beforeLaunch }, { getSetting }] = await Promise.all([
+      import("@/lib/clarification"),
+      import("@/lib/request-status"),
+      import("@/server/platform-settings"),
+    ]);
+    const missingBasics = beforeLaunch(row.status) ? absentBasics(criteria) : [];
+    const validationOn = (await getSetting("flow.spec_validation")) === "on";
+
     let proposals = new Map<string, ProposalView[]>();
     let clarifyTurnsLeft = 0;
     if (aiChatEnabled) {
@@ -782,6 +981,16 @@ export const getRequestDetailFn = createServerFn({ method: "GET" })
       attachments,
       aiChatEnabled,
       clarifyTurnsLeft,
+      missingBasics,
+      validated:
+        row.validatedAt && row.validatedSpecVersion !== null
+          ? {
+              at: row.validatedAt.toISOString(),
+              byName: row.validatedByName,
+              specVersion: row.validatedSpecVersion,
+            }
+          : null,
+      validationOn,
       flow,
       unfulfilledReason: row.status === "unfulfilled" ? row.unfulfilledReason : null,
       matches: shownMatches.map((m) => ({

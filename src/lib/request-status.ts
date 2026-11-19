@@ -24,7 +24,15 @@
 import type { RequestStatus } from "@/database/schema";
 
 export const REQUEST_TRANSITIONS: Record<RequestStatus, readonly RequestStatus[]> = {
-  draft: ["received", "cancelled"],
+  // `spec_review` is the way out while the validation step is on (V20);
+  // `received` directly is the way out while it is off. Which one a request
+  // takes is `entryStatus` below — the machine allows both because the
+  // setting can change, and a request must never be stranded by it.
+  draft: ["spec_review", "received", "cancelled"],
+  // The buyer validates the specification → the search starts. There is no
+  // edge back to `draft`: the criteria are edited in place while the request
+  // waits here, each edit making the next version to validate.
+  spec_review: ["received", "cancelled"],
   received: ["searching", "cancelled"],
   // Legacy pause state: still allowed to move forward or be cancelled.
   analyzing: ["searching", "cancelled"],
@@ -71,11 +79,42 @@ export function canTransition(from: RequestStatus, to: RequestStatus): boolean {
 export function criteriaEditable(status: RequestStatus): boolean {
   return (
     status === "draft" ||
+    // The whole point of the validation step: correct, then approve.
+    status === "spec_review" ||
     status === "received" ||
     status === "analyzing" ||
     status === "searching" ||
     status === "validating"
   );
+}
+
+// ── before the search (V18, V20) ────────────────────────────────────────────
+
+/**
+ * Where a request goes when it leaves the form.
+ *
+ * With the validation step on (the platform setting `flow.spec_validation`,
+ * on by default — owner, 2026-11-18), it waits in `spec_review` until its
+ * buyer approves the specification: "a request cannot reach `received`
+ * without a validated version". With the step off it is today's flow — the
+ * search starts at once.
+ */
+export function entryStatus(specValidation: "off" | "on"): "spec_review" | "received" {
+  return specValidation === "on" ? "spec_review" : "received";
+}
+
+/**
+ * The states in which nothing has been launched yet and the request is its
+ * buyer's to shape — where the assistant may be asked to read it (V18).
+ *
+ * `spec_review` since V20: the clarification was folded into the validation
+ * screen (owner, 2026-11-18), so the buyer is told what is missing, accepts
+ * what the assistant proposes, and validates, in one stop. `draft` remains
+ * for a request held by the form's « Préciser avec l'assistant », which only
+ * exists while the validation step is off.
+ */
+export function beforeLaunch(status: RequestStatus): boolean {
+  return status === "draft" || status === "spec_review";
 }
 
 /** States with no way out. `unfulfilled` is the pack flow's own ending. */

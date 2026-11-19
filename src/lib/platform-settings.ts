@@ -24,6 +24,7 @@ export type SwitchValue = (typeof SWITCH_VALUES)[number];
 
 /** The value type of every setting. Adding a key starts here. */
 export type PlatformSettingValues = {
+  "flow.spec_validation": SwitchValue;
   "flow.pack_enabled": SwitchValue;
   "rfq.reply_to": string;
   "rfq.window_hours": number;
@@ -77,12 +78,35 @@ export type SettingDefinition<V> = Common &
       ? EmailDefinition
       : ChoiceDefinition<V & string>);
 
-export const SETTING_GROUPS = ["rfq", "pack", "fee"] as const;
+export const SETTING_GROUPS = ["request", "rfq", "pack", "fee"] as const;
 export type SettingGroup = (typeof SETTING_GROUPS)[number];
 
 export const PLATFORM_SETTINGS: {
   [K in SettingKey]: SettingDefinition<PlatformSettingValues[K]>;
 } = {
+  /**
+   * Whether a buyer must VALIDATE the specification before anything is
+   * searched (Phase V · V20).
+   *
+   * `on` → a new request waits in `spec_review`: the buyer reads the cahier
+   * des charges, is told what is missing, corrects, and approves — only then
+   * does the search start. `off` → the search starts the moment the form is
+   * submitted, as it did before V20.
+   *
+   * ON BY DEFAULT (owner, 2026-11-18): unlike the pack flow, deploying this
+   * changes what every buyer does on their next request. The switch is the
+   * way back, not the way in. Read when a request leaves the form; a request
+   * already waiting for validation keeps waiting if the switch goes off, and
+   * is launched by its buyer's validation as usual.
+   */
+  "flow.spec_validation": {
+    kind: "choice",
+    group: "request",
+    options: SWITCH_VALUES,
+    default: "on",
+    unavailable: [],
+    inert: false,
+  },
   /**
    * Whether requests take the PACK flow at all (Phase V · V05).
    *

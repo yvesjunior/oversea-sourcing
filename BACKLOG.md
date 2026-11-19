@@ -24,7 +24,7 @@
 | **E9** Notifications | In-app + email | 🟡 bell, emitters, **prefs (2026-08-26)** live; Phase P types (`quote_received`, `contract_to_sign`, `contract_signed`) + staff alert on `quotes.requested` (2026-09-07) live; **the bell alerts (2026-09-14)** — count badge, 30 s poll, chime, per-browser mute |
 | **E10** Admin surfaces | Verification, imports, ops queue | 🟡 **verification LIVE (S5b/S5c, 2026-08-26)**; imports/ops queue placeholders |
 | **R** Custom staff roles | Roles as data + the matrix | ✅ **BUILT 2026-08-29** (migration 0039) — create/delete roles, dynamic matrix, `requests.all` |
-| **E13** V6 architecture | Supplier portal · KPI #2 · Partner Hub · Decision Pack | 🔵 **NEW 2026-10-21** — scope opened by the V6 document; diagrams validated 2026-11-14; **34 tasks in seven slices — [Phase V](#phase-v--the-v6-parcours-task-by-task-e13--written-2026-11-14)**; **V01, V02, V04–V11 built 2026-11-14** (settings, contacts, states, fork + shortlist, RFQ batch, window closing, typed answer time + channel, KPI #2 v1, the Decision Pack record, the release queue); V01–V11 **live on prod — V01–V09 since deploy #45 (2026-11-14), V10–V11 since deploy #47 (2026-11-18) — with the pack-flow switch OFF**; **V12–V14 built 2026-11-18** (the buyer's pack page, choosing from it, automatic release built and switched off + the review report) — **slice 1 (V04–V14) is complete** — **live on prod since deploy #48 (2026-11-18), pack flow off, release manual**; **V18–V19 built 2026-11-18** (the clarification before launch, behind `AI_CHAT`, off; the cahier des charges and the KPI profile as versioned records) — on `main`, not deployed |
+| **E13** V6 architecture | Supplier portal · KPI #2 · Partner Hub · Decision Pack | 🔵 **NEW 2026-10-21** — scope opened by the V6 document; diagrams validated 2026-11-14; **34 tasks in seven slices — [Phase V](#phase-v--the-v6-parcours-task-by-task-e13--written-2026-11-14)**; **V01, V02, V04–V11 built 2026-11-14** (settings, contacts, states, fork + shortlist, RFQ batch, window closing, typed answer time + channel, KPI #2 v1, the Decision Pack record, the release queue); V01–V11 **live on prod — V01–V09 since deploy #45 (2026-11-14), V10–V11 since deploy #47 (2026-11-18) — with the pack-flow switch OFF**; **V12–V14 built 2026-11-18** (the buyer's pack page, choosing from it, automatic release built and switched off + the review report) — **slice 1 (V04–V14) is complete** — **live on prod since deploy #48 (2026-11-18), pack flow off, release manual**; **V18–V20 built 2026-11-18** (the clarification, behind `AI_CHAT`, off; the cahier des charges and the KPI profile as versioned records; the buyer's validation before any search, behind `flow.spec_validation`, ON by default) — **slice 3 complete** — on `main`, not deployed |
 | **E11** Settings | Profile, sourcing rules | 🟡 Paramètres + notification prefs live; **password / 2FA / theme / rename (2026-08-27)** live; buyer Abonnement self-service waits for billing |
 
 **MVP1 = E0–E7 + E10.** Definition of done **restated 2026-08-29 by ADR-002**
@@ -50,7 +50,14 @@ visible once deployed**: every request launched afterwards shows a
 « Cahier des charges » panel on its dossier, and the RFQ email is built from
 the recorded spec instead of the live criteria (same text). Rankings do not
 move: the default profile is the former constants.
-**⚠ THE NEXT DEPLOY RAISES THE COST OF EVERY SEARCH ON PROD unless the plans
+**⚠ THE NEXT DEPLOY CHANGES WHAT EVERY BUYER DOES.** `main` carries **V20**
+(migration **0057**): with the platform setting `flow.spec_validation` — **on
+by default, owner 2026-11-18** — a new request no longer starts its search on
+submit. It waits (« À valider ») until its buyer reads the specification and
+presses « Valider … et lancer la recherche ». Requests already in flight are
+untouched. To keep today's behaviour after the deploy, switch the setting off
+in `/interne/parametres` (Demandes → Validation du cahier des charges).
+**⚠ THE NEXT DEPLOY ALSO RAISES THE COST OF EVERY SEARCH ON PROD unless the plans
 are edited first.** `main` also carries the fix that makes the supplier
 search use the plan's `model_tier` (2026-11-18 — it was stored and never
 read; every search ran on `ANTHROPIC_MODEL` = `cheap`). On prod all 14
@@ -4363,7 +4370,8 @@ report, exactly as today, because that report is all they get.
 | **D14** | In `automatic` mode, a pack that came to a person (its round closed with no offer) and was **relaunched**: when the new round closes with offers, does it leave by itself? | **No — a pack that has reached a person stays a person's** (V14 as built). Automatic release happens only at the close that creates the pack. The other answer is simpler to state ("automatic means automatic") but lets a relaunched pack leave alone after the setting has gone back to `manual`, because a pack keeps the mode it was created with. | V14 |
 | **D15** | An automatically released pack passes through `pack_review` for an instant, so the request's timeline and activity feed — which the buyer reads — still show « Offres reçues — en revue chez OSI » a few seconds before « Decision Pack disponible ». The email and the pack page were made truthful in V14; the timeline was not. | **Left as is while the mode is off.** To settle before anyone selects `automatic`: either a different label for that step when the pack's release has no person, or no `pack_review` step at all on an automatic release. | V14 |
 | **D16** | The clarification (V18) is the **first AI call that reads the plan's `model_tier`** — research and extraction take their model from `ANTHROPIC_MODEL`, whatever the plan says (verified in the code 2026-11-18: nothing else reads `plan.model_tier`). On prod the plans are `free` / `internal` / `org_trial` = `balanced`, `pro` / `business` / `enterprise` = `best` (read from prod's `plan` table 2026-11-18), while `ANTHROPIC_MODEL` is `cheap`. So switching `AI_CHAT` on in prod would run clarifications on Sonnet and Opus, at a cost per turn **nobody has measured** — dev measured `cheap` only, about $0.003 a turn. | **Built as the task says: the plan's tier.** To settle before `AI_CHAT` goes on in prod: measure a turn on `balanced` and `best`, or set the plans' tiers to what the owner wants to pay, or decide that the clarification follows `ANTHROPIC_MODEL` like everything else. Separately: is it intended that research ignores the plan's tier? The plans page shows a per-request cost by tier that research does not follow. **Half settled 2026-11-18 (owner: "fix search model"): the search now follows the plan's tier too, so the two agree and the plans page's cost per tier is true. Still open: nobody has measured a clarification turn on `balanced` or `best`, and prod's plans are on those tiers.** | the next deploy; switching `AI_CHAT` on |
-| **D17** | Two limits V18 had to invent. **(a) Six clarifications per request** (`CLARIFY_MAX_TURNS`): the quota counts requests, not calls, so nothing else bounds them. **(b) Drafts only**: once the search is launched the assistant no longer answers — a paid exchange that changes criteria after the search was built from them changes nothing the buyer receives. Proposals left open can still be accepted while the criteria are editable, like a manual edit. | **Built as stated.** Both are one constant / one condition to change. A held draft also has **no expiry**: it waits until its buyer launches or cancels it, counted in the quota since creation (V20's gotcha relies on that). | V18, V20 |
+| **D17** | Two limits V18 had to invent. **(a) Six clarifications per request** (`CLARIFY_MAX_TURNS`): the quota counts requests, not calls, so nothing else bounds them. **(b) Drafts only**: once the search is launched the assistant no longer answers — a paid exchange that changes criteria after the search was built from them changes nothing the buyer receives. Proposals left open can still be accepted while the criteria are editable, like a manual edit. | **Built as stated.** Both are one constant / one condition to change. A held draft also has **no expiry**: it waits until its buyer launches or cancels it, counted in the quota since creation (V20's gotcha relies on that). *(V20, 2026-11-18: "drafts only" became "before the launch" — a held draft or a request awaiting validation, since the assistant was folded into the validation screen.)* | V18, V20 |
+| **D18** | **Which weights may a buyer change, and within what bounds?** D8 says the buyer "adjusts and validates" the KPI profile. V20 built the validation and shows the weights; it did not build editing them by number, because the rule is a ranking rule and nobody has stated it: may a buyer set a criterion to count ten times? move points from price to lead time? make verification worth nothing? | **Shown and validated, not editable.** The one adjustment is marking a criterion mandatory (it counts double). `kpi_profile.source = buyer` is written by nothing. | whenever buyers ask to weigh things themselves |
 
 #### Review of V01–V09 — 2026-11-14, after deploy #45
 
@@ -6170,31 +6178,121 @@ built in: **S** one, **M** two to three, **L** four or more.
       answering version 1 ranked against version 2 is the kind of error
       nobody notices.~~
 
-- [ ] **V20 · The buyer validates the cahier.** *Size M. Step 04. Depends on:
-      V19.*
+- [x] **V20 · The buyer validates the cahier — BUILT 2026-11-18**
+      (migration **0057**, not deployed). **This completes slice 3
+      (V18–V20).** `request-status.ts` (`spec_review`, `entryStatus`,
+      `beforeLaunch`); `platform-settings.ts` (`flow.spec_validation`);
+      `requests-fns.ts` (`createRequestFn` enters `spec_review`, new
+      `validateSpecFn` and `getIntakeOptionsFn`, `launchDraftFn` presents a
+      held draft for validation); `demandes/$id.tsx` (the validation banner),
+      `SpecPanel.tsx` (the validated mark), `HeroPrompt.tsx` (the button's
+      wording); `api/upload.ts` (a file uploaded while the spec can still
+      change makes its next version); `clarification.ts` (the assistant may be
+      asked in `spec_review`). Columns `request.validated_at`, `validated_by`
+      + name, `validated_spec_version`, `validated_profile_version`. 751
+      tests.
 
-      **What it does.** Adds the gate the diagram calls `Request VALIDATED`:
+      **Two owner decisions, 2026-11-18, both built:**
+      - **Behind a setting, ON by default** (`flow.spec_validation`, group
+        « Demandes » in Paramètres). So the deploy changes every buyer's next
+        request; the switch is the way back.
+      - **Step 02 folded into step 04.** One stop before the search: the
+        validation screen shows what is missing (free, from the criteria),
+        lets the buyer correct, and — when `AI_CHAT` is on — offers the
+        assistant there. The form's second button (V18) exists only while the
+        validation step is off.
+
+      **Where the build departs from the task text:**
+      - *"`spec_review → draft`" and a « Modifier » button* — not built. The
+        criteria are edited in place while the request waits, each edit
+        making the next version; a round trip through `draft` would be a
+        second state for the same screen.
+      - *"A request cannot reach `received` without a validated version"* —
+        true while the setting is on, by construction: `entryStatus` sends
+        every new request to `spec_review`, and `validateSpecFn` is the only
+        caller of `spec_review → received`. With the setting off, `draft →
+        received` is the older flow, by the owner's choice.
+      - **`validated_profile_version`**, beyond the schema listed: the buyer
+        validates the weights too, so which ones is recorded.
+      - **The weights are shown and validated, not edited by number.** D8 says
+        the buyer "adjusts and validates"; what a buyer may change, and within
+        what bounds, was asked of the owner on 2026-11-18 and not answered.
+        Marking a criterion mandatory (it then counts double) is the one
+        adjustment available. `kpi_profile.source = buyer` is still written
+        by nothing — see **D18**.
+
+      *Verified live in dev, then restored (1 request, audit 33, events 16,
+      no setting row, no pending job):*
+      - **Creation waits.** The form's button reads « Vérifier le cahier des
+        charges »; a request with no quantity → #3050 « À valider », events
+        `request.created`, `status.spec_review`, `criteria.extracted`,
+        `spec.versioned` v1, **no pg-boss job**, `launched_at` null.
+      - **What is missing, without a model.** The banner lists « La quantité »
+        and « Le délai de livraison souhaité ». Adding a quantity criterion on
+        that screen → spec v2, the list keeps only the lead time, the button
+        reads « Valider la version 2 ».
+      - **A stale validation is refused.** A criterion deleted behind the
+        page's back, then Valider on version 2 → refused with the message,
+        the page now showing version 3.
+      - **Validating launches.** Valider on version 3 → `received` →
+        `searching`; `validated_by_name` Buyer, spec 3, profile 3; audit
+        `request.validated`; the timeline reads « Cahier des charges validé —
+        version 3 »; the panel shows « Validé le … par Buyer ».
+      - **The assistant on the same screen** (`AI_CHAT=true`): on #3051
+        « À valider », one reading and one answer brought two proposals;
+        accepting both emptied the missing list and made version 3 — the
+        request still waiting. The form showed ONE button.
+      - **Read-only.** Staff, from the internal workspace: the banner in its
+        read-only wording, no Valider, no cancel, no input.
+      - **Cancel** while awaiting validation works.
+      - **The setting.** `/interne/parametres` shows « Demandes → Validation
+        du cahier des charges », default Activé; set to Désactivé there
+        (stored, audited `on → off`). Then: the form shows « Préciser avec
+        l'assistant » and « Lancer la recherche » again, a request already
+        waiting kept its Valider button, and a new request went straight to
+        `searching` with no validation.
+
+      **One thing the build check caught, fixed before this commit:**
+      `scripts/verify-build.sh` boots the bundle with no database, and the
+      public landing answered **500** — its loader now read the setting, and
+      nothing on that page had needed a table before. `getIntakeOptionsFn`
+      falls back to the registry default when the setting cannot be read;
+      `createRequestFn` still reads the real value when a request is created.
+
+      **Not exercised:** a `viewer` seat pressing Valider (the seed has none;
+      the function uses the same `requireMember` guard as every other write,
+      and the page hides the button — the refusal itself was not provoked);
+      two validations at the same instant; a file upload while awaiting
+      validation making a version (and the `stale` it would cause); a draft
+      held under V18 presented for validation after the switch goes on;
+      validating a waiting request after the switch went off (same function,
+      not clicked); the anonymous landing's button wording; the English
+      pages; production. **A cost not planned for:** restarting the dev stack
+      while a research job was waiting let the research worker pick it up for
+      a few seconds before it was stopped again — no search turn was logged
+      and no supplier was added, but one API call may have been in flight.
+
+      **Known and left:** a request left « À valider » waits indefinitely —
+      no reminder, no expiry, and it counts against the quota from creation
+      (the task's own gotcha). Criteria read out of an attachment during the
+      search make a version after the validated one, by the platform; the
+      panel says which version the buyer validated.
+
+      ~~**What it does.** Adds the gate the diagram calls `Request VALIDATED`:
       nothing is searched and no supplier is written to until the buyer has
-      approved the specification.
-
-      **Schema.** `REQUEST_STATUSES` gains `spec_review` between `draft` and
-      `received`. `request.validated_at`, `validated_by` + name snapshot,
-      `validated_spec_version`.
-
-      **Files.** `request-status.ts` (`draft → spec_review → received`,
-      `spec_review → draft`), the dossier (the spec, the weights, **Valider**
-      / **Modifier**), `requests-fns.ts` — launching requires a validated
-      spec.
-
+      approved the specification. **Schema.** `REQUEST_STATUSES` gains
+      `spec_review` between `draft` and `received`. `request.validated_at`,
+      `validated_by` + name snapshot, `validated_spec_version`. **Files.**
+      `request-status.ts` (`draft → spec_review → received`, `spec_review →
+      draft`), the dossier (the spec, the weights, **Valider** / **Modifier**),
+      `requests-fns.ts` — launching requires a validated spec.
       **Acceptance.** A request cannot reach `received` without a validated
       version. A `viewer` cannot validate. Quota is counted exactly where it
-      is today — the gate adds a step and moves no count.
-
-      **Gotcha.** `checkRequestQuota` runs when the request row is **created**
-      (`requests-fns.ts`, under the per-workspace advisory lock), so a draft
+      is today — the gate adds a step and moves no count. **Gotcha.**
+      `checkRequestQuota` runs when the request row is **created**, so a draft
       waiting in `spec_review` has already been counted. Keep it that way: it
       is what stops a buyer from holding unlimited drafts that each ran a
-      paid clarification (V18).
+      paid clarification (V18).~~
 
 ---
 

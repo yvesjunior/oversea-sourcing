@@ -98,6 +98,23 @@ export const Route = createFileRoute("/api/upload")({
         await recordEvent(requestId, workspaceId, "attachment.added", {
           count: uploaded.length,
         });
+        // The spec counts the attachments (V19). A request waiting for its
+        // buyer's validation (V20) already has one, and these files landed
+        // after it was written — so the version on screen would be validated
+        // short of them. Never allowed to fail the upload.
+        // Only while the specification can still change: a file added once
+        // suppliers have been asked does not alter what they were asked.
+        try {
+          const [{ refreshSpecIfAny }, { criteriaEditable }] = await Promise.all([
+            import("@/server/spec"),
+            import("@/lib/request-status"),
+          ]);
+          if (criteriaEditable(row.status)) {
+            await refreshSpecIfAny(requestId, { id: session.user.id, name: session.user.name });
+          }
+        } catch (error) {
+          console.error(`upload: could not refresh the spec of ${requestId}`, error);
+        }
 
         return Response.json({ files: uploaded });
       },

@@ -85,6 +85,19 @@ describe("storing a value", () => {
 
 // `on` was unavailable while slice 1 was being built: a request reaching
 // `shortlisted` had no way forward. The slice is complete (V14).
+// V20 — the one switch that is ON unless someone turns it off (owner,
+// 2026-11-18): deploying it changes every buyer's next request.
+describe("the validation step", () => {
+  it("is on unless a row says otherwise, and both values can be stored", () => {
+    expect(defaultSetting("flow.spec_validation")).toBe("on");
+    expect(resolveSetting("flow.spec_validation", undefined)).toBe("on");
+    expect(resolveSetting("flow.spec_validation", "off")).toBe("off");
+    expect(parseSettingValue("flow.spec_validation", "off")).toEqual({ ok: true, value: "off" });
+    expect(parseSettingValue("flow.spec_validation", "on")).toEqual({ ok: true, value: "on" });
+    expect(PLATFORM_SETTINGS["flow.spec_validation"].inert).toBe(false);
+  });
+});
+
 describe("the pack-flow switch", () => {
   it("is off unless a row says otherwise", () => {
     expect(defaultSetting("flow.pack_enabled")).toBe("off");

@@ -447,7 +447,8 @@
       "updated": "Updated"
     },
     "clarify": "Clarify with the assistant",
-    "clarifyHint": "Saves the request as a draft: the assistant reads it, you launch the search afterwards."
+    "clarifyHint": "Saves the request as a draft: the assistant reads it, you launch the search afterwards.",
+    "review": "Review the specification"
   },
   "stats": {
     "activeRequests": "Active requests",
@@ -491,7 +492,8 @@
     "unfulfilled": "Closed without offers",
     "closed": "Closed",
     "cancelled": "Cancelled",
-    "pack_ready": "Decision Pack ready"
+    "pack_ready": "Decision Pack ready",
+    "spec_review": "To validate"
   },
   "risk": {
     "Faible": "Low",
@@ -635,7 +637,9 @@
     "rfq_holders_told": "{{count}} supplier(s) told the request is closed",
     "pack_released": "Decision Pack available",
     "clarification_asked": "Read by the assistant — questions: {{questions}}, proposals: {{proposals}}",
-    "spec_versioned": "Specification — version {{version}}"
+    "spec_versioned": "Specification — version {{version}}",
+    "status_spec_review": "Waiting for the buyer’s validation",
+    "spec_validated": "Specification validated — version {{version}}"
   },
   "stepsDemande": {
     "received": {
@@ -934,7 +938,8 @@
     "groups": {
       "rfq": "Requests for quotation (RFQ)",
       "pack": "Decision Pack",
-      "fee": "OSI fee"
+      "fee": "OSI fee",
+      "request": "Requests"
     },
     "keys": {
       "flow.pack_enabled": "Decision Pack flow",
@@ -942,7 +947,8 @@
       "rfq.window_hours": "Supplier response window",
       "rfq.target_offers": "Number of offers that closes the window",
       "pack.release_mode": "Releasing the Decision Pack",
-      "fee.rate_bps": "Fee rate"
+      "fee.rate_bps": "Fee rate",
+      "flow.spec_validation": "Validation of the specification"
     },
     "hints": {
       "flow.pack_enabled": "On: requests from plans that include quotes go through OSI's shortlist, the RFQ and then the Decision Pack. Off: every request ends at the report. Applies to searches finishing after the change; a request already on the pack flow stays on it.",
@@ -950,7 +956,8 @@
       "rfq.window_hours": "Counted from the moment the RFQ batch is sent. A window already open keeps the delay it was opened with.",
       "rfq.target_offers": "The window closes as soon as this many offers are in, without waiting for the delay. Not the number of suppliers the search ranks — that is set per plan.",
       "pack.release_mode": "Manual: staff validate and send each pack. Automatic: the pack goes to the client when its window closes, without review; a round closed with no offer always goes to a person. Applies to packs created after the change. Before switching to automatic, read \"What review changed\" under Decision Packs.",
-      "fee.rate_bps": "In basis points of the transaction amount, added on top: 300 = 3%. The settlement partner's own fees come on top of it. Nothing applies it until the money circuit has its legal opinion."
+      "fee.rate_bps": "In basis points of the transaction amount, added on top: 300 = 3%. The settlement partner's own fees come on top of it. Nothing applies it until the money circuit has its legal opinion.",
+      "flow.spec_validation": "On: every new request waits until its buyer validates the specification; nothing is searched before. Off: the search starts as soon as the form is submitted. Applies to requests created after the change; a request already waiting for validation stays so, and its buyer launches it by validating."
     },
     "units": {
       "hours": "hours",
@@ -1144,7 +1151,8 @@
     "pack.assigned": "Decision Pack assigned",
     "pack.offer_reasked": "Expired offer asked again from the Decision Pack",
     "pack.auto_released": "Decision Pack sent automatically",
-    "request.launched": "Search launched from a draft"
+    "request.launched": "Search launched from a draft",
+    "request.validated": "Specification validated — search launched"
   },
   "twofa": {
     "title": "Two-step verification",
@@ -1843,11 +1851,11 @@
     },
     "placeholder": "Answer the assistant’s questions…",
     "limitReached": "Every exchange allowed for this request has been used. You can still edit the criteria by hand, then launch the search.",
-    "closed": "This request is no longer a draft: the exchange with the assistant is closed.",
+    "closed": "This request is no longer being prepared: the exchange with the assistant is closed.",
     "refused": {
       "disabled": "The assistant is not available.",
       "forbidden": "Your role does not allow this.",
-      "not_draft": "This request is no longer a draft.",
+      "not_draft": "This request is no longer being prepared.",
       "limit": "Every exchange allowed for this request has been used.",
       "stale": "This proposal could not be applied: the criterion changed in the meantime."
     },
@@ -1881,6 +1889,28 @@
       "verification": "Supplier verification",
       "incoterm": "Incoterm",
       "validity": "How long the offer stays valid"
+    },
+    "validatedBy": "Validated on {{when}} by {{name}}",
+    "validatedOn": "Validated on {{when}}",
+    "validatedOther": "The version the buyer validated is version {{version}}; this one was made since."
+  },
+  "validation": {
+    "title": "Specification to validate — nothing is searched yet",
+    "text": "This is what will be searched, then sent to suppliers. Check it, correct the criteria if needed, then validate: the search starts at that moment.",
+    "textReadOnly": "The buyer has not validated the specification yet. Nothing is searched until they do.",
+    "missingTitle": "Something a supplier needs in order to quote is missing",
+    "missing": {
+      "quantity": "The quantity",
+      "lead_time": "The lead time you need"
+    },
+    "missingHint": "Add them under “Identified criteria”. You can also validate without them: suppliers will then have to ask you.",
+    "validate": "Validate version {{version}} and launch the search",
+    "edit": "To correct: edit the criteria below, a new version appears.",
+    "present": "Present for validation",
+    "refused": {
+      "forbidden": "Your role does not allow validating.",
+      "not_in_review": "This request is no longer waiting for validation.",
+      "stale": "The specification changed since this page was displayed. Read the version below again, then validate."
     }
   }
 }

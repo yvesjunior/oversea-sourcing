@@ -5,6 +5,9 @@ import { cn } from "@/lib/utils";
 
 const couleurs: Record<RequestStatus, string> = {
   draft: "bg-muted-foreground",
+  // Waiting on the buyer, and nothing runs until they act: gold, the colour
+  // of "your move" on the dossier, not the amber of work in progress.
+  spec_review: "bg-gold",
   received: "bg-muted-foreground",
   analyzing: "bg-success",
   searching: "bg-warning",

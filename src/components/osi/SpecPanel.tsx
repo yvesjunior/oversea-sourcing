@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ClipboardList, Loader2 } from "lucide-react";
+import { Check, ClipboardList, Loader2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { formatDayTime } from "@/lib/instant";
 import { specCriterionLine } from "@/lib/request-spec";
@@ -17,10 +17,13 @@ export function SpecPanel({
   requestId,
   initial,
   showOfferWeights,
+  validated,
 }: {
   requestId: string;
   initial: SpecView;
   showOfferWeights: boolean;
+  /** The buyer's validation (V20): when, by whom, and of which version. */
+  validated: { at: string; byName: string | null; specVersion: number } | null;
 }) {
   const { t, i18n } = useTranslation();
   // The loader's copy is the LATEST version. If the buyer browses an older
@@ -90,6 +93,25 @@ export function SpecPanel({
             : t("spec.madeBySystem", { when: formatDayTime(spec.createdAt, i18n.language) })}
           {spec.version !== latest && <> · {t("spec.superseded", { version: latest })}</>}
         </p>
+
+        {/* Said on the version it applies to, and only there: version 2, made
+            later by the platform from an attachment, was not validated. */}
+        {validated && validated.specVersion === spec.version && (
+          <p className="flex items-center gap-2 text-xs font-medium text-success">
+            <Check className="size-3.5 shrink-0" />
+            {validated.byName
+              ? t("spec.validatedBy", {
+                  when: formatDayTime(validated.at, i18n.language),
+                  name: validated.byName,
+                })
+              : t("spec.validatedOn", { when: formatDayTime(validated.at, i18n.language) })}
+          </p>
+        )}
+        {validated && validated.specVersion !== spec.version && spec.version === latest && (
+          <p className="text-xs text-muted-foreground">
+            {t("spec.validatedOther", { version: validated.specVersion })}
+          </p>
+        )}
 
         <div>
           <h3 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">

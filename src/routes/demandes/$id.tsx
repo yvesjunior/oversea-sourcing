@@ -52,10 +52,12 @@ import {
   cancelRequestFn,
   getRequestDetailFn,
   launchDraftFn,
+  validateSpecFn,
   rerunResearchFn,
   type RequestDetail,
 } from "@/lib/requests-fns";
 import {
+  beforeLaunch,
   criteriaEditable,
   isInFlight,
   isTerminal,
@@ -293,6 +295,25 @@ function DemandeDetail() {
     }
   };
 
+  // Waiting for its buyer's validation (V20): the specification below is what
+  // will be searched and sent to suppliers. Nothing runs until they approve —
+  // the version they approve being the one on this page.
+  const inReview = demande.status === "spec_review";
+  const [validating, setValidating] = useState(false);
+  const [validationRefusal, setValidationRefusal] = useState<string | null>(null);
+  const validateSpec = async () => {
+    if (validating || !spec) return;
+    setValidating(true);
+    setValidationRefusal(null);
+    try {
+      const result = await validateSpecFn({ data: { id: demande.id, version: spec.version } });
+      if (!result.ok) setValidationRefusal(result.reason);
+      await router.invalidate();
+    } finally {
+      setValidating(false);
+    }
+  };
+
   const pct = progressPct(demande.status, demande.flow);
   // A draft can be cancelled too: before V18 none ever rested long enough to
   // be seen, now one waits for as long as the buyer leaves it.
@@ -470,9 +491,65 @@ function DemandeDetail() {
               disabled={launching}
               onClick={() => void launchDraft()}
             >
-              <ScanSearch className="size-4" /> {t("clarify.launch")}
+              <ScanSearch className="size-4" />{" "}
+              {demande.validationOn ? t("validation.present") : t("clarify.launch")}
             </Button>
           )}
+        </section>
+      )}
+
+      {inReview && (
+        <section role="status" className="rounded-xl border border-gold/40 bg-gold-soft/40 p-4">
+          <div className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-3">
+            <ClipboardCheck className="mt-0.5 size-5 shrink-0 text-gold" />
+            <div className="min-w-0">
+              <h2 className="text-sm font-semibold">{t("validation.title")}</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {demande.canEdit ? t("validation.text") : t("validation.textReadOnly")}
+              </p>
+
+              {/* What is missing, from the criteria themselves — no model
+                  involved, so it is there whether or not the assistant is. */}
+              {demande.missingBasics.length > 0 && (
+                <div className="mt-3 rounded-lg border border-warning/50 bg-warning/10 p-3">
+                  <h3 className="flex items-center gap-2 text-sm font-semibold">
+                    <AlertTriangle className="size-4 shrink-0 text-warning" />
+                    {t("validation.missingTitle")}
+                  </h3>
+                  <ul className="mt-1 list-disc space-y-0.5 pl-9 text-sm">
+                    {demande.missingBasics.map((category) => (
+                      <li key={category}>{t(`validation.missing.${category}`)}</li>
+                    ))}
+                  </ul>
+                  {demande.canEdit && (
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      {t("validation.missingHint")}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {demande.canEdit && spec && (
+                <div className="mt-4 flex flex-wrap items-center gap-3">
+                  <Button
+                    type="button"
+                    variant="gold"
+                    disabled={validating}
+                    onClick={() => void validateSpec()}
+                  >
+                    <ClipboardCheck className="size-4" />{" "}
+                    {t("validation.validate", { version: spec.version })}
+                  </Button>
+                  <span className="text-xs text-muted-foreground">{t("validation.edit")}</span>
+                </div>
+              )}
+              {validationRefusal && (
+                <p role="alert" className="mt-2 text-xs text-destructive">
+                  {t(`validation.refused.${validationRefusal}`)}
+                </p>
+              )}
+            </div>
+          </div>
         </section>
       )}
 
@@ -844,6 +921,7 @@ function DemandeDetail() {
             <SpecPanel
               requestId={demande.id}
               initial={spec}
+              validated={demande.validated}
               // How offers are compared only concerns a workspace whose plan
               // asks for offers at all.
               showOfferWeights={!demande.quotesPlanRequired}
@@ -854,16 +932,17 @@ function DemandeDetail() {
               the whole section is hidden, transcripts included. Shown on a
               draft, where it can be used, and afterwards only if it was —
               an empty panel on a launched request offers nothing. */}
-          {demande.aiChatEnabled && (draft || demande.messages.length > 0) && (
-            <RequestChat
-              requestId={demande.id}
-              messages={demande.messages}
-              canAsk={demande.canEdit && draft}
-              canResolve={demande.canEdit && criteriaEditable(demande.status)}
-              frozen={!criteriaEditable(demande.status)}
-              turnsLeft={demande.clarifyTurnsLeft}
-            />
-          )}
+          {demande.aiChatEnabled &&
+            (beforeLaunch(demande.status) || demande.messages.length > 0) && (
+              <RequestChat
+                requestId={demande.id}
+                messages={demande.messages}
+                canAsk={demande.canEdit && beforeLaunch(demande.status)}
+                canResolve={demande.canEdit && criteriaEditable(demande.status)}
+                frozen={!criteriaEditable(demande.status)}
+                turnsLeft={demande.clarifyTurnsLeft}
+              />
+            )}
         </div>
       </div>
     </div>

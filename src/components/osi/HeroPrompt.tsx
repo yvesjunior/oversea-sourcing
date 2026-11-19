@@ -178,6 +178,7 @@ export function HeroPrompt({
   variant = "hero",
   onDraftRestored,
   clarifyAvailable = false,
+  validation = false,
 }: {
   user: HeroUser;
   variant?: HeroVariant;
@@ -185,6 +186,10 @@ export function HeroPrompt({
    *  platform flag AI_CHAT). Signed-in buyers only: an anonymous visitor
    *  goes through the auth gate first and finds both buttons on the way back. */
   clarifyAvailable?: boolean;
+  /** The validation step is on (V20): submitting creates the request and
+   *  takes the buyer to its specification, to approve before anything is
+   *  searched. The button says so — it no longer launches a search. */
+  validation?: boolean;
   /** Fired when a saved draft was put back in the form, so a page that keeps
    *  the form collapsed can open it — a restored draft nobody can see is
    *  worse than no draft at all. */
@@ -291,7 +296,7 @@ export function HeroPrompt({
     return false;
   };
 
-  const finishCreate = async (id: string, attachments: File[], hold: boolean) => {
+  const finishCreate = async (id: string, attachments: File[], launched: boolean) => {
     if (attachments.length > 0) {
       const form = new FormData();
       form.set("requestId", id);
@@ -301,8 +306,9 @@ export function HeroPrompt({
       await fetch("/api/upload", { method: "POST", body: form }).catch(() => {});
       // Release the pipeline now the files are stored. If this call fails the
       // request still runs — the worker sweeps "received" after two minutes.
-      // A held draft (V18) releases nothing: the buyer launches it themselves.
-      if (!hold) await startRequestPipelineFn({ data: { id } }).catch(() => {});
+      // A request that WAITS — for its buyer's validation (V20) or as a held
+      // draft (V18) — releases nothing: the buyer launches it themselves.
+      if (launched) await startRequestPipelineFn({ data: { id } }).catch(() => {});
     }
     void navigate({ to: "/demandes/$id", params: { id } });
   };
@@ -335,7 +341,7 @@ export function HeroPrompt({
         },
       });
       if (!handleCreateResult(created, () => writeDraft(f))) return;
-      await finishCreate(created.id, attachments, hold);
+      await finishCreate(created.id, attachments, created.launched);
     } finally {
       setSubmitting(false);
     }
@@ -640,7 +646,7 @@ export function HeroPrompt({
                 ) : (
                   <Sparkles className="size-4" />
                 )}{" "}
-                {t("home.launch")}
+                {validation ? t("home.review") : t("home.launch")}
               </Button>
             </div>
           </div>

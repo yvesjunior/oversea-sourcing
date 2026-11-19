@@ -32,7 +32,7 @@ import {
   supersededAdds,
   valueWithUnit,
 } from "@/lib/clarification";
-import { criteriaEditable } from "@/lib/request-status";
+import { beforeLaunch, criteriaEditable } from "@/lib/request-status";
 import { recordEvent } from "@/server/requests";
 
 type RequestRow = typeof schema.request.$inferSelect;
@@ -93,7 +93,9 @@ export async function runClarification(input: {
   userMessage: string | null;
 }): Promise<ClarifyOutcome> {
   const { request, userMessage } = input;
-  if (request.status !== "draft") return { ok: false, reason: "not_draft" };
+  // A held draft, or a request awaiting its buyer's validation (V20 — the
+  // clarification is offered on the validation screen).
+  if (!beforeLaunch(request.status)) return { ok: false, reason: "not_draft" };
   if ((await clarifyTurnsUsed(request.id)) >= CLARIFY_MAX_TURNS) {
     return { ok: false, reason: "limit" };
   }

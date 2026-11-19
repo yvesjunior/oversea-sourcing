@@ -447,7 +447,8 @@
       "updated": "Mis à jour"
     },
     "clarify": "Préciser avec l’assistant",
-    "clarifyHint": "Enregistre la demande en brouillon : l’assistant la relit, vous lancez la recherche ensuite."
+    "clarifyHint": "Enregistre la demande en brouillon : l’assistant la relit, vous lancez la recherche ensuite.",
+    "review": "Vérifier le cahier des charges"
   },
   "stats": {
     "activeRequests": "Demandes actives",
@@ -491,7 +492,8 @@
     "unfulfilled": "Sans suite",
     "closed": "Clôturée",
     "cancelled": "Annulée",
-    "pack_ready": "Decision Pack disponible"
+    "pack_ready": "Decision Pack disponible",
+    "spec_review": "À valider"
   },
   "risk": {
     "Faible": "Faible",
@@ -635,7 +637,9 @@
     "rfq_holders_told": "{{count}} fournisseur(s) informé(s) que la demande est close",
     "pack_released": "Decision Pack disponible",
     "clarification_asked": "Relecture par l’assistant — questions : {{questions}}, propositions : {{proposals}}",
-    "spec_versioned": "Cahier des charges — version {{version}}"
+    "spec_versioned": "Cahier des charges — version {{version}}",
+    "status_spec_review": "En attente de validation par l’acheteur",
+    "spec_validated": "Cahier des charges validé — version {{version}}"
   },
   "stepsDemande": {
     "received": {
@@ -934,7 +938,8 @@
     "groups": {
       "rfq": "Appels d'offres (RFQ)",
       "pack": "Decision Pack",
-      "fee": "Honoraires OSI"
+      "fee": "Honoraires OSI",
+      "request": "Demandes"
     },
     "keys": {
       "flow.pack_enabled": "Parcours Decision Pack",
@@ -942,7 +947,8 @@
       "rfq.window_hours": "Délai de réponse des fournisseurs",
       "rfq.target_offers": "Nombre d'offres qui clôt la fenêtre",
       "pack.release_mode": "Envoi du Decision Pack",
-      "fee.rate_bps": "Taux des honoraires"
+      "fee.rate_bps": "Taux des honoraires",
+      "flow.spec_validation": "Validation du cahier des charges"
     },
     "hints": {
       "flow.pack_enabled": "Activé : les demandes des abonnements avec soumissions passent par la présélection OSI, l'appel d'offres puis le Decision Pack. Désactivé : toutes les demandes s'arrêtent au rapport. S'applique aux recherches qui se terminent après le changement ; une demande déjà engagée dans le parcours y reste.",
@@ -950,7 +956,8 @@
       "rfq.window_hours": "Compté à partir de l'envoi du lot de RFQ. Une fenêtre déjà ouverte garde le délai avec lequel elle a été ouverte.",
       "rfq.target_offers": "La fenêtre se ferme dès que ce nombre d'offres est reçu, sans attendre le délai. À ne pas confondre avec le nombre de fournisseurs classés par la recherche, qui se règle par abonnement.",
       "pack.release_mode": "Manuel : l'équipe valide et envoie chaque pack. Automatique : le pack part chez le client à la fermeture de sa fenêtre, sans revue ; un tour fermé sans offre revient toujours à une personne. S'applique aux packs créés après le changement. Avant de passer en automatique, consultez « Ce que la revue a changé » dans Decision Packs.",
-      "fee.rate_bps": "En points de base du montant de la transaction, ajoutés en sus : 300 = 3 %. Les frais propres du partenaire de règlement s'y ajoutent. Rien ne l'applique tant que le circuit de l'argent n'a pas reçu son avis juridique."
+      "fee.rate_bps": "En points de base du montant de la transaction, ajoutés en sus : 300 = 3 %. Les frais propres du partenaire de règlement s'y ajoutent. Rien ne l'applique tant que le circuit de l'argent n'a pas reçu son avis juridique.",
+      "flow.spec_validation": "Activé : chaque nouvelle demande attend que l'acheteur valide son cahier des charges ; rien n'est recherché avant. Désactivé : la recherche démarre dès l'envoi du formulaire. S'applique aux demandes créées après le changement ; une demande déjà en attente de validation le reste, et son acheteur la lance en validant."
     },
     "units": {
       "hours": "heures",
@@ -1144,7 +1151,8 @@
     "pack.assigned": "Decision Pack attribué",
     "pack.offer_reasked": "Offre expirée redemandée depuis le Decision Pack",
     "pack.auto_released": "Decision Pack envoyé automatiquement",
-    "request.launched": "Recherche lancée depuis un brouillon"
+    "request.launched": "Recherche lancée depuis un brouillon",
+    "request.validated": "Cahier des charges validé — recherche lancée"
   },
   "twofa": {
     "title": "Vérification en deux étapes",
@@ -1843,11 +1851,11 @@
     },
     "placeholder": "Répondez aux questions de l’assistant…",
     "limitReached": "Tous les échanges prévus pour cette demande ont été utilisés. Vous pouvez encore modifier les critères à la main, puis lancer la recherche.",
-    "closed": "Cette demande n’est plus un brouillon : l’échange avec l’assistant est clos.",
+    "closed": "Cette demande n’est plus en préparation : l’échange avec l’assistant est clos.",
     "refused": {
       "disabled": "L’assistant n’est pas disponible.",
       "forbidden": "Votre rôle ne permet pas cette action.",
-      "not_draft": "Cette demande n’est plus un brouillon.",
+      "not_draft": "Cette demande n’est plus en préparation.",
       "limit": "Tous les échanges prévus pour cette demande ont été utilisés.",
       "stale": "Cette proposition n’a pas pu être appliquée : le critère a changé entre-temps."
     },
@@ -1881,6 +1889,28 @@
       "verification": "Vérification du fournisseur",
       "incoterm": "Incoterm",
       "validity": "Durée de validité de l’offre"
+    },
+    "validatedBy": "Validé le {{when}} par {{name}}",
+    "validatedOn": "Validé le {{when}}",
+    "validatedOther": "La version validée par l’acheteur est la version {{version}} ; celle-ci a été établie depuis."
+  },
+  "validation": {
+    "title": "Cahier des charges à valider — rien n’est encore recherché",
+    "text": "Voici ce qui sera recherché, puis transmis aux fournisseurs. Vérifiez-le, corrigez les critères si nécessaire, puis validez : la recherche démarre à ce moment-là.",
+    "textReadOnly": "L’acheteur n’a pas encore validé le cahier des charges. Rien n’est recherché tant qu’il ne l’a pas fait.",
+    "missingTitle": "Il manque de quoi établir un prix",
+    "missing": {
+      "quantity": "La quantité",
+      "lead_time": "Le délai de livraison souhaité"
+    },
+    "missingHint": "Ajoutez-les dans « Critères identifiés ». Vous pouvez aussi valider sans : les fournisseurs devront alors vous le demander.",
+    "validate": "Valider la version {{version}} et lancer la recherche",
+    "edit": "Pour corriger : modifiez les critères ci-dessous, une nouvelle version s’affiche.",
+    "present": "Présenter pour validation",
+    "refused": {
+      "forbidden": "Votre rôle ne permet pas de valider.",
+      "not_in_review": "Cette demande n’est plus en attente de validation.",
+      "stale": "Le cahier des charges a changé depuis l’affichage de cette page. Relisez la version ci-dessous, puis validez."
     }
   }
 }

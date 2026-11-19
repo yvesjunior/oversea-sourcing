@@ -8,7 +8,12 @@ import { StatusPill } from "@/components/osi/StatusPill";
 import { statsConfig, valeurs } from "@/data/osi";
 import { formatDay, formatDayTime } from "@/lib/instant";
 import { canSeeAllRequests } from "@/lib/roles";
-import { getAllRequestsFn, getMyRequestsFn, type RequestSummary } from "@/lib/requests-fns";
+import {
+  getAllRequestsFn,
+  getIntakeOptionsFn,
+  getMyRequestsFn,
+  type RequestSummary,
+} from "@/lib/requests-fns";
 import {
   getAllStatsFn,
   getDashboardStatsFn,
@@ -38,14 +43,15 @@ export const Route = createFileRoute("/")({
   // Real data, visibility by role: buyers → own · employees → global + own,
   // grouped under one tab switcher. Anonymous → zeros (the page stays public).
   loader: async () => {
-    const [stats, statsAll, demandes, toutes, activity] = await Promise.all([
+    const [stats, statsAll, demandes, toutes, activity, intake] = await Promise.all([
       getDashboardStatsFn(),
       getAllStatsFn(), // null unless owner/manager
       getMyRequestsFn(),
       getAllRequestsFn(), // [] unless owner/manager
       getRecentActivityFn(), // [] when anonymous
+      getIntakeOptionsFn(), // what the form's button will do (V20)
     ]);
-    return { stats, statsAll, demandes, toutes, activity };
+    return { stats, statsAll, demandes, toutes, activity, intake };
   },
   component: Accueil,
 });
@@ -212,7 +218,7 @@ function Accueil() {
   // the DASHBOARD. The form moved to /demandes for them, so this route keeps
   // its own header rather than borrowing the hero's greeting.
   const { session } = Route.useRouteContext();
-  const { stats, statsAll, demandes, toutes, activity } = Route.useLoaderData();
+  const { stats, statsAll, demandes, toutes, activity, intake } = Route.useLoaderData();
   const loggedIn = Boolean(session);
   const platformRole = (session?.user as { platformRole?: string } | undefined)?.platformRole;
   // Employees (owner/manager) standing in OSI's own workspace: the global
@@ -234,7 +240,7 @@ function Accueil() {
           <p className="mt-1 text-sm text-muted-foreground">{t("home.dashboardSubtitle")}</p>
         </header>
       ) : (
-        <HeroPrompt user={null} />
+        <HeroPrompt user={null} validation={intake.validation} />
       )}
 
       {employee ? (

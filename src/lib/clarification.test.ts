@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
+import fr from "@/i18n/locales/fr.json";
+import en from "@/i18n/locales/en.json";
 import {
   absentBasics,
+  BASIC_CATEGORIES,
   CLARIFY_MAX_TURNS,
   clarifyTurnsLeft,
   normalizeProposals,
@@ -36,6 +39,20 @@ describe("absentBasics", () => {
 
   it("does not count an empty value as an answer", () => {
     expect(absentBasics([{ category: "quantity", value: "  " }])).toContain("quantity");
+  });
+});
+
+// The validation screen names each missing basic to the buyer (V20). A basic
+// added to the list without its sentence would print a raw key there.
+describe("the missing basics have a sentence in both languages", () => {
+  it.each([
+    ["fr", fr],
+    ["en", en],
+  ] as const)("%s", (_lang, locale) => {
+    const missing = locale.validation.missing as Record<string, string>;
+    for (const basic of BASIC_CATEGORIES) {
+      expect(missing[basic], `validation.missing.${basic}`).toBeTypeOf("string");
+    }
   });
 });
 
