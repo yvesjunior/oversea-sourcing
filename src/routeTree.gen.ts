@@ -53,6 +53,7 @@ import { Route as DemandesIdRapportRouteImport } from './routes/demandes/$id_.ra
 import { Route as PartenairesDossierIdRouteImport } from './routes/partenaires/dossier.$id'
 import { Route as PartenairesInscriptionTokenRouteImport } from './routes/partenaires/inscription.$token'
 import { Route as PartenairesTransactionIdRouteImport } from './routes/partenaires/transaction.$id'
+import { Route as PortailContratIdRouteImport } from './routes/portail/contrat.$id'
 import { Route as PortailInscriptionTokenRouteImport } from './routes/portail/inscription.$token'
 import { Route as PortailRfqIdRouteImport } from './routes/portail/rfq.$id'
 import { Route as PortailTransactionIdRouteImport } from './routes/portail/transaction.$id'
@@ -281,6 +282,11 @@ const PartenairesTransactionIdRoute =
     path: '/partenaires/transaction/$id',
     getParentRoute: () => rootRouteImport,
   } as any)
+const PortailContratIdRoute = PortailContratIdRouteImport.update({
+  id: '/portail/contrat/$id',
+  path: '/portail/contrat/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PortailInscriptionTokenRoute = PortailInscriptionTokenRouteImport.update({
   id: '/portail/inscription/$token',
   path: '/portail/inscription/$token',
@@ -352,6 +358,7 @@ export interface FileRoutesByFullPath {
   '/partenaires/dossier/$id': typeof PartenairesDossierIdRoute
   '/partenaires/inscription/$token': typeof PartenairesInscriptionTokenRoute
   '/partenaires/transaction/$id': typeof PartenairesTransactionIdRoute
+  '/portail/contrat/$id': typeof PortailContratIdRoute
   '/portail/inscription/$token': typeof PortailInscriptionTokenRoute
   '/portail/rfq/$id': typeof PortailRfqIdRoute
   '/portail/transaction/$id': typeof PortailTransactionIdRoute
@@ -403,6 +410,7 @@ export interface FileRoutesByTo {
   '/partenaires/dossier/$id': typeof PartenairesDossierIdRoute
   '/partenaires/inscription/$token': typeof PartenairesInscriptionTokenRoute
   '/partenaires/transaction/$id': typeof PartenairesTransactionIdRoute
+  '/portail/contrat/$id': typeof PortailContratIdRoute
   '/portail/inscription/$token': typeof PortailInscriptionTokenRoute
   '/portail/rfq/$id': typeof PortailRfqIdRoute
   '/portail/transaction/$id': typeof PortailTransactionIdRoute
@@ -455,6 +463,7 @@ export interface FileRoutesById {
   '/partenaires/dossier/$id': typeof PartenairesDossierIdRoute
   '/partenaires/inscription/$token': typeof PartenairesInscriptionTokenRoute
   '/partenaires/transaction/$id': typeof PartenairesTransactionIdRoute
+  '/portail/contrat/$id': typeof PortailContratIdRoute
   '/portail/inscription/$token': typeof PortailInscriptionTokenRoute
   '/portail/rfq/$id': typeof PortailRfqIdRoute
   '/portail/transaction/$id': typeof PortailTransactionIdRoute
@@ -508,6 +517,7 @@ export interface FileRouteTypes {
     | '/partenaires/dossier/$id'
     | '/partenaires/inscription/$token'
     | '/partenaires/transaction/$id'
+    | '/portail/contrat/$id'
     | '/portail/inscription/$token'
     | '/portail/rfq/$id'
     | '/portail/transaction/$id'
@@ -559,6 +569,7 @@ export interface FileRouteTypes {
     | '/partenaires/dossier/$id'
     | '/partenaires/inscription/$token'
     | '/partenaires/transaction/$id'
+    | '/portail/contrat/$id'
     | '/portail/inscription/$token'
     | '/portail/rfq/$id'
     | '/portail/transaction/$id'
@@ -610,6 +621,7 @@ export interface FileRouteTypes {
     | '/partenaires/dossier/$id'
     | '/partenaires/inscription/$token'
     | '/partenaires/transaction/$id'
+    | '/portail/contrat/$id'
     | '/portail/inscription/$token'
     | '/portail/rfq/$id'
     | '/portail/transaction/$id'
@@ -662,6 +674,7 @@ export interface RootRouteChildren {
   PartenairesDossierIdRoute: typeof PartenairesDossierIdRoute
   PartenairesInscriptionTokenRoute: typeof PartenairesInscriptionTokenRoute
   PartenairesTransactionIdRoute: typeof PartenairesTransactionIdRoute
+  PortailContratIdRoute: typeof PortailContratIdRoute
   PortailInscriptionTokenRoute: typeof PortailInscriptionTokenRoute
   PortailRfqIdRoute: typeof PortailRfqIdRoute
   PortailTransactionIdRoute: typeof PortailTransactionIdRoute
@@ -979,6 +992,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PartenairesTransactionIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/portail/contrat/$id': {
+      id: '/portail/contrat/$id'
+      path: '/portail/contrat/$id'
+      fullPath: '/portail/contrat/$id'
+      preLoaderRoute: typeof PortailContratIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/portail/inscription/$token': {
       id: '/portail/inscription/$token'
       path: '/portail/inscription/$token'
@@ -1062,6 +1082,7 @@ const rootRouteChildren: RootRouteChildren = {
   PartenairesDossierIdRoute: PartenairesDossierIdRoute,
   PartenairesInscriptionTokenRoute: PartenairesInscriptionTokenRoute,
   PartenairesTransactionIdRoute: PartenairesTransactionIdRoute,
+  PortailContratIdRoute: PortailContratIdRoute,
   PortailInscriptionTokenRoute: PortailInscriptionTokenRoute,
   PortailRfqIdRoute: PortailRfqIdRoute,
   PortailTransactionIdRoute: PortailTransactionIdRoute,

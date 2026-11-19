@@ -24,7 +24,7 @@
 | **E9** Notifications | In-app + email | 🟡 bell, emitters, **prefs (2026-08-26)** live; Phase P types (`quote_received`, `contract_to_sign`, `contract_signed`) + staff alert on `quotes.requested` (2026-09-07) live; **the bell alerts (2026-09-14)** — count badge, 30 s poll, chime, per-browser mute |
 | **E10** Admin surfaces | Verification, imports, ops queue | 🟡 **verification LIVE (S5b/S5c, 2026-08-26)**; imports/ops queue placeholders |
 | **R** Custom staff roles | Roles as data + the matrix | ✅ **BUILT 2026-08-29** (migration 0039) — create/delete roles, dynamic matrix, `requests.all` |
-| **E13** V6 architecture | Supplier portal · KPI #2 · Partner Hub · Decision Pack | 🔵 **NEW 2026-10-21** — scope opened by the V6 document; diagrams validated 2026-11-14; **34 tasks in seven slices — [Phase V](#phase-v--the-v6-parcours-task-by-task-e13--written-2026-11-14)**; **V01, V02, V04–V11 built 2026-11-14** (settings, contacts, states, fork + shortlist, RFQ batch, window closing, typed answer time + channel, KPI #2 v1, the Decision Pack record, the release queue); V01–V11 **live on prod — V01–V09 since deploy #45 (2026-11-14), V10–V11 since deploy #47 (2026-11-18) — with the pack-flow switch OFF**; **V12–V14 built 2026-11-18** (the buyer's pack page, choosing from it, automatic release built and switched off + the review report) — **slice 1 (V04–V14) is complete** — **live on prod since deploy #48 (2026-11-18), pack flow off, release manual**; **V18–V20 built 2026-11-18** (the clarification, behind `AI_CHAT`, off; the cahier des charges and the KPI profile as versioned records; the buyer's validation before any search, behind `flow.spec_validation`, ON by default) — **slice 3 complete**; **V03 and V15–V17 built 2026-11-18** (external accounts: a supplier is not a customer; the RFQ link that creates a supplier account; the portal where they answer, decline and attach; what suppliers are told and the response funnel) — **slice 2 complete**; **V21–V23 built 2026-11-18** (partners and their adapter; cases opened on an offer and the figures partners add to it; the Partner Hub where a partner's person answers) — **V15–V23 and V03 live on prod since deploy #49 (2026-11-18)**; **V24 built 2026-11-19** (KPI #2 on landed cost per unit, stored exchange rates) — **slice 4 complete**; **V25 built 2026-11-19** (the Transaction Room: one dossier, four readers) — both on `main`, not deployed |
+| **E13** V6 architecture | Supplier portal · KPI #2 · Partner Hub · Decision Pack | 🔵 **NEW 2026-10-21** — scope opened by the V6 document; diagrams validated 2026-11-14; **34 tasks in seven slices — [Phase V](#phase-v--the-v6-parcours-task-by-task-e13--written-2026-11-14)**; **V01, V02, V04–V11 built 2026-11-14** (settings, contacts, states, fork + shortlist, RFQ batch, window closing, typed answer time + channel, KPI #2 v1, the Decision Pack record, the release queue); V01–V11 **live on prod — V01–V09 since deploy #45 (2026-11-14), V10–V11 since deploy #47 (2026-11-18) — with the pack-flow switch OFF**; **V12–V14 built 2026-11-18** (the buyer's pack page, choosing from it, automatic release built and switched off + the review report) — **slice 1 (V04–V14) is complete** — **live on prod since deploy #48 (2026-11-18), pack flow off, release manual**; **V18–V20 built 2026-11-18** (the clarification, behind `AI_CHAT`, off; the cahier des charges and the KPI profile as versioned records; the buyer's validation before any search, behind `flow.spec_validation`, ON by default) — **slice 3 complete**; **V03 and V15–V17 built 2026-11-18** (external accounts: a supplier is not a customer; the RFQ link that creates a supplier account; the portal where they answer, decline and attach; what suppliers are told and the response funnel) — **slice 2 complete**; **V21–V23 built 2026-11-18** (partners and their adapter; cases opened on an offer and the figures partners add to it; the Partner Hub where a partner's person answers) — **V15–V23 and V03 live on prod since deploy #49 (2026-11-18)**; **V24 built 2026-11-19** (KPI #2 on landed cost per unit, stored exchange rates) — **slice 4 complete**; **V25–V26 built 2026-11-19** (the Transaction Room: one dossier, four readers; a supplier signs in the portal, behind a setting that is OFF) — all on `main`, not deployed |
 | **E11** Settings | Profile, sourcing rules | 🟡 Paramètres + notification prefs live; **password / 2FA / theme / rename (2026-08-27)** live; buyer Abonnement self-service waits for billing |
 
 **MVP1 = E0–E7 + E10.** Definition of done **restated 2026-08-29 by ADR-002**
@@ -40,10 +40,12 @@ tracked to delivery** — with the PDF report available throughout.
 
 **Prod = `dc0964b` (deploy #49, 2026-11-18)** — Phase V tasks V01–V23:
 slices 1, 2 and 3 complete, slice 4 up to V23. **`main` is ahead of prod by
-two tasks, NOT deployed: V24** (KPI #2 on landed cost; migration **0063**,
-additive — two nullable columns) **and V25** (the Transaction Room;
+three tasks, NOT deployed: V24** (KPI #2 on landed cost; migration **0063**,
+additive — two nullable columns), **V25** (the Transaction Room;
 migration **0064**, additive — three tables, seven nullable or defaulted
-columns). Deploying them changes no ranking on prod (no round, no partner
+columns) **and V26** (a supplier signs in the portal; no migration; behind
+`contracts.supplier_signature`, **off** by default — nothing changes until
+someone switches it on, and the legal question comes first). Deploying them changes no ranking on prod (no round, no partner
 figure, no pack) and opens no dossier (prod holds no deal); what a user
 sees is « Commandes » enabled in the menu, leading to an empty list. Deploy #49 carried eleven tasks at once — V18, V19, the search-model
 fix, V20, V03, V15, V16, V17, V21, V22, V23 — and eight additive migrations
@@ -6905,29 +6907,77 @@ P10 in V25, P11 in V31.
       the deal opens (D6) — make it an explicit step in the code, not a side
       effect of a join.~~
 
-- [ ] **V26 · Contracts: the supplier signs in the platform.** *Size M. Step
-      14. Depends on: V16, V25.*
+- [x] **V26 · Contracts: the supplier signs in the platform — BUILT
+      2026-11-19** (no migration, not deployed; **behind
+      `contracts.supplier_signature`, off by default**).
+      `src/lib/signature.ts` (`canSupplierSign`, `signatureWays`);
+      `src/server/signatures.ts` (new: the supplier's reads and signature,
+      plus `syncContractStatus` and `notifyContractComplete`, moved out of
+      `signature-fns.ts` so the three ways share them); three functions added
+      to `portal-fns.ts`; `routes/portail/contrat.$id.tsx`; a contracts list on
+      the supplier's dossier page; a hint on the staff contract page; a
+      « Contrats » group on `/interne/parametres`. 962 tests.
 
-      **What it does.** A supplier with an account signs the way the buyer
-      and OSI do. Without one — or refusing to — staff upload the countersigned
-      PDF, as today. Both stay, permanently.
+      **As built.** With the setting on, a supplier's person signs their own
+      line in the portal; staff can still record a countersigned PDF for any
+      supplier. Both stay. A supplier reads a contract only if their supplier
+      is a party to it, it has been sent, and the buyer has been disclosed on
+      that dossier. See README.
 
-      **Files.** `src/lib/signature.ts` — whether a party signs in the
-      platform is decided by whether the party has a linked account, not by
+      **Deviation from the task as written.** The task puts the supplier's
+      signing function in `signature-fns.ts`. It is in `portal-fns.ts`
+      (`signMyContractFn`): since V23 a file of external functions uses ONE
+      guard and never names another, and `signature-fns.ts` is the
+      workspace's. The task also says the mechanism is "decided by whether
+      the party has a linked account": it is decided by that AND the setting,
+      and the paper route is never closed by either.
+
+      **Acceptance, as tests** (`signature.test.ts`): the supplier's line
+      signs with the setting on and is `feature_off` without it; another
+      supplier's line is `not_your_party` whatever the setting; a draft, a
+      dead contract and a signed line are refused; the paper route is open in
+      all four combinations of setting and account.
+
+      *Verified live in dev* (the V25 dossier, a real supplier account): two
+      contracts drafted; as the supplier, the draft purchase order is absent
+      and `not_found`; once sent it is listed and readable, `feature_off`,
+      and the buyer–OSI mandate is `null`; setting switched on → the staff
+      page shows the supplier line as signable in the portal AND on paper;
+      the supplier read the text and signed from the page → 1/2, « Being
+      signed », party row `in_platform` / `Mei Lin` / `signedAs:
+      supplier_account` with IP, event `contract.signed {role: supplier,
+      method: in_platform}`; a second signature → `already_recorded`; the
+      buyer signed → `signed`. On the older dossier, whose supplier has no
+      account: no portal route offered, staff recorded a paper signature →
+      event `contract.signed {method: manual_upload}`. **The two trails
+      differ in `detail.method` only.**
+
+      **Not exercised:** a contract voided or expired while the supplier's
+      page is open; two simultaneous signatures (the row is locked; not
+      raced); the French page; the settings page's new group by hand (the
+      setting was changed through its server function).
+      **Found, not fixed here:** the purchase-order template prints the
+      supplier's UNIT price as « Prix total convenu » — a pre-existing
+      wording error in a document people sign (task chip spawned).
+      **Still open — owner / counsel:** whether this signature is sufficient
+      evidence. Until answered, the setting stays off.
+
+      ~~**What it does.** A supplier with an account signs the way the buyer
+      and OSI do. Without one — or refusing to — staff upload the
+      countersigned PDF, as today. Both stay, permanently. **Files.**
+      `src/lib/signature.ts` — whether a party signs in the platform is
+      decided by whether the party has a linked account, not by
       `IN_PLATFORM_ROLES` alone. `signature-fns.ts` — `signContractFn` for a
-      supplier session through `requireSupplierSession`. The portal's
-      contract view.
-
-      **Acceptance.** A registered supplier signs a purchase order in the
-      portal and the `N/M` indicator moves. An unregistered one is handled by
-      `recordManualSignatureFn` exactly as now. Both produce the same
+      supplier session through `requireSupplierSession`. The portal's contract
+      view. **Acceptance.** A registered supplier signs a purchase order in
+      the portal and the `N/M` indicator moves. An unregistered one is handled
+      by `recordManualSignatureFn` exactly as now. Both produce the same
       `contract_event` trail and differ only in the recorded method.
-
       **Gotcha.** Whether an in-platform signature by an *external* party is
-      sufficient evidence is a legal question, not a technical one — put it
-      to Zack with the money circuit. Ship behind a flag (V6: *"feature flags
+      sufficient evidence is a legal question, not a technical one — put it to
+      Zack with the money circuit. Ship behind a flag (V6: *"feature flags
       pour … signatures"*), default off. The five contract types beyond the
-      two built are separate work and not part of this task.
+      two built are separate work and not part of this task.~~
 
 - [ ] **V27 · Production: milestones and proofs.** *Size L. Step 16. Depends
       on: V25. Replaces P7.*

@@ -98,6 +98,28 @@ describe("the validation step", () => {
   });
 });
 
+// V26: whether an in-platform signature by an external party is sufficient
+// evidence is a legal question. The code ships; the switch stays off.
+describe("the supplier's signature in the portal", () => {
+  it("is off unless a row says otherwise, and both values can be stored", () => {
+    expect(defaultSetting("contracts.supplier_signature")).toBe("off");
+    expect(parseSettingValue("contracts.supplier_signature", "on")).toEqual({
+      ok: true,
+      value: "on",
+    });
+    expect(parseSettingValue("contracts.supplier_signature", "off")).toEqual({
+      ok: true,
+      value: "off",
+    });
+    expect(parseSettingValue("contracts.supplier_signature", "yes").ok).toBe(false);
+  });
+
+  it("is read by the signing code, so it is not marked inert", () => {
+    expect(PLATFORM_SETTINGS["contracts.supplier_signature"].inert).toBe(false);
+    expect(PLATFORM_SETTINGS["contracts.supplier_signature"].group).toBe("contracts");
+  });
+});
+
 describe("the pack-flow switch", () => {
   it("is off unless a row says otherwise", () => {
     expect(defaultSetting("flow.pack_enabled")).toBe("off");

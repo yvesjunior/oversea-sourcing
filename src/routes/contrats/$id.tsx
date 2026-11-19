@@ -424,6 +424,11 @@ function PartyActions({
           {t("contrats.remind")}
         </Button>
       )}
+      {/* V26: this supplier has an account and may sign in its portal.
+          Said beside the paper route, which stays open. */}
+      {party.canSignInPortal && (
+        <span className="text-[11px] text-muted-foreground">{t("contrats.canSignInPortal")}</span>
+      )}
       {!party.canSignNow && !party.canRecordManualNow && !party.canRemindNow && (
         <span className="text-[11px] text-muted-foreground">
           {t(`contrats.mechanism.${party.mechanism}`)}

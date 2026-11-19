@@ -946,7 +946,8 @@
       "rfq": "Appels d'offres (RFQ)",
       "pack": "Decision Pack",
       "fee": "Honoraires OSI",
-      "request": "Demandes"
+      "request": "Demandes",
+      "contracts": "Contrats"
     },
     "keys": {
       "flow.pack_enabled": "Parcours Decision Pack",
@@ -955,7 +956,8 @@
       "rfq.target_offers": "Nombre d'offres qui clôt la fenêtre",
       "pack.release_mode": "Envoi du Decision Pack",
       "fee.rate_bps": "Taux des honoraires",
-      "flow.spec_validation": "Validation du cahier des charges"
+      "flow.spec_validation": "Validation du cahier des charges",
+      "contracts.supplier_signature": "Signature du fournisseur dans le portail"
     },
     "hints": {
       "flow.pack_enabled": "Activé : les demandes des abonnements avec soumissions passent par la présélection OSI, l'appel d'offres puis le Decision Pack. Désactivé : toutes les demandes s'arrêtent au rapport. S'applique aux recherches qui se terminent après le changement ; une demande déjà engagée dans le parcours y reste.",
@@ -964,7 +966,8 @@
       "rfq.target_offers": "La fenêtre se ferme dès que ce nombre d'offres est reçu, sans attendre le délai. À ne pas confondre avec le nombre de fournisseurs classés par la recherche, qui se règle par abonnement.",
       "pack.release_mode": "Manuel : l'équipe valide et envoie chaque pack. Automatique : le pack part chez le client à la fermeture de sa fenêtre, sans revue ; un tour fermé sans offre revient toujours à une personne. S'applique aux packs créés après le changement. Avant de passer en automatique, consultez « Ce que la revue a changé » dans Decision Packs.",
       "fee.rate_bps": "En points de base du montant de la transaction, ajoutés en sus : 300 = 3 %. Les frais propres du partenaire de règlement s'y ajoutent. Rien ne l'applique tant que le circuit de l'argent n'a pas reçu son avis juridique.",
-      "flow.spec_validation": "Activé : chaque nouvelle demande attend que l'acheteur valide son cahier des charges ; rien n'est recherché avant. Désactivé : la recherche démarre dès l'envoi du formulaire. S'applique aux demandes créées après le changement ; une demande déjà en attente de validation le reste, et son acheteur la lance en validant."
+      "flow.spec_validation": "Activé : chaque nouvelle demande attend que l'acheteur valide son cahier des charges ; rien n'est recherché avant. Désactivé : la recherche démarre dès l'envoi du formulaire. S'applique aux demandes créées après le changement ; une demande déjà en attente de validation le reste, et son acheteur la lance en validant.",
+      "contracts.supplier_signature": "Désactivé : la signature d’un fournisseur est consignée par l’équipe à partir du PDF contresigné, comme toujours. Activé : un fournisseur qui a un compte peut signer sa ligne dans son portail ; l’équipe peut toujours consigner un PDF pour celui qui n’a pas de compte ou préfère le papier. À n’activer qu’après avis juridique sur la valeur de cette signature."
     },
     "units": {
       "hours": "heures",
@@ -1448,7 +1451,8 @@
       "not_pending": "Cette partie n'attend plus de signature.",
       "not_found": "Introuvable."
     },
-    "viewSignedDoc": "Voir"
+    "viewSignedDoc": "Voir",
+    "canSignInPortal": "Peut aussi signer dans son portail fournisseur."
   },
   "dealBox": {
     "title": "Dossier de transaction",
@@ -2398,5 +2402,41 @@
     "yourDossiers": "Dossiers en cours",
     "others_one": "{{count}} autre partie du dossier",
     "others_other": "{{count}} autres parties du dossier"
+  },
+  "portalContract": {
+    "listTitle": "Contrats",
+    "none": "Aucun contrat ne vous a été transmis pour ce dossier.",
+    "progress": "{{signed}} / {{required}} signatures",
+    "yours": {
+      "pending": "Votre signature est attendue",
+      "signed": "Vous avez signé ce contrat",
+      "declined": "Vous avez refusé"
+    },
+    "open": "Lire le contrat",
+    "back": "Retour au dossier",
+    "notFound": "Ce contrat est introuvable, ou ne vous a pas été transmis.",
+    "parties": "Les signataires",
+    "signedOn": "signé le {{when}}",
+    "pending": "en attente",
+    "you": "vous",
+    "signTitle": "Votre signature",
+    "signIntro": "En signant, vous engagez {{supplier}} sur le texte ci-dessus. Votre nom, la date et l’origine de la connexion sont conservés avec le contrat.",
+    "confirm": "J’ai lu le contrat et je signe au nom de : {{supplier}}",
+    "sign": "Signer le contrat",
+    "refusal": {
+      "feature_off": "La signature en ligne n’est pas ouverte : OSI vous transmettra le contrat à signer et à lui retourner.",
+      "already_recorded": "Votre signature est déjà enregistrée.",
+      "contract_closed": "Ce contrat n’est plus en vigueur.",
+      "not_sent": "Ce contrat ne vous a pas encore été transmis.",
+      "not_your_party": "Cette ligne de signature n’est pas la vôtre.",
+      "external_party": "Ce contrat se signe sur papier.",
+      "forbidden": "Vous ne pouvez pas signer ce contrat.",
+      "not_found": "Ce contrat est introuvable."
+    },
+    "status": {
+      "sent": "À signer",
+      "partially_signed": "En cours de signature",
+      "signed": "Signé"
+    }
   }
 }

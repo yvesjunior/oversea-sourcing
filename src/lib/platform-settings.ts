@@ -30,6 +30,7 @@ export type PlatformSettingValues = {
   "rfq.window_hours": number;
   "rfq.target_offers": number;
   "pack.release_mode": ReleaseMode;
+  "contracts.supplier_signature": SwitchValue;
   "fee.rate_bps": number;
 };
 export type SettingKey = keyof PlatformSettingValues;
@@ -78,7 +79,7 @@ export type SettingDefinition<V> = Common &
       ? EmailDefinition
       : ChoiceDefinition<V & string>);
 
-export const SETTING_GROUPS = ["request", "rfq", "pack", "fee"] as const;
+export const SETTING_GROUPS = ["request", "rfq", "pack", "contracts", "fee"] as const;
 export type SettingGroup = (typeof SETTING_GROUPS)[number];
 
 export const PLATFORM_SETTINGS: {
@@ -179,6 +180,28 @@ export const PLATFORM_SETTINGS: {
     group: "pack",
     options: RELEASE_MODES,
     default: "manual",
+    unavailable: [],
+    inert: false,
+  },
+  /**
+   * Whether a supplier WITH AN ACCOUNT may sign a contract in the portal
+   * (Phase V · V26).
+   *
+   * `off` — the default, and what every contract did before V26: a
+   * supplier's signature is recorded by staff from a countersigned PDF.
+   * `on` — a supplier's person signs their own line in the portal, as the
+   * buyer and OSI do; staff can STILL record a countersigned PDF for a
+   * supplier who has no account or prefers paper. Both ways stay.
+   *
+   * Off by default on purpose: whether a signature given in the platform by
+   * an EXTERNAL party is sufficient evidence is a legal question, to be put
+   * to counsel with the money circuit. Shipping the code switches nothing on.
+   */
+  "contracts.supplier_signature": {
+    kind: "choice",
+    group: "contracts",
+    options: SWITCH_VALUES,
+    default: "off",
     unavailable: [],
     inert: false,
   },

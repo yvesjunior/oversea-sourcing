@@ -17,30 +17,6 @@ import { z } from "zod";
 
 type Refusal = { ok: false; reason: string };
 
-/** Recompute status from the party rows and stamp the contract. Returns the
- *  new status so callers can react to completion without re-reading. */
-async function syncContractStatus(contractId: string): Promise<string> {
-  const [{ db }, { eq }, schema, { statusFromSignatures }] = await Promise.all([
-    import("@/database"),
-    import("drizzle-orm"),
-    import("@/database/schema"),
-    import("@/lib/deal-status"),
-  ]);
-  const parties = await db.query.contractParty.findMany({
-    where: eq(schema.contractParty.contractId, contractId),
-  });
-  const status = statusFromSignatures(parties);
-  await db
-    .update(schema.contract)
-    .set({
-      status,
-      ...(status === "signed" ? { signedAt: new Date() } : {}),
-      updatedAt: new Date(),
-    })
-    .where(eq(schema.contract.id, contractId));
-  return status;
-}
-
 /**
  * Send a contract to its parties (staff, `contracts.send`).
  *
@@ -255,6 +231,7 @@ export const signContractFn = createServerFn({ method: "POST" })
       detail: { role: party.role, method: "in_platform" },
     });
 
+    const { syncContractStatus, notifyContractComplete } = await import("@/server/signatures");
     const status = await syncContractStatus(contract.id);
     if (status === "signed") await notifyContractComplete(contract.id);
     return { ok: true, status };
@@ -355,6 +332,7 @@ export const recordManualSignatureFn = createServerFn({ method: "POST" })
       },
     });
 
+    const { syncContractStatus, notifyContractComplete } = await import("@/server/signatures");
     const status = await syncContractStatus(contract.id);
     if (status === "signed") await notifyContractComplete(contract.id);
     return { ok: true, status };
@@ -432,36 +410,3 @@ export const remindPartyFn = createServerFn({ method: "POST" })
     });
     return { ok: true, mailed };
   });
-
-/** Everyone mandatory has signed — tell the buyer their contract is complete. */
-async function notifyContractComplete(contractId: string): Promise<void> {
-  const [{ db }, { eq }, schema] = await Promise.all([
-    import("@/database"),
-    import("drizzle-orm"),
-    import("@/database/schema"),
-  ]);
-  const contract = await db.query.contract.findFirst({
-    where: eq(schema.contract.id, contractId),
-  });
-  if (!contract) return;
-  const deal = await db.query.deal.findFirst({ where: eq(schema.deal.id, contract.dealId) });
-  const request = deal?.requestId
-    ? await db.query.request.findFirst({ where: eq(schema.request.id, deal.requestId) })
-    : undefined;
-  if (!request?.createdBy) return;
-
-  const { notifyUser } = await import("@/server/notify");
-  await notifyUser({
-    userId: request.createdBy,
-    organizationId: contract.organizationId,
-    type: "contract_signed",
-    params: { number: contract.number },
-    link: `/contrats/${contract.id}`,
-    email: {
-      subjectFr: `Contrat signé — ${contract.number}`,
-      subjectEn: `Contract signed — ${contract.number}`,
-      bodyFr: `Toutes les signatures obligatoires du contrat ${contract.number} sont réunies.`,
-      bodyEn: `Every mandatory signature on contract ${contract.number} is in.`,
-    },
-  });
-}

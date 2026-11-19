@@ -66,6 +66,11 @@ export const EXTERNAL_FNS = {
   getMyDossierFn: "one of those dossiers, the supplier's slice",
   startMyThreadFn: "the caller's own thread with OSI",
   postMyMessageFn: "the caller's own message, in a thread they are in",
+  // Contracts (V26): those the caller's supplier is a PARTY to, once sent,
+  // and the caller's own signature on their own line.
+  getMyContractsFn: "the caller's own contracts on a dossier",
+  getMyContractFn: "one of the caller's own contracts",
+  signMyContractFn: "the caller's own signature",
   // ── the Partner Hub (V23): each through `requirePartnerSession`, each
   //    filtered by the caller's own `partnerIds` in src/server/partner-hub.ts,
   //    each case cut down to what its kind needs (src/lib/partner-need.ts) ──

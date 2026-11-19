@@ -946,7 +946,8 @@
       "rfq": "Requests for quotation (RFQ)",
       "pack": "Decision Pack",
       "fee": "OSI fee",
-      "request": "Requests"
+      "request": "Requests",
+      "contracts": "Contracts"
     },
     "keys": {
       "flow.pack_enabled": "Decision Pack flow",
@@ -955,7 +956,8 @@
       "rfq.target_offers": "Number of offers that closes the window",
       "pack.release_mode": "Releasing the Decision Pack",
       "fee.rate_bps": "Fee rate",
-      "flow.spec_validation": "Validation of the specification"
+      "flow.spec_validation": "Validation of the specification",
+      "contracts.supplier_signature": "Supplier signature in the portal"
     },
     "hints": {
       "flow.pack_enabled": "On: requests from plans that include quotes go through OSI's shortlist, the RFQ and then the Decision Pack. Off: every request ends at the report. Applies to searches finishing after the change; a request already on the pack flow stays on it.",
@@ -964,7 +966,8 @@
       "rfq.target_offers": "The window closes as soon as this many offers are in, without waiting for the delay. Not the number of suppliers the search ranks — that is set per plan.",
       "pack.release_mode": "Manual: staff validate and send each pack. Automatic: the pack goes to the client when its window closes, without review; a round closed with no offer always goes to a person. Applies to packs created after the change. Before switching to automatic, read \"What review changed\" under Decision Packs.",
       "fee.rate_bps": "In basis points of the transaction amount, added on top: 300 = 3%. The settlement partner's own fees come on top of it. Nothing applies it until the money circuit has its legal opinion.",
-      "flow.spec_validation": "On: every new request waits until its buyer validates the specification; nothing is searched before. Off: the search starts as soon as the form is submitted. Applies to requests created after the change; a request already waiting for validation stays so, and its buyer launches it by validating."
+      "flow.spec_validation": "On: every new request waits until its buyer validates the specification; nothing is searched before. Off: the search starts as soon as the form is submitted. Applies to requests created after the change; a request already waiting for validation stays so, and its buyer launches it by validating.",
+      "contracts.supplier_signature": "Off: a supplier’s signature is recorded by the team from the countersigned PDF, as always. On: a supplier with an account can sign its own line in its portal; the team can still record a PDF for one with no account or who prefers paper. Switch on only after legal advice on what that signature is worth."
     },
     "units": {
       "hours": "hours",
@@ -1448,7 +1451,8 @@
       "not_pending": "This party is no longer awaiting signature.",
       "not_found": "Not found."
     },
-    "viewSignedDoc": "View"
+    "viewSignedDoc": "View",
+    "canSignInPortal": "Can also sign in its supplier portal."
   },
   "dealBox": {
     "title": "Transaction file",
@@ -2398,5 +2402,41 @@
     "yourDossiers": "Dossiers in progress",
     "others_one": "{{count}} other party to the dossier",
     "others_other": "{{count}} other parties to the dossier"
+  },
+  "portalContract": {
+    "listTitle": "Contracts",
+    "none": "No contract has been sent to you for this dossier.",
+    "progress": "{{signed}} / {{required}} signatures",
+    "yours": {
+      "pending": "Your signature is awaited",
+      "signed": "You have signed this contract",
+      "declined": "You declined"
+    },
+    "open": "Read the contract",
+    "back": "Back to the dossier",
+    "notFound": "This contract cannot be found, or was not sent to you.",
+    "parties": "The signatories",
+    "signedOn": "signed on {{when}}",
+    "pending": "pending",
+    "you": "you",
+    "signTitle": "Your signature",
+    "signIntro": "By signing, you commit {{supplier}} to the text above. Your name, the date and where you signed from are kept with the contract.",
+    "confirm": "I have read the contract and I sign on behalf of: {{supplier}}",
+    "sign": "Sign the contract",
+    "refusal": {
+      "feature_off": "Online signature is not open: OSI will send you the contract to sign and return.",
+      "already_recorded": "Your signature is already recorded.",
+      "contract_closed": "This contract is no longer in force.",
+      "not_sent": "This contract has not been sent to you yet.",
+      "not_your_party": "This signature line is not yours.",
+      "external_party": "This contract is signed on paper.",
+      "forbidden": "You cannot sign this contract.",
+      "not_found": "This contract cannot be found."
+    },
+    "status": {
+      "sent": "To sign",
+      "partially_signed": "Being signed",
+      "signed": "Signed"
+    }
   }
 }

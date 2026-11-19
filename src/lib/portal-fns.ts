@@ -13,8 +13,20 @@ import { z } from "zod";
 import type { DossierView } from "@/lib/dossier";
 import type { DossierSummary, DossierWriteResult } from "@/server/dossier";
 import type { PortalRfqDetail, PortalRfqSummary, PortalWriteResult } from "@/server/portal";
+import type {
+  SupplierContractSummary,
+  SupplierContractView,
+  SupplierSignResult,
+} from "@/server/signatures";
 
-export type { PortalRfqDetail, PortalRfqSummary, PortalWriteResult };
+export type {
+  PortalRfqDetail,
+  PortalRfqSummary,
+  PortalWriteResult,
+  SupplierContractSummary,
+  SupplierContractView,
+  SupplierSignResult,
+};
 
 async function caller() {
   const [{ requireSupplierSession }, { getRequest }] = await Promise.all([
@@ -160,4 +172,50 @@ export const postMyMessageFn = createServerFn({ method: "POST" })
     if (!who) return { ok: false, reason: "not_found" };
     const { postMessage } = await import("@/server/dossier");
     return postMessage({ kind: "supplier", ...who }, data.threadId, data.body);
+  });
+
+// ── contracts, the supplier's own line (V26) ────────────────────────────────
+//
+// A supplier's person reads the contracts their supplier is a PARTY to — once
+// sent, on a dossier where the buyer has been disclosed — and, when the
+// platform setting `contracts.supplier_signature` is on, signs their own line.
+// Off by default: until then they read, and staff record the countersigned
+// PDF as before.
+
+/** The caller's contracts on one dossier. */
+export const getMyContractsFn = createServerFn({ method: "GET" })
+  .inputValidator(z.object({ dealId: z.string().min(1).max(100) }))
+  .handler(async ({ data }): Promise<SupplierContractSummary[] | null> => {
+    const who = await caller();
+    if (!who) return null;
+    const { listSupplierContracts } = await import("@/server/signatures");
+    return listSupplierContracts(who, data.dealId);
+  });
+
+/** One contract, with its text — null when it is not the caller's to read. */
+export const getMyContractFn = createServerFn({ method: "GET" })
+  .inputValidator(z.object({ id: z.string().min(1).max(100) }))
+  .handler(async ({ data }): Promise<SupplierContractView | null> => {
+    const who = await caller();
+    if (!who) return null;
+    const { readSupplierContract } = await import("@/server/signatures");
+    return readSupplierContract(who, data.id);
+  });
+
+/** Sign the caller's own line. They sign as themselves: the session is the
+ *  signatory, and where it signed from is kept beside the date. */
+export const signMyContractFn = createServerFn({ method: "POST" })
+  .inputValidator(z.object({ contractId: z.string().min(1).max(100) }))
+  .handler(async ({ data }): Promise<SupplierSignResult> => {
+    const who = await caller();
+    if (!who) return { ok: false, reason: "not_found" };
+    const [{ signAsSupplier }, { getRequest }] = await Promise.all([
+      import("@/server/signatures"),
+      import("@tanstack/react-start/server"),
+    ]);
+    const headers = getRequest().headers;
+    return signAsSupplier(who, data.contractId, {
+      ip: headers.get("cf-connecting-ip") ?? headers.get("x-forwarded-for") ?? null,
+      userAgent: headers.get("user-agent") ?? null,
+    });
   });

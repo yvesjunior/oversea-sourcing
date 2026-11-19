@@ -42,6 +42,12 @@ export type PartyView = {
   canSignNow: boolean;
   canRecordManualNow: boolean;
   canRemindNow: boolean;
+  /**
+   * This party can sign its own line in the supplier portal (V26): it is a
+   * supplier with an account and the platform setting is on. A fact for the
+   * page to say — staff can still record a countersigned PDF for it.
+   */
+  canSignInPortal: boolean;
 };
 
 export type ContractView = {
@@ -113,6 +119,9 @@ function toView(
     maySend: boolean;
   },
   rules: typeof import("@/lib/signature"),
+  /** V26: whether suppliers sign in the portal, and which ones have someone
+   *  with an account. */
+  portal: { enabled: boolean; withAccount: ReadonlySet<string> },
 ): ContractView {
   const progress = signatureProgress(parties);
   return {
@@ -157,6 +166,14 @@ function toView(
         canRecordManualNow:
           rules.canRecordManual(contract, party, { maySignForOsi: signer.maySignForOsi }) === "ok",
         canRemindNow: signer.maySend && rules.canRemind(contract, party),
+        canSignInPortal:
+          party.signatureStatus === "pending" &&
+          rules.signatureWays(party.role, {
+            supplierSignatureEnabled: portal.enabled,
+            supplierHasAccount:
+              party.supplierId !== null && portal.withAccount.has(party.supplierId),
+          }).inPlatform &&
+          rules.mechanismFor(party.role) === "manual_upload",
       })),
   };
 }
@@ -261,6 +278,16 @@ export const getContractsFn = createServerFn({ method: "GET" }).handler(
 
     const now = new Date();
     const rules = await import("@/lib/signature");
+    const [{ suppliersWithAccount }, { getSetting }] = await Promise.all([
+      import("@/server/signatures"),
+      import("@/server/platform-settings"),
+    ]);
+    const portal = {
+      enabled: (await getSetting("contracts.supplier_signature")) === "on",
+      withAccount: await suppliersWithAccount(
+        parties.map((party) => party.supplierId).filter((id): id is string => id !== null),
+      ),
+    };
     const signer = {
       workspaceId: caller.workspaceId,
       workspaceRole: caller.role,
@@ -277,6 +304,7 @@ export const getContractsFn = createServerFn({ method: "GET" }).handler(
           now,
           signer,
           rules,
+          portal,
         ),
       ),
       pendingDeals,

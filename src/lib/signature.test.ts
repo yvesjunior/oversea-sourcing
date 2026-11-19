@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { canRecordManual, canRemind, canSignInPlatform, mechanismFor } from "@/lib/signature";
+import {
+  canRecordManual,
+  canRemind,
+  canSignInPlatform,
+  canSupplierSign,
+  mechanismFor,
+  signatureWays,
+} from "@/lib/signature";
 
 const SENT = { status: "sent" } as const;
 const STAFF = { workspaceId: "org-osi-internal", workspaceRole: "owner", maySignForOsi: true };
@@ -127,6 +134,97 @@ describe("canRemind", () => {
   it("does not chase on a draft, a completed, or a dead contract", () => {
     for (const status of ["draft", "signed", "voided", "expired"] as const) {
       expect(canRemind({ status }, { signatureStatus: "pending" })).toBe(false);
+    }
+  });
+});
+
+// ── V26: a supplier with an account signs its own line ──────────────────────
+describe("canSupplierSign", () => {
+  const sent = { status: "sent" as const };
+  const line = (patch: Partial<Parameters<typeof canSupplierSign>[1]> = {}) => ({
+    role: "supplier" as const,
+    organizationId: null,
+    supplierId: "sup-1",
+    signatureStatus: "pending",
+    ...patch,
+  });
+  const me = { supplierIds: ["sup-1"] };
+
+  it("lets a supplier's account sign that supplier's line, when the setting is on", () => {
+    expect(canSupplierSign(sent, line(), me, true)).toBe("ok");
+    expect(canSupplierSign({ status: "partially_signed" }, line(), me, true)).toBe("ok");
+  });
+
+  // Off by default: the legal question about an external party's signature
+  // in the platform is not settled by shipping the code.
+  it("refuses while the setting is off", () => {
+    expect(canSupplierSign(sent, line(), me, false)).toBe("feature_off");
+  });
+
+  it("refuses another supplier's line — and says nothing about the setting", () => {
+    expect(canSupplierSign(sent, line({ supplierId: "sup-2" }), me, true)).toBe("not_your_party");
+    expect(canSupplierSign(sent, line({ supplierId: "sup-2" }), me, false)).toBe("not_your_party");
+    expect(canSupplierSign(sent, line({ supplierId: null }), me, true)).toBe("not_your_party");
+    expect(canSupplierSign(sent, line(), { supplierIds: [] }, true)).toBe("not_your_party");
+  });
+
+  it("refuses every line that is not a supplier's", () => {
+    for (const role of [
+      "buyer",
+      "osi",
+      "carrier",
+      "customs_broker",
+      "inspector",
+      "other",
+    ] as const) {
+      expect(canSupplierSign(sent, line({ role }), me, true), role).toBe("not_your_party");
+    }
+  });
+
+  it("refuses a draft, a dead contract, and a line already signed", () => {
+    expect(canSupplierSign({ status: "draft" }, line(), me, true)).toBe("not_sent");
+    expect(canSupplierSign({ status: "voided" }, line(), me, true)).toBe("contract_closed");
+    expect(canSupplierSign({ status: "expired" }, line(), me, true)).toBe("contract_closed");
+    expect(canSupplierSign(sent, line({ signatureStatus: "signed" }), me, true)).toBe(
+      "already_recorded",
+    );
+  });
+});
+
+describe("the two ways a supplier's signature is obtained", () => {
+  const facts = (enabled: boolean, account: boolean) => ({
+    supplierSignatureEnabled: enabled,
+    supplierHasAccount: account,
+  });
+
+  it("keeps the paper route open for a supplier in every case — both stay", () => {
+    for (const enabled of [true, false]) {
+      for (const account of [true, false]) {
+        expect(signatureWays("supplier", facts(enabled, account)).manual).toBe(true);
+      }
+    }
+    // And staff can still record it: the rule that says so did not move.
+    expect(
+      canRecordManual(
+        { status: "sent" },
+        { role: "supplier", organizationId: null, signatureStatus: "pending" },
+        { maySignForOsi: true },
+      ),
+    ).toBe("ok");
+  });
+
+  it("opens the portal route only with the setting on AND an account", () => {
+    expect(signatureWays("supplier", facts(true, true)).inPlatform).toBe(true);
+    expect(signatureWays("supplier", facts(true, false)).inPlatform).toBe(false);
+    expect(signatureWays("supplier", facts(false, true)).inPlatform).toBe(false);
+  });
+
+  it("changes nothing for the buyer, OSI, or the other external parties", () => {
+    for (const role of ["buyer", "osi"] as const) {
+      expect(signatureWays(role, facts(true, true))).toEqual({ inPlatform: true, manual: false });
+    }
+    for (const role of ["carrier", "customs_broker", "inspector", "other"] as const) {
+      expect(signatureWays(role, facts(true, true))).toEqual({ inPlatform: false, manual: true });
     }
   });
 });

@@ -89,6 +89,72 @@ export function canSignInPlatform(
   return signer.workspaceRole === "viewer" ? "forbidden" : "ok";
 }
 
+// ── The supplier's own signature (Phase V · V26) ─────────────────────────────
+//
+// The split above was written when suppliers had no login. They can have one
+// now (slice 2), so the mechanism is no longer decided by the role ALONE: a
+// supplier whose people hold an account may sign their own line in the
+// portal — when the platform setting allows it. Nothing is taken away:
+// `mechanismFor("supplier")` is still `manual_upload` and `canRecordManual`
+// still accepts a supplier's line, because a supplier without an account, or
+// one who prefers paper, is handled exactly as before. Both ways stay.
+
+export type SupplierSignRefusal =
+  | SignRefusal
+  /** The platform setting is off: suppliers sign on paper, as before V26. */
+  | "feature_off";
+
+/**
+ * May this supplier account put its name to this party's line, right now?
+ *
+ * `enabled` is the platform setting `contracts.supplier_signature`. The
+ * caller's authority is `supplierIds` — the suppliers the account answers
+ * for (`requireSupplierSession`); the line is theirs only if it is a
+ * SUPPLIER line of one of those suppliers.
+ */
+export function canSupplierSign(
+  contract: { status: ContractStatus },
+  party: PartyFacts & { supplierId: string | null },
+  signer: { supplierIds: readonly string[] },
+  enabled: boolean,
+): "ok" | SupplierSignRefusal {
+  // Whose line it is comes first: someone else's line is "not yours" whether
+  // or not the feature is on — the setting is not theirs to learn about.
+  if (
+    party.role !== "supplier" ||
+    party.supplierId === null ||
+    !signer.supplierIds.includes(party.supplierId)
+  ) {
+    return "not_your_party";
+  }
+  if (!enabled) return "feature_off";
+  if (party.signatureStatus !== "pending") return "already_recorded";
+  if (contract.status === "voided" || contract.status === "expired") return "contract_closed";
+  if (contract.status === "draft") return "not_sent";
+  return "ok";
+}
+
+/**
+ * The ways a party's signature can be obtained, as things stand — for the
+ * contract page to say, not to enforce.
+ *
+ *   buyer, OSI   in the platform, and only there.
+ *   supplier     a countersigned PDF recorded by staff, ALWAYS; and in the
+ *                portal as well when the setting is on and the supplier has
+ *                an account.
+ *   others       a countersigned PDF.
+ */
+export function signatureWays(
+  role: ContractPartyRole,
+  facts: { supplierSignatureEnabled: boolean; supplierHasAccount: boolean },
+): { inPlatform: boolean; manual: boolean } {
+  if (mechanismFor(role) === "in_platform") return { inPlatform: true, manual: false };
+  return {
+    inPlatform: role === "supplier" && facts.supplierSignatureEnabled && facts.supplierHasAccount,
+    manual: true,
+  };
+}
+
 /**
  * May staff record an offline signature for this party?
  *

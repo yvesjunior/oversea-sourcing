@@ -1569,6 +1569,35 @@ this version (`/api/dossier-document`).
 that give them something to upload, V27–V29); a notification or an email on
 a new message; removing a party; the dossier's milestones (V27).
 
+### A supplier signs in the portal — behind a setting, off (V26)
+
+Until V26 a supplier's signature was always a countersigned PDF recorded by
+staff: suppliers had no login. A supplier's person can have an account now,
+so they can sign their own line the way the buyer and OSI do —
+**when the platform setting `contracts.supplier_signature` is on. It is off
+by default**: whether a signature given in the platform by an *external*
+party is sufficient evidence is a legal question, to be put to counsel with
+the money circuit. Shipping the code switched nothing on.
+
+- **Both ways stay, permanently.** With the setting on, a supplier that has
+  an account signs in the portal; staff can still record a countersigned PDF
+  for one that has no account or prefers paper (`recordManualSignatureFn`,
+  unchanged). The staff contract page says « Peut aussi signer dans son
+  portail fournisseur » beside the paper route.
+- **What a supplier reads.** The contracts its supplier is a *party* to
+  (`contract_party.supplier_id`), once **sent** — a draft is OSI's working
+  copy — and only on a dossier where the buyer has been disclosed: a contract
+  names its parties. The mandate between the buyer and OSI is never theirs.
+  `/portail/contrat/$id` shows the frozen text, the signatories and the N/M
+  count.
+- **Signing.** `canSupplierSign` (`src/lib/signature.ts`) decides: their own
+  supplier line, pending, on a live contract, setting on. They sign as
+  themselves — name, date, IP and user agent kept on the party row, with
+  `signedAs: supplier_account`.
+- **One trail.** A portal signature and a recorded PDF write the same
+  `contract_event` (`contract.signed`) and recompute the status from the same
+  rows; they differ in `detail.method` (`in_platform` / `manual_upload`).
+
 ## 2 · How a request works
 
 ```
