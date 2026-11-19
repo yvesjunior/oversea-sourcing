@@ -1193,7 +1193,8 @@
     "dossier.document_versioned": "Nouvelle version d’un document de dossier",
     "dossier.milestone_completed": "Étape de dossier enregistrée comme faite",
     "dossier.issue_raised": "Écart signalé sur un dossier",
-    "dossier.issue_settled": "Écart réglé sur un dossier"
+    "dossier.issue_settled": "Écart réglé sur un dossier",
+    "dossier.reception_confirmed": "Réception confirmée par le client"
   },
   "twofa": {
     "title": "Vérification en deux étapes",
@@ -2526,6 +2527,31 @@
       "offer": "Offre",
       "other": "Autre",
       "dossier": "Document du dossier"
+    },
+    "reception": "Réception",
+    "receivedOn": "Réception confirmée par le client le {{when}}",
+    "satisfactionOf": "Satisfaction : {{value}} / 5",
+    "confirmReception": "Confirmer la réception",
+    "confirmReceptionHint": "La marchandise est enregistrée comme livrée. Dites-nous comment cela s’est passé : c’est votre confirmation qui permet à OSI de clore le dossier. Un écart ne bloque pas la confirmation — il est noté à côté et OSI le traite.",
+    "satisfaction": "Votre satisfaction",
+    "satisfactionLevel": {
+      "1": "Très insatisfait",
+      "2": "Insatisfait",
+      "3": "Correct",
+      "4": "Satisfait",
+      "5": "Très satisfait"
+    },
+    "receptionComment": "Un commentaire (facultatif)",
+    "receptionGaps": "Quelque chose n’est pas conforme ?",
+    "addGap": "Ajouter un écart",
+    "removeGap": "Retirer",
+    "confirmReceptionSubmit": "Confirmer la réception",
+    "receptionRefused": {
+      "not_found": "Ce dossier est introuvable.",
+      "forbidden": "Seul le client confirme la réception de sa commande.",
+      "not_delivered": "La réception ne peut être confirmée qu’une fois la livraison enregistrée — et une seule fois.",
+      "bad_satisfaction": "Choisissez une note de 1 à 5.",
+      "other": "La confirmation n’a pas pu être enregistrée."
     }
   },
   "portalContract": {

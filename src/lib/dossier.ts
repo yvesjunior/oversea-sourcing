@@ -179,6 +179,8 @@ export type FullDossier = {
     openedAt: string;
     requestId: string | null;
     buyerDisclosedAt: string | null;
+    /** The buyer's reception (V30) — null until they have confirmed it. */
+    review?: { satisfaction: number; comment: string | null; reviewedAt: string } | null;
   };
   offer: DossierOffer;
   /** What a partner's work may need — cut down per kind before it is shown. */
@@ -329,6 +331,15 @@ export type DossierView = {
   /** This reader may raise an issue / settle one. */
   canRaiseIssue: boolean;
   canSettleIssues: boolean;
+  /**
+   * The buyer's reception (V30): how it went, in the buyer's words. Read by
+   * the buyer and by staff — it is what staff close the dossier on. Not sent
+   * to the supplier or a partner: what a buyer thinks of a supplier reaches
+   * the supplier as OSI decides, not as a page.
+   */
+  review?: { satisfaction: number; comment: string | null; reviewedAt: string } | null;
+  /** This reader may confirm reception now: the buyer, on a delivered dossier. */
+  canConfirmReception: boolean;
 };
 
 // ── reading ─────────────────────────────────────────────────────────────────
@@ -485,6 +496,8 @@ export function projectDossier(full: FullDossier, audience: DossierAudience): Do
       })),
     canRaiseIssue: mayRaiseIssue(audience, full.deal.status),
     canSettleIssues: staff,
+    ...(staff || audience.kind === "buyer" ? { review: full.deal.review ?? null } : {}),
+    canConfirmReception: mayConfirmReception(audience, full.deal.status),
     milestones: MILESTONE_KINDS.map((kind): MilestoneView => {
       const recorded = (full.milestones ?? []).find((milestone) => milestone.kind === kind);
       return {
@@ -576,6 +589,26 @@ export function mayRaiseIssue(audience: DossierAudience, status: DealStatus): bo
  */
 export function openIssues(issues: ReadonlyArray<{ status: DealIssueStatus }>): number {
   return issues.filter((issue) => issue.status === "open").length;
+}
+
+// ── reception (V30) ─────────────────────────────────────────────────────────
+
+/**
+ * May this reader confirm that the goods were received?
+ *
+ * THE BUYER, and nobody for them. Closing a dossier is two acts by two
+ * actors (owner, 2026-08-29): the buyer says how it went, then staff close.
+ * A staff member confirming "for" the buyer would make it one act by one
+ * actor — and the satisfaction a dossier closes on would be OSI's guess at
+ * it. Only once the goods are recorded as delivered.
+ */
+export function mayConfirmReception(audience: DossierAudience, status: DealStatus): boolean {
+  return audience.kind === "buyer" && status === "delivered";
+}
+
+/** A satisfaction is a whole number from 1 to 5. */
+export function isSatisfaction(value: unknown): value is 1 | 2 | 3 | 4 | 5 {
+  return typeof value === "number" && Number.isInteger(value) && value >= 1 && value <= 5;
 }
 
 // ── writing ─────────────────────────────────────────────────────────────────

@@ -14,6 +14,7 @@ import {
   settleIssueFn,
   type DossierPage,
 } from "@/lib/dossier-fns";
+import { confirmReceptionFn } from "@/lib/deal-fns";
 import { formatDay } from "@/lib/instant";
 import { completeMilestoneFn, planMilestoneFn } from "@/lib/milestone-fns";
 
@@ -103,6 +104,12 @@ function DossierPageView() {
             raiseIssueFn({ data: { dealId: view.deal.id, kind, description } }),
           onSettle: (issueId, status, resolution) =>
             settleIssueFn({ data: { issueId, status, resolution } }),
+          onDone: refresh,
+        }}
+        // The buyer's act (V30). Passed on every workspace page and shown
+        // only where the view says the reader may: a buyer, once delivered.
+        reception={{
+          onConfirm: (input) => confirmReceptionFn({ data: { dealId: view.deal.id, ...input } }),
           onDone: refresh,
         }}
       >

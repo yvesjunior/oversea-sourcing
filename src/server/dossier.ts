@@ -351,6 +351,14 @@ async function full(loaded: Loaded): Promise<FullDossier> {
       openedAt: deal.openedAt.toISOString(),
       requestId: deal.requestId,
       buyerDisclosedAt: deal.buyerDisclosedAt ? deal.buyerDisclosedAt.toISOString() : null,
+      review:
+        deal.reviewedAt && deal.satisfaction !== null
+          ? {
+              satisfaction: deal.satisfaction,
+              comment: deal.reviewComment,
+              reviewedAt: deal.reviewedAt.toISOString(),
+            }
+          : null,
     },
     offer: {
       amountCents: deal.amountCents,

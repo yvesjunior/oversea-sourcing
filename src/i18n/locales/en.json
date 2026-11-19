@@ -1193,7 +1193,8 @@
     "dossier.document_versioned": "New version of a dossier document",
     "dossier.milestone_completed": "Dossier step recorded as done",
     "dossier.issue_raised": "Discrepancy reported on a dossier",
-    "dossier.issue_settled": "Discrepancy settled on a dossier"
+    "dossier.issue_settled": "Discrepancy settled on a dossier",
+    "dossier.reception_confirmed": "Reception confirmed by the client"
   },
   "twofa": {
     "title": "Two-step verification",
@@ -2526,6 +2527,31 @@
       "offer": "Offer",
       "other": "Other",
       "dossier": "Dossier document"
+    },
+    "reception": "Reception",
+    "receivedOn": "Reception confirmed by the client on {{when}}",
+    "satisfactionOf": "Satisfaction: {{value}} / 5",
+    "confirmReception": "Confirm reception",
+    "confirmReceptionHint": "The goods are recorded as delivered. Tell us how it went: your confirmation is what lets OSI close the dossier. A discrepancy does not block the confirmation — it is noted beside it and OSI handles it.",
+    "satisfaction": "Your satisfaction",
+    "satisfactionLevel": {
+      "1": "Very dissatisfied",
+      "2": "Dissatisfied",
+      "3": "Acceptable",
+      "4": "Satisfied",
+      "5": "Very satisfied"
+    },
+    "receptionComment": "A comment (optional)",
+    "receptionGaps": "Is something not as agreed?",
+    "addGap": "Add a discrepancy",
+    "removeGap": "Remove",
+    "confirmReceptionSubmit": "Confirm reception",
+    "receptionRefused": {
+      "not_found": "This dossier cannot be found.",
+      "forbidden": "Only the client confirms the reception of its order.",
+      "not_delivered": "Reception can be confirmed only once the delivery is recorded — and only once.",
+      "bad_satisfaction": "Choose a rating from 1 to 5.",
+      "other": "The confirmation could not be recorded."
     }
   },
   "portalContract": {

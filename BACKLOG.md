@@ -24,7 +24,7 @@
 | **E9** Notifications | In-app + email | 🟡 bell, emitters, **prefs (2026-08-26)** live; Phase P types (`quote_received`, `contract_to_sign`, `contract_signed`) + staff alert on `quotes.requested` (2026-09-07) live; **the bell alerts (2026-09-14)** — count badge, 30 s poll, chime, per-browser mute |
 | **E10** Admin surfaces | Verification, imports, ops queue | 🟡 **verification LIVE (S5b/S5c, 2026-08-26)**; imports/ops queue placeholders |
 | **R** Custom staff roles | Roles as data + the matrix | ✅ **BUILT 2026-08-29** (migration 0039) — create/delete roles, dynamic matrix, `requests.all` |
-| **E13** V6 architecture | Supplier portal · KPI #2 · Partner Hub · Decision Pack | 🔵 **NEW 2026-10-21** — scope opened by the V6 document; diagrams validated 2026-11-14; **34 tasks in seven slices — [Phase V](#phase-v--the-v6-parcours-task-by-task-e13--written-2026-11-14)**; **V01, V02, V04–V11 built 2026-11-14** (settings, contacts, states, fork + shortlist, RFQ batch, window closing, typed answer time + channel, KPI #2 v1, the Decision Pack record, the release queue); V01–V11 **live on prod — V01–V09 since deploy #45 (2026-11-14), V10–V11 since deploy #47 (2026-11-18) — with the pack-flow switch OFF**; **V12–V14 built 2026-11-18** (the buyer's pack page, choosing from it, automatic release built and switched off + the review report) — **slice 1 (V04–V14) is complete** — **live on prod since deploy #48 (2026-11-18), pack flow off, release manual**; **V18–V20 built 2026-11-18** (the clarification, behind `AI_CHAT`, off; the cahier des charges and the KPI profile as versioned records; the buyer's validation before any search, behind `flow.spec_validation`, ON by default) — **slice 3 complete**; **V03 and V15–V17 built 2026-11-18** (external accounts: a supplier is not a customer; the RFQ link that creates a supplier account; the portal where they answer, decline and attach; what suppliers are told and the response funnel) — **slice 2 complete**; **V21–V23 built 2026-11-18** (partners and their adapter; cases opened on an offer and the figures partners add to it; the Partner Hub where a partner's person answers) — **V15–V23 and V03 live on prod since deploy #49 (2026-11-18)**; **V24 built 2026-11-19** (KPI #2 on landed cost per unit, stored exchange rates) — **slice 4 complete**; **V25–V29 built 2026-11-19** (the Transaction Room: one dossier, four readers; a supplier signs in the portal, behind a setting that is OFF; milestones and proofs — the dossier now moves from contracts to delivered; inspection by the partner and conformity issues; transport and customs by the logistics partners) — all on `main`, not deployed |
+| **E13** V6 architecture | Supplier portal · KPI #2 · Partner Hub · Decision Pack | 🔵 **NEW 2026-10-21** — scope opened by the V6 document; diagrams validated 2026-11-14; **34 tasks in seven slices — [Phase V](#phase-v--the-v6-parcours-task-by-task-e13--written-2026-11-14)**; **V01, V02, V04–V11 built 2026-11-14** (settings, contacts, states, fork + shortlist, RFQ batch, window closing, typed answer time + channel, KPI #2 v1, the Decision Pack record, the release queue); V01–V11 **live on prod — V01–V09 since deploy #45 (2026-11-14), V10–V11 since deploy #47 (2026-11-18) — with the pack-flow switch OFF**; **V12–V14 built 2026-11-18** (the buyer's pack page, choosing from it, automatic release built and switched off + the review report) — **slice 1 (V04–V14) is complete** — **live on prod since deploy #48 (2026-11-18), pack flow off, release manual**; **V18–V20 built 2026-11-18** (the clarification, behind `AI_CHAT`, off; the cahier des charges and the KPI profile as versioned records; the buyer's validation before any search, behind `flow.spec_validation`, ON by default) — **slice 3 complete**; **V03 and V15–V17 built 2026-11-18** (external accounts: a supplier is not a customer; the RFQ link that creates a supplier account; the portal where they answer, decline and attach; what suppliers are told and the response funnel) — **slice 2 complete**; **V21–V23 built 2026-11-18** (partners and their adapter; cases opened on an offer and the figures partners add to it; the Partner Hub where a partner's person answers) — **V15–V23 and V03 live on prod since deploy #49 (2026-11-18)**; **V24 built 2026-11-19** (KPI #2 on landed cost per unit, stored exchange rates) — **slice 4 complete**; **V25–V30 built 2026-11-19** (the Transaction Room: one dossier, four readers; a supplier signs in the portal, behind a setting that is OFF; milestones and proofs — the dossier now moves from contracts to delivered; inspection by the partner and conformity issues; transport and customs by the logistics partners; the buyer confirms reception) — all on `main`, not deployed |
 | **E11** Settings | Profile, sourcing rules | 🟡 Paramètres + notification prefs live; **password / 2FA / theme / rename (2026-08-27)** live; buyer Abonnement self-service waits for billing |
 
 **MVP1 = E0–E7 + E10.** Definition of done **restated 2026-08-29 by ADR-002**
@@ -40,7 +40,7 @@ tracked to delivery** — with the PDF report available throughout.
 
 **Prod = `dc0964b` (deploy #49, 2026-11-18)** — Phase V tasks V01–V23:
 slices 1, 2 and 3 complete, slice 4 up to V23. **`main` is ahead of prod by
-six tasks, NOT deployed: V24** (KPI #2 on landed cost; migration **0063**,
+seven tasks, NOT deployed: V24** (KPI #2 on landed cost; migration **0063**,
 additive — two nullable columns), **V25** (the Transaction Room;
 migration **0064**, additive — three tables, seven nullable or defaulted
 columns), **V26** (a supplier signs in the portal; no migration; behind
@@ -48,8 +48,8 @@ columns), **V26** (a supplier signs in the portal; no migration; behind
 someone switches it on, and the legal question comes first), **V27**
 (milestones and proofs; migration **0065**, additive — one table, one
 nullable column), **V28** (inspection and issues; migration **0066**,
-additive — one table) **and V29** (transport and customs; no migration). Six
-tasks in all. Deploying them changes no ranking on prod (no round, no partner
+additive — one table), **V29** (transport and customs; no migration) **and
+V30** (the buyer confirms reception; no migration). Seven tasks in all. Deploying them changes no ranking on prod (no round, no partner
 figure, no pack) and opens no dossier (prod holds no deal); what a user
 sees is « Commandes » enabled in the menu, leading to an empty list. Deploy #49 carried eleven tasks at once — V18, V19, the search-model
 fix, V20, V03, V15, V16, V17, V21, V22, V23 — and eight additive migrations
@@ -7208,20 +7208,50 @@ P10 in V25, P11 in V31.
       carrier or customs API. The `manual` provider is the whole integration
       until a partner contract says otherwise.~~
 
-- [ ] **V30 · The buyer confirms reception.** *Size M. Step 19. Depends on:
-      V27.*
+- [x] **V30 · The buyer confirms reception — BUILT 2026-11-19** (no
+      migration, not deployed). `src/lib/deal-fns.ts` (`confirmReceptionFn`);
+      `src/server/reception.ts` (`confirmReception`); `mayConfirmReception`,
+      `isSatisfaction` in `src/lib/dossier.ts`; a reception form and summary
+      in `DossierRoom.tsx`. The four `deal` columns nothing wrote since P1 —
+      `satisfaction`, `review_comment`, `reviewed_at`, `reviewed_by` — are
+      written. 1019 tests.
 
-      **What it does.** The buyer's act the `deal` table has been waiting
+      **As built.** `delivered → reviewed`, by the buyer alone. Discrepancies
+      reported at reception become `deal_issue` rows raised by the buyer, in
+      the same transaction that checks the dossier is still `delivered`; the
+      reception is recorded whatever their number. See README.
+
+      **Acceptance, as tests** (`dossier.test.ts`): the act is the buyer's on
+      a delivered dossier and nobody else's — staff, supplier, partners
+      refused; it waits for the delivery and happens once; a satisfaction is
+      a whole number from 1 to 5; the review is shown to the buyer and staff
+      and absent from the supplier's and the partners' pages.
+
+      *Verified live in dev:* staff calling the function → `forbidden`, and
+      the staff page offers no form; a satisfaction of 0 refused by the input
+      check; another workspace's dossier → `not_found`; **as the buyer,
+      through the page**: satisfaction 4, a comment, one discrepancy added
+      and described → the page shows « Réception confirmée par le client le
+      19 nov. 2026 · Satisfaction : 4 / 5 », the dossier is `reviewed`, the
+      discrepancy is an open issue raised by the buyer; confirming again →
+      `not_delivered`.
+
+      **Not exercised live:** a workspace *viewer* (the `buyer` seat check is
+      `requireWorkspaceRole`'s, used the same way elsewhere); two members
+      confirming at once (the deal row is locked; not raced); the English
+      page.
+      **Not built:** changing a review once given; a notification to staff
+      that a dossier awaits closing (the `status.reviewed` line is in the
+      activity feed).
+
+      ~~**What it does.** The buyer's act the `deal` table has been waiting
       for: `satisfaction`, `review_comment`, `reviewed_at` and `reviewed_by`
-      exist and nothing writes them.
-
-      **Files.** New `src/lib/deal-fns.ts` — `confirmReceptionFn({ dealId,
-      satisfaction, comment, issues[] })`, buyer role, `delivered →
-      reviewed`. The dossier.
-
-      **Acceptance.** Only a `buyer` seat confirms. Reporting a discrepancy
-      creates `deal_issue` rows and still records the reception. Staff cannot
-      confirm for the buyer — the rule is two acts by two actors.
+      exist and nothing writes them. **Files.** New `src/lib/deal-fns.ts` —
+      `confirmReceptionFn({ dealId, satisfaction, comment, issues[] })`, buyer
+      role, `delivered → reviewed`. The dossier. **Acceptance.** Only a
+      `buyer` seat confirms. Reporting a discrepancy creates `deal_issue` rows
+      and still records the reception. Staff cannot confirm for the buyer —
+      the rule is two acts by two actors.~~
 
 - [ ] **V31 · Closure, and what the platform remembers.** *Size M. Step 20.
       Depends on: V30. Replaces P11's supplier-performance half.*

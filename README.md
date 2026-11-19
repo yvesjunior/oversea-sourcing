@@ -1683,6 +1683,29 @@ the row says which. The buyer follows them on the dossier.
   union, and so is what its work needs to know (the value of the goods, which
   customs is computed from).
 
+### The buyer confirms reception (V30)
+
+Closing a dossier is **two acts by two actors** (owner, 2026-08-29): the
+buyer says how it went, then staff close. V30 is the first act — the one the
+`deal` table had columns for since P1 and nothing wrote.
+
+Once the goods are recorded as delivered, the buyer's page of the dossier
+asks: a satisfaction from 1 to 5, a comment, and anything not as agreed.
+Confirming takes the dossier from `delivered` to `reviewed`
+(`confirmReception`, `src/server/reception.ts`).
+
+- **Only the buyer.** A working seat in the buyer's workspace (a viewer
+  confirms nothing), on the buyer's own dossier. **Staff cannot confirm for
+  the buyer**: a staff member standing in the internal workspace is OSI on
+  that dossier and is refused. The satisfaction a dossier closes on is the
+  buyer's, not OSI's guess at it.
+- **A discrepancy does not stop the reception.** The goods arrived; what is
+  wrong with them is recorded beside that fact as issues (V28) — and it is
+  those that then stand in the way of closing, until staff settle them.
+- **Once.** A dossier that is `reviewed` has nothing left to confirm.
+- **Who reads it.** The buyer and staff. What a buyer thinks of a supplier is
+  not a page the supplier opens.
+
 ### A supplier signs in the portal — behind a setting, off (V26)
 
 Until V26 a supplier's signature was always a countersigned PDF recorded by

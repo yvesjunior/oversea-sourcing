@@ -6,6 +6,7 @@ import {
   ListChecks,
   Loader2,
   MessageSquare,
+  PackageCheck,
   Upload,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -49,6 +50,7 @@ export function DossierRoom({
   upload,
   milestones,
   issues,
+  reception,
   children,
 }: {
   view: DossierView;
@@ -88,6 +90,20 @@ export function DossierRoom({
           status: "resolved" | "disputed",
           resolution: string,
         ) => Promise<RoomResult>;
+        onDone: () => void;
+      }
+    | undefined;
+  /**
+   * How the buyer confirms reception (V30). Passed by the buyer's page only:
+   * it is the buyer's act, and the view says when it is open.
+   */
+  reception?:
+    | {
+        onConfirm: (input: {
+          satisfaction: number;
+          comment: string | null;
+          issues: Array<{ kind: DealIssueKind; description: string }>;
+        }) => Promise<RoomResult>;
         onDone: () => void;
       }
     | undefined;
@@ -164,6 +180,29 @@ export function DossierRoom({
           ))}
         </ol>
       </section>
+
+      {/* ── the buyer's reception (V30): asked of the buyer once the goods
+          are delivered, shown to the buyer and staff once given ── */}
+      {view.review ? (
+        <section className="card-surface p-5">
+          <h2 className="flex items-center gap-2 text-sm font-semibold">
+            <PackageCheck className="size-4" /> {t("room.reception")}
+          </h2>
+          <p className="mt-2 text-sm">
+            {t("room.receivedOn", { when: formatDay(view.review.reviewedAt, lang) })} ·{" "}
+            <span className="font-semibold">
+              {t("room.satisfactionOf", { value: view.review.satisfaction })}
+            </span>
+          </p>
+          {view.review.comment && (
+            <p className="mt-1 whitespace-pre-line text-sm text-muted-foreground">
+              {view.review.comment}
+            </p>
+          )}
+        </section>
+      ) : (
+        view.canConfirmReception && reception && <ReceptionForm actions={reception} />
+      )}
 
       {/* ── what is not as agreed (V28) — shown when there is something to
           show, or something this reader can do ── */}
@@ -733,6 +772,160 @@ function RaiseIssue({ actions }: { actions: IssueActions }) {
         {t("room.raiseIssueSubmit")}
       </Button>
     </form>
+  );
+}
+
+/**
+ * The buyer confirms reception (V30): how it went, and what is not as
+ * agreed. A discrepancy does not stop the reception — the goods arrived; it
+ * is recorded beside it, as an issue OSI then has to settle.
+ */
+function ReceptionForm({
+  actions,
+}: {
+  actions: {
+    onConfirm: (input: {
+      satisfaction: number;
+      comment: string | null;
+      issues: Array<{ kind: DealIssueKind; description: string }>;
+    }) => Promise<RoomResult>;
+    onDone: () => void;
+  };
+}) {
+  const { t } = useTranslation();
+  const [satisfaction, setSatisfaction] = useState<number | null>(null);
+  const [comment, setComment] = useState("");
+  const [gaps, setGaps] = useState<Array<{ kind: DealIssueKind; description: string }>>([]);
+  const [busy, setBusy] = useState(false);
+  const [refusal, setRefusal] = useState<string | null>(null);
+
+  const confirm = async (event: FormEvent) => {
+    event.preventDefault();
+    if (busy || satisfaction === null) return;
+    setBusy(true);
+    setRefusal(null);
+    try {
+      const result = await actions.onConfirm({
+        satisfaction,
+        comment: comment.trim() || null,
+        // A row left empty is not a discrepancy.
+        issues: gaps
+          .map((gap) => ({ ...gap, description: gap.description.trim() }))
+          .filter((gap) => gap.description.length >= 5),
+      });
+      if (!result.ok) setRefusal(result.reason ?? "not_found");
+      else actions.onDone();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section className="card-surface border-gold/40 p-5">
+      <h2 className="flex items-center gap-2 text-sm font-semibold">
+        <PackageCheck className="size-4" /> {t("room.confirmReception")}
+      </h2>
+      <p className="mt-1 text-xs text-muted-foreground">{t("room.confirmReceptionHint")}</p>
+      <form className="mt-4 space-y-4" onSubmit={(e) => void confirm(e)}>
+        <fieldset>
+          <legend className="text-xs font-medium">{t("room.satisfaction")}</legend>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {[1, 2, 3, 4, 5].map((value) => (
+              <label
+                key={value}
+                className={cn(
+                  "flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm",
+                  satisfaction === value ? "border-gold bg-gold-soft text-gold" : "border-border",
+                )}
+              >
+                <input
+                  type="radio"
+                  name="satisfaction"
+                  className="sr-only"
+                  checked={satisfaction === value}
+                  onChange={() => setSatisfaction(value)}
+                  required
+                />
+                {value} — {t(`room.satisfactionLevel.${value}`)}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+        <Textarea
+          value={comment}
+          onChange={(e) => setComment(e.target.value)}
+          maxLength={2000}
+          rows={2}
+          placeholder={t("room.receptionComment")}
+          aria-label={t("room.receptionComment")}
+        />
+        <div className="space-y-2">
+          <p className="text-xs font-medium">{t("room.receptionGaps")}</p>
+          {gaps.map((gap, index) => (
+            <div key={index} className="grid gap-2 sm:grid-cols-[12rem_minmax(0,1fr)_auto]">
+              <select
+                value={gap.kind}
+                onChange={(e) =>
+                  setGaps((current) =>
+                    current.map((row, i) =>
+                      i === index ? { ...row, kind: e.target.value as DealIssueKind } : row,
+                    ),
+                  )
+                }
+                aria-label={t("room.issueKindLabel")}
+                className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+              >
+                {DEAL_ISSUE_KINDS.map((value) => (
+                  <option key={value} value={value}>
+                    {t(`room.issueKind.${value}`)}
+                  </option>
+                ))}
+              </select>
+              <Input
+                value={gap.description}
+                onChange={(e) =>
+                  setGaps((current) =>
+                    current.map((row, i) =>
+                      i === index ? { ...row, description: e.target.value } : row,
+                    ),
+                  )
+                }
+                maxLength={2000}
+                placeholder={t("room.issueDescription")}
+                aria-label={t("room.issueDescription")}
+              />
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                onClick={() => setGaps((current) => current.filter((_, i) => i !== index))}
+              >
+                {t("room.removeGap")}
+              </Button>
+            </div>
+          ))}
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() =>
+              setGaps((current) => [...current, { kind: "nonconformity", description: "" }])
+            }
+          >
+            {t("room.addGap")}
+          </Button>
+        </div>
+        {refusal && (
+          <p role="alert" className="text-xs text-destructive">
+            {t(`room.receptionRefused.${refusal}`, t("room.receptionRefused.other"))}
+          </p>
+        )}
+        <Button type="submit" variant="gold" disabled={busy || satisfaction === null}>
+          {busy && <Loader2 className="size-4 animate-spin" />}
+          {t("room.confirmReceptionSubmit")}
+        </Button>
+      </form>
+    </section>
   );
 }
 

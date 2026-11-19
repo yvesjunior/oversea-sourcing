@@ -4,6 +4,8 @@ import {
   documentAudience,
   documentChains,
   dossierIsLive,
+  isSatisfaction,
+  mayConfirmReception,
   mayRaiseIssue,
   mayRead,
   maySeeIssue,
@@ -695,5 +697,64 @@ describe("issues", () => {
     expect(maySeeIssue(inspector, { raisedByPartyId: INSPECTOR })).toBe(true);
     expect(maySeeIssue(carrier, { raisedByPartyId: INSPECTOR })).toBe(false);
     expect(maySeeIssue(supplier, { raisedByPartyId: null })).toBe(false);
+  });
+});
+
+// V30: "Only a buyer seat confirms… Staff cannot confirm for the buyer — the
+// rule is two acts by two actors."
+describe("confirming reception", () => {
+  it("is the buyer's, on a delivered dossier, and nobody else's", () => {
+    expect(mayConfirmReception(buyer, "delivered")).toBe(true);
+    for (const audience of [staff, supplier, carrier, inspector]) {
+      expect(mayConfirmReception(audience, "delivered")).toBe(false);
+    }
+  });
+
+  it("waits for the delivery, and happens once", () => {
+    for (const status of ["open", "contracting", "in_production", "shipping"] as const) {
+      expect(mayConfirmReception(buyer, status), status).toBe(false);
+    }
+    // Once confirmed the dossier is `reviewed`: there is nothing to confirm.
+    for (const status of ["reviewed", "closed", "cancelled"] as const) {
+      expect(mayConfirmReception(buyer, status), status).toBe(false);
+    }
+  });
+
+  it("takes a whole number from 1 to 5 and nothing else", () => {
+    for (const value of [1, 2, 3, 4, 5]) expect(isSatisfaction(value)).toBe(true);
+    for (const value of [0, 6, 3.5, "4", null, undefined, Number.NaN]) {
+      expect(isSatisfaction(value)).toBe(false);
+    }
+  });
+
+  it("offers the act to the buyer's page only, and shows what was said to buyer and staff", () => {
+    const delivered: FullDossier = {
+      ...dossier(),
+      deal: { ...dossier().deal, status: "delivered" },
+    };
+    expect(projectDossier(delivered, buyer).canConfirmReception).toBe(true);
+    expect(projectDossier(delivered, staff).canConfirmReception).toBe(false);
+    expect(projectDossier(delivered, supplier).canConfirmReception).toBe(false);
+
+    const reviewed: FullDossier = {
+      ...dossier(),
+      deal: {
+        ...dossier().deal,
+        status: "reviewed",
+        review: {
+          satisfaction: 4,
+          comment: "Conforme, un jour de retard",
+          reviewedAt: "2026-12-30T10:00:00.000Z",
+        },
+      },
+    };
+    expect(projectDossier(reviewed, buyer).review?.satisfaction).toBe(4);
+    expect(projectDossier(reviewed, staff).review?.comment).toBe("Conforme, un jour de retard");
+    // What a buyer thinks of a supplier is not a page the supplier opens.
+    for (const audience of [supplier, carrier, inspector]) {
+      const page = projectDossier(reviewed, audience);
+      expect("review" in page).toBe(false);
+      expect(JSON.stringify(page)).not.toContain("un jour de retard");
+    }
   });
 });
