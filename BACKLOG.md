@@ -24,7 +24,7 @@
 | **E9** Notifications | In-app + email | 🟡 bell, emitters, **prefs (2026-08-26)** live; Phase P types (`quote_received`, `contract_to_sign`, `contract_signed`) + staff alert on `quotes.requested` (2026-09-07) live; **the bell alerts (2026-09-14)** — count badge, 30 s poll, chime, per-browser mute |
 | **E10** Admin surfaces | Verification, imports, ops queue | 🟡 **verification LIVE (S5b/S5c, 2026-08-26)**; imports/ops queue placeholders |
 | **R** Custom staff roles | Roles as data + the matrix | ✅ **BUILT 2026-08-29** (migration 0039) — create/delete roles, dynamic matrix, `requests.all` |
-| **E13** V6 architecture | Supplier portal · KPI #2 · Partner Hub · Decision Pack | 🔵 **NEW 2026-10-21** — scope opened by the V6 document; diagrams validated 2026-11-14; **34 tasks in seven slices — [Phase V](#phase-v--the-v6-parcours-task-by-task-e13--written-2026-11-14)**; **V01, V02, V04–V11 built 2026-11-14** (settings, contacts, states, fork + shortlist, RFQ batch, window closing, typed answer time + channel, KPI #2 v1, the Decision Pack record, the release queue); V01–V11 **live on prod — V01–V09 since deploy #45 (2026-11-14), V10–V11 since deploy #47 (2026-11-18) — with the pack-flow switch OFF**; **V12–V14 built 2026-11-18** (the buyer's pack page, choosing from it, automatic release built and switched off + the review report) — **slice 1 (V04–V14) is complete** — **live on prod since deploy #48 (2026-11-18), pack flow off, release manual**; **V18–V20 built 2026-11-18** (the clarification, behind `AI_CHAT`, off; the cahier des charges and the KPI profile as versioned records; the buyer's validation before any search, behind `flow.spec_validation`, ON by default) — **slice 3 complete**; **V03 and V15–V17 built 2026-11-18** (external accounts: a supplier is not a customer; the RFQ link that creates a supplier account; the portal where they answer, decline and attach; what suppliers are told and the response funnel) — **slice 2 complete**; **V21–V23 built 2026-11-18** (partners and their adapter; cases opened on an offer and the figures partners add to it; the Partner Hub where a partner's person answers) — on `main`, not deployed |
+| **E13** V6 architecture | Supplier portal · KPI #2 · Partner Hub · Decision Pack | 🔵 **NEW 2026-10-21** — scope opened by the V6 document; diagrams validated 2026-11-14; **34 tasks in seven slices — [Phase V](#phase-v--the-v6-parcours-task-by-task-e13--written-2026-11-14)**; **V01, V02, V04–V11 built 2026-11-14** (settings, contacts, states, fork + shortlist, RFQ batch, window closing, typed answer time + channel, KPI #2 v1, the Decision Pack record, the release queue); V01–V11 **live on prod — V01–V09 since deploy #45 (2026-11-14), V10–V11 since deploy #47 (2026-11-18) — with the pack-flow switch OFF**; **V12–V14 built 2026-11-18** (the buyer's pack page, choosing from it, automatic release built and switched off + the review report) — **slice 1 (V04–V14) is complete** — **live on prod since deploy #48 (2026-11-18), pack flow off, release manual**; **V18–V20 built 2026-11-18** (the clarification, behind `AI_CHAT`, off; the cahier des charges and the KPI profile as versioned records; the buyer's validation before any search, behind `flow.spec_validation`, ON by default) — **slice 3 complete**; **V03 and V15–V17 built 2026-11-18** (external accounts: a supplier is not a customer; the RFQ link that creates a supplier account; the portal where they answer, decline and attach; what suppliers are told and the response funnel) — **slice 2 complete**; **V21–V23 built 2026-11-18** (partners and their adapter; cases opened on an offer and the figures partners add to it; the Partner Hub where a partner's person answers) — **V15–V23 and V03 live on prod since deploy #49 (2026-11-18)** |
 | **E11** Settings | Profile, sourcing rules | 🟡 Paramètres + notification prefs live; **password / 2FA / theme / rename (2026-08-27)** live; buyer Abonnement self-service waits for billing |
 
 **MVP1 = E0–E7 + E10.** Definition of done **restated 2026-08-29 by ADR-002**
@@ -38,59 +38,62 @@ tracked to delivery** — with the PDF report available throughout.
 
 ### START HERE — handoff, 2026-09-14 (read this first)
 
-**Prod = `e61b229` (deploy #48, 2026-11-18)** — Phase V tasks V01–V14: slice 1
-is complete and live, **with the pack-flow switch off and release manual**
-(`platform_setting` holds no row on prod, so every setting is at its default).
-**`main` is ahead of prod by eleven tasks and NOT deployed** — V18, V19, the
-search-model fix, V20, V03, V15, V16, V17, V21, V22, V23; migrations
-**0055–0062**, all additive. V21–V22 (partners as records; cases and the
-figures a partner adds to an offer) are staff tools: nothing appears to a
-buyer until a staff member records a figure on an offer of a round, and
-rounds only exist on the pack flow, which is OFF on prod. In one line each: the assistant on a draft (off); the specification
-and the weights as versioned records; searches follow the plan's model tier;
-the buyer validates before any search (ON by default); a supplier account
-type that is not a customer; the RFQ link that creates one; the portal where
-suppliers answer; what they are told and the response funnel. **The supplier
-portal changes nothing a supplier or a buyer sees until RFQs are sent, and
-RFQs are only sent on the pack flow, which is OFF on prod** — so slice 2 is
-live-but-dormant on deploy, exactly as slice 1 was. The details, task by task:
-this record, then **V18** (the
-clarification before launch, migration **0055**, behind `AI_CHAT` — which is
-`false` on prod, read from the web container on 2026-11-18, so deploying it
-shows nothing new), and **V19** (the cahier des charges and the KPI profile,
-migration **0056** — additive: two tables, six nullable columns). **V19 is
-visible once deployed**: every request launched afterwards shows a
-« Cahier des charges » panel on its dossier, and the RFQ email is built from
-the recorded spec instead of the live criteria (same text). Rankings do not
-move: the default profile is the former constants.
-**⚠ THE NEXT DEPLOY CHANGES WHAT EVERY BUYER DOES.** `main` carries **V20**
-(migration **0057**): with the platform setting `flow.spec_validation` — **on
-by default, owner 2026-11-18** — a new request no longer starts its search on
-submit. It waits (« À valider ») until its buyer reads the specification and
-presses « Valider … et lancer la recherche ». Requests already in flight are
-untouched. To keep today's behaviour after the deploy, switch the setting off
-in `/interne/parametres` (Demandes → Validation du cahier des charges).
-**⚠ THE NEXT DEPLOY ALSO RAISES THE COST OF EVERY SEARCH ON PROD unless the plans
-are edited first.** `main` also carries the fix that makes the supplier
-search use the plan's `model_tier` (2026-11-18 — it was stored and never
-read; every search ran on `ANTHROPIC_MODEL` = `cheap`). On prod all 14
-workspaces are subscribed, on plans set to `balanced` (free 9, internal 4,
-org_trial 1 — read 2026-11-18), and `pro` / `business` / `enterprise` are
-`best`. So once deployed, searches leave Haiku for Sonnet: the plans page
-prices that at ~$0.21 a request against ~$0.06. The tiers are edited live on
-`/interne/plans`, no deploy needed — set them to what should be paid BEFORE
-deploying. The BACKLOG's own note that the internal plan was put on `cheap`
-"on dev AND prod" does not match what prod holds today (`balanced`).
-**Before `AI_CHAT` is ever switched on in prod, read D16:**
-the clarification is the first call that honours the plan's `model_tier`, and
-prod's plans are `balanced` and `best` while every cost figure we have was
-measured on `cheap`. **What deploy #48 changed for the
-owner:** `/interne/parametres` now lets them select « Activé » for the pack
-flow and « Automatique » for the release — one select and one click each.
-Neither was touched. **Before the pack flow is switched on, `rfq.reply_to`
-must be set to a mailbox someone reads.** The deploy also carries the fix for
-the REPORT flow (`/demandes/$id/rapport` showed the dossier instead of the
-report — see V12).
+**Prod = `dc0964b` (deploy #49, 2026-11-18)** — Phase V tasks V01–V23:
+slices 1, 2 and 3 complete, slice 4 up to V23. **`main` = prod**; nothing is
+waiting. Deploy #49 carried eleven tasks at once — V18, V19, the search-model
+fix, V20, V03, V15, V16, V17, V21, V22, V23 — and eight additive migrations
+(**0055–0062**). In one line each: the assistant on a draft (behind `AI_CHAT`,
+`false` on prod, so invisible); the specification and the weights as
+versioned records; searches follow the plan's model tier; the buyer validates
+before any search; a supplier account type that is not a customer; the RFQ
+link that creates one; the portal where suppliers answer; what they are told
+and the response funnel; partners as records; cases and the figures partners
+add; the Partner Hub.
+**⚠ TWO THINGS CHANGED FOR EVERY BUYER ON PROD WITH DEPLOY #49.**
+(1) **Validation before search (V20).** `platform_setting` holds no row on
+prod, so `flow.spec_validation` is at its default, **on** (owner,
+2026-11-18): a new request no longer starts its search on submit. It waits
+(« À valider ») until its buyer reads the specification and presses
+« Valider … et lancer la recherche ». The 17 requests already there are
+untouched. To go back: `/interne/parametres` → Demandes → Validation du
+cahier des charges → off.
+(2) **Searches cost more.** The supplier search now uses the plan's
+`model_tier` (it was stored and never read; every search ran on
+`ANTHROPIC_MODEL` = `cheap`). Read on prod right after the deploy: `free`,
+`internal`, `org_trial` = `balanced`; `pro`, `business`, `enterprise` =
+`best`. So the next search leaves Haiku for Sonnet — the plans page prices
+that at ~$0.21 a request against ~$0.06. **The tiers were NOT edited before
+the deploy.** They are edited live on `/interne/plans`, no deploy needed.
+**What is live but dormant:** the supplier portal and the Partner Hub change
+nothing anyone sees until an RFQ is sent or a partner is created — RFQs are
+only sent on the pack flow, which is OFF on prod, and prod holds no partner.
+**Before `AI_CHAT` is ever switched on in prod, read D16:** the clarification
+honours the plan's `model_tier`, and every cost figure we have was measured
+on `cheap`. **Before the pack flow is switched on, `rfq.reply_to` must be set
+to a mailbox someone reads.**
+
+**Deploy #49 verification** — backup `osi-20261118-215201.sql.gz` (31 M) +
+its uploads archive (85 B) taken first. Build gate passed locally (892
+tests, `verify-build.sh`). Eight migrations (0055–0062), all additive. On the
+VM: `git log` at `dc0964b`; `web` / `worker` / `worker-research` started
+together at 02:54:59 UTC (2026-11-19), restart count 0 when read a few
+minutes later; `__drizzle_migrations` 55 → 63; `partner_enrichment`,
+`criterion_proposal`, `rfq_invitation`, `kpi_profile` exist. **Data unchanged
+across the deploy:** 17 requests, all `report_ready`; 3 quotes, all
+`requested`; 155 request events; 13 users (12 `individual`, 1
+`organization`), 14 workspaces; no RFQ round, deal, decision pack or
+`platform_setting` row. The new tables are empty: no partner, case,
+partner invitation, `supplier_user` or `request_spec` row. Zero lines
+matching `error|unhandled|fatal|failed` (case-insensitive) in the web log
+and in both workers'; the pipeline worker is listening; `AI_CHAT` reads
+`false` in the web container. On the VM: `/` 200; `/demandes`,
+`/soumissions`, `/interne/partenaires`, `/partenaires`, `/portail` 307; the
+partner invitation page with a made-up token 200. Over the tunnel: `/` 200,
+`/partenaires` 307.
+**Not checked on prod:** signing in; submitting a request and seeing it wait
+for validation; a search on the new model tier; any page of the supplier
+portal or the Partner Hub behind a session (prod has no RFQ and no partner).
+Every live check of V15–V23 was done in dev (see each task below).
 
 **Deploy #48 verification** — backup `osi-20261118-184727.sql.gz` + its
 uploads archive (85 B) taken first. Build gate passed locally (690 tests).
@@ -4634,7 +4637,7 @@ built in: **S** one, **M** two to three, **L** four or more.
       the supplier and it is never shown to a buyer.
 
 - [x] **V03 · External accounts: a principal with no workspace — BUILT
-      2026-11-18** (migration **0058**, not deployed). Skipped on 2026-11-14,
+      2026-11-18** (migration **0058**, live since deploy #49). Skipped on 2026-11-14,
       built when the owner asked for the supplier portal — and stated the
       rule it rests on: *"supplier cannot act as workspace like a customer,
       the account type is supplier"*. `src/lib/account-types.ts` (pure:
@@ -5955,7 +5958,7 @@ built in: **S** one, **M** two to three, **L** four or more.
 #### Slice 2 — The supplier portal (step 07, the supplier's lane)
 
 - [x] **V15 · The invitation link and the account it creates — BUILT
-      2026-11-18** (migration **0059**, not deployed).
+      2026-11-18** (migration **0059**, live since deploy #49).
       `src/lib/portal-invitation.ts` (pure: `invitationState`,
       `invitationOffer`, the 30-day expiry); `src/server/portal-invitations.ts`
       (`issueInvitation`, `viewInvitation`, `redeemInvitation`,
@@ -6021,7 +6024,7 @@ built in: **S** one, **M** two to three, **L** four or more.
       Redemption needs its own rate limit.~~
 
 - [x] **V16 · The portal: answer, decline, attach — BUILT 2026-11-18** (no
-      migration, not deployed). `src/lib/portal-rfq.ts` (pure:
+      migration, live since deploy #49). `src/lib/portal-rfq.ts` (pure:
       `portalRfqState`, `canSubmitOffer`, `canDecline`, `windowOpen`);
       `src/server/portal.ts` (`listRfqs`, `readRfq`, `submitOffer`,
       `declineRfq`, `quoteForUpload`, `fileForDownload` — every query
@@ -6100,7 +6103,7 @@ built in: **S** one, **M** two to three, **L** four or more.
       must still be able to read back their own upload. Test both.~~
 
 - [x] **V17 · What a supplier is told, and the response funnel — BUILT
-      2026-11-18** (no migration, not deployed). **This completes slice 2
+      2026-11-18** (no migration, live since deploy #49). **This completes slice 2
       (V15–V17), the supplier portal.** `rfq-mail.ts` (`buildRoundClosedMail`,
       `buildOutcomeMail`); `rfq-window.ts` (`closeRound` tells the round's
       suppliers, new `tellOutcome`); `quote-fns.ts` (`acceptQuoteFn` calls it
@@ -6168,7 +6171,7 @@ built in: **S** one, **M** two to three, **L** four or more.
 #### Slice 3 — Specification and validation (steps 02–04)
 
 - [x] **V18 · The AI clarifies and restructures — BUILT 2026-11-18**
-      (migration **0055**, not deployed; behind `AI_CHAT`, off).
+      (migration **0055**, live since deploy #49; behind `AI_CHAT`, off).
       `src/lib/clarification.ts` (pure: `absentBasics`, `normalizeProposals`,
       `supersededAdds`, `normalizeQuestions`, `CLARIFY_MAX_TURNS`);
       `src/server/ai/chat.ts` (`clarifyRequest` — replaces `chatAboutRequest`);
@@ -6274,7 +6277,7 @@ built in: **S** one, **M** two to three, **L** four or more.
       asks for it, never on a timer, and it uses the plan's `model_tier`.~~
 
 - [x] **V19 · Cahier des charges and KPIProfile v1 — BUILT 2026-11-18**
-      (migration **0056**, not deployed). `src/lib/request-spec.ts` (pure:
+      (migration **0056**, live since deploy #49). `src/lib/request-spec.ts` (pure:
       `buildSpecContent`, `specFingerprint`); `src/lib/kpi-profile.ts` (pure:
       `defaultProfile`, `criterionWeight`, `profileFingerprint`, and KPI #1's
       weights, moved out of `matching.ts`); `src/server/spec.ts`
@@ -6370,7 +6373,7 @@ built in: **S** one, **M** two to three, **L** four or more.
       nobody notices.~~
 
 - [x] **V20 · The buyer validates the cahier — BUILT 2026-11-18**
-      (migration **0057**, not deployed). **This completes slice 3
+      (migration **0057**, live since deploy #49). **This completes slice 3
       (V18–V20).** `request-status.ts` (`spec_review`, `entryStatus`,
       `beforeLaunch`); `platform-settings.ts` (`flow.spec_validation`);
       `requests-fns.ts` (`createRequestFn` enters `spec_review`, new
@@ -6490,7 +6493,7 @@ built in: **S** one, **M** two to three, **L** four or more.
 #### Slice 4 — The Partner Hub (steps 08–09)
 
 - [x] **V21 · Partners, and the adapter they sit behind — BUILT 2026-11-18**
-      (migration **0060**, not deployed). `src/lib/partners.ts` (pure: the
+      (migration **0060**, live since deploy #49). `src/lib/partners.ts` (pure: the
       kinds, which are available, the providers);
       `src/server/partners/adapter.ts` (the interface and `adapterFor`),
       `src/server/partners/manual.ts` (the only provider);
@@ -6536,7 +6539,7 @@ built in: **S** one, **M** two to three, **L** four or more.
       escrow.com or Globex client here.~~
 
 - [x] **V22 · Cases and enrichments — BUILT 2026-11-18** (migration
-      **0061**, not deployed). `src/lib/partner-case.ts` (pure: which cost
+      **0061**, live since deploy #49). `src/lib/partner-case.ts` (pure: which cost
       line each kind of partner fills, the figure that counts, whether it can
       stand next to the supplier's price); `src/server/partner-cases.ts`
       (`openCase`, `recordEnrichment`, `cancelCase`, `casesForQuote`,
@@ -6625,7 +6628,7 @@ built in: **S** one, **M** two to three, **L** four or more.
       D7 again.~~
 
 - [x] **V23 · The Partner Hub surface — BUILT 2026-11-18** (migration
-      **0062**, not deployed). `src/lib/partner-need.ts` (pure: what each
+      **0062**, live since deploy #49). `src/lib/partner-need.ts` (pure: what each
       kind of case is shown); `src/server/partner-hub.ts` (`listCases`,
       `readCase`, `answerCase`, `tellCaseOpened`);
       `src/server/partner-invitations.ts`; `src/lib/partner-portal-fns.ts`
