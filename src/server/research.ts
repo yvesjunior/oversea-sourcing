@@ -389,6 +389,8 @@ export async function runResearchForRequest(
     });
 
     const scope = await resolveScope(organizationId, request.countryCodes);
+    const { resolvePlan } = await import("@/server/plan");
+    const plan = await resolvePlan(organizationId);
     await db
       .update(schema.researchRun)
       .set({ fingerprint: requestFingerprint(criteria, scope.countryCodes) })
@@ -407,6 +409,11 @@ export async function runResearchForRequest(
       attachmentText: attachments.text,
       countryCodes: scope.countryCodes,
       wanted: RESEARCH_CANDIDATE_CAP,
+      // The plan decides which model searches (fixed 2026-11-18 — it was
+      // stored and never read). Only a real subscription counts: without one
+      // `resolvePlan` answers with a tier GUESSED from ANTHROPIC_MODEL, and
+      // passing that back would turn a raw model id into the nearest tier.
+      modelTier: plan.fromSubscription ? plan.modelTier : null,
     };
 
     let found = 0;

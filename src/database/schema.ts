@@ -1141,7 +1141,9 @@ export const plan = pgTable(
       .default("individual"),
     /** Overrides SUPPLIERS_RETURNED for workspaces on this plan. */
     suppliersReturned: integer("suppliers_returned").notNull().default(5),
-    /** Overrides ANTHROPIC_MODEL. Drives both quality and cost per request. */
+    /** Overrides ANTHROPIC_MODEL for the supplier search and the
+     *  clarification. Drives both quality and cost per request. Read by the
+     *  pipeline since 2026-11-18 (`searchModelFor`) — stored but unused before. */
     modelTier: text("model_tier").$type<ModelTier>().notNull().default("cheap"),
     /**
      * May a workspace on this plan ask OSI to solicit quotes? (owner,

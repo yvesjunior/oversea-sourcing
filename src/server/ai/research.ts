@@ -18,8 +18,9 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
-import { EXTRACTION_MODEL, getAnthropic, MODEL, RESEARCH_MODEL } from "./client";
-import { estimateCost } from "./models";
+import type { ModelTier } from "@/database/schema";
+import { EXTRACTION_MODEL, getAnthropic, RESEARCH_MODEL } from "./client";
+import { estimateCost, RESEARCH_MODELS, type ModelSpec } from "./models";
 import { RESEARCH_CANDIDATE_CAP, RESEARCH_SEARCHES } from "@/server/sourcing-config";
 
 /** Both derived from SUPPLIERS_RETURNED — see src/server/sourcing-config.ts. */
@@ -138,7 +139,27 @@ export type ResearchContext = {
   /** Workspace sourcing preference — restrict the search to these countries
    *  (ISO 3166-1 alpha-2). Undefined/null = worldwide, today's behavior. */
   countryCodes?: string[] | null;
+  /** The workspace plan's tier (`plan.model_tier`). Null/absent = no plan
+   *  applies, and the search runs on the platform's model. */
+  modelTier?: ModelTier | null;
 };
+
+/**
+ * Which model searches for this request.
+ *
+ * The plan decides (fixed 2026-11-18). `plan.model_tier` has been stored,
+ * editable on /interne/plans and priced there per tier since the plans were
+ * built — and until this function nothing read it: every search ran on
+ * `ANTHROPIC_MODEL`, whatever the workspace's plan said. A plan set to `best`
+ * was searched on the cheap model, and a plan set to `cheap` to save money
+ * saved nothing.
+ *
+ * `ANTHROPIC_MODEL` remains what it was always described as: the fallback
+ * when no plan applies.
+ */
+export function searchModelFor(tier: ModelTier | null | undefined): ModelSpec {
+  return tier ? RESEARCH_MODELS[tier] : RESEARCH_MODEL;
+}
 
 export type ResearchResult = {
   candidates: SupplierCandidate[];
@@ -232,11 +253,12 @@ const EXTRACTION_SYSTEM = [
 async function searchPass(ctx: ResearchContext): Promise<{ findings: string; queries: string[] }> {
   const client = getAnthropic();
   const messages: Anthropic.MessageParam[] = [{ role: "user", content: brief(ctx) }];
+  const model = searchModelFor(ctx.modelTier);
 
   // Written as a branch rather than a computed `type` so each arm is a literal
   // the SDK's tool union can check — the registry picks which arm we take.
   const searchTool: Anthropic.ToolUnion =
-    RESEARCH_MODEL.searchTool === "web_search_20260209"
+    model.searchTool === "web_search_20260209"
       ? { type: "web_search_20260209", name: "web_search", max_uses: MAX_SEARCHES }
       : { type: "web_search_20250305", name: "web_search", max_uses: MAX_SEARCHES };
 
@@ -248,7 +270,7 @@ async function searchPass(ctx: ResearchContext): Promise<{ findings: string; que
     // away the searches already paid for on turns 1 and 2.
     const response = await withRetry("search", () =>
       client.messages.create({
-        model: MODEL,
+        model: model.id,
         max_tokens: 8000,
         system: RESEARCH_SYSTEM,
         tools: [searchTool],
@@ -268,13 +290,13 @@ async function searchPass(ctx: ResearchContext): Promise<{ findings: string; que
     // This is platform hotspot #1 (README §4 Architecture) — log enough to tell a
     // rate limit from a truncation from a model that just went quiet, and
     // enough to see the bill move when someone switches tier.
-    const cost = estimateCost(RESEARCH_MODEL, {
+    const cost = estimateCost(model, {
       input: response.usage.input_tokens,
       output: response.usage.output_tokens,
       searches: queries.length,
     });
     console.log(
-      `research/search: model=${RESEARCH_MODEL.id} turn ${attempt + 1} ` +
+      `research/search: model=${model.id} turn ${attempt + 1} ` +
         `stop=${response.stop_reason} ` +
         `blocks=[${response.content.map((b) => b.type).join(",")}] ` +
         `queries=${queries.length} findings=${findings.length}c ` +

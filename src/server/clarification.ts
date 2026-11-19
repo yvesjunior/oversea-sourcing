@@ -167,7 +167,9 @@ export async function runClarification(input: {
         content: m.role === "assistant" ? turnAsText(m.content, m.questions) : m.content,
       })),
       userMessage,
-      modelTier: plan.modelTier,
+      // A real subscription's tier; otherwise the platform's model — the
+      // same rule the supplier search follows (`searchModelFor`).
+      modelTier: plan.fromSubscription ? plan.modelTier : null,
     });
   } catch (error) {
     console.error(`clarify: the call failed for request ${request.id}`, error);

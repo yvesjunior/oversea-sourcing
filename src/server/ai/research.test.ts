@@ -30,7 +30,8 @@ vi.mock("@/server/ai/client", () => ({
   },
 }));
 
-import { NoSearchesError, researchSuppliers } from "@/server/ai/research";
+import { NoSearchesError, researchSuppliers, searchModelFor } from "@/server/ai/research";
+import { RESEARCH_MODELS } from "@/server/ai/models";
 
 const CTX = {
   title: "dome",
@@ -138,5 +139,55 @@ describe("searchPhase — a pass that never searched", () => {
     expect(result.candidates).toEqual([]);
     // No findings prose → extraction is never paid for.
     expect(parseMock).not.toHaveBeenCalled();
+  });
+});
+
+// The plan decides which model searches (fixed 2026-11-18). `plan.model_tier`
+// was stored, editable and priced on /interne/plans from the day plans were
+// built, and no search ever read it: all of them ran on ANTHROPIC_MODEL.
+describe("the search model comes from the workspace's plan", () => {
+  type SearchCall = { model: string; tools: Array<{ type: string }> };
+  const firstCall = () => createMock.mock.calls[0]?.[0] as SearchCall;
+
+  it("uses the platform's model when no plan applies", () => {
+    expect(searchModelFor(null).id).toBe("test-research-model");
+    expect(searchModelFor(undefined).id).toBe("test-research-model");
+  });
+
+  it("uses the registry's model for each tier", () => {
+    expect(searchModelFor("cheap")).toBe(RESEARCH_MODELS.cheap);
+    expect(searchModelFor("balanced")).toBe(RESEARCH_MODELS.balanced);
+    expect(searchModelFor("best")).toBe(RESEARCH_MODELS.best);
+  });
+
+  it("sends the search to the plan's model, with the search tool that model takes", async () => {
+    createMock.mockResolvedValueOnce(searchingPass("dome PVC"));
+    parseMock.mockResolvedValue(ONE_CANDIDATE);
+
+    await researchSuppliers({ ...CTX, modelTier: "best" });
+
+    expect(firstCall().model).toBe(RESEARCH_MODELS.best.id);
+    // Not the platform default's tool: sending the basic variant to a model
+    // that filters results itself would pay for the unfiltered pages.
+    expect(firstCall().tools[0]?.type).toBe(RESEARCH_MODELS.best.searchTool);
+  });
+
+  it("keeps the platform's model and tool for a request with no plan tier", async () => {
+    createMock.mockResolvedValueOnce(searchingPass("dome PVC"));
+    parseMock.mockResolvedValue(ONE_CANDIDATE);
+
+    await researchSuppliers(CTX);
+
+    expect(firstCall().model).toBe("test-research-model");
+    expect(firstCall().tools[0]?.type).toBe("web_search_20250305");
+  });
+
+  it("leaves extraction on the extraction model whatever the plan says", async () => {
+    createMock.mockResolvedValueOnce(searchingPass("dome PVC"));
+    parseMock.mockResolvedValue(ONE_CANDIDATE);
+
+    await researchSuppliers({ ...CTX, modelTier: "best" });
+
+    expect((parseMock.mock.calls[0]?.[0] as { model: string }).model).toBe("test-extraction-model");
   });
 });

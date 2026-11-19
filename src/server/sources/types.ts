@@ -12,7 +12,7 @@
 // Adding a source = one module implementing this interface + one row in
 // `data_source` (registered in ./registry.ts). Nothing else changes.
 
-import type { DataSourceType } from "@/database/schema";
+import type { DataSourceType, ModelTier } from "@/database/schema";
 
 /** What the request needs — the same brief for every connector. */
 export type SearchBrief = {
@@ -27,6 +27,11 @@ export type SearchBrief = {
   countryCodes: string[] | null;
   /** How many candidates the caller wants (connectors may return fewer). */
   wanted: number;
+  /** The model tier of the workspace's plan — what a connector that calls a
+   *  model must use for this request. Absent when no plan applies (an admin
+   *  refresh, a workspace without a subscription): the connector then uses
+   *  the platform's own model (`ANTHROPIC_MODEL`). */
+  modelTier?: ModelTier | null;
   /** Storage key of a staff-uploaded file (admin full pull of a file-fed
    *  source, e.g. registry-qc's ZIP) — null for every other collection. */
   fileKey?: string | null;

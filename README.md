@@ -1642,11 +1642,30 @@ is refused as `stale`.
   reached the model. The plan's quota counts requests, not calls, so nothing
   else bounds them. A turn lost to an outage is not counted.
 
-**The model is the workspace plan's `model_tier`** — the first AI call that
-reads it. Research and extraction still take their model from the environment
-(`ANTHROPIC_MODEL`), whatever the plan says. Measured in dev on the `cheap`
+**The model is the workspace plan's `model_tier`**, by the same rule as the
+supplier search (`searchModelFor`, below). Measured in dev on the `cheap`
 tier: about **$0.003 per turn**. Not measured on `balanced` or `best`, which
 is what prod's plans are set to — see BACKLOG D16.
+
+### The plan decides which model searches (fixed 2026-11-18)
+
+`plan.model_tier` (`cheap` · `balanced` · `best`) has been stored, editable on
+`/interne/plans` and priced there per tier since the plans were built — and
+**until 2026-11-18 no search read it**: every one ran on `ANTHROPIC_MODEL`,
+whatever the workspace's plan said. Now the search brief carries the plan's
+tier and `searchModelFor` (`src/server/ai/research.ts`) picks the model and
+the web-search tool variant that model takes. `ANTHROPIC_MODEL` is what it was
+always described as: the fallback when no plan applies — a workspace with no
+subscription, or a staff refresh of a source, which belongs to no workspace.
+
+Only the **search** follows the plan. Turning the findings into rows
+(extraction), reading attachments and translating criteria stay on the
+extraction model (`ANTHROPIC_EXTRACTION_MODEL`) for every plan: that is the
+"cheap model for extraction, strong model for research" split of §4.
+
+**`suppliers_returned` is still not read** by the pipeline: the Top-N is
+`SUPPLIERS_RETURNED` from the environment for every workspace, while
+Paramètres shows the plan's number. Same class of gap, not fixed here.
 
 ### The cahier des charges and the KPI profile — two records per request (V19)
 
@@ -2674,7 +2693,7 @@ defaults from `docker-compose.dev.yml`, so a fresh clone needs only
 | -------------------- | ---------- | ------------------------------------------------------------------------------------- |
 | `AI_RESEARCH`        | **`true`** | Real web search per request. Off falls back to a simulated search stage               |
 | `AI_CHAT`            | `false`    | The clarification before launch (V18): « Préciser avec l'assistant » on the form, the assistant on a draft. Off hides both and the server refuses; a draft already held stays launchable |
-| `ANTHROPIC_MODEL`    | `cheap`    | Tier (`cheap`/`balanced`/`best`) or a raw model id — registry in `ai/models.ts`        |
+| `ANTHROPIC_MODEL`    | `cheap`    | The search model **when no plan applies** (no subscription, a staff source refresh) — a tier (`cheap`/`balanced`/`best`) or a raw model id, registry in `ai/models.ts`. A subscribed workspace searches on its plan's `model_tier` instead |
 | `SUPPLIERS_RETURNED` | `5`        | Suppliers shown per dossier. **Search count and candidate caps derive from it**       |
 | `SHOW_TEST_LOGIN`    | `true`     | One-click demo login on `/login`. **Set false before real users** — creds are public  |
 | `REQUIRE_EMAIL_VERIFICATION` | **`true`** | Unverified accounts cannot sign in (blocked attempt re-sends the link). **Prod-only by design** — `docker-compose.dev.yml` sets it `false` (owner 2026-08-28: dev accounts are throwaways) |

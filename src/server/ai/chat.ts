@@ -14,7 +14,8 @@ import { CRITERIA_CATEGORIES } from "@/database/schema";
 import type { ModelTier } from "@/database/schema";
 import type { RawOperation } from "@/lib/clarification";
 import { getAnthropic } from "./client";
-import { estimateCost, RESEARCH_MODELS } from "./models";
+import { estimateCost } from "./models";
+import { searchModelFor } from "./research";
 
 const ClarificationSchema = z.object({
   /** The need, restated in two or three sentences. */
@@ -63,8 +64,9 @@ export type ClarificationContext = {
   history: Array<{ role: "user" | "assistant"; content: string }>;
   /** The buyer's answer; null when they only asked for a reading. */
   userMessage: string | null;
-  /** The workspace plan's tier — the plan decides what a request may cost. */
-  modelTier: ModelTier;
+  /** The workspace plan's tier — the plan decides what a request may cost.
+   *  Null when no plan applies: the platform's own model, as for the search. */
+  modelTier: ModelTier | null;
 };
 
 function systemPrompt(ctx: ClarificationContext): string {
@@ -144,7 +146,8 @@ export async function clarifyRequest(
   ctx: ClarificationContext,
 ): Promise<ClarificationOutput | null> {
   const client = getAnthropic();
-  const spec = RESEARCH_MODELS[ctx.modelTier];
+  // The same rule as the supplier search, from the same function.
+  const spec = searchModelFor(ctx.modelTier);
   const response = await client.messages.parse({
     model: spec.id,
     // A ceiling, not a target: the answer is a few hundred tokens, but on the

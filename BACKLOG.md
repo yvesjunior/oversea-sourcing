@@ -50,6 +50,17 @@ visible once deployed**: every request launched afterwards shows a
 « Cahier des charges » panel on its dossier, and the RFQ email is built from
 the recorded spec instead of the live criteria (same text). Rankings do not
 move: the default profile is the former constants.
+**⚠ THE NEXT DEPLOY RAISES THE COST OF EVERY SEARCH ON PROD unless the plans
+are edited first.** `main` also carries the fix that makes the supplier
+search use the plan's `model_tier` (2026-11-18 — it was stored and never
+read; every search ran on `ANTHROPIC_MODEL` = `cheap`). On prod all 14
+workspaces are subscribed, on plans set to `balanced` (free 9, internal 4,
+org_trial 1 — read 2026-11-18), and `pro` / `business` / `enterprise` are
+`best`. So once deployed, searches leave Haiku for Sonnet: the plans page
+prices that at ~$0.21 a request against ~$0.06. The tiers are edited live on
+`/interne/plans`, no deploy needed — set them to what should be paid BEFORE
+deploying. The BACKLOG's own note that the internal plan was put on `cheap`
+"on dev AND prod" does not match what prod holds today (`balanced`).
 **Before `AI_CHAT` is ever switched on in prod, read D16:**
 the clarification is the first call that honours the plan's `model_tier`, and
 prod's plans are `balanced` and `best` while every cost figure we have was
@@ -4351,7 +4362,7 @@ report, exactly as today, because that report is all they get.
 | **D13** | A round closed early (staff, or the target reached) tells the suppliers who had not answered **nothing**: their RFQ still shows the original deadline. One who answers after the close but before that deadline is refused (V08: not in time for the round). Should they be told the RFQ is closed? | **Not told** (V07/V08 as built) — README §2c: a silent supplier is *"excluded, not chased"*. A closing notice is not chasing, and `buildRfqWithdrawnMail` shows the shape; it is one more email per silent supplier per early close. | V07, V08 |
 | **D14** | In `automatic` mode, a pack that came to a person (its round closed with no offer) and was **relaunched**: when the new round closes with offers, does it leave by itself? | **No — a pack that has reached a person stays a person's** (V14 as built). Automatic release happens only at the close that creates the pack. The other answer is simpler to state ("automatic means automatic") but lets a relaunched pack leave alone after the setting has gone back to `manual`, because a pack keeps the mode it was created with. | V14 |
 | **D15** | An automatically released pack passes through `pack_review` for an instant, so the request's timeline and activity feed — which the buyer reads — still show « Offres reçues — en revue chez OSI » a few seconds before « Decision Pack disponible ». The email and the pack page were made truthful in V14; the timeline was not. | **Left as is while the mode is off.** To settle before anyone selects `automatic`: either a different label for that step when the pack's release has no person, or no `pack_review` step at all on an automatic release. | V14 |
-| **D16** | The clarification (V18) is the **first AI call that reads the plan's `model_tier`** — research and extraction take their model from `ANTHROPIC_MODEL`, whatever the plan says (verified in the code 2026-11-18: nothing else reads `plan.model_tier`). On prod the plans are `free` / `internal` / `org_trial` = `balanced`, `pro` / `business` / `enterprise` = `best` (read from prod's `plan` table 2026-11-18), while `ANTHROPIC_MODEL` is `cheap`. So switching `AI_CHAT` on in prod would run clarifications on Sonnet and Opus, at a cost per turn **nobody has measured** — dev measured `cheap` only, about $0.003 a turn. | **Built as the task says: the plan's tier.** To settle before `AI_CHAT` goes on in prod: measure a turn on `balanced` and `best`, or set the plans' tiers to what the owner wants to pay, or decide that the clarification follows `ANTHROPIC_MODEL` like everything else. Separately: is it intended that research ignores the plan's tier? The plans page shows a per-request cost by tier that research does not follow. | switching `AI_CHAT` on |
+| **D16** | The clarification (V18) is the **first AI call that reads the plan's `model_tier`** — research and extraction take their model from `ANTHROPIC_MODEL`, whatever the plan says (verified in the code 2026-11-18: nothing else reads `plan.model_tier`). On prod the plans are `free` / `internal` / `org_trial` = `balanced`, `pro` / `business` / `enterprise` = `best` (read from prod's `plan` table 2026-11-18), while `ANTHROPIC_MODEL` is `cheap`. So switching `AI_CHAT` on in prod would run clarifications on Sonnet and Opus, at a cost per turn **nobody has measured** — dev measured `cheap` only, about $0.003 a turn. | **Built as the task says: the plan's tier.** To settle before `AI_CHAT` goes on in prod: measure a turn on `balanced` and `best`, or set the plans' tiers to what the owner wants to pay, or decide that the clarification follows `ANTHROPIC_MODEL` like everything else. Separately: is it intended that research ignores the plan's tier? The plans page shows a per-request cost by tier that research does not follow. **Half settled 2026-11-18 (owner: "fix search model"): the search now follows the plan's tier too, so the two agree and the plans page's cost per tier is true. Still open: nobody has measured a clarification turn on `balanced` or `best`, and prod's plans are on those tiers.** | the next deploy; switching `AI_CHAT` on |
 | **D17** | Two limits V18 had to invent. **(a) Six clarifications per request** (`CLARIFY_MAX_TURNS`): the quota counts requests, not calls, so nothing else bounds them. **(b) Drafts only**: once the search is launched the assistant no longer answers — a paid exchange that changes criteria after the search was built from them changes nothing the buyer receives. Proposals left open can still be accepted while the criteria are editable, like a manual edit. | **Built as stated.** Both are one constant / one condition to change. A held draft also has **no expiry**: it waits until its buyer launches or cancels it, counted in the quota since creation (V20's gotcha relies on that). | V18, V20 |
 
 #### Review of V01–V09 — 2026-11-14, after deploy #45
@@ -6896,6 +6907,14 @@ V32-V34 (settlement) wait on the legal opinion — full graph in Phase V
       2026-08-20), typed text still preserved
 - [x] **Per-plan overrides** — `suppliers_returned` and `model_tier` come from the
       plan, falling back to the env values when a workspace has no subscription
+      *(2026-11-18: this was written and never true — `resolvePlan` returned
+      both, and nothing in the pipeline read either. `model_tier` is fixed:
+      the search brief carries it and `searchModelFor` picks the model and its
+      search tool; 5 tests. **`suppliers_returned` is still not read** — the
+      Top-N is the env's `SUPPLIERS_RETURNED` for everyone, while Paramètres
+      shows the plan's number. Not exercised: a real search on `balanced` or
+      `best` — dev's plans are all `cheap`, so the fix changes nothing there
+      and a paid run would not have told the tiers apart.)*
 - [x] **Manager screen** `/interne/plans` — edit limits with validation and a live
       cost estimate (requests/day is a cost commitment; a form that hides the money
       is a footgun), assign plans to workspaces, `updated_by` trail

@@ -23,6 +23,7 @@ export const globalWebConnector: SupplierSourceConnector = {
       criteria: brief.criteria,
       ...(brief.attachmentText ? { attachmentText: brief.attachmentText } : {}),
       countryCodes: brief.countryCodes,
+      modelTier: brief.modelTier ?? null,
     });
     return {
       candidates: candidates.map((candidate) => ({
