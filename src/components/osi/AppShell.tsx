@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { useRouterState } from "@tanstack/react-router";
 import type { SessionData } from "@/lib/session-fns";
 import type { Design } from "@/lib/themes";
-import { isPortalPath } from "@/lib/account-types";
+import { isExternalSurfacePath, isPartnerHubPath } from "@/lib/account-types";
 import { AppSidebar } from "./AppSidebar";
 import { PortalShell } from "./PortalShell";
 import { TopBar } from "./TopBar";
@@ -20,9 +20,15 @@ export function AppShell({
 }) {
   const pathname = useRouterState({ select: (r) => r.location.pathname });
 
-  // The external accounts' surface has its own shell (V03): the sidebar below
-  // is the buyer's and staff's, and none of it is theirs.
-  if (isPortalPath(pathname)) return <PortalShell session={session}>{children}</PortalShell>;
+  // The external accounts' surfaces have their own shell (V03, V23): the
+  // sidebar below is the buyer's and staff's, and none of it is theirs.
+  if (isExternalSurfacePath(pathname)) {
+    return (
+      <PortalShell session={session} surface={isPartnerHubPath(pathname) ? "partner" : "supplier"}>
+        {children}
+      </PortalShell>
+    );
+  }
 
   // Auth pages render without the app chrome (no sidebar, no topbar).
   if (BARE_ROUTES.some((p) => pathname.startsWith(p))) {

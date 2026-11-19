@@ -208,6 +208,11 @@ export async function openCase(
     target: partner.name,
     detail: { request: quote.requestId, kind: partner.kind, supplier: quote.supplierName },
   });
+  // The partner's people who have a Partner Hub account are told (V23). A
+  // side effect: it never throws, and a partner with no account is simply
+  // reached by staff as before.
+  const { tellCaseOpened } = await import("@/server/partner-hub");
+  await tellCaseOpened(caseId);
   return { ok: true, caseId };
 }
 

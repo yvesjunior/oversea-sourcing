@@ -1189,7 +1189,7 @@ workspace, on a plan. Since 2026-11-18 there are two more, and they are not:
 |---|---|---|---|---|
 | `individual` · `organization` | a buyer (and OSI's staff) | yes | yes | the app |
 | **`supplier`** | someone at a supplier, answering its RFQs | **none** | **none** | `/portail` |
-| **`partner`** | someone at a partner (V21) | **none** | **none** | — (nothing yet) |
+| **`partner`** | someone at a partner (V21) | **none** | **none** | the Partner Hub, `/partenaires` (V23) |
 
 **An external account can do nothing a customer can.** It belongs to no
 workspace and can never join or create one, has no plan and no quota, and its
@@ -1427,6 +1427,36 @@ absent figure is « non fourni », never zero; summing is V24's job, and it
 must skip everything that is not `addable`. The partner is never named to the
 buyer: the frozen copy of the offer holds kind, amount, currency and
 validity only.
+
+### The Partner Hub — where a partner's person answers (V23)
+
+Since 2026-11-18 a person at a partner has a surface of their own,
+`/partenaires`, and an account type of their own (`partner`). It is **not**
+the supplier portal with a flag: a supplier account cannot open it, a partner
+account cannot open `/portail`, and each is behind its own guard.
+
+- **How someone gets in.** Staff invite an address from
+  `/interne/partenaires`; the email's link creates the account (30 days, one
+  use, token stored as a hash). There is no partner signup. An address that
+  already belongs to a customer or a supplier account is refused — an
+  account's type never changes.
+- **What they see.** The cases addressed to their partner(s), and in each
+  case only what that kind of question needs (`src/lib/partner-need.ts`):
+
+  | Kind | Shown |
+  | --- | --- |
+  | transport | goods, quantity, country of departure, incoterm, lead time |
+  | insurance, customs | goods, quantity, country of departure, incoterm, **value of the goods** |
+  | inspection | goods, quantity, country of departure, **the supplier's name** |
+
+  Never, for any kind: the buyer, another supplier or offer, a rank, OSI's
+  fee, payment terms. The cut is made on the server (`factsForCase`) — what a
+  kind does not need is not sent.
+- **What they do.** Give their figure — amount, currency, validity, a note —
+  and correct it; the earlier one stays on record. It is the same row as a
+  figure staff key in on their behalf, marked `portal`.
+- **What they are told.** When a case is opened, the partner's people who
+  have an account get an email with the reference and the kind, nothing else.
 
 ## 2 · How a request works
 
@@ -3227,6 +3257,7 @@ erDiagram
 | `partner_user`       | ✅ 2026-11-18 (0060, V21) — which partner(s) an external account answers for; `supplier_user`'s counterpart, read by `requirePartnerSession` |
 | `partner_case`       | ✅ 2026-11-18 (0061, Phase V · V22) — a question put to a partner about ONE offer: `partner_id`, `quote_id`, `request_id`, `kind` (the partner's, copied), `status` (`open` · `answered` · `cancelled`), `brief`, `external_ref` (what an integrated provider would return — null with `manual`), `opened_by` + name. One live case per offer per kind, enforced in `openCase`. No `deal_id` yet (slice 5) |
 | `partner_enrichment` | ✅ 2026-11-18 (0061, V22) — a partner's figure: `case_id`, `quote_id`, `kind` (`main_carriage` · `insurance` · `import_duties` · `inspection`), `amount_cents` + `currency` (its own — never converted), `details` (jsonb, a note), `valid_until`, `channel` (`staff` today; `portal` from V23), `version` (unique per case — a correction is the next version), `created_by` + name. `kpi_result` runs gain the trigger `enrichment_changed` |
+| `partner_invitation` | ✅ 2026-11-18 (0062, Phase V · V23) — the link that opens the Partner Hub to one person: `partner_id`, `email`, `token_hash` (unique; the token exists only in the email), `expires_at` (30 days), `opened_at`, `registered_user_id` + `registered_at` (non-null = used), `invited_by` + name. `rfq_invitation`'s counterpart — sent by staff on purpose, once per person, not per case |
 | `criterion_proposal` | ✅ 2026-11-18 (0055, Phase V · V18) — a criteria change the assistant PROPOSED: `op` (`add` · `update` · `remove`), the full criterion an accept would leave, `previous` / `previous_required` (what an update replaces), `status` (`pending` · `accepted` · `dismissed` · `stale` · `superseded`), who answered and their name as it was. `criterion_id` is deliberately not a foreign key: the proposal outlives a criterion deleted by hand, to say `stale`. Same migration: `request_message.questions` (jsonb) — what the assistant asked on a turn; non-null is what counts a turn against the request's six |
 | `kpi_result`         | ✅ 2026-11-14 (0051, Phase V · V09) — KPI #2: one row per offer per run. `run_id` groups a computation; `rank`, `score` (hundredths of a point), `breakdown` (per-factor state, points and weight, the notes, and the offer exactly as it was scored), `formula_version`, `inputs_hash`, `trigger`, `computed_at`. **Append-only** — the current ranking of a round is its latest run. KPI #1 is not here: it scores a supplier before anyone is asked and stays on `match` |
 | `platform_setting`   | ✅ 2026-11-14 (0046, Phase V · V01) — platform-wide settings, ONE value per key for every client; a missing row means the default. Keys, types, ranges and defaults live in the registry `src/lib/platform-settings.ts`, so a new knob is a registry entry and not a migration. Edited from `/interne/parametres` (`settings` permission, owner by default); every change is in `audit_log` with the old and new value |

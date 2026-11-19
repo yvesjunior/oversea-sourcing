@@ -3,6 +3,7 @@ import {
   INVITATION_TTL_DAYS,
   invitationExpiry,
   invitationOffer,
+  partnerRegistrationPath,
   invitationState,
   registrationPath,
 } from "@/lib/portal-invitation";
@@ -42,6 +43,29 @@ describe("invitationOffer", () => {
     for (const type of ["individual", "organization", "partner", "", "admin"]) {
       expect(invitationOffer(type), type).toBe("conflict");
     }
+  });
+});
+
+// V23: the same rule for a Partner Hub link, which makes a PARTNER account.
+describe("invitationOffer, for a partner's link", () => {
+  it("registers when nobody holds the address", () => {
+    expect(invitationOffer(null, "partner")).toBe("register");
+  });
+
+  it("attaches to a partner account", () => {
+    expect(invitationOffer("partner", "partner")).toBe("attach");
+  });
+
+  // An account's type never changes: a supplier's address cannot become a
+  // partner's, any more than a customer's can.
+  it("refuses a supplier's address, and a customer's", () => {
+    for (const type of ["supplier", "individual", "organization", "", "admin"]) {
+      expect(invitationOffer(type, "partner"), type).toBe("conflict");
+    }
+  });
+
+  it("leads to the hub's own registration page, with the token and nothing else", () => {
+    expect(partnerRegistrationPath("tok_123")).toBe("/partenaires/inscription/tok_123");
   });
 });
 

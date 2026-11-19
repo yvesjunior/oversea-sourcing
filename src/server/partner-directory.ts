@@ -4,7 +4,7 @@
 // to reach them. Guards (session, permission) stay with the callers in
 // `src/lib/partner-fns.ts`.
 
-import { asc, eq } from "drizzle-orm";
+import { and, asc, eq, gt, isNull } from "drizzle-orm";
 import { db } from "@/database";
 import * as schema from "@/database/schema";
 import type { ContactLocale } from "@/database/schema";
@@ -24,11 +24,15 @@ export type PartnerView = {
   notes: string | null;
   createdAt: string;
   createdByName: string | null;
+  /** Partner Hub (V23): the people at this partner who have an account. */
+  accounts: Array<{ name: string; email: string }>;
+  /** Addresses invited whose link has not been used yet (and not expired). */
+  pendingInvitations: string[];
 };
 
 type Row = typeof schema.partner.$inferSelect;
 
-function view(row: Row): PartnerView {
+function view(row: Row): Omit<PartnerView, "accounts" | "pendingInvitations"> {
   return {
     id: row.id,
     name: row.name,
@@ -45,13 +49,43 @@ function view(row: Row): PartnerView {
   };
 }
 
-/** Every partner, by kind then name. */
+/** Every partner, by kind then name, with who can sign in for it. */
 export async function listPartners(): Promise<PartnerView[]> {
   const rows = await db
     .select()
     .from(schema.partner)
     .orderBy(asc(schema.partner.kind), asc(schema.partner.name));
-  return rows.map(view);
+  const accounts = await db
+    .select({
+      partnerId: schema.partnerUser.partnerId,
+      name: schema.user.name,
+      email: schema.user.email,
+    })
+    .from(schema.partnerUser)
+    .innerJoin(schema.user, eq(schema.user.id, schema.partnerUser.userId))
+    .orderBy(asc(schema.user.name));
+  const pending = await db
+    .select({
+      partnerId: schema.partnerInvitation.partnerId,
+      email: schema.partnerInvitation.email,
+    })
+    .from(schema.partnerInvitation)
+    .where(
+      and(
+        isNull(schema.partnerInvitation.registeredUserId),
+        gt(schema.partnerInvitation.expiresAt, new Date()),
+      ),
+    );
+  return rows.map((row) => ({
+    ...view(row),
+    accounts: accounts
+      .filter((a) => a.partnerId === row.id)
+      .map(({ name, email }) => ({ name, email })),
+    // One line per address, however many times it was invited.
+    pendingInvitations: [
+      ...new Set(pending.filter((p) => p.partnerId === row.id).map((p) => p.email)),
+    ],
+  }));
 }
 
 export type PartnerFields = {

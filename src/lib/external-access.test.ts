@@ -11,9 +11,11 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  ACCOUNT_KIND_CREATED,
   EXTERNAL_ACCOUNT_CREATORS,
   EXTERNAL_API_ROUTES,
   EXTERNAL_AWARE_MODULES,
+  EXTERNAL_FN_FILES,
   EXTERNAL_FNS,
   PUBLIC_FNS,
 } from "@/lib/external-access";
@@ -122,17 +124,63 @@ describe("every server function has decided who may call it", () => {
       // through the workspace getter it would simply refuse them.
       expect(fn!.source.includes(GUARDED), `${name} uses the workspace getter`).toBe(false);
       // Directly, or through the one helper its file defines for it
-      // (`caller()` in portal-fns.ts, which is `requireSupplierSession`).
+      // (`caller()` in portal-fns.ts, which is `requireSupplierSession`;
+      // `partnerCaller()` in partner-portal-fns.ts, `requirePartnerSession`).
       const file = SOURCES.find((s) => s.file === fn!.file)!.text;
+      const own = (EXTERNAL_FN_FILES as Record<string, { guard: string; helper: string }>)[
+        fn!.file
+      ];
       const viaHelper =
-        /\bawait caller\(\)/.test(fn!.source) &&
-        /async function caller\(\)[\s\S]*?requireSupplierSession\(/.test(file);
+        own !== undefined &&
+        new RegExp(`\\bawait ${own.helper}\\(\\)`).test(fn!.source) &&
+        new RegExp(`async function ${own.helper}\\(\\)[\\s\\S]*?${own.guard}\\(`).test(file);
       expect(
         viaHelper ||
           /getAnySession\(|requireSupplierSession\(|requirePartnerSession\(/.test(fn!.source),
         `${name} does not read an external session`,
       ).toBe(true);
     }
+  });
+
+  // V23's acceptance: "V03's partition tests are extended to partner
+  // sessions". Two audiences, two guards, and no file that holds both.
+  it("gives each external audience its own functions, behind its own guard", () => {
+    const guards = ["requireSupplierSession", "requirePartnerSession"];
+    for (const [file, { guard, helper }] of Object.entries(EXTERNAL_FN_FILES)) {
+      const source = SOURCES.find((s) => s.file === file);
+      expect(source, `${file} is listed but does not exist`).toBeDefined();
+      expect(source!.text.includes(`${guard}(`), `${file} does not use ${guard}`).toBe(true);
+      for (const other of guards.filter((g) => g !== guard)) {
+        // Not even in a comment: a file that names the other guard is one
+        // edit away from calling it.
+        expect(source!.text.includes(other), `${file} names ${other}`).toBe(false);
+      }
+      // And every function in it asks, through that helper, before anything.
+      const inFile = FNS.filter((fn) => fn.file === file);
+      expect(inFile.length).toBeGreaterThan(0);
+      for (const fn of inFile) {
+        expect(externalNames, `${fn.name} is not in the register`).toContain(fn.name);
+        expect(
+          new RegExp(`const who = await ${helper}\\(\\);`).test(fn.source),
+          `${fn.name} does not ask who is calling`,
+        ).toBe(true);
+      }
+    }
+  });
+
+  it("keeps the Partner Hub's reads behind the caller's own partners", () => {
+    // The server half: nothing in partner-hub.ts reads a case except through
+    // `ownCases`, which filters by `caller.partnerIds`.
+    const hub = SOURCES.find((s) => s.file === "src/server/partner-hub.ts")!.text;
+    expect(hub).toContain("inArray(schema.partnerCase.partnerId, caller.partnerIds)");
+    for (const name of ["listCases", "readCase", "answerCase"]) {
+      const start = hub.indexOf(`export async function ${name}(`);
+      expect(start, `${name} not found`).toBeGreaterThan(-1);
+      const body = hub.slice(start, hub.indexOf("\n}\n", start));
+      expect(body.includes("await ownCases(caller"), `${name} bypasses ownCases`).toBe(true);
+    }
+    // And what a case shows goes through the per-kind rule.
+    expect(hub).toContain("facts: factsForCase(row.case.kind, everything)");
   });
 
   it("has no two server functions with the same name", () => {
@@ -165,14 +213,22 @@ describe("the unguarded session getter stays where it was put", () => {
   });
 });
 
-describe("there is one way to become a supplier", () => {
-  // No unsolicited supplier signup (V15): an external account comes from an
-  // RFQ invitation, and from nothing else.
-  it("lets only the invitation module create an external account", () => {
+describe("there is one way to become a supplier, and one to become a partner", () => {
+  // No unsolicited signup (V15, V23): an external account comes from an
+  // invitation — an RFQ's for a supplier, a staff member's for a partner.
+  it("lets only the invitation modules create an external account", () => {
     const callers = SOURCES.filter(({ file }) => file !== "src/lib/external-access.ts")
       .filter(({ text }) => /\bcreateExternalAccount\b/.test(text))
       .map(({ file }) => file);
     expect(callers.sort()).toEqual([...EXTERNAL_ACCOUNT_CREATORS].sort());
+  });
+
+  it("lets each invitation module create its own kind of account, and no other", () => {
+    for (const [file, kind] of Object.entries(ACCOUNT_KIND_CREATED)) {
+      const text = SOURCES.find((s) => s.file === file)!.text;
+      const created = [...text.matchAll(/accountType: "(\w+)"/g)].map((m) => m[1]);
+      expect(created, file).toEqual([kind]);
+    }
   });
 
   it("keeps the public signup to buyer accounts", () => {

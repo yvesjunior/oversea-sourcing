@@ -12,7 +12,8 @@
 // These are EXTERNAL accounts. An external account belongs to no workspace,
 // has no plan and no quota, and can do nothing a customer can: it never
 // creates a request, never reads a dossier, never sees another supplier. It
-// reaches the platform through its own surface (`/portail`) and its own guard
+// reaches the platform through its own surface (`/portail` for a supplier,
+// `/partenaires` for a partner — V23) and its own guard
 // (`src/server/party-guard.ts`) — owner, 2026-11-18: "supplier cannot act as
 // workspace like a customer, the account type is supplier".
 //
@@ -51,32 +52,62 @@ export function isExternalAccount(accountType: string | null | undefined): boole
 
 // ── where an external session may go ────────────────────────────────────────
 
-/** The external accounts' own surface. */
+/** The supplier accounts' own surface. */
 export const PORTAL_PREFIX = "/portail";
+/** The partner accounts' own surface — the Partner Hub (V23). Not
+ *  `/interne/partenaires`, which is where STAFF keep the partners. */
+export const PARTNER_HUB_PREFIX = "/partenaires";
 
-/** Pages an external session may open besides the portal: the ones that deal
+const SURFACE: Record<ExternalAccountType, string> = {
+  supplier: PORTAL_PREFIX,
+  partner: PARTNER_HUB_PREFIX,
+};
+
+/** Where an external account lands, and is sent back to from anywhere else. */
+export function externalHome(kind: ExternalAccountType): string {
+  return SURFACE[kind];
+}
+
+function under(prefix: string, pathname: string): boolean {
+  return pathname === prefix || pathname.startsWith(`${prefix}/`);
+}
+
+/** Pages an external session may open besides its surface: the ones that deal
  *  with the account itself. `/` is NOT among them — the landing's loader reads
  *  buyer data, and an external session has no business on a buyer's page. */
 const EXTERNAL_OPEN_PATHS = ["/login", "/mot-de-passe-oublie", "/reinitialiser", "/2fa"];
 
 /**
- * May an external session open this path?
+ * May an external session of this kind open this path?
  *
  * An allow list: everything the product has, and everything it will ever
- * add, is closed to an external account unless it is written here.
+ * add, is closed to an external account unless it is written here. And each
+ * kind has ITS surface only (V23): a supplier's person has no partner to
+ * answer for, a partner's person no RFQ — the other surface is as closed to
+ * them as a buyer's page.
  */
-export function externalMayOpen(pathname: string): boolean {
+export function externalMayOpen(pathname: string, kind: ExternalAccountType): boolean {
   return (
-    pathname === PORTAL_PREFIX ||
-    pathname.startsWith(`${PORTAL_PREFIX}/`) ||
+    under(SURFACE[kind], pathname) ||
     pathname.startsWith("/api/") ||
     EXTERNAL_OPEN_PATHS.includes(pathname)
   );
 }
 
-/** The portal is the external accounts' and nobody else's: a buyer or a staff
- *  member has no supplier to answer for. The public pages under it (the
- *  invitation link, V15) are opened by `isPublicPath`, before this is asked. */
+/** The supplier portal is the supplier accounts' and nobody else's. The
+ *  public pages under it (the invitation link, V15) are opened by
+ *  `isPublicPath`, before this is asked. */
 export function isPortalPath(pathname: string): boolean {
-  return pathname === PORTAL_PREFIX || pathname.startsWith(`${PORTAL_PREFIX}/`);
+  return under(PORTAL_PREFIX, pathname);
+}
+
+/** The Partner Hub, likewise (V23). */
+export function isPartnerHubPath(pathname: string): boolean {
+  return under(PARTNER_HUB_PREFIX, pathname);
+}
+
+/** Either external surface: where a buyer or a staff member has no business,
+ *  and where the app's own sidebar is not shown. */
+export function isExternalSurfacePath(pathname: string): boolean {
+  return isPortalPath(pathname) || isPartnerHubPath(pathname);
 }

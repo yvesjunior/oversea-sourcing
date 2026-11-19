@@ -44,17 +44,30 @@ export function invitationState(
 /**
  * What a VALID link offers, given who already holds its email address.
  *
- *   register   nobody does: the form creates a supplier account.
- *   attach     a supplier account does — the same person, invited again or
- *              by another request: the invitation is attached to it, no
+ *   register   nobody does: the form creates an account of the link's kind.
+ *   attach     an account of THAT kind does — the same person, invited again
+ *              or by another request: the invitation is attached to it, no
  *              second account ("linked, not duplicated").
- *   conflict   a CUSTOMER account does. An account's type never changes, so
- *              it cannot become a supplier's, and a second account cannot
- *              share its email. OSI has to send the RFQ to another address.
+ *   conflict   an account of any OTHER type does: a customer's, or the other
+ *              external kind's. An account's type never changes, so it cannot
+ *              become this one, and a second account cannot share its email.
+ *              OSI has to write to another address.
+ *
+ * `kind` is the kind of account the link makes: `supplier` for an RFQ link
+ * (V15), `partner` for a Partner Hub link (V23). A supplier's address invited
+ * as a partner is a conflict, and the reverse.
  */
 export type InvitationOffer = "register" | "attach" | "conflict";
 
-export function invitationOffer(existingAccountType: string | null | undefined): InvitationOffer {
+export function invitationOffer(
+  existingAccountType: string | null | undefined,
+  kind: "supplier" | "partner" = "supplier",
+): InvitationOffer {
   if (existingAccountType === null || existingAccountType === undefined) return "register";
-  return existingAccountType === "supplier" ? "attach" : "conflict";
+  return existingAccountType === kind ? "attach" : "conflict";
+}
+
+/** Where a Partner Hub invitation leads (V23) — the token and nothing else. */
+export function partnerRegistrationPath(token: string): string {
+  return `/partenaires/inscription/${token}`;
 }

@@ -435,6 +435,13 @@
       "when": 1795054396016,
       "tag": "0061_previous_hellfire_club",
       "breakpoints": true
+    },
+    {
+      "idx": 62,
+      "version": "7",
+      "when": 1795055103353,
+      "tag": "0062_spotty_mordo",
+      "breakpoints": true
     }
   ]
 }

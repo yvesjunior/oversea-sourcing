@@ -199,11 +199,12 @@ function criterionLine(criterion: RfqCriterion, locale: ContactLocale): string {
   return `${criterion.label}: ${value}${criterion.unit ? ` ${criterion.unit}` : ""}`;
 }
 
-type Block = { title?: string; lines: string[]; list?: string[]; url?: string };
+export type Block = { title?: string; lines: string[]; list?: string[]; url?: string };
 
 /** One set of blocks, two renderings — so the plain text staff preview and the
  *  HTML a mail client shows can never say different things. */
-function render(blocks: Block[]): { text: string; html: string } {
+/** Exported for the other mails built the same way (partner-mail.ts, V23). */
+export function render(blocks: Block[]): { text: string; html: string } {
   const text = blocks
     .map((block) =>
       [

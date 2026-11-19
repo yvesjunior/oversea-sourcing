@@ -1,5 +1,5 @@
 import { redirect } from "@tanstack/react-router";
-import { externalMayOpen, isPortalPath, PORTAL_PREFIX } from "@/lib/account-types";
+import { externalHome, externalMayOpen, isExternalSurfacePath } from "@/lib/account-types";
 import { type PermissionKey } from "@/lib/roles";
 import type { SessionData } from "@/lib/session-fns";
 
@@ -10,7 +10,13 @@ const PUBLIC_PATHS = ["/", "/login", "/signup", "/mot-de-passe-oublie", "/reinit
 // invitee needs to see who invited them to what BEFORE having an account.
 // /portail/inscription/$token likewise (V15): the token in the path is the
 // capability — the link in an RFQ email — and its reader has no account yet.
-const PUBLIC_PREFIXES = ["/api/", "/invitation/", "/portail/inscription/"];
+// /partenaires/inscription/$token is the same thing for a partner (V23).
+const PUBLIC_PREFIXES = [
+  "/api/",
+  "/invitation/",
+  "/portail/inscription/",
+  "/partenaires/inscription/",
+];
 
 export function isPublicPath(pathname: string): boolean {
   return (
@@ -24,7 +30,8 @@ export function isPublicPath(pathname: string): boolean {
 export function enforceAuth(session: SessionData, pathname: string, href: string): void {
   const target = authRedirect(session, pathname);
   if (target === "login") throw redirect({ to: "/login", search: { redirect: href } });
-  if (target === "portal") throw redirect({ to: PORTAL_PREFIX });
+  if (target === "portal") throw redirect({ to: externalHome("supplier") });
+  if (target === "hub") throw redirect({ to: externalHome("partner") });
   if (target === "home") throw redirect({ to: "/" });
 }
 
@@ -33,22 +40,26 @@ export function enforceAuth(session: SessionData, pathname: string, href: string
  * stay. Pure, so the three populations can be tested without a router:
  *
  *   anonymous   public paths only; everything else → login.
- *   external    (a supplier's or a partner's person, V03) the portal and the
- *               few account pages; EVERYTHING else → the portal. Decided
- *               here, before any loader runs: the loaders of buyer pages call
- *               workspace functions, and those refuse an external session by
- *               throwing.
- *   workspace   everything except the portal, which is not theirs → home.
+ *   external    (a supplier's or a partner's person, V03) ITS surface — the
+ *               portal for a supplier, the Partner Hub for a partner (V23) —
+ *               and the few account pages; EVERYTHING else, the other
+ *               surface included → its own. Decided here, before any loader
+ *               runs: the loaders of buyer pages call workspace functions,
+ *               and those refuse an external session by throwing.
+ *   workspace   everything except the two external surfaces → home.
  */
 export function authRedirect(
   session: SessionData,
   pathname: string,
-): "login" | "portal" | "home" | null {
+): "login" | "portal" | "hub" | "home" | null {
   if (!session) return isPublicPath(pathname) ? null : "login";
-  if (session.external) return externalMayOpen(pathname) ? null : "portal";
-  // A public page under the portal (the invitation link, V15) stays open to a
-  // signed-in buyer or staff member: they may be the one who was invited.
-  if (isPortalPath(pathname) && !isPublicPath(pathname)) return "home";
+  if (session.external) {
+    if (externalMayOpen(pathname, session.external)) return null;
+    return session.external === "partner" ? "hub" : "portal";
+  }
+  // A public page under a surface (the invitation links, V15 and V23) stays
+  // open to a signed-in buyer or staff member: they may be the one invited.
+  if (isExternalSurfacePath(pathname) && !isPublicPath(pathname)) return "home";
   return null;
 }
 

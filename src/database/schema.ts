@@ -724,6 +724,42 @@ export const partnerUser = pgTable(
 );
 
 /**
+ * The link that opens the Partner Hub to someone at a partner (Phase V · V23).
+ *
+ * `rfq_invitation`'s counterpart, and a separate table because what vouches
+ * is different: a supplier's link rides an RFQ email, one per request; a
+ * partner's is sent by a staff member, on purpose, to a person they know —
+ * a partner works on many dossiers and is invited once.
+ *
+ * Only the token's hash is kept. Non-null `registered_user_id` = used.
+ */
+export const partnerInvitation = pgTable(
+  "partner_invitation",
+  {
+    id: text("id").primaryKey(),
+    partnerId: text("partner_id")
+      .notNull()
+      .references(() => partner.id, { onDelete: "cascade" }),
+    /** The address the link was sent to; the account gets exactly this one. */
+    email: text("email").notNull(),
+    tokenHash: text("token_hash").notNull(),
+    expiresAt: timestamp("expires_at").notNull(),
+    openedAt: timestamp("opened_at"),
+    registeredUserId: text("registered_user_id").references(() => user.id, {
+      onDelete: "set null",
+    }),
+    registeredAt: timestamp("registered_at"),
+    invitedBy: text("invited_by").references(() => user.id, { onDelete: "set null" }),
+    invitedByName: text("invited_by_name"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("partner_invitation_token_uq").on(table.tokenHash),
+    index("partner_invitation_partner_idx").on(table.partnerId),
+  ],
+);
+
+/**
  * Who to write to at a supplier (Phase V · V02, 2026-11-14).
  *
  * Until this table a supplier had NO contact address anywhere in the schema —

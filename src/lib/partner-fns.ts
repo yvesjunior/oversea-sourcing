@@ -15,8 +15,10 @@ import type {
   RecordEnrichmentResult,
 } from "@/server/partner-cases";
 import type { PartnerView, PartnerWriteResult } from "@/server/partner-directory";
+import type { InvitePartnerResult } from "@/server/partner-invitations";
 
 export type {
+  InvitePartnerResult,
   OpenCaseResult,
   PartnerCaseView,
   PartnerView,
@@ -168,4 +170,22 @@ export const cancelPartnerCaseFn = createServerFn({ method: "POST" })
     if (!session) return { ok: false };
     const { cancelCase } = await import("@/server/partner-cases");
     return cancelCase(data.caseId, { id: session.user.id, name: session.user.name });
+  });
+
+/**
+ * Open the Partner Hub to one person at a partner (V23): sends them the link
+ * that creates their account. Staff decide who — there is no partner signup.
+ */
+export const invitePartnerUserFn = createServerFn({ method: "POST" })
+  .inputValidator(
+    z.object({
+      partnerId: z.string().min(1),
+      email: z.string().trim().email().max(200),
+    }),
+  )
+  .handler(async ({ data }): Promise<InvitePartnerResult | { ok: false; reason: "forbidden" }> => {
+    const session = await requirePartnerStaff();
+    if (!session) return { ok: false, reason: "forbidden" };
+    const { invitePartnerUser } = await import("@/server/partner-invitations");
+    return invitePartnerUser(data, { id: session.user.id, name: session.user.name });
   });

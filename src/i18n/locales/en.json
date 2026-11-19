@@ -1166,7 +1166,10 @@
     "partner.updated": "Partner updated",
     "partner_case.opened": "Partner case opened",
     "partner_case.enriched": "Partner figure recorded",
-    "partner_case.cancelled": "Partner case cancelled"
+    "partner_case.cancelled": "Partner case cancelled",
+    "partner.user_invited": "Person invited to the Partner Hub",
+    "partner.account_created": "Partner account created from an invitation",
+    "partner.account_attached": "Invitation attached to an existing partner account"
   },
   "twofa": {
     "title": "Two-step verification",
@@ -2109,6 +2112,22 @@
       "kind_unavailable": "This kind of partner is not available yet.",
       "name_taken": "A partner of this kind already has this name.",
       "not_found": "This partner cannot be found."
+    },
+    "hub": {
+      "title": "Partner Hub",
+      "noAccount": "nobody at this partner has an account",
+      "pending": "Invitation sent, not used yet: {{emails}}",
+      "email": "Address of the person to invite",
+      "invite": "Invite",
+      "sent": "Invitation sent to {{email}}.",
+      "refused": {
+        "forbidden": "Your role does not allow this action.",
+        "partner_not_found": "This partner cannot be found.",
+        "partner_inactive": "This partner is inactive.",
+        "conflict": "This address already belongs to a customer or supplier account: it cannot become a partner account.",
+        "already_member": "This person already has an account for this partner.",
+        "mail_failed": "The email could not be sent: no invitation was created."
+      }
     }
   },
   "partnerWork": {
@@ -2152,6 +2171,90 @@
       "case_cancelled": "This case was cancelled.",
       "validity_past": "The validity date must be in the future.",
       "amount": "Enter a valid amount, for example 1250.00."
+    }
+  },
+  "partnerHub": {
+    "shellTitle": "Partner Hub",
+    "homeTitle": "Your cases",
+    "homeEmpty": "No case has been addressed to you yet.",
+    "noPartner": "This account is not attached to any partner. Open the link from OSI’s invitation email to attach it.",
+    "reference": "Reference {{reference}}",
+    "yourFigure": "Your figure: {{amount}}",
+    "openedOn": "Received on {{when}}",
+    "status": {
+      "open": "To answer",
+      "answered": "Answered",
+      "cancelled": "Withdrawn by OSI"
+    },
+    "back": "All cases",
+    "notFound": "This case cannot be found, or is not addressed to you.",
+    "notStated": "not stated",
+    "fact": {
+      "quantity": "Quantity",
+      "origin": "Country of departure",
+      "incoterm": "Incoterm of the offer",
+      "lead_time": "Time until the goods are ready",
+      "goods_value": "Value of the goods",
+      "supplier_identity": "Supplier"
+    },
+    "addressedTo": "Addressed to {{partner}}",
+    "cancelledNote": "OSI withdrew this case: it no longer awaits an answer, and the figures already sent are no longer used.",
+    "briefTitle": "What OSI asks of you",
+    "factsTitle": "The goods",
+    "factsNote": "OSI shares what is needed to answer this case. For anything else, write to your OSI contact.",
+    "answerTitle": "Your answer",
+    "noFigure": "You have not sent a figure yet.",
+    "channel": {
+      "portal": "sent by you",
+      "staff": "entered by OSI for you"
+    },
+    "answerHint": "Enter your price, in the currency of your choice, and until when it stands.",
+    "correctHint": "A new figure replaces the previous one, which stays on record.",
+    "note": "Details (route, terms, assumptions…)",
+    "refused": {
+      "amount": "Enter a valid amount.",
+      "not_found": "This case cannot be found, or is not addressed to you.",
+      "cancelled": "OSI withdrew this case: it no longer awaits an answer.",
+      "validity_past": "The validity date has already passed."
+    },
+    "saved": "Your figure is recorded.",
+    "correct": "Replace my figure",
+    "send": "Send my figure"
+  },
+  "partnerSignup": {
+    "title": "Create your partner account",
+    "intro": "OSI is opening its Partner Hub to you for {{partner}}. Create your account to receive cases and answer them there.",
+    "attachTitle": "You already have a partner account",
+    "attachIntro": "An account already exists for {{email}}. Attach {{partner}} to it: you will find its cases when you sign in.",
+    "attachedText": "{{partner}} is now attached to your account: sign in to see its cases.",
+    "conflictTitle": "This address already has another account",
+    "conflictText": "The address {{email}} is already used by an OSI customer or supplier account, which cannot serve as a partner account. Ask your OSI contact to send the invitation to another address.",
+    "state": {
+      "unknown": {
+        "title": "This link is not valid",
+        "text": "The link is incomplete or was altered. Open it from the invitation email, or sign in if you already have an account."
+      },
+      "expired": {
+        "title": "This link has expired",
+        "text": "Invitation links are valid for thirty days. If you already have an account, sign in; otherwise ask your OSI contact for a new invitation."
+      },
+      "used": {
+        "title": "This link has already been used",
+        "text": "An account was already created or attached with this link. Sign in to find your cases."
+      },
+      "limited": {
+        "title": "Too many attempts",
+        "text": "Please wait a few minutes before trying again."
+      }
+    },
+    "refused": {
+      "unknown": "This link is not valid.",
+      "expired": "This link has expired.",
+      "used": "This link has already been used.",
+      "conflict": "This address is already used by another account.",
+      "weak_password": "The password is too short.",
+      "name_required": "Please enter your name.",
+      "limited": "Too many attempts. Please wait a few minutes."
     }
   }
 }

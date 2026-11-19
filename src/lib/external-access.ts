@@ -33,6 +33,11 @@ export const PUBLIC_FNS = {
    *  the supplier account already holding its address. Authorised by the
    *  token alone — its reader has no account yet. Rate limited. */
   redeemRfqInvitationFn: "redeeming an invitation link",
+  /** The Partner Hub invitation link (V23) — the same two, for a partner's
+   *  person: for a VALID token, the partner's name and the address the
+   *  invitation went to. Rate limited on the same counter. */
+  getPartnerInvitationFn: "what a valid partner invitation link is for",
+  redeemPartnerInvitationFn: "redeeming a partner invitation link",
 } as const;
 
 /**
@@ -54,6 +59,26 @@ export const EXTERNAL_FNS = {
   getRfqFn: "one of the caller's own RFQs",
   submitOfferFn: "the caller's own offer",
   declineRfqFn: "the caller's own refusal",
+  // ── the Partner Hub (V23): each through `requirePartnerSession`, each
+  //    filtered by the caller's own `partnerIds` in src/server/partner-hub.ts,
+  //    each case cut down to what its kind needs (src/lib/partner-need.ts) ──
+  /** The cases addressed to the caller's partner(s). */
+  getHubCasesFn: "the caller's own cases",
+  /** One case: what its kind needs to be answered. Not the buyer, not
+   *  another offer, not OSI's fee; the price only where the kind requires. */
+  getHubCaseFn: "one of the caller's own cases",
+  answerHubCaseFn: "the caller's own figure",
+} as const;
+
+/**
+ * Which guard each file of external functions uses — and the ONLY one it may
+ * use. A supplier's functions never see a partner session and the reverse:
+ * the two audiences do not share a need-to-know, so they do not share a
+ * guard (V23: "do not reuse the supplier guard with a flag").
+ */
+export const EXTERNAL_FN_FILES = {
+  "src/lib/portal-fns.ts": { guard: "requireSupplierSession", helper: "caller" },
+  "src/lib/partner-portal-fns.ts": { guard: "requirePartnerSession", helper: "partnerCaller" },
 } as const;
 
 /**
@@ -73,19 +98,29 @@ export const EXTERNAL_API_ROUTES = [
  * accounts.
  */
 /**
- * The only module that may create an external account, besides the function's
- * own definition: an invitation is what vouches for one. A second caller
- * would be a second way to become a supplier — which is a decision.
+ * The only modules that may create an external account, besides the
+ * function's own definition: an invitation is what vouches for one. Each
+ * creates ONE kind — an RFQ link a supplier account, a Partner Hub link a
+ * partner account. Another caller would be another way to become a supplier
+ * or a partner — which is a decision.
  */
 export const EXTERNAL_ACCOUNT_CREATORS = [
   "src/server/auth.ts",
   "src/server/portal-invitations.ts",
+  "src/server/partner-invitations.ts",
 ] as const;
+
+/** The kind each invitation module creates, and the only one. */
+export const ACCOUNT_KIND_CREATED = {
+  "src/server/portal-invitations.ts": "supplier",
+  "src/server/partner-invitations.ts": "partner",
+} as const;
 
 export const EXTERNAL_AWARE_MODULES = [
   "src/server/auth.ts",
   "src/server/party-guard.ts",
   "src/lib/session-fns.ts",
   "src/lib/portal-fns.ts",
+  "src/lib/partner-portal-fns.ts",
   ...EXTERNAL_API_ROUTES,
 ] as const;

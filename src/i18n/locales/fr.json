@@ -1166,7 +1166,10 @@
     "partner.updated": "Partenaire modifié",
     "partner_case.opened": "Dossier partenaire ouvert",
     "partner_case.enriched": "Chiffre d’un partenaire enregistré",
-    "partner_case.cancelled": "Dossier partenaire annulé"
+    "partner_case.cancelled": "Dossier partenaire annulé",
+    "partner.user_invited": "Personne invitée au Partner Hub",
+    "partner.account_created": "Compte partenaire créé depuis une invitation",
+    "partner.account_attached": "Invitation rattachée à un compte partenaire existant"
   },
   "twofa": {
     "title": "Vérification en deux étapes",
@@ -2109,6 +2112,22 @@
       "kind_unavailable": "Ce type de partenaire n’est pas encore disponible.",
       "name_taken": "Un partenaire de ce type porte déjà ce nom.",
       "not_found": "Ce partenaire est introuvable."
+    },
+    "hub": {
+      "title": "Partner Hub",
+      "noAccount": "personne chez ce partenaire n’a de compte",
+      "pending": "Invitation envoyée, pas encore utilisée : {{emails}}",
+      "email": "Adresse de la personne à inviter",
+      "invite": "Inviter",
+      "sent": "Invitation envoyée à {{email}}.",
+      "refused": {
+        "forbidden": "Votre rôle ne permet pas cette action.",
+        "partner_not_found": "Ce partenaire est introuvable.",
+        "partner_inactive": "Ce partenaire est inactif.",
+        "conflict": "Cette adresse appartient déjà à un compte client ou fournisseur : elle ne peut pas devenir un compte partenaire.",
+        "already_member": "Cette personne a déjà un compte pour ce partenaire.",
+        "mail_failed": "Le courriel n’a pas pu être envoyé : aucune invitation n’a été créée."
+      }
     }
   },
   "partnerWork": {
@@ -2152,6 +2171,90 @@
       "case_cancelled": "Ce dossier a été annulé.",
       "validity_past": "La date de validité doit être dans le futur.",
       "amount": "Indiquez un montant valide, par exemple 1250.00."
+    }
+  },
+  "partnerHub": {
+    "shellTitle": "Partner Hub",
+    "homeTitle": "Vos dossiers",
+    "homeEmpty": "Aucun dossier ne vous a été adressé pour le moment.",
+    "noPartner": "Ce compte n’est rattaché à aucun partenaire. Ouvrez le lien reçu dans le courriel d’invitation d’OSI pour le rattacher.",
+    "reference": "Référence {{reference}}",
+    "yourFigure": "Votre chiffre : {{amount}}",
+    "openedOn": "Reçu le {{when}}",
+    "status": {
+      "open": "À traiter",
+      "answered": "Répondu",
+      "cancelled": "Retiré par OSI"
+    },
+    "back": "Tous les dossiers",
+    "notFound": "Ce dossier est introuvable, ou ne vous est pas adressé.",
+    "notStated": "non indiqué",
+    "fact": {
+      "quantity": "Quantité",
+      "origin": "Pays de départ",
+      "incoterm": "Incoterm de l’offre",
+      "lead_time": "Délai de mise à disposition",
+      "goods_value": "Valeur de la marchandise",
+      "supplier_identity": "Fournisseur"
+    },
+    "addressedTo": "Adressé à {{partner}}",
+    "cancelledNote": "OSI a retiré ce dossier : il n’attend plus de réponse, et les chiffres déjà transmis ne sont plus utilisés.",
+    "briefTitle": "Ce qu’OSI vous demande",
+    "factsTitle": "La marchandise",
+    "factsNote": "OSI vous communique ce qui est nécessaire pour répondre à ce dossier. Pour toute autre précision, écrivez à votre interlocuteur OSI.",
+    "answerTitle": "Votre réponse",
+    "noFigure": "Vous n’avez pas encore transmis de chiffre.",
+    "channel": {
+      "portal": "transmis par vous",
+      "staff": "saisi par OSI pour vous"
+    },
+    "answerHint": "Indiquez votre prix, dans la devise de votre choix, et jusqu’à quand il tient.",
+    "correctHint": "Un nouveau chiffre remplace le précédent, qui reste au dossier.",
+    "note": "Précision (trajet, conditions, hypothèses…)",
+    "refused": {
+      "amount": "Indiquez un montant valide.",
+      "not_found": "Ce dossier est introuvable, ou ne vous est pas adressé.",
+      "cancelled": "OSI a retiré ce dossier : il n’attend plus de réponse.",
+      "validity_past": "La date de validité est déjà passée."
+    },
+    "saved": "Votre chiffre est enregistré.",
+    "correct": "Remplacer mon chiffre",
+    "send": "Transmettre mon chiffre"
+  },
+  "partnerSignup": {
+    "title": "Créez votre compte partenaire",
+    "intro": "OSI vous ouvre son Partner Hub pour {{partner}} : créez votre compte pour y recevoir les dossiers et y répondre.",
+    "attachTitle": "Vous avez déjà un compte partenaire",
+    "attachIntro": "Un compte existe déjà pour {{email}}. Rattachez-y {{partner}} : vous retrouverez ses dossiers en vous connectant.",
+    "attachedText": "{{partner}} est maintenant rattaché à votre compte : connectez-vous pour voir ses dossiers.",
+    "conflictTitle": "Cette adresse a déjà un autre compte",
+    "conflictText": "L’adresse {{email}} est déjà utilisée par un compte client ou fournisseur d’OSI, qui ne peut pas servir de compte partenaire. Demandez à votre interlocuteur OSI d’envoyer l’invitation à une autre adresse.",
+    "state": {
+      "unknown": {
+        "title": "Ce lien n’est pas valide",
+        "text": "Le lien est incomplet ou a été modifié. Ouvrez-le depuis le courriel d’invitation, ou connectez-vous si vous avez déjà un compte."
+      },
+      "expired": {
+        "title": "Ce lien a expiré",
+        "text": "Les liens d’invitation sont valables trente jours. Si vous avez déjà un compte, connectez-vous ; sinon, demandez une nouvelle invitation à votre interlocuteur OSI."
+      },
+      "used": {
+        "title": "Ce lien a déjà servi",
+        "text": "Un compte a déjà été créé ou rattaché avec ce lien. Connectez-vous pour retrouver vos dossiers."
+      },
+      "limited": {
+        "title": "Trop de tentatives",
+        "text": "Merci de patienter quelques minutes avant de réessayer."
+      }
+    },
+    "refused": {
+      "unknown": "Ce lien n’est pas valide.",
+      "expired": "Ce lien a expiré.",
+      "used": "Ce lien a déjà servi.",
+      "conflict": "Cette adresse est déjà utilisée par un autre compte.",
+      "weak_password": "Le mot de passe est trop court.",
+      "name_required": "Indiquez votre nom.",
+      "limited": "Trop de tentatives. Merci de patienter quelques minutes."
     }
   }
 }

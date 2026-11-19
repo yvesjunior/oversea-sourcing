@@ -9,6 +9,7 @@ import { requirePlatformFeature } from "@/lib/auth-guard";
 import {
   createPartnerFn,
   getPartnersFn,
+  invitePartnerUserFn,
   updatePartnerFn,
   type PartnerView,
 } from "@/lib/partner-fns";
@@ -125,6 +126,7 @@ function PartnersPage() {
                       {partner.notes}
                     </p>
                   )}
+                  <HubAccess partner={partner} />
                 </div>
                 <Button
                   type="button"
@@ -141,6 +143,82 @@ function PartnersPage() {
             ),
           )}
         </ul>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Who at this partner can sign in to the Partner Hub (V23), and the form
+ * that invites one more person. Staff decide who: there is no partner
+ * signup, and the link goes to the address typed here and to no other.
+ */
+function HubAccess({ partner }: { partner: PartnerView }) {
+  const { t } = useTranslation();
+  const router = useRouter();
+  const [email, setEmail] = useState(partner.contactEmail ?? "");
+  const [pending, setPending] = useState(false);
+  const [outcome, setOutcome] = useState<{ ok: boolean; text: string } | null>(null);
+
+  const invite = async (event: FormEvent) => {
+    event.preventDefault();
+    if (pending) return;
+    setPending(true);
+    setOutcome(null);
+    try {
+      const result = await invitePartnerUserFn({ data: { partnerId: partner.id, email } });
+      setOutcome(
+        result.ok
+          ? { ok: true, text: t("partnersAdmin.hub.sent", { email: result.email }) }
+          : { ok: false, text: t(`partnersAdmin.hub.refused.${result.reason}`) },
+      );
+      if (result.ok) await router.invalidate();
+    } finally {
+      setPending(false);
+    }
+  };
+
+  return (
+    <div className="mt-3 border-t border-border pt-3 text-xs">
+      <p className="text-muted-foreground">
+        <span className="font-medium text-foreground">{t("partnersAdmin.hub.title")}</span>
+        {" — "}
+        {partner.accounts.length === 0
+          ? t("partnersAdmin.hub.noAccount")
+          : partner.accounts.map((a) => `${a.name} (${a.email})`).join(" · ")}
+      </p>
+      {partner.pendingInvitations.length > 0 && (
+        <p className="mt-1 text-muted-foreground">
+          {t("partnersAdmin.hub.pending", { emails: partner.pendingInvitations.join(", ") })}
+        </p>
+      )}
+      {partner.active && (
+        <form
+          className="mt-2 grid max-w-md grid-cols-[minmax(0,1fr)_auto] gap-2"
+          onSubmit={(e) => void invite(e)}
+        >
+          <Input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder={t("partnersAdmin.hub.email")}
+            aria-label={t("partnersAdmin.hub.email")}
+            maxLength={200}
+            required
+          />
+          <Button type="submit" size="sm" variant="outline" disabled={pending}>
+            {pending && <Loader2 className="size-4 animate-spin" />}
+            {t("partnersAdmin.hub.invite")}
+          </Button>
+        </form>
+      )}
+      {outcome && (
+        <p
+          role={outcome.ok ? "status" : "alert"}
+          className={cn("mt-2", outcome.ok ? "text-success" : "text-destructive")}
+        >
+          {outcome.text}
+        </p>
       )}
     </div>
   );

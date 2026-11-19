@@ -24,7 +24,7 @@
 | **E9** Notifications | In-app + email | 🟡 bell, emitters, **prefs (2026-08-26)** live; Phase P types (`quote_received`, `contract_to_sign`, `contract_signed`) + staff alert on `quotes.requested` (2026-09-07) live; **the bell alerts (2026-09-14)** — count badge, 30 s poll, chime, per-browser mute |
 | **E10** Admin surfaces | Verification, imports, ops queue | 🟡 **verification LIVE (S5b/S5c, 2026-08-26)**; imports/ops queue placeholders |
 | **R** Custom staff roles | Roles as data + the matrix | ✅ **BUILT 2026-08-29** (migration 0039) — create/delete roles, dynamic matrix, `requests.all` |
-| **E13** V6 architecture | Supplier portal · KPI #2 · Partner Hub · Decision Pack | 🔵 **NEW 2026-10-21** — scope opened by the V6 document; diagrams validated 2026-11-14; **34 tasks in seven slices — [Phase V](#phase-v--the-v6-parcours-task-by-task-e13--written-2026-11-14)**; **V01, V02, V04–V11 built 2026-11-14** (settings, contacts, states, fork + shortlist, RFQ batch, window closing, typed answer time + channel, KPI #2 v1, the Decision Pack record, the release queue); V01–V11 **live on prod — V01–V09 since deploy #45 (2026-11-14), V10–V11 since deploy #47 (2026-11-18) — with the pack-flow switch OFF**; **V12–V14 built 2026-11-18** (the buyer's pack page, choosing from it, automatic release built and switched off + the review report) — **slice 1 (V04–V14) is complete** — **live on prod since deploy #48 (2026-11-18), pack flow off, release manual**; **V18–V20 built 2026-11-18** (the clarification, behind `AI_CHAT`, off; the cahier des charges and the KPI profile as versioned records; the buyer's validation before any search, behind `flow.spec_validation`, ON by default) — **slice 3 complete**; **V03 and V15–V17 built 2026-11-18** (external accounts: a supplier is not a customer; the RFQ link that creates a supplier account; the portal where they answer, decline and attach; what suppliers are told and the response funnel) — **slice 2 complete**; **V21–V22 built 2026-11-18** (partners and their adapter; cases opened on an offer and the figures partners add to it) — on `main`, not deployed |
+| **E13** V6 architecture | Supplier portal · KPI #2 · Partner Hub · Decision Pack | 🔵 **NEW 2026-10-21** — scope opened by the V6 document; diagrams validated 2026-11-14; **34 tasks in seven slices — [Phase V](#phase-v--the-v6-parcours-task-by-task-e13--written-2026-11-14)**; **V01, V02, V04–V11 built 2026-11-14** (settings, contacts, states, fork + shortlist, RFQ batch, window closing, typed answer time + channel, KPI #2 v1, the Decision Pack record, the release queue); V01–V11 **live on prod — V01–V09 since deploy #45 (2026-11-14), V10–V11 since deploy #47 (2026-11-18) — with the pack-flow switch OFF**; **V12–V14 built 2026-11-18** (the buyer's pack page, choosing from it, automatic release built and switched off + the review report) — **slice 1 (V04–V14) is complete** — **live on prod since deploy #48 (2026-11-18), pack flow off, release manual**; **V18–V20 built 2026-11-18** (the clarification, behind `AI_CHAT`, off; the cahier des charges and the KPI profile as versioned records; the buyer's validation before any search, behind `flow.spec_validation`, ON by default) — **slice 3 complete**; **V03 and V15–V17 built 2026-11-18** (external accounts: a supplier is not a customer; the RFQ link that creates a supplier account; the portal where they answer, decline and attach; what suppliers are told and the response funnel) — **slice 2 complete**; **V21–V23 built 2026-11-18** (partners and their adapter; cases opened on an offer and the figures partners add to it; the Partner Hub where a partner's person answers) — on `main`, not deployed |
 | **E11** Settings | Profile, sourcing rules | 🟡 Paramètres + notification prefs live; **password / 2FA / theme / rename (2026-08-27)** live; buyer Abonnement self-service waits for billing |
 
 **MVP1 = E0–E7 + E10.** Definition of done **restated 2026-08-29 by ADR-002**
@@ -41,9 +41,9 @@ tracked to delivery** — with the PDF report available throughout.
 **Prod = `e61b229` (deploy #48, 2026-11-18)** — Phase V tasks V01–V14: slice 1
 is complete and live, **with the pack-flow switch off and release manual**
 (`platform_setting` holds no row on prod, so every setting is at its default).
-**`main` is ahead of prod by ten tasks and NOT deployed** — V18, V19, the
-search-model fix, V20, V03, V15, V16, V17, V21, V22; migrations
-**0055–0061**, all additive. V21–V22 (partners as records; cases and the
+**`main` is ahead of prod by eleven tasks and NOT deployed** — V18, V19, the
+search-model fix, V20, V03, V15, V16, V17, V21, V22, V23; migrations
+**0055–0062**, all additive. V21–V22 (partners as records; cases and the
 figures a partner adds to an offer) are staff tools: nothing appears to a
 buyer until a staff member records a figure on an offer of a round, and
 rounds only exist on the pack flow, which is OFF on prod. In one line each: the assistant on a draft (off); the specification
@@ -6624,26 +6624,83 @@ built in: **S** one, **M** two to three, **L** four or more.
       its own. A freight quote in USD on an offer in EUR is not added to it —
       D7 again.~~
 
-- [ ] **V23 · The Partner Hub surface.** *Size L. Step 08. Depends on: V03,
-      V22.*
+- [x] **V23 · The Partner Hub surface — BUILT 2026-11-18** (migration
+      **0062**, not deployed). `src/lib/partner-need.ts` (pure: what each
+      kind of case is shown); `src/server/partner-hub.ts` (`listCases`,
+      `readCase`, `answerCase`, `tellCaseOpened`);
+      `src/server/partner-invitations.ts`; `src/lib/partner-portal-fns.ts`
+      (through `requirePartnerSession`), `src/lib/partner-auth-fns.ts` (the
+      public link); `src/lib/partner-mail.ts`; `routes/partenaires/*` (home,
+      `dossier/$id`, `inscription/$token`); `invitePartnerUserFn` and a
+      « Partner Hub » block on `/interne/partenaires`. Table
+      `partner_invitation`. 892 tests.
 
-      **What it does.** The fourth surface: a partner's person — the transit
+      **As built.**
+      - **Each external kind has ITS surface.** A supplier account reaches
+        `/portail`, a partner account `/partenaires`; each is sent back to
+        its own from anywhere else, the other surface included
+        (`externalMayOpen(path, kind)`, `authRedirect`).
+      - **The need-to-know is a table** (`CASE_NEEDS`): transport — goods,
+        quantity, origin, incoterm, lead time; insurance and customs — goods,
+        quantity, origin, incoterm, **value of the goods** (their answer is
+        computed from it); inspection — goods, quantity, origin, **the
+        supplier's name** (they go there). `factsForCase` removes the rest
+        on the server: a fact a kind does not need is absent, not hidden.
+        No kind gets the buyer, another offer, a rank, OSI's fee, payment
+        terms, the supplier's notes, or a staff member's name.
+      - **Every read goes through `ownCases`**, filtered by the caller's
+        `partnerIds`; a case of another partner reads as one that does not
+        exist.
+      - **A partner answers in the Hub** — same rows as a figure staff key
+        in, channel `portal`; a correction is the next version.
+      - **Staff invite, by address** — no partner signup. The V15 rules
+        reused (`invitationState`, `invitationOffer(type, "partner")`, token
+        hash, 30 days, shared rate limit); an address held by a customer or
+        a supplier account is a conflict. A partner is invited once, not per
+        case.
+      - **Added beyond the task:** opening a case emails the partner's
+        people who already have an account (reference and kind only — no
+        supplier, no buyer, no price).
+
+      **Acceptance, as tests:** `partner-need.test.ts` (per kind);
+      `account-types.test.ts` (four populations, both surfaces);
+      `external-access.test.ts` extended — each external audience has its own
+      functions file behind its own guard and never names the other's; each
+      invitation module creates one kind of account; the Hub's reads all go
+      through `ownCases` and `factsForCase`.
+
+      *Verified live in dev:* invitation sent from the staff page (mail
+      logged, link in it); `buyer@osi.dev` → `conflict`; a switched-off
+      partner → `partner_inactive`; signed out → `forbidden`; the link opened
+      signed out, account created, landed on the Hub in English; the two
+      transport cases listed, the customs cases (another partner record) not;
+      a transport case's payload holds no price and no supplier name; a
+      foreign case → `null` / `not_found`; staff and buyer functions throw
+      for this session, the supplier portal's answer `null`; `/portail`,
+      `/demandes/3049`, `/interne/partenaires` → `/partenaires`; a figure
+      sent from the form became version 3, « sent by you ».
+
+      **Not exercised live** (unit-tested where a rule exists): a customs,
+      insurance or inspection case in the Hub; the attach flow (an existing
+      partner account invited for a second partner); the used / expired /
+      limited link pages; a supplier account opening `/partenaires`; the
+      case-opened notice email; the French Hub; a withdrawn case's page.
+      **Not built:** a partner declining a case; documents on a case;
+      revoking a partner account from the staff page.
+
+      ~~**What it does.** The fourth surface: a partner's person — the transit
       agent the owner named — sees the cases assigned to them and answers
       there. The account is free and created from a link, like a supplier's.
-
       **Files.** New `src/routes/partenaires/*` in its own shell, new
       `src/lib/partner-portal-fns.ts` through `requirePartnerSession`, and the
-      invitation flow of V15 reused for `partner_user`.
-
-      **Acceptance.** A partner sees only the cases assigned to their
-      partner, and within a case only what the case needs: the goods, the
-      route, the quantities — not the supplier's price unless the case kind
-      requires it, never another supplier's offer, never OSI's fee. V03's
-      partition tests are extended to partner sessions.
-
-      **Gotcha.** A partner is a second external audience with a *different*
-      need-to-know from a supplier's. Do not reuse the supplier guard with a
-      flag; write the rule down per case kind.
+      invitation flow of V15 reused for `partner_user`. **Acceptance.** A
+      partner sees only the cases assigned to their partner, and within a case
+      only what the case needs: the goods, the route, the quantities — not the
+      supplier's price unless the case kind requires it, never another
+      supplier's offer, never OSI's fee. V03's partition tests are extended to
+      partner sessions. **Gotcha.** A partner is a second external audience
+      with a *different* need-to-know from a supplier's. Do not reuse the
+      supplier guard with a flag; write the rule down per case kind.~~
 
 - [ ] **V24 · KPI #2 on landed cost.** *Size M. Step 09. Depends on: V09,
       V22.*
