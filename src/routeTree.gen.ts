@@ -40,6 +40,7 @@ import { Route as InterneSourcesRouteImport } from './routes/interne/sources'
 import { Route as InterneUtilisateursRouteImport } from './routes/interne/utilisateurs'
 import { Route as InterneVerificationRouteImport } from './routes/interne/verification'
 import { Route as InvitationIdRouteImport } from './routes/invitation.$id'
+import { Route as PortailIndexRouteImport } from './routes/portail/index'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiFilesIdRouteImport } from './routes/api/files/$id'
 import { Route as DemandesIdPackRouteImport } from './routes/demandes/$id_.pack'
@@ -200,6 +201,11 @@ const InvitationIdRoute = InvitationIdRouteImport.update({
   path: '/invitation/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PortailIndexRoute = PortailIndexRouteImport.update({
+  id: '/portail/',
+  path: '/portail/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
   path: '/api/auth/$',
@@ -253,6 +259,7 @@ export interface FileRoutesByFullPath {
   '/invitation/$id': typeof InvitationIdRoute
   '/contrats/': typeof ContratsIndexRoute
   '/demandes/': typeof DemandesIndexRoute
+  '/portail/': typeof PortailIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/files/$id': typeof ApiFilesIdRoute
   '/demandes/$id/pack': typeof DemandesIdPackRoute
@@ -290,6 +297,7 @@ export interface FileRoutesByTo {
   '/invitation/$id': typeof InvitationIdRoute
   '/contrats': typeof ContratsIndexRoute
   '/demandes': typeof DemandesIndexRoute
+  '/portail': typeof PortailIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/files/$id': typeof ApiFilesIdRoute
   '/demandes/$id/pack': typeof DemandesIdPackRoute
@@ -328,6 +336,7 @@ export interface FileRoutesById {
   '/invitation/$id': typeof InvitationIdRoute
   '/contrats/': typeof ContratsIndexRoute
   '/demandes/': typeof DemandesIndexRoute
+  '/portail/': typeof PortailIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/files/$id': typeof ApiFilesIdRoute
   '/demandes/$id_/pack': typeof DemandesIdPackRoute
@@ -367,6 +376,7 @@ export interface FileRouteTypes {
     | '/invitation/$id'
     | '/contrats/'
     | '/demandes/'
+    | '/portail/'
     | '/api/auth/$'
     | '/api/files/$id'
     | '/demandes/$id/pack'
@@ -404,6 +414,7 @@ export interface FileRouteTypes {
     | '/invitation/$id'
     | '/contrats'
     | '/demandes'
+    | '/portail'
     | '/api/auth/$'
     | '/api/files/$id'
     | '/demandes/$id/pack'
@@ -441,6 +452,7 @@ export interface FileRouteTypes {
     | '/invitation/$id'
     | '/contrats/'
     | '/demandes/'
+    | '/portail/'
     | '/api/auth/$'
     | '/api/files/$id'
     | '/demandes/$id_/pack'
@@ -479,6 +491,7 @@ export interface RootRouteChildren {
   InvitationIdRoute: typeof InvitationIdRoute
   ContratsIndexRoute: typeof ContratsIndexRoute
   DemandesIndexRoute: typeof DemandesIndexRoute
+  PortailIndexRoute: typeof PortailIndexRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiFilesIdRoute: typeof ApiFilesIdRoute
   DemandesIdPackRoute: typeof DemandesIdPackRoute
@@ -704,6 +717,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof InvitationIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/portail/': {
+      id: '/portail/'
+      path: '/portail'
+      fullPath: '/portail/'
+      preLoaderRoute: typeof PortailIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/auth/$': {
       id: '/api/auth/$'
       path: '/api/auth/$'
@@ -767,6 +787,7 @@ const rootRouteChildren: RootRouteChildren = {
   InvitationIdRoute: InvitationIdRoute,
   ContratsIndexRoute: ContratsIndexRoute,
   DemandesIndexRoute: DemandesIndexRoute,
+  PortailIndexRoute: PortailIndexRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiFilesIdRoute: ApiFilesIdRoute,
   DemandesIdPackRoute: DemandesIdPackRoute,

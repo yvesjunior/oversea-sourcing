@@ -1,4 +1,5 @@
 import { redirect } from "@tanstack/react-router";
+import { externalMayOpen, isPortalPath, PORTAL_PREFIX } from "@/lib/account-types";
 import { type PermissionKey } from "@/lib/roles";
 import type { SessionData } from "@/lib/session-fns";
 
@@ -19,9 +20,34 @@ export function isPublicPath(pathname: string): boolean {
  *  /login with a return target. Applied once in __root's beforeLoad —
  *  new routes are protected by default. */
 export function enforceAuth(session: SessionData, pathname: string, href: string): void {
-  if (!session && !isPublicPath(pathname)) {
-    throw redirect({ to: "/login", search: { redirect: href } });
-  }
+  const target = authRedirect(session, pathname);
+  if (target === "login") throw redirect({ to: "/login", search: { redirect: href } });
+  if (target === "portal") throw redirect({ to: PORTAL_PREFIX });
+  if (target === "home") throw redirect({ to: "/" });
+}
+
+/**
+ * Where the root guard sends this session for this path — null when it may
+ * stay. Pure, so the three populations can be tested without a router:
+ *
+ *   anonymous   public paths only; everything else → login.
+ *   external    (a supplier's or a partner's person, V03) the portal and the
+ *               few account pages; EVERYTHING else → the portal. Decided
+ *               here, before any loader runs: the loaders of buyer pages call
+ *               workspace functions, and those refuse an external session by
+ *               throwing.
+ *   workspace   everything except the portal, which is not theirs → home.
+ */
+export function authRedirect(
+  session: SessionData,
+  pathname: string,
+): "login" | "portal" | "home" | null {
+  if (!session) return isPublicPath(pathname) ? null : "login";
+  if (session.external) return externalMayOpen(pathname) ? null : "portal";
+  // A public page under the portal (the invitation link, V15) stays open to a
+  // signed-in buyer or staff member: they may be the one who was invited.
+  if (isPortalPath(pathname) && !isPublicPath(pathname)) return "home";
+  return null;
 }
 
 /** Route guard for employee features (shared dashboard, role-gated).

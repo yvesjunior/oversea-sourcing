@@ -24,7 +24,7 @@
 | **E9** Notifications | In-app + email | 🟡 bell, emitters, **prefs (2026-08-26)** live; Phase P types (`quote_received`, `contract_to_sign`, `contract_signed`) + staff alert on `quotes.requested` (2026-09-07) live; **the bell alerts (2026-09-14)** — count badge, 30 s poll, chime, per-browser mute |
 | **E10** Admin surfaces | Verification, imports, ops queue | 🟡 **verification LIVE (S5b/S5c, 2026-08-26)**; imports/ops queue placeholders |
 | **R** Custom staff roles | Roles as data + the matrix | ✅ **BUILT 2026-08-29** (migration 0039) — create/delete roles, dynamic matrix, `requests.all` |
-| **E13** V6 architecture | Supplier portal · KPI #2 · Partner Hub · Decision Pack | 🔵 **NEW 2026-10-21** — scope opened by the V6 document; diagrams validated 2026-11-14; **34 tasks in seven slices — [Phase V](#phase-v--the-v6-parcours-task-by-task-e13--written-2026-11-14)**; **V01, V02, V04–V11 built 2026-11-14** (settings, contacts, states, fork + shortlist, RFQ batch, window closing, typed answer time + channel, KPI #2 v1, the Decision Pack record, the release queue); V01–V11 **live on prod — V01–V09 since deploy #45 (2026-11-14), V10–V11 since deploy #47 (2026-11-18) — with the pack-flow switch OFF**; **V12–V14 built 2026-11-18** (the buyer's pack page, choosing from it, automatic release built and switched off + the review report) — **slice 1 (V04–V14) is complete** — **live on prod since deploy #48 (2026-11-18), pack flow off, release manual**; **V18–V20 built 2026-11-18** (the clarification, behind `AI_CHAT`, off; the cahier des charges and the KPI profile as versioned records; the buyer's validation before any search, behind `flow.spec_validation`, ON by default) — **slice 3 complete** — on `main`, not deployed |
+| **E13** V6 architecture | Supplier portal · KPI #2 · Partner Hub · Decision Pack | 🔵 **NEW 2026-10-21** — scope opened by the V6 document; diagrams validated 2026-11-14; **34 tasks in seven slices — [Phase V](#phase-v--the-v6-parcours-task-by-task-e13--written-2026-11-14)**; **V01, V02, V04–V11 built 2026-11-14** (settings, contacts, states, fork + shortlist, RFQ batch, window closing, typed answer time + channel, KPI #2 v1, the Decision Pack record, the release queue); V01–V11 **live on prod — V01–V09 since deploy #45 (2026-11-14), V10–V11 since deploy #47 (2026-11-18) — with the pack-flow switch OFF**; **V12–V14 built 2026-11-18** (the buyer's pack page, choosing from it, automatic release built and switched off + the review report) — **slice 1 (V04–V14) is complete** — **live on prod since deploy #48 (2026-11-18), pack flow off, release manual**; **V18–V20 built 2026-11-18** (the clarification, behind `AI_CHAT`, off; the cahier des charges and the KPI profile as versioned records; the buyer's validation before any search, behind `flow.spec_validation`, ON by default) — **slice 3 complete**; **V03 built 2026-11-18** (external accounts: a supplier is not a customer) — on `main`, not deployed |
 | **E11** Settings | Profile, sourcing rules | 🟡 Paramètres + notification prefs live; **password / 2FA / theme / rename (2026-08-27)** live; buyer Abonnement self-service waits for billing |
 
 **MVP1 = E0–E7 + E10.** Definition of done **restated 2026-08-29 by ADR-002**
@@ -4620,46 +4620,96 @@ built in: **S** one, **M** two to three, **L** four or more.
       supplier — nowhere else. And a contact is a person: it is deleted with
       the supplier and it is never shown to a buyer.
 
-- [ ] **V03 · External accounts: a principal with no workspace.** *Size L.
-      Depends on: nothing. Blocks: V15, V16, V23, and every external surface.*
+- [x] **V03 · External accounts: a principal with no workspace — BUILT
+      2026-11-18** (migration **0058**, not deployed). Skipped on 2026-11-14,
+      built when the owner asked for the supplier portal — and stated the
+      rule it rests on: *"supplier cannot act as workspace like a customer,
+      the account type is supplier"*. `src/lib/account-types.ts` (pure:
+      `isExternalAccount`, `externalKind`, `externalMayOpen`);
+      `src/server/auth.ts` (the guarded `auth.api.getSession`,
+      `getAnySession`, `ExternalAccountError`, `createExternalAccount`, three
+      hooks); `src/server/party-guard.ts` (`requireSupplierSession`,
+      `requirePartnerSession`); `src/lib/external-access.ts` + its test (the
+      register); `session-fns.ts` (`SessionData.external`); `auth-guard.ts`
+      (`authRedirect`); `PortalShell.tsx`, `routes/portail/index.tsx` (an
+      empty home — "no screen of its own" held for everything but the place
+      an external session is sent to). Table `supplier_user`. 769 tests.
 
-      **What it does.** Makes it possible for a `user` to be a supplier's or a
-      partner's person rather than a workspace member — the third kind of
-      account the diagram's two right-hand lanes need. No screen of its own;
-      it is the guard and the tests the portals stand on.
+      **The gotcha, and what was done about it.** "Every guard asks which
+      workspace is this session in; an external session answers none, and a
+      guard that treats none as skip the filter leaks everything. Grep for
+      `activeOrganizationId` and read each use." Reading 67 call sites would
+      have covered today's functions and none of tomorrow's. Instead the
+      session is withheld at the one place all 67 obtain it:
+      `auth.api.getSession` throws for an external account. Nothing was
+      edited in any existing function, and the next one written is covered.
 
-      **Schema.** `user.account_type` already exists (`individual` default):
-      add `supplier` and `partner` as values. `supplier_user` — `user_id`,
-      `supplier_id`, `created_via` (`invitation`), `created_at`; unique on the
-      pair. `partner_user` likewise, added with V21.
+      **Three holes found on the way, all closed:**
+      - `accountType` is a signup input field, which made it writable through
+        `/update-user`: a supplier could have renamed themselves
+        `individual`. Refused now (`ACCOUNT_TYPE_IMMUTABLE`), for everyone.
+      - better-auth's own organisation endpoints do not go through our
+        functions: an external account could have created a workspace or
+        accepted an invitation. Refused (`EXTERNAL_ACCOUNT`).
+      - An account type nobody recognises is treated as external, not as a
+        customer.
 
-      **Files.** `src/server/auth.ts` — `databaseHooks.user.create.after` must
-      create **no workspace** for these two types (the invitation branch above
-      it is the precedent), and the session hook must leave
-      `activeOrganizationId` null. New `src/server/party-guard.ts` —
-      `requireSupplierSession(headers)` → `{ userId, supplierIds }`,
-      `requirePartnerSession(headers)`. `src/lib/auth-guard.ts` —
-      `enforceAuth` routes an external session to its own shell and refuses
-      everything else. `src/server/plan.ts` — these accounts sit outside the
-      plan ladder; nothing may call `resolvePlan` or `checkRequestQuota` for
-      them.
+      **Acceptance, as tests.** `external-access.test.ts` enumerates every
+      exported server function from the source (109) and fails unless each
+      reaches the guarded getter, or is listed as public (2:
+      `getAuthConfigFn`, `getIntakeOptionsFn`) or as external (1:
+      `getSessionFn`); unless only the three listed modules import the
+      unguarded getter; and unless every API route reads its session through
+      the guarded one. `account-types.test.ts` covers the types, the paths
+      and the root guard for the three populations.
 
-      **Acceptance — these are tests, written before any portal screen.**
-      With two suppliers A and B invited on the same request: A's session
-      cannot read B's quote, B's name, the number of suppliers asked, any
-      rank, any `match` row, the buyer's organisation, an internal note, or a
-      `platform_setting`. A's session receives a refusal — not an empty list —
-      from every existing server fn in `src/lib/*-fns.ts` that is not
-      explicitly opened to external accounts; the test enumerates the fns so
-      a new one fails the suite until someone decides. A supplier account
-      signs in with no workspace and no plan row and nothing throws.
+      *Verified live in dev over real HTTP, then removed (users 6, orgs 6,
+      members 9, audit 33):* two supplier accounts A and B created through
+      `createExternalAccount`, each linked to one supplier of request #3049.
+      - **No workspace, no plan, nothing throws.** Organisations, memberships
+        and subscriptions unchanged by the two creations; A signs in, the
+        session's `activeOrganizationId` is null.
+      - **Every page → the portal.** `/`, `/demandes/3049`,
+        `/interne/parametres` all land on `/portail`, in its own shell.
+      - **Every server function, called directly as A** (all 109, from the
+        browser, with a catch-all payload): **77 refused** with the
+        external-account error; **26 rejected the payload** before reaching
+        the session check; **6 answered** — the three registered ones, the two
+        assistant functions with « disabled » (the flag is off; with it on
+        they read the session), and the public invitation lookup with `null`
+        for an unknown id (it reads the session once the invitation is found).
+        **None returned workspace data.**
+      - **The side doors.** Creating a workspace, switching the active one,
+        listing organisations: 403. Changing the account type: 400. The API
+        routes `/api/files`, `/api/upload`: refused.
+      - **The other direction.** The public signup with `accountType:
+        supplier`: 400. A buyer changing their own type: 400. A buyer on
+        `/portail`: sent home; their own functions answer as before.
 
-      **Gotcha.** Every guard in the codebase asks "which workspace is this
-      session in?". An external session answers "none", and a guard that
-      treats *none* as *skip the filter* leaks everything. Grep for
-      `activeOrganizationId` and read each use before trusting the tests.
-      Also correct the record in the same commit: ADR-002 §3's table in the
-      README still lists suppliers as "(no account)".
+      **Not exercised:** the 26 functions that rejected the test payload were
+      not retried with a valid one (the source test is what covers them); a
+      partner account; a social (Google) sign-in landing on an external
+      account; an external account with 2FA; production. **Left as it is:**
+      an API route answers an external session with a 500 (the thrown
+      refusal), not a clean 403. A/B partition — A reading B's quote — has
+      nothing to test yet: no function is opened to suppliers until V16, so A
+      reads nothing at all; the test belongs with those functions.
+
+      ~~**What it does.** Makes it possible for a `user` to be a supplier's or
+      a partner's person rather than a workspace member. **Schema.**
+      `user.account_type` gains `supplier` and `partner`; `supplier_user` —
+      `user_id`, `supplier_id`, `created_via`, `created_at`; `partner_user`
+      with V21. **Files.** `auth.ts` (no workspace for these types, null
+      `activeOrganizationId`), new `party-guard.ts`, `auth-guard.ts`
+      (`enforceAuth` routes an external session to its own shell),
+      `plan.ts` (outside the plan ladder). **Acceptance.** With two suppliers
+      A and B invited on the same request, A's session cannot read B's quote,
+      B's name, the number asked, any rank, any `match` row, the buyer's
+      organisation, an internal note, or a `platform_setting`; A receives a
+      refusal — not an empty list — from every existing server fn not
+      explicitly opened; the test enumerates the fns. A supplier account signs
+      in with no workspace and no plan row and nothing throws. **Gotcha.** A
+      guard that treats *none* as *skip the filter* leaks everything.~~
 
 ---
 

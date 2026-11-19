@@ -41,6 +41,10 @@ export const user = pgTable("user", {
   /** Signup intent (owner decision 2026-08-26): the account type chosen at
    *  signup — 'individual' | 'organization'. Consumed once by the
    *  user-create hook to provision the right workspace; kept as audit. */
+  /** `AccountType` (src/lib/account-types.ts). `individual` and
+   *  `organization` are WORKSPACE accounts — customers. `supplier` and
+   *  `partner` are EXTERNAL accounts (V03): no workspace, no plan, their own
+   *  surface and guard. Set at creation, never changed. */
   accountType: text("account_type").notNull().default("individual"),
   /** Company name typed at an organisation signup (becomes the workspace
    *  name; kept as audit). */
@@ -617,6 +621,41 @@ export type SupplierContactSource = (typeof SUPPLIER_CONTACT_SOURCES)[number];
  *  still read where one in French is not. */
 export const CONTACT_LOCALES = ["en", "fr"] as const;
 export type ContactLocale = (typeof CONTACT_LOCALES)[number];
+
+/**
+ * Which supplier(s) an EXTERNAL account answers for (Phase V · V03).
+ *
+ * The whole of a supplier account's authority: `requireSupplierSession`
+ * returns the `supplier_id`s found here and nothing else, and every portal
+ * query is filtered by them. A supplier account with no row here can read
+ * nothing at all.
+ *
+ * A pair, not a column on `user`: two people at one supplier each have their
+ * own account (the second contact redeeming their own invitation joins the
+ * same supplier, V15), and one person may answer for two companies.
+ *
+ * `created_via` records what vouched for the link. Only `invitation` exists:
+ * the person reached a link sent to that supplier's contact. There is no
+ * unsolicited supplier signup, and nothing here may create one.
+ */
+export const supplierUser = pgTable(
+  "supplier_user",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    supplierId: text("supplier_id")
+      .notNull()
+      .references(() => supplier.id, { onDelete: "cascade" }),
+    createdVia: text("created_via").$type<"invitation">().notNull().default("invitation"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("supplier_user_pair_uq").on(table.userId, table.supplierId),
+    index("supplier_user_supplier_idx").on(table.supplierId),
+  ],
+);
 
 /**
  * Who to write to at a supplier (Phase V · V02, 2026-11-14).

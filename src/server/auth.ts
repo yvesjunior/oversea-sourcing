@@ -1,3 +1,4 @@
+import { isExternalAccount, type ExternalAccountType } from "@/lib/account-types";
 import { betterAuth } from "better-auth";
 import { APIError, createAuthMiddleware } from "better-auth/api";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
@@ -35,7 +36,13 @@ const wwwVariant = baseURL.includes("://www.") ? null : baseURL.replace("://", "
 // Real domain (not localhost/IP) ⇒ share the session cookie across subdomains.
 const isPublicHost = /\.[a-z]{2,}$/i.test(new URL(baseURL).hostname);
 
-export const auth = betterAuth({
+/**
+ * The better-auth instance itself. NOT exported: its `api.getSession` answers
+ * for every kind of account, external ones included, and the product's ~110
+ * server functions were all written when "a session" meant "a workspace
+ * member". See `auth` and `getAnySession` at the bottom of this file.
+ */
+const rawAuth = betterAuth({
   baseURL,
   trustedOrigins: wwwVariant ? [wwwVariant] : [],
   secret: process.env["BETTER_AUTH_SECRET"] ?? "osi-dev-insecure-secret",
@@ -139,6 +146,33 @@ export const auth = betterAuth({
   },
   hooks: {
     before: createAuthMiddleware(async (ctx) => {
+      // The account type is decided when the account is created and never
+      // changes (V03). `accountType` is an input field so that the signup
+      // form can send it — which also made it writable through
+      // /update-user, where a supplier could have renamed themselves a
+      // customer. Nobody edits it after creation.
+      if (ctx.path === "/update-user") {
+        const body = (ctx.body ?? {}) as Record<string, unknown>;
+        if ("accountType" in body || "companyName" in body) {
+          throw new APIError("BAD_REQUEST", { message: "ACCOUNT_TYPE_IMMUTABLE" });
+        }
+        return;
+      }
+      // An external account belongs to no workspace and can never join or
+      // create one (V03): the organisation plugin's own endpoints are closed
+      // to it — creating a workspace, accepting an invitation, switching the
+      // active one. Without this a supplier could not READ anything (every
+      // server fn refuses them), but could still litter the platform with
+      // workspaces.
+      if (ctx.path.startsWith("/organization/")) {
+        const { getSessionFromCtx } = await import("better-auth/api");
+        const current = await getSessionFromCtx(ctx).catch(() => null);
+        const type = (current?.user as { accountType?: string } | undefined)?.accountType;
+        if (current && isExternalAccount(type)) {
+          throw new APIError("FORBIDDEN", { message: "EXTERNAL_ACCOUNT" });
+        }
+        return;
+      }
       if (ctx.path !== "/sign-up/email") return;
       const rejection = checkSignupPayload(ctx.body);
       if (rejection) {
@@ -455,6 +489,12 @@ export const auth = betterAuth({
         // Every new user gets a personal workspace — solo users are isolated
         // by construction (BACKLOG.md).
         after: async (newUser) => {
+          // An external account — a supplier's or a partner's person (V03) —
+          // gets NO workspace, no membership and no plan. It is not a
+          // customer. Checked before anything else in this hook, all of
+          // which exists to provision a customer.
+          if (isExternalAccount((newUser as { accountType?: string }).accountType)) return;
+
           // Q1 (decided 2026-08-22): people who sign up THROUGH an invitation
           // are joining an enterprise — they get no personal workspace. A
           // pending invitation for this email is the signal.
@@ -553,6 +593,16 @@ export const auth = betterAuth({
         // Only at session creation: switching workspaces persists on the
         // session row, and re-deciding later would undo the switcher.
         before: async (newSession) => {
+          // An external account's session stands in no workspace (V03). Said
+          // explicitly rather than left to "they have no membership": the
+          // one thing this session must never carry is a workspace id.
+          const owner = await db.query.user.findFirst({
+            where: eq(schema.user.id, newSession.userId),
+            columns: { accountType: true },
+          });
+          if (isExternalAccount(owner?.accountType)) {
+            return { data: { ...newSession, activeOrganizationId: null } };
+          }
           const memberships = await db
             .select({
               organizationId: schema.member.organizationId,
@@ -609,4 +659,110 @@ export const auth = betterAuth({
   },
 });
 
-export type Auth = typeof auth;
+/**
+ * Thrown when workspace code is reached by an EXTERNAL account's session.
+ *
+ * A refusal, on purpose, and not "no session": a function that answers an
+ * anonymous caller with an empty list would answer a supplier with the same
+ * empty list, and an empty list is indistinguishable from "the filter matched
+ * nothing by luck". This cannot be mistaken for an answer.
+ */
+export class ExternalAccountError extends Error {
+  constructor() {
+    super("This account is external (supplier or partner): it has no access to workspace data.");
+    this.name = "ExternalAccountError";
+  }
+}
+
+type GetSession = typeof rawAuth.api.getSession;
+
+/**
+ * What every server function, API route and guard in the product calls as
+ * `auth.api.getSession`.
+ *
+ * THE choke point of V03. Every guard in the codebase asks "which workspace
+ * is this session in?", and an external session answers "none" — which a
+ * guard may read as "no filter". Rather than re-read a hundred functions and
+ * trust that the next one written will be read too, the session itself is
+ * withheld: an external account's session never reaches workspace code. It
+ * throws here, before the caller has anything to filter or forget to.
+ *
+ * The functions that ARE for external accounts do not come through here —
+ * they call `getAnySession` below, by name, and
+ * `src/lib/external-access.test.ts` fails if anything else does.
+ */
+const getWorkspaceSession = (async (...args: Parameters<GetSession>) => {
+  const session = await rawAuth.api.getSession(...args);
+  const type = (session as { user?: { accountType?: string } } | null)?.user?.accountType;
+  if (session && isExternalAccount(type)) throw new ExternalAccountError();
+  return session;
+}) as GetSession;
+
+/** The auth instance the product uses: identical to better-auth's, except
+ *  that `api.getSession` refuses external accounts. */
+export const auth: typeof rawAuth = {
+  ...rawAuth,
+  api: { ...rawAuth.api, getSession: getWorkspaceSession },
+};
+
+/**
+ * The session of whoever is calling — a workspace member OR an external
+ * account. For the few places that must recognise an external session: the
+ * root session function (which routes it to the portal) and
+ * `src/server/party-guard.ts` (which every portal function goes through).
+ *
+ * Importing this anywhere else is a decision, and the test that lists its
+ * importers is where that decision is recorded.
+ */
+export async function getAnySession(headers: Headers) {
+  return rawAuth.api.getSession({ headers });
+}
+
+export type ExternalAccountResult =
+  { ok: true; userId: string } | { ok: false; reason: "email_taken" | "weak_password" };
+
+/**
+ * Create an EXTERNAL account — the only way one comes to exist.
+ *
+ * The public signup refuses these types (the before-hook above accepts
+ * `individual` and `organization` only), so there is no unsolicited supplier
+ * signup, and this function must not become one: it has no route of its own,
+ * and its caller is what vouches for the account (an RFQ invitation, V15).
+ *
+ * `emailVerified` is true because reaching the caller proves the mailbox —
+ * the invitation was sent to it. The user-create hook sees the account type
+ * and provisions nothing: no workspace, no membership, no plan.
+ */
+export async function createExternalAccount(input: {
+  email: string;
+  name: string;
+  password: string;
+  accountType: ExternalAccountType;
+  locale: "fr" | "en";
+}): Promise<ExternalAccountResult> {
+  const ctx = await rawAuth.$context;
+  const email = input.email.trim().toLowerCase();
+  if (input.password.length < ctx.password.config.minPasswordLength) {
+    return { ok: false, reason: "weak_password" };
+  }
+  if (await ctx.internalAdapter.findUserByEmail(email)) return { ok: false, reason: "email_taken" };
+  // Hashed before the user exists, as better-auth's own signup does: a
+  // failure here must not leave an account nobody can sign in to.
+  const hash = await ctx.password.hash(input.password);
+  const created = await ctx.internalAdapter.createUser({
+    email,
+    name: input.name.trim(),
+    emailVerified: true,
+    accountType: input.accountType,
+    locale: input.locale,
+  });
+  await ctx.internalAdapter.linkAccount({
+    userId: created.id,
+    providerId: "credential",
+    accountId: created.id,
+    password: hash,
+  });
+  return { ok: true, userId: created.id };
+}
+
+export type Auth = typeof rawAuth;

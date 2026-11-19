@@ -1912,5 +1912,11 @@
       "not_in_review": "Cette demande n’est plus en attente de validation.",
       "stale": "Le cahier des charges a changé depuis l’affichage de cette page. Relisez la version ci-dessous, puis validez."
     }
+  },
+  "portal": {
+    "shellTitle": "Portail fournisseur",
+    "signOut": "Se déconnecter",
+    "homeTitle": "Vos appels d’offres",
+    "homeEmpty": "Aucun appel d’offres à afficher pour le moment."
   }
 }

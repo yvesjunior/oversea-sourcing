@@ -2,7 +2,9 @@ import type { ReactNode } from "react";
 import { useRouterState } from "@tanstack/react-router";
 import type { SessionData } from "@/lib/session-fns";
 import type { Design } from "@/lib/themes";
+import { isPortalPath } from "@/lib/account-types";
 import { AppSidebar } from "./AppSidebar";
+import { PortalShell } from "./PortalShell";
 import { TopBar } from "./TopBar";
 
 const BARE_ROUTES = ["/login", "/signup", "/2fa"];
@@ -17,6 +19,10 @@ export function AppShell({
   children: ReactNode;
 }) {
   const pathname = useRouterState({ select: (r) => r.location.pathname });
+
+  // The external accounts' surface has its own shell (V03): the sidebar below
+  // is the buyer's and staff's, and none of it is theirs.
+  if (isPortalPath(pathname)) return <PortalShell session={session}>{children}</PortalShell>;
 
   // Auth pages render without the app chrome (no sidebar, no topbar).
   if (BARE_ROUTES.some((p) => pathname.startsWith(p))) {

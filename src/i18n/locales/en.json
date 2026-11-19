@@ -1912,5 +1912,11 @@
       "not_in_review": "This request is no longer waiting for validation.",
       "stale": "The specification changed since this page was displayed. Read the version below again, then validate."
     }
+  },
+  "portal": {
+    "shellTitle": "Supplier portal",
+    "signOut": "Sign out",
+    "homeTitle": "Your requests for quotation",
+    "homeEmpty": "No request for quotation to show at the moment."
   }
 }

@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import type { Auth } from "@/server/auth"; // type-only: erased at compile time
+import type { ExternalAccountType } from "@/lib/account-types";
 import type { PermissionKey } from "@/lib/roles";
 import {
   DEFAULT_LANGUAGE,
@@ -12,7 +13,15 @@ import { DEFAULT_DESIGN, designFromCookie, resolveDesign, type Design } from "@/
 /** The session the client sees, extended with the resolved staff permission
  *  set (2026-08-28) — presentation only, server fns re-derive per call. */
 export type SessionData =
-  (Auth["$Infer"]["Session"] & { platformFeatures: PermissionKey[] }) | null;
+  | (Auth["$Infer"]["Session"] & {
+      platformFeatures: PermissionKey[];
+      /** Set when this is an EXTERNAL account's session (V03) — a supplier's
+       *  or a partner's person. Such a session stands in no workspace and has
+       *  no staff feature; the root guard sends it to `/portail` and nowhere
+       *  else. Null for a workspace account, i.e. everyone before V03. */
+      external: ExternalAccountType | null;
+    })
+  | null;
 
 // Server-only modules are dynamically imported INSIDE handlers: the Start
 // compiler extracts handler bodies into the server bundle, so `src/server/**`
@@ -37,7 +46,11 @@ export type RootContext = {
  *  (a new device gets the user's own language before the default), then FR. */
 export const getSessionFn = createServerFn({ method: "GET" }).handler(
   async (): Promise<RootContext> => {
-    const [{ auth }, { getRequest }] = await Promise.all([
+    // `getAnySession`, not `auth.api.getSession`: this is the ONE workspace-side
+    // function that must recognise an external account, because it is what
+    // tells the router to send that account to the portal. Listed as such in
+    // src/lib/external-access.ts.
+    const [{ getAnySession }, { getRequest }] = await Promise.all([
       import("@/server/auth"),
       import("@tanstack/react-start/server"),
     ]);
@@ -45,7 +58,7 @@ export const getSessionFn = createServerFn({ method: "GET" }).handler(
     const cookie = headers.get("cookie");
     const cookieLang = languageFromCookie(cookie);
     const cookieDesign = designFromCookie(cookie);
-    const session = await auth.api.getSession({ headers });
+    const session = await getAnySession(headers);
     if (!session) {
       return {
         session: null,
@@ -54,9 +67,29 @@ export const getSessionFn = createServerFn({ method: "GET" }).handler(
         archivedWorkspace: null,
       };
     }
-    const account = session.user as { locale?: string; design?: string };
+    const account = session.user as { locale?: string; design?: string; accountType?: string };
     const lang = cookieLang ?? resolveLanguage(account.locale ?? null);
     const design = cookieDesign ?? resolveDesign(account.design ?? null);
+
+    // An external account (V03): no workspace to look up, no staff role, no
+    // feature. Returned before any of the workspace code below is reached.
+    const { externalKind, isExternalAccount } = await import("@/lib/account-types");
+    if (isExternalAccount(account.accountType)) {
+      return {
+        session: {
+          ...session,
+          user: { ...session.user, platformRole: "user" },
+          platformFeatures: [],
+          // An account type nobody recognises is treated as external and
+          // shown as the kind with the least: it reaches the portal, where
+          // `requireSupplierSession` grants it nothing.
+          external: externalKind(account.accountType) ?? "supplier",
+        },
+        lang,
+        design,
+        archivedWorkspace: null,
+      };
+    }
     // The client sees the EFFECTIVE role (2026-08-27): staff powers exist
     // only while standing in the internal workspace, so all client-side
     // gating (sidebar, Vue globale tabs, route guards) follows the badge
@@ -96,6 +129,7 @@ export const getSessionFn = createServerFn({ method: "GET" }).handler(
         ...session,
         user: { ...session.user, platformRole: effective },
         platformFeatures,
+        external: null,
       },
       lang,
       design,

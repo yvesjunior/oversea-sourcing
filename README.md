@@ -1179,6 +1179,60 @@ themselves) as an interim: same tables, no email.
 
 ---
 
+### External accounts — a supplier is not a customer (V03)
+
+Two kinds of account are **workspace accounts** — `individual` and
+`organization` — and they are the customers: a person acting inside a
+workspace, on a plan. Since 2026-11-18 there are two more, and they are not:
+
+| `user.account_type` | Who | Workspace | Plan | Surface |
+|---|---|---|---|---|
+| `individual` · `organization` | a buyer (and OSI's staff) | yes | yes | the app |
+| **`supplier`** | someone at a supplier, answering its RFQs | **none** | **none** | `/portail` |
+| **`partner`** | someone at a partner (V21) | **none** | **none** | — (nothing yet) |
+
+**An external account can do nothing a customer can.** It belongs to no
+workspace and can never join or create one, has no plan and no quota, and its
+type is set at creation and never changes (`/update-user` refuses it; the
+organisation endpoints refuse external sessions). The public signup creates
+buyer accounts only — **there is no unsolicited supplier signup**;
+`createExternalAccount` (`src/server/auth.ts`) has no route of its own, and
+what calls it is what vouches for the account (the RFQ invitation, V15).
+
+**How the wall holds — one choke point, not a hundred reviews.** Every guard
+in the product asks "which workspace is this session in?", and an external
+session answers "none" — which a guard may read as "no filter". So the
+session itself is withheld: `auth.api.getSession`, which every server function
+and API route calls, **throws `ExternalAccountError` for an external account**
+(`src/server/auth.ts`). The ~110 existing functions refuse without having
+been edited, and so will the next one written. A refusal, deliberately, not
+"no session": an empty list is indistinguishable from a filter that matched
+nothing by luck.
+
+What IS for external accounts goes another way, by name:
+`getAnySession` (the root session function — it is what recognises the
+account and routes it) and `src/server/party-guard.ts`
+(`requireSupplierSession` → the caller's `supplierIds`, from `supplier_user`;
+null for anyone else, and for a supplier account linked to no supplier). That
+list of suppliers is the whole of a supplier account's authority: every
+portal query is filtered by it.
+
+**The register and its test.** `src/lib/external-access.ts` names the server
+functions that read no session on purpose (2) and those opened to external
+accounts (1 — the root session; the portal's arrive with V16).
+`external-access.test.ts` reads the source: every exported server function
+must reach the guarded getter, directly or through a helper, or be on one of
+those lists; nothing but the listed modules may import the unguarded getter;
+every API route must read its session through the guarded one. **A new
+function that asks nobody who is calling fails the suite until someone
+decides.**
+
+**Routing** (`authRedirect`, in the root guard, before any loader runs): an
+external session opens `/portail` and the pages about its own account, and is
+sent to the portal from anywhere else; a buyer or staff member is sent home
+from the portal. The portal has its own shell — the app's sidebar is not
+theirs.
+
 ## 2 · How a request works
 
 ```
@@ -2192,6 +2246,8 @@ Consequences, all first-class:
 | **Buyer · OSI** (they hold accounts) | **signed in the platform** — no vendor, no email round trip | user id + name snapshot, when, IP, user agent |
 | **Supplier · carrier · broker · inspector** (⚠ suppliers and transit agents DO hold accounts since 2026-10-21 — this row predates that and is the open question flagged in §2; carriers, brokers and inspectors still hold none) | **manual upload** — staff send it, receive it signed, upload the countersigned PDF (`signed_file_id`, optional) | who signed as stated, when, the document, and which staff member recorded it |
 
+*(2026-11-18: the supplier account type exists in the code since V03 — `user.account_type = supplier`, no workspace, its own guard. Whether a supplier SIGNS in the platform is still V26, and still a legal question.)*
+
 The mechanism follows the party's **role**, not a setting and not
 `contract_party.user_id` (which is null at draft time). Both paths write the
 same `contract_party` row and the same `contract_event` trail, so the N/M
@@ -2327,7 +2383,7 @@ email and answers by email, and nothing else about them touches the product.
 | 04 | Top-N + printable report | Buyer receives | ✅ built |
 | 05 | **Picks who to solicit** | Buyer — *decision* | ✅ built |
 | 06 | Sends the quote requests | OSI staff | ⚠️ the ask is recorded and staff are alerted; **the email goes out by hand** — since 2026-11-14 the quote shows staff who to write to (`supplier_contact`, Phase V · V02), or warns that no address is on file |
-| 07 | Answers with price, MOQ, lead time | **Supplier — off platform** | by design; no account exists |
+| 07 | Answers with price, MOQ, lead time | **Supplier — off platform** | by design when this table was written. A supplier ACCOUNT TYPE exists since V03 (2026-11-18) and the portal where they answer is slice 2 (V15–V16) |
 | 08 | Records each offer | OSI staff | ✅ built |
 | 09 | **Compares and accepts ONE** | Buyer — *decision* | ✅ built |
 | 10 | Dossier opens automatically | Platform | ✅ built |
@@ -2970,6 +3026,7 @@ erDiagram
 | `decision_pack_event`| ✅ 2026-11-14 (0053, Phase V · V11) — what was done to a pack: `action` (`approved` · `corrected` · `relaunched` · `refused` · `assigned`, and since V14 the two the system writes, with no actor: `auto_released` · `held`), actor + name, `payload` (the note, the moves, the suppliers relaunched and what each had been closed as, the reason). Permanent — not `audit_log` |
 | `request_spec`       | ✅ 2026-11-18 (0056, Phase V · V19) — the cahier des charges, versioned and immutable: `request_id`, `version`, `content` (`SpecContent`: the criteria as structure AND the same thing as text), `fingerprint` (what "the spec changed" means), `created_by` + name snapshot (null = the system). Unique on `(request_id, version)`. Same migration: `spec_version` on `rfq_round`, `quote`, `match`, `kpi_result`, and `profile_version` on the last two |
 | `kpi_profile`        | ✅ 2026-11-18 (0056, V19) — one request's weights for both scorers, versioned: `weights` (`KpiProfileWeights`), `source` (`default` · `buyer`), `fingerprint`. The default is the scorers' former constants, so it moves no ranking |
+| `supplier_user`      | ✅ 2026-11-18 (0058, Phase V · V03) — which supplier(s) an EXTERNAL account answers for: `user_id`, `supplier_id` (unique pair), `created_via` (`invitation` — the only value; there is no unsolicited supplier signup). The whole of a supplier account's authority: `requireSupplierSession` returns these ids and every portal query is filtered by them. `user.account_type` gains the values `supplier` and `partner` (text column, no migration) |
 | `criterion_proposal` | ✅ 2026-11-18 (0055, Phase V · V18) — a criteria change the assistant PROPOSED: `op` (`add` · `update` · `remove`), the full criterion an accept would leave, `previous` / `previous_required` (what an update replaces), `status` (`pending` · `accepted` · `dismissed` · `stale` · `superseded`), who answered and their name as it was. `criterion_id` is deliberately not a foreign key: the proposal outlives a criterion deleted by hand, to say `stale`. Same migration: `request_message.questions` (jsonb) — what the assistant asked on a turn; non-null is what counts a turn against the request's six |
 | `kpi_result`         | ✅ 2026-11-14 (0051, Phase V · V09) — KPI #2: one row per offer per run. `run_id` groups a computation; `rank`, `score` (hundredths of a point), `breakdown` (per-factor state, points and weight, the notes, and the offer exactly as it was scored), `formula_version`, `inputs_hash`, `trigger`, `computed_at`. **Append-only** — the current ranking of a round is its latest run. KPI #1 is not here: it scores a supplier before anyone is asked and stays on `match` |
 | `platform_setting`   | ✅ 2026-11-14 (0046, Phase V · V01) — platform-wide settings, ONE value per key for every client; a missing row means the default. Keys, types, ranges and defaults live in the registry `src/lib/platform-settings.ts`, so a new knob is a registry entry and not a migration. Edited from `/interne/parametres` (`settings` permission, owner by default); every change is in `audit_log` with the old and new value |
