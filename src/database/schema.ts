@@ -2304,6 +2304,54 @@ export const dealIssue = pgTable(
 );
 
 /**
+ * What happened on a CLOSED dossier, as facts about its supplier (Phase V ·
+ * V31) — the moat ADR-001 describes: things nobody can scrape, earned on a
+ * real deal.
+ *
+ * ONE ROW PER CLOSED DEAL, APPEND-ONLY, FACTS ONLY. No score is stored: KPI
+ * #1 derives its adjustment from these rows every time it ranks
+ * (`performanceAdjustment`, src/lib/supplier-performance.ts), so the formula
+ * can be re-weighted without rewriting history — a stored score could not.
+ *
+ * `supplier_id` is SET NULL with a name snapshot: the facts outlive a
+ * supplier record merged away. Platform-wide, not per workspace: how a
+ * supplier performed for one buyer informs the next buyer's search, which is
+ * the point — and no row names the buyer.
+ */
+export const supplierPerformance = pgTable(
+  "supplier_performance",
+  {
+    id: text("id").primaryKey(),
+    supplierId: text("supplier_id").references(() => supplier.id, { onDelete: "set null" }),
+    supplierName: text("supplier_name").notNull(),
+    dealId: text("deal_id").references(() => deal.id, { onDelete: "set null" }),
+    /** Hours from the RFQ being sent to the offer being answered. Null when
+     *  either instant is unknown (an offer keyed in with no send date). */
+    responseHours: integer("response_hours"),
+    /** The supplier's OWN steps (production) that had a planned day and were
+     *  done — and how many of those were done after it. */
+    supplierStepsPlanned: integer("supplier_steps_planned").notNull().default(0),
+    supplierStepsLate: integer("supplier_steps_late").notNull().default(0),
+    /** The dossier's delivery against its planned day — a fact about the
+     *  dossier, not attributed to the supplier (a carrier can be late too).
+     *  Null when no delivery date was planned. */
+    deliveredLate: boolean("delivered_late"),
+    /** The buyer's 1–5 at reception. */
+    satisfaction: integer("satisfaction"),
+    issuesRaised: integer("issues_raised").notNull().default(0),
+    issuesResolved: integer("issues_resolved").notNull().default(0),
+    issuesDisputed: integer("issues_disputed").notNull().default(0),
+    closedAt: timestamp("closed_at").notNull(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => [
+    index("supplier_performance_supplier_idx").on(table.supplierId),
+    // A dossier is closed once and remembered once.
+    uniqueIndex("supplier_performance_deal_uq").on(table.dealId),
+  ],
+);
+
+/**
  * An exchange on a dossier (Phase V · V25; P10's thread).
  *
  * A thread STATES WHO IS IN IT: `parties` holds the `deal_party` ids that can

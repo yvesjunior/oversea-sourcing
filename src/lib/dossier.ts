@@ -340,6 +340,11 @@ export type DossierView = {
   review?: { satisfaction: number; comment: string | null; reviewedAt: string } | null;
   /** This reader may confirm reception now: the buyer, on a delivered dossier. */
   canConfirmReception: boolean;
+  /**
+   * STAFF ONLY (V31) — whether the dossier can be closed now, or what stands
+   * in the way: the buyer's reception, or issues still open.
+   */
+  closing?: "ok" | "not_reviewed" | "open_issues" | "closed";
 };
 
 // ── reading ─────────────────────────────────────────────────────────────────
@@ -498,6 +503,21 @@ export function projectDossier(full: FullDossier, audience: DossierAudience): Do
     canSettleIssues: staff,
     ...(staff || audience.kind === "buyer" ? { review: full.deal.review ?? null } : {}),
     canConfirmReception: mayConfirmReception(audience, full.deal.status),
+    ...(staff
+      ? {
+          closing:
+            full.deal.status === "closed" || full.deal.status === "cancelled"
+              ? ("closed" as const)
+              : (() => {
+                  const verdict = mayCloseDossier(
+                    audience,
+                    full.deal.status,
+                    openIssues(full.issues ?? []),
+                  );
+                  return verdict === "forbidden" ? ("not_reviewed" as const) : verdict;
+                })(),
+        }
+      : {}),
     milestones: MILESTONE_KINDS.map((kind): MilestoneView => {
       const recorded = (full.milestones ?? []).find((milestone) => milestone.kind === kind);
       return {
@@ -609,6 +629,27 @@ export function mayConfirmReception(audience: DossierAudience, status: DealStatu
 /** A satisfaction is a whole number from 1 to 5. */
 export function isSatisfaction(value: unknown): value is 1 | 2 | 3 | 4 | 5 {
   return typeof value === "number" && Number.isInteger(value) && value >= 1 && value <= 5;
+}
+
+// ── closing (V31) ───────────────────────────────────────────────────────────
+
+/**
+ * May this reader close the dossier now?
+ *
+ * STAFF, on a dossier the buyer has reviewed, with no issue left open. The
+ * order of the answers is the order somebody fixes them in: not staff at
+ * all; then the buyer has not spoken — and `delivered → closed` is not a
+ * move the deal machine has, so this is the rule saying why; then an issue
+ * to settle.
+ */
+export function mayCloseDossier(
+  audience: DossierAudience,
+  status: DealStatus,
+  open: number,
+): "ok" | "forbidden" | "not_reviewed" | "open_issues" {
+  if (audience.kind !== "staff") return "forbidden";
+  if (status !== "reviewed") return "not_reviewed";
+  return open > 0 ? "open_issues" : "ok";
 }
 
 // ── writing ─────────────────────────────────────────────────────────────────

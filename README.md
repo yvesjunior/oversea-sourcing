@@ -1706,6 +1706,56 @@ Confirming takes the dossier from `delivered` to `reviewed`
 - **Who reads it.** The buyer and staff. What a buyer thinks of a supplier is
   not a page the supplier opens.
 
+### Closing, and what the platform remembers (V31)
+
+**Staff close a dossier — the second of the two acts** (`closeDeal`,
+`src/server/closure.ts`). Three things must hold, and the staff page says
+which one does not:
+
+1. the caller is staff;
+2. the buyer has confirmed reception — the dossier is `reviewed`. `delivered →
+   closed` is not a move the deal machine has: **a dossier is never closed
+   over a buyer who has not spoken**;
+3. no issue is `open` (a *disputed* one does not block).
+
+A closed dossier takes no new exchange, issue or milestone.
+
+**Closing is when the platform remembers.** In the same transaction, the
+dossier's facts are written to `supplier_performance` — one row per closed
+deal, append-only:
+
+| Fact | From |
+| --- | --- |
+| `response_hours` | RFQ sent → offer answered |
+| `supplier_steps_planned` / `_late` | the supplier's OWN milestones (production) that had a planned day, and how many were done after it |
+| `delivered_late` | the dossier's delivery against its plan — recorded, held against nobody (a carrier can be late too) |
+| `satisfaction` | the buyer's 1–5 at reception |
+| `issues_raised` / `_resolved` / `_disputed` | the dossier's issues and how each ended |
+
+**Facts are stored; the score is derived.** KPI #1 reads these rows for the
+next request through `src/lib/supplier-performance.ts`, which aggregates them
+and turns them into an adjustment *each time it ranks*. Nothing derived is
+kept, so the formula can be re-weighted and every past deal is re-read under
+the new rule.
+
+| What | Points on KPI #1 |
+| --- | --- |
+| each deal where the supplier's own steps were late | −5, down to −15 |
+| average satisfaction | ±2 per point away from 3 (an average of 5: +4; of 1: −4) |
+| each issue that ended disputed | −3, down to −9 |
+
+A supplier with **no** closed deal gets nothing — no bonus, no penalty, not
+even a field in its breakdown: no history is not a clean history. The
+adjustment is small beside the 55 points of criteria coverage on purpose: a
+history orders suppliers that fit a need about equally, and never makes one
+that does not fit look like one that does (relevance is a gate, upstream).
+The shortlist's breakdown says why a score moved — « Historique sur les
+dossiers clos : 2 livraisons en retard (−10) ».
+
+The rows are platform-wide — how a supplier performed for one buyer informs
+the next buyer's search, which is the moat ADR-001 describes — and no row
+names the buyer.
+
 ### A supplier signs in the portal — behind a setting, off (V26)
 
 Until V26 a supplier's signature was always a countersigned PDF recorded by
@@ -3553,6 +3603,7 @@ erDiagram
 | `message_thread` / `message` | ✅ 2026-11-19 (0064, V25) — an exchange on a dossier. `message_thread.parties` (jsonb) lists the `deal_party` ids in it; OSI is in every thread and never listed. `message`: author tombstone + name snapshot, `author_role`, `author_party_id` (null for OSI) |
 | `order_milestone`    | ✅ 2026-11-19 (0065, Phase V · V27; P7's table) — one row per (dossier, kind): `planned_at`, `completed_at`, `note`, `channel` (`portal` · `staff`), `updated_by` + name, `updated_by_role` (the side it is attributed to). No status column and no late flag: both are derived when read. `document.milestone_id` (0065) + kind `proof`: the evidence attached to a milestone |
 | `deal_issue`         | ✅ 2026-11-19 (0066, Phase V · V28) — something not as agreed on a dossier: `kind` (nonconformity · damage · shortfall · delay · other), `description`, `status` (open · resolved · disputed), `raised_by` + name + `raised_by_role` + `raised_by_party_id` (null for OSI — decides who else reads it), `resolution`, `resolved_by` + name, `resolved_at`. A dossier is not closed while one is `open` |
+| `supplier_performance` | ✅ 2026-11-19 (0067, Phase V · V31) — what happened on a CLOSED dossier, as facts about its supplier: one row per closed deal (unique `deal_id`), append-only. `response_hours`, `supplier_steps_planned` / `_late`, `delivered_late`, `satisfaction`, `issues_raised` / `_resolved` / `_disputed`, `closed_at`; `supplier_id` set null with a name snapshot. No score column: KPI #1 derives its adjustment from these rows each time it ranks |
 | `document` (V25 columns) | ✅ 2026-11-19 (0064) — `deal_id`, `shared_with` (jsonb: the parties that may read it — the buyer included only when listed), `version` + `supersedes_id` (a new version is a new row), `label`; kind `dossier`. `deal.buyer_disclosed_at` + `buyer_disclosed_by_name` (0064): decision D6's disclosure, null until the step is taken |
 
 **Not yet built:** `order_milestone` (P7), `payment` (P9), `message_thread`

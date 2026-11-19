@@ -14,7 +14,7 @@ import {
   settleIssueFn,
   type DossierPage,
 } from "@/lib/dossier-fns";
-import { confirmReceptionFn } from "@/lib/deal-fns";
+import { closeDealFn, confirmReceptionFn } from "@/lib/deal-fns";
 import { formatDay } from "@/lib/instant";
 import { completeMilestoneFn, planMilestoneFn } from "@/lib/milestone-fns";
 
@@ -174,6 +174,29 @@ function StaffControls({ page, onChanged }: { page: DossierPage; onChanged: () =
           </Button>
         )}
       </div>
+
+      {/* Closing (V31): the second act, after the buyer's. Said where it
+          stands; offered only when nothing stands in the way. */}
+      {view.closing && view.closing !== "closed" && (
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
+          <p className={view.closing === "ok" ? "" : "text-muted-foreground"}>
+            {t(`room.closing.${view.closing}`)}
+          </p>
+          {view.closing === "ok" && (
+            <Button
+              type="button"
+              size="sm"
+              variant="gold"
+              disabled={busy}
+              onClick={() =>
+                void run(() => closeDealFn({ data: { dealId: view.deal.id } }), t("room.closed"))
+              }
+            >
+              {t("room.close")}
+            </Button>
+          )}
+        </div>
+      )}
 
       {partners.length > 0 && (
         <form

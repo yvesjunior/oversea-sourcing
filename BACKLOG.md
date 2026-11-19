@@ -24,7 +24,7 @@
 | **E9** Notifications | In-app + email | 🟡 bell, emitters, **prefs (2026-08-26)** live; Phase P types (`quote_received`, `contract_to_sign`, `contract_signed`) + staff alert on `quotes.requested` (2026-09-07) live; **the bell alerts (2026-09-14)** — count badge, 30 s poll, chime, per-browser mute |
 | **E10** Admin surfaces | Verification, imports, ops queue | 🟡 **verification LIVE (S5b/S5c, 2026-08-26)**; imports/ops queue placeholders |
 | **R** Custom staff roles | Roles as data + the matrix | ✅ **BUILT 2026-08-29** (migration 0039) — create/delete roles, dynamic matrix, `requests.all` |
-| **E13** V6 architecture | Supplier portal · KPI #2 · Partner Hub · Decision Pack | 🔵 **NEW 2026-10-21** — scope opened by the V6 document; diagrams validated 2026-11-14; **34 tasks in seven slices — [Phase V](#phase-v--the-v6-parcours-task-by-task-e13--written-2026-11-14)**; **V01, V02, V04–V11 built 2026-11-14** (settings, contacts, states, fork + shortlist, RFQ batch, window closing, typed answer time + channel, KPI #2 v1, the Decision Pack record, the release queue); V01–V11 **live on prod — V01–V09 since deploy #45 (2026-11-14), V10–V11 since deploy #47 (2026-11-18) — with the pack-flow switch OFF**; **V12–V14 built 2026-11-18** (the buyer's pack page, choosing from it, automatic release built and switched off + the review report) — **slice 1 (V04–V14) is complete** — **live on prod since deploy #48 (2026-11-18), pack flow off, release manual**; **V18–V20 built 2026-11-18** (the clarification, behind `AI_CHAT`, off; the cahier des charges and the KPI profile as versioned records; the buyer's validation before any search, behind `flow.spec_validation`, ON by default) — **slice 3 complete**; **V03 and V15–V17 built 2026-11-18** (external accounts: a supplier is not a customer; the RFQ link that creates a supplier account; the portal where they answer, decline and attach; what suppliers are told and the response funnel) — **slice 2 complete**; **V21–V23 built 2026-11-18** (partners and their adapter; cases opened on an offer and the figures partners add to it; the Partner Hub where a partner's person answers) — **V15–V23 and V03 live on prod since deploy #49 (2026-11-18)**; **V24 built 2026-11-19** (KPI #2 on landed cost per unit, stored exchange rates) — **slice 4 complete**; **V25–V30 built 2026-11-19** (the Transaction Room: one dossier, four readers; a supplier signs in the portal, behind a setting that is OFF; milestones and proofs — the dossier now moves from contracts to delivered; inspection by the partner and conformity issues; transport and customs by the logistics partners; the buyer confirms reception) — all on `main`, not deployed |
+| **E13** V6 architecture | Supplier portal · KPI #2 · Partner Hub · Decision Pack | 🔵 **NEW 2026-10-21** — scope opened by the V6 document; diagrams validated 2026-11-14; **34 tasks in seven slices — [Phase V](#phase-v--the-v6-parcours-task-by-task-e13--written-2026-11-14)**; **V01, V02, V04–V11 built 2026-11-14** (settings, contacts, states, fork + shortlist, RFQ batch, window closing, typed answer time + channel, KPI #2 v1, the Decision Pack record, the release queue); V01–V11 **live on prod — V01–V09 since deploy #45 (2026-11-14), V10–V11 since deploy #47 (2026-11-18) — with the pack-flow switch OFF**; **V12–V14 built 2026-11-18** (the buyer's pack page, choosing from it, automatic release built and switched off + the review report) — **slice 1 (V04–V14) is complete** — **live on prod since deploy #48 (2026-11-18), pack flow off, release manual**; **V18–V20 built 2026-11-18** (the clarification, behind `AI_CHAT`, off; the cahier des charges and the KPI profile as versioned records; the buyer's validation before any search, behind `flow.spec_validation`, ON by default) — **slice 3 complete**; **V03 and V15–V17 built 2026-11-18** (external accounts: a supplier is not a customer; the RFQ link that creates a supplier account; the portal where they answer, decline and attach; what suppliers are told and the response funnel) — **slice 2 complete**; **V21–V23 built 2026-11-18** (partners and their adapter; cases opened on an offer and the figures partners add to it; the Partner Hub where a partner's person answers) — **V15–V23 and V03 live on prod since deploy #49 (2026-11-18)**; **V24 built 2026-11-19** (KPI #2 on landed cost per unit, stored exchange rates) — **slice 4 complete**; **V25–V31 built 2026-11-19 — slice 5 (execution) complete** (the Transaction Room: one dossier, four readers; a supplier signs in the portal, behind a setting that is OFF; milestones and proofs — the dossier now moves from contracts to delivered; inspection by the partner and conformity issues; transport and customs by the logistics partners; the buyer confirms reception; staff close and the platform remembers) — all on `main`, not deployed. **What is left of Phase V is slice 6 (V32–V34), behind the legal gate** |
 | **E11** Settings | Profile, sourcing rules | 🟡 Paramètres + notification prefs live; **password / 2FA / theme / rename (2026-08-27)** live; buyer Abonnement self-service waits for billing |
 
 **MVP1 = E0–E7 + E10.** Definition of done **restated 2026-08-29 by ADR-002**
@@ -40,7 +40,7 @@ tracked to delivery** — with the PDF report available throughout.
 
 **Prod = `dc0964b` (deploy #49, 2026-11-18)** — Phase V tasks V01–V23:
 slices 1, 2 and 3 complete, slice 4 up to V23. **`main` is ahead of prod by
-seven tasks, NOT deployed: V24** (KPI #2 on landed cost; migration **0063**,
+eight tasks, NOT deployed: V24** (KPI #2 on landed cost; migration **0063**,
 additive — two nullable columns), **V25** (the Transaction Room;
 migration **0064**, additive — three tables, seven nullable or defaulted
 columns), **V26** (a supplier signs in the portal; no migration; behind
@@ -48,8 +48,17 @@ columns), **V26** (a supplier signs in the portal; no migration; behind
 someone switches it on, and the legal question comes first), **V27**
 (milestones and proofs; migration **0065**, additive — one table, one
 nullable column), **V28** (inspection and issues; migration **0066**,
-additive — one table), **V29** (transport and customs; no migration) **and
-V30** (the buyer confirms reception; no migration). Seven tasks in all. Deploying them changes no ranking on prod (no round, no partner
+additive — one table), **V29** (transport and customs; no migration),
+**V30** (the buyer confirms reception; no migration) **and V31** (closing and
+supplier performance; migration **0067**, additive — one table). Eight tasks
+in all: **slices 4 and 5 are complete.** The one thing among them that moves
+a number buyers see is V31: once a dossier is closed, its supplier's KPI #1
+score carries that history on the next request. Prod has no dossier, so
+deploying changes no score.
+**What is left of Phase V is slice 6 — V32, V33, V34: the settlement record,
+the providers, the fee's document. All three wait on the legal opinion
+(README §2c: "for anything financial: do not build it yet"). Nothing else in
+Phase V is open.** Deploying them changes no ranking on prod (no round, no partner
 figure, no pack) and opens no dossier (prod holds no deal); what a user
 sees is « Commandes » enabled in the menu, leading to an empty list. Deploy #49 carried eleven tasks at once — V18, V19, the search-model
 fix, V20, V03, V15, V16, V17, V21, V22, V23 — and eight additive migrations
@@ -7253,26 +7262,78 @@ P10 in V25, P11 in V31.
       and still records the reception. Staff cannot confirm for the buyer —
       the rule is two acts by two actors.~~
 
-- [ ] **V31 · Closure, and what the platform remembers.** *Size M. Step 20.
-      Depends on: V30. Replaces P11's supplier-performance half.*
+- [x] **V31 · Closure, and what the platform remembers — BUILT 2026-11-19**
+      (migration **0067**, not deployed). **This completes slice 5
+      (V25–V31).** `src/lib/supplier-performance.ts` (pure: the facts of a
+      deal, the aggregate, the adjustment and its reasons);
+      `src/server/supplier-performance.ts` (`rememberDeal`,
+      `performanceBySupplier`); `src/server/closure.ts` (`closeDeal`);
+      `closeDealFn` in `deal-fns.ts`; `mayCloseDossier` and the staff-only
+      `closing` in `src/lib/dossier.ts`; `scoreSupplier` reads
+      `Scoreable.performance`; the shortlist breakdown shows the reasons; a
+      close control on the staff page. Table `supplier_performance`.
+      1044 tests.
 
-      **What it does.** Staff close the dossier, and what happened is written
-      back to the supplier graph so the next search is better informed.
+      **As built.** See README: staff close a `reviewed` dossier with no open
+      issue; the dossier's facts are written in the same transaction; KPI #1
+      derives −5 per late deal (cap −15), ±2 per point of average
+      satisfaction away from 3, −3 per disputed issue (cap −9).
 
-      **Schema.** `supplier_performance` — one row per closed deal:
+      **Decisions taken here, the owner's to confirm.**
+      - **The weights** above. They are constants of the platform, not part
+        of a request's KPI profile: how much a late delivery costs is not
+        something a buyer tunes per request.
+      - **Only the supplier's OWN steps make it "late"** (production). A late
+        delivery by the carrier is recorded (`delivered_late`) and held
+        against nobody. So the acceptance's "two late deliveries" is read as
+        "two dossiers the supplier was late on".
+      - **The history is platform-wide**: one buyer's dossier informs every
+        buyer's next search. No row names the buyer.
+      - **Response time is stored and not scored yet** — a fact kept for the
+        day a rule for it is decided.
+      - **No history moves nothing** — a new supplier is neither rewarded nor
+        penalised for having no closed deal.
+
+      **Acceptance, as tests.** `matching.test.ts`: a supplier with two late
+      deliveries scores exactly 10 below an identical one without, its
+      breakdown carrying `{late, 2 deals, −10}`; nothing changes — not a
+      field — for a supplier with no closed deal; a good history does not
+      make an irrelevant supplier relevant. `supplier-performance.test.ts`:
+      the facts, the aggregate, each weight and its cap. `dossier.test.ts`:
+      closing is staff's, refused before the buyer's review whatever else is
+      true (and `delivered → closed` is not a transition), refused with an
+      open issue.
+
+      *Verified live in dev:* the buyer closing → `forbidden`; staff closing
+      with an issue open → `open_issues`, and the page says so; closing a
+      delivered-but-unreviewed dossier → `not_reviewed`; the issue settled →
+      the page offers « Clore le dossier »; **closed from the page** →
+      `closed`, `closed_by` recorded, one `supplier_performance` row —
+      satisfaction 4, 3 issues raised / 2 resolved / 1 disputed, no planned
+      supplier step, no response time (the offer had no send date); closing
+      again → `not_reviewed`; on the closed dossier a new issue →
+      `forbidden`, a new thread → `closed`, no milestone recordable.
+
+      **Not exercised live:** a search ranking a supplier that has a
+      performance row (the scorer and the breakdown reader are unit-tested;
+      no request was re-ranked in dev); the shortlist line « Historique sur
+      les dossiers clos » on a page.
+      **Not built:** reopening a closed dossier; showing a supplier's history
+      on its own record page; scoring response time.
+
+      ~~**What it does.** Staff close the dossier, and what happened is
+      written back to the supplier graph so the next search is better
+      informed. **Schema.** `supplier_performance` — one row per closed deal:
       `supplier_id`, `deal_id`, response time, on-time against planned
       milestones, satisfaction, issues raised and resolved. Append-only.
-
       **Files.** `closeDealFn` (staff, `reviewed → closed`, refused while an
       issue is open); `matching.ts` — KPI #1 reads the aggregate.
-
       **Acceptance.** A supplier with two late deliveries ranks lower on the
       next comparable request, and the breakdown from V05 says why. Closing
-      over an unreviewed dossier stays illegal.
-
-      **Gotcha.** This is the moat ADR-001 describes — facts nobody can
-      scrape. Store the facts per deal and derive the score; a stored score
-      cannot be re-weighted when the formula changes.
+      over an unreviewed dossier stays illegal. **Gotcha.** This is the moat
+      ADR-001 describes — facts nobody can scrape. Store the facts per deal
+      and derive the score; a stored score cannot be re-weighted when the
+      formula changes.~~
 
 ---
 

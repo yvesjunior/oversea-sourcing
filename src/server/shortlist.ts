@@ -14,6 +14,7 @@ import { and, asc, eq, inArray, isNull } from "drizzle-orm";
 import { db } from "@/database";
 import * as schema from "@/database/schema";
 import type { QuoteStatus, RequestStatus, RiskLevel, VerificationStatus } from "@/database/schema";
+import type { PerformanceReason } from "@/lib/supplier-performance";
 import { primaryContactsFor } from "@/server/supplier-contacts";
 
 export type BreakdownView = {
@@ -22,6 +23,10 @@ export type BreakdownView = {
   confidencePoints: number;
   verificationPoints: number;
   riskPenalty: number;
+  /** What the supplier's closed deals moved the score by (V31) — 0 and no
+   *  reason for a supplier with no history. */
+  performancePoints: number;
+  performance: PerformanceReason[];
   checkableCount: number;
   matchedCount: number;
   criteria: {
@@ -65,6 +70,24 @@ const OUTCOMES = ["matched", "partial", "missed", "unverifiable"] as const;
 
 const num = (value: unknown): number => (typeof value === "number" ? value : 0);
 
+/** The reasons behind a performance adjustment, read as defensively as the
+ *  rest: only the three kinds this reader knows, with numbers where it
+ *  expects numbers. */
+function readReasons(raw: unknown): PerformanceReason[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.flatMap((entry): PerformanceReason[] => {
+    if (!entry || typeof entry !== "object") return [];
+    const r = entry as Record<string, unknown>;
+    const points = num(r["points"]);
+    if (r["key"] === "late") return [{ key: "late", deals: num(r["deals"]), points }];
+    if (r["key"] === "satisfaction") {
+      return [{ key: "satisfaction", average: num(r["average"]), points }];
+    }
+    if (r["key"] === "disputed") return [{ key: "disputed", issues: num(r["issues"]), points }];
+    return [];
+  });
+}
+
 /** `score_breakdown` is jsonb, written by the matcher of its day. Read it
  *  defensively: the shape has changed before and will again. */
 function readBreakdown(raw: unknown): BreakdownView | null {
@@ -77,6 +100,8 @@ function readBreakdown(raw: unknown): BreakdownView | null {
     confidencePoints: num(b["confidencePoints"]),
     verificationPoints: num(b["verificationPoints"]),
     riskPenalty: num(b["riskPenalty"]),
+    performancePoints: num(b["performancePoints"]),
+    performance: readReasons(b["performance"]),
     checkableCount: num(b["checkableCount"]),
     matchedCount: num(b["matchedCount"]),
     criteria: (b["criteria"] as unknown[]).flatMap((entry) => {

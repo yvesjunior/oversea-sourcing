@@ -5,6 +5,7 @@ import {
   documentChains,
   dossierIsLive,
   isSatisfaction,
+  mayCloseDossier,
   mayConfirmReception,
   mayRaiseIssue,
   mayRead,
@@ -17,6 +18,7 @@ import {
   type DossierDocument,
   type FullDossier,
 } from "@/lib/dossier";
+import { canTransitionDeal } from "@/lib/deal-status";
 import { PARTNER_KINDS } from "@/lib/partners";
 
 // One dossier, with everything in it. The four readers below open THIS.
@@ -756,5 +758,63 @@ describe("confirming reception", () => {
       expect("review" in page).toBe(false);
       expect(JSON.stringify(page)).not.toContain("un jour de retard");
     }
+  });
+});
+
+// V31: "Closing over an unreviewed dossier stays illegal."
+describe("closing a dossier", () => {
+  it("is staff's, once the buyer has reviewed, with no issue open", () => {
+    expect(mayCloseDossier(staff, "reviewed", 0)).toBe("ok");
+  });
+
+  it("is refused before the buyer has spoken, whatever else is true", () => {
+    for (const status of [
+      "open",
+      "contracting",
+      "in_production",
+      "shipping",
+      "delivered",
+    ] as const) {
+      expect(mayCloseDossier(staff, status, 0), status).toBe("not_reviewed");
+    }
+    // And the deal machine has no such move either.
+    expect(canTransitionDeal("delivered", "closed")).toBe(false);
+    expect(canTransitionDeal("reviewed", "closed")).toBe(true);
+  });
+
+  it("is refused while an issue is open", () => {
+    expect(mayCloseDossier(staff, "reviewed", 1)).toBe("open_issues");
+  });
+
+  it("is nobody else's", () => {
+    for (const audience of [buyer, supplier, carrier, inspector]) {
+      expect(mayCloseDossier(audience, "reviewed", 0)).toBe("forbidden");
+    }
+  });
+
+  it("tells staff where closing stands, and nobody else", () => {
+    const at = (status: FullDossier["deal"]["status"], issues: FullDossier["issues"] = []) =>
+      projectDossier({ ...dossier(), deal: { ...dossier().deal, status }, issues }, staff).closing;
+    expect(at("delivered")).toBe("not_reviewed");
+    expect(at("reviewed")).toBe("ok");
+    expect(
+      at("reviewed", [
+        {
+          id: "i",
+          kind: "damage",
+          description: "x",
+          status: "open",
+          raisedByName: "B",
+          raisedByRole: "buyer",
+          raisedByPartyId: BUYER,
+          resolution: null,
+          resolvedAt: null,
+          createdAt: "2026-12-30T10:00:00.000Z",
+        },
+      ]),
+    ).toBe("open_issues");
+    expect(at("closed")).toBe("closed");
+    expect("closing" in projectDossier(dossier(), buyer)).toBe(false);
+    expect("closing" in projectDossier(dossier(), supplier)).toBe(false);
   });
 });

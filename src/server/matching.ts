@@ -23,6 +23,11 @@ import * as schema from "@/database/schema";
 // sources/scope.ts must use the exact same vocabulary as this scorer.
 import { criterionWeight, KPI1_BASE_WEIGHTS, type Kpi1Weights } from "@/lib/kpi-profile";
 import { haystackTokens, tokens } from "@/lib/match-tokens";
+import {
+  performanceAdjustment,
+  type PerformanceAggregate,
+  type PerformanceReason,
+} from "@/lib/supplier-performance";
 import { recordEvent } from "@/server/requests";
 import { SUPPLIERS_RETURNED } from "@/server/sourcing-config";
 import { syncResearchedContacts } from "@/server/supplier-contacts";
@@ -71,7 +76,13 @@ export type ScoreBreakdown = {
   partialCount: number;
   /** Did the PRODUCT criterion match? null when the request has no checkable
    *  primary row (legacy free-text intake, or a numeric-only product). */
-  primaryMatched: boolean | null;
+  primaryMatched: boolean | null; /**
+   * What the supplier's closed deals moved the score by (V31), and why —
+   * each reason with its points. ABSENT for a supplier with no closed deal:
+   * no history is not a clean history, and it moves nothing.
+   */
+  performancePoints?: number;
+  performance?: PerformanceReason[];
 };
 
 type CriterionRow = typeof schema.requestCriterion.$inferSelect;
@@ -87,6 +98,8 @@ export type Scoreable = {
   confidenceScore: number;
   verificationStatus: schema.VerificationStatus;
   riskLevel: schema.RiskLevel;
+  /** The supplier's closed deals, summed up (V31). Absent or null = none. */
+  performance?: PerformanceAggregate | null;
 };
 
 /** Everything we know about a supplier in words, for criterion matching —
@@ -242,11 +255,20 @@ export function scoreSupplier(
   const verificationPoints = weights.verification[supplier.verificationStatus] ?? 0;
   const riskPenalty = weights.risk[supplier.riskLevel] ?? 0;
 
+  // What the supplier's closed deals say (V31): derived from the facts each
+  // time, never stored — see src/lib/supplier-performance.ts.
+  const history = performanceAdjustment(supplier.performance);
+
   const total = Math.max(
     1,
     Math.min(
       98,
-      weights.base + criteriaPoints + confidencePoints + verificationPoints - riskPenalty,
+      weights.base +
+        criteriaPoints +
+        confidencePoints +
+        verificationPoints -
+        riskPenalty +
+        history.points,
     ),
   );
 
@@ -262,6 +284,9 @@ export function scoreSupplier(
     matchedCount,
     partialCount,
     primaryMatched,
+    ...(history.reasons.length > 0
+      ? { performancePoints: history.points, performance: history.reasons }
+      : {}),
   };
 }
 
@@ -355,8 +380,25 @@ export async function createMatchesForRequest(
   const ensured = await ensureSpec(requestId);
   const weights = ensured.weights.kpi1;
 
+  // What the platform remembers of each candidate that is already a supplier
+  // (V31). A candidate that is not one yet has no history to read.
+  const { performanceBySupplier } = await import("@/server/supplier-performance");
+  const history = await performanceBySupplier(
+    candidates.map((c) => c.supplierId).filter((id): id is string => !!id),
+  );
+
   const ranked = candidates
-    .map((candidate) => ({ candidate, breakdown: scoreSupplier(candidate, criteria, weights) }))
+    .map((candidate) => ({
+      candidate,
+      breakdown: scoreSupplier(
+        {
+          ...candidate,
+          performance: candidate.supplierId ? (history.get(candidate.supplierId) ?? null) : null,
+        },
+        criteria,
+        weights,
+      ),
+    }))
     // The gate. A candidate that evidences NOTHING the buyer asked for is not
     // a worse match — it is not a match, and padding the Top-N with it is
     // worse than returning fewer. An empty result is honest and, upstream,

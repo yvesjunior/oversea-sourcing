@@ -466,3 +466,57 @@ describe("criteria match in either language", () => {
     expect(scoreSupplier(frenchSupplier, bad).primaryMatched).toBe(true);
   });
 });
+
+// V31's acceptance: "A supplier with two late deliveries ranks lower on the
+// next comparable request, and the breakdown from V05 says why."
+describe("what the platform remembers moves the ranking", () => {
+  const product = makeCriterion({
+    category: "other",
+    label: "Produit",
+    value: "vannes",
+    isPrimary: true,
+  });
+  const supplier = makeSupplier({ description: "Fabricant de vannes industrielles" });
+  const late = { deals: 2, lateDeals: 2, satisfactionAvg: null, disputedIssues: 0 };
+
+  it("ranks a supplier with two late deliveries below an identical one without", () => {
+    const clean = scoreSupplier(supplier, [product]);
+    const withHistory = scoreSupplier({ ...supplier, performance: late }, [product]);
+    expect(withHistory.total).toBe(clean.total - 10);
+    // The breakdown says why, with the points.
+    expect(withHistory.performancePoints).toBe(-10);
+    expect(withHistory.performance).toEqual([{ key: "late", deals: 2, points: -10 }]);
+    // Nothing else about the score moved.
+    expect(withHistory.criteriaPoints).toBe(clean.criteriaPoints);
+    expect(withHistory.confidencePoints).toBe(clean.confidencePoints);
+  });
+
+  it("changes nothing — not a field — for a supplier with no closed deal", () => {
+    const none = scoreSupplier(supplier, [product]);
+    expect(scoreSupplier({ ...supplier, performance: null }, [product])).toEqual(none);
+    expect("performancePoints" in none).toBe(false);
+    expect("performance" in none).toBe(false);
+  });
+
+  it("rewards a supplier buyers were satisfied with", () => {
+    const liked = scoreSupplier(
+      {
+        ...supplier,
+        performance: { deals: 3, lateDeals: 0, satisfactionAvg: 5, disputedIssues: 0 },
+      },
+      [product],
+    );
+    expect(liked.total).toBe(scoreSupplier(supplier, [product]).total + 4);
+  });
+
+  // Relevance is a gate upstream: a history never makes an irrelevant
+  // supplier relevant, however good.
+  it("does not make a supplier that does not make the product relevant", () => {
+    const off = makeSupplier({ description: "Fabricant de textiles" });
+    const scored = scoreSupplier(
+      { ...off, performance: { deals: 5, lateDeals: 0, satisfactionAvg: 5, disputedIssues: 0 } },
+      [product],
+    );
+    expect(isRelevant(scored)).toBe(false);
+  });
+});

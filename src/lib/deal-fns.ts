@@ -10,9 +10,10 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { DEAL_ISSUE_KINDS } from "@/database/schema";
 import type { DossierReader } from "@/server/dossier";
+import type { CloseResult } from "@/server/closure";
 import type { ReceptionResult } from "@/server/reception";
 
-export type { ReceptionResult };
+export type { CloseResult, ReceptionResult };
 
 async function dealReader(): Promise<DossierReader | null> {
   const [{ requireWorkspaceRole, effectiveHasPermission }, { auth }, { getRequest }] =
@@ -66,4 +67,18 @@ export const confirmReceptionFn = createServerFn({ method: "POST" })
     if (!reader) return { ok: false, reason: "forbidden" };
     const { confirmReception } = await import("@/server/reception");
     return confirmReception(reader, data.dealId, data);
+  });
+
+/**
+ * STAFF: close a dossier the buyer has reviewed (V31) — the second act.
+ * Refused while an issue is open. What happened is written to the supplier's
+ * record in the same step.
+ */
+export const closeDealFn = createServerFn({ method: "POST" })
+  .inputValidator(z.object({ dealId: z.string().min(1).max(100) }))
+  .handler(async ({ data }): Promise<CloseResult> => {
+    const reader = await dealReader();
+    if (!reader) return { ok: false, reason: "forbidden" };
+    const { closeDeal } = await import("@/server/closure");
+    return closeDeal(reader, data.dealId);
   });

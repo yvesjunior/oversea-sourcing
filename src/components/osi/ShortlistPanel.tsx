@@ -34,6 +34,8 @@ function Breakdown({ breakdown }: { breakdown: BreakdownView | null }) {
     [t("shortlist.points.confidence"), breakdown.confidencePoints],
     [t("shortlist.points.verification"), breakdown.verificationPoints],
     [t("shortlist.points.risk"), -breakdown.riskPenalty],
+    // What the supplier's closed deals moved the score by (V31).
+    [t("shortlist.points.performance"), breakdown.performancePoints],
   ];
   return (
     <div className="mt-2 space-y-2">
@@ -48,6 +50,26 @@ function Breakdown({ breakdown }: { breakdown: BreakdownView | null }) {
           .map(([label, value]) => `${label} ${value > 0 ? "+" : ""}${value}`)
           .join(" · ")}
       </p>
+      {/* WHY the history moved the score: each fact with its points. */}
+      {breakdown.performance.length > 0 && (
+        <p className="text-xs text-muted-foreground">
+          {t("shortlist.history")}{" "}
+          {breakdown.performance
+            .map((reason) =>
+              t(`shortlist.reason.${reason.key}`, {
+                count:
+                  reason.key === "late"
+                    ? reason.deals
+                    : reason.key === "disputed"
+                      ? reason.issues
+                      : 0,
+                average: reason.key === "satisfaction" ? reason.average : 0,
+                points: `${reason.points > 0 ? "+" : ""}${reason.points}`,
+              }),
+            )
+            .join(" · ")}
+        </p>
+      )}
       <ul className="flex flex-wrap gap-1.5">
         {breakdown.criteria.map((criterion) => (
           <li

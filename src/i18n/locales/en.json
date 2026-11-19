@@ -741,7 +741,8 @@
       "criteria": "Criteria",
       "confidence": "Confidence",
       "verification": "Verification",
-      "risk": "Risk"
+      "risk": "Risk",
+      "performance": "History"
     },
     "outcome": {
       "matched": "evidenced",
@@ -763,6 +764,14 @@
       "not_shortlisted": "The request is no longer at the shortlist stage.",
       "unknown_supplier": "One of the chosen suppliers is not in this request's ranking.",
       "empty": "Choose at least one supplier."
+    },
+    "history": "History on closed dossiers:",
+    "reason": {
+      "late_one": "{{count}} late delivery ({{points}})",
+      "late_other": "{{count}} late deliveries ({{points}})",
+      "satisfaction": "average satisfaction {{average}} / 5 ({{points}})",
+      "disputed_one": "{{count}} disputed discrepancy ({{points}})",
+      "disputed_other": "{{count}} disputed discrepancies ({{points}})"
     }
   },
   "rfq": {
@@ -1194,7 +1203,8 @@
     "dossier.milestone_completed": "Dossier step recorded as done",
     "dossier.issue_raised": "Discrepancy reported on a dossier",
     "dossier.issue_settled": "Discrepancy settled on a dossier",
-    "dossier.reception_confirmed": "Reception confirmed by the client"
+    "dossier.reception_confirmed": "Reception confirmed by the client",
+    "dossier.closed": "Dossier closed"
   },
   "twofa": {
     "title": "Two-step verification",
@@ -2410,7 +2420,9 @@
       "forbidden": "Your role does not allow this action.",
       "partner_not_found": "This partner cannot be found.",
       "partner_inactive": "This partner is inactive.",
-      "already_party": "This partner is already on the dossier."
+      "already_party": "This partner is already on the dossier.",
+      "not_reviewed": "The client has not confirmed reception yet.",
+      "open_issues": "A discrepancy is still open."
     },
     "back": "All dossiers",
     "backHome": "Back to home",
@@ -2552,7 +2564,14 @@
       "not_delivered": "Reception can be confirmed only once the delivery is recorded — and only once.",
       "bad_satisfaction": "Choose a rating from 1 to 5.",
       "other": "The confirmation could not be recorded."
-    }
+    },
+    "closing": {
+      "ok": "The client confirmed reception and no discrepancy is open: the dossier can be closed.",
+      "not_reviewed": "The dossier cannot be closed before the client has confirmed reception.",
+      "open_issues": "A discrepancy is still open: settle it before closing the dossier."
+    },
+    "close": "Close the dossier",
+    "closed": "Dossier closed. What happened on it is recorded on the supplier’s record."
   },
   "portalContract": {
     "listTitle": "Contracts",

@@ -741,7 +741,8 @@
       "criteria": "Critères",
       "confidence": "Confiance",
       "verification": "Vérification",
-      "risk": "Risque"
+      "risk": "Risque",
+      "performance": "Historique"
     },
     "outcome": {
       "matched": "attesté",
@@ -763,6 +764,14 @@
       "not_shortlisted": "La demande n'est plus à l'étape de présélection.",
       "unknown_supplier": "Un des fournisseurs choisis ne fait pas partie du classement de cette demande.",
       "empty": "Choisissez au moins un fournisseur."
+    },
+    "history": "Historique sur les dossiers clos :",
+    "reason": {
+      "late_one": "{{count}} livraison en retard ({{points}})",
+      "late_other": "{{count}} livraisons en retard ({{points}})",
+      "satisfaction": "satisfaction moyenne {{average}} / 5 ({{points}})",
+      "disputed_one": "{{count}} écart contesté ({{points}})",
+      "disputed_other": "{{count}} écarts contestés ({{points}})"
     }
   },
   "rfq": {
@@ -1194,7 +1203,8 @@
     "dossier.milestone_completed": "Étape de dossier enregistrée comme faite",
     "dossier.issue_raised": "Écart signalé sur un dossier",
     "dossier.issue_settled": "Écart réglé sur un dossier",
-    "dossier.reception_confirmed": "Réception confirmée par le client"
+    "dossier.reception_confirmed": "Réception confirmée par le client",
+    "dossier.closed": "Dossier clos"
   },
   "twofa": {
     "title": "Vérification en deux étapes",
@@ -2410,7 +2420,9 @@
       "forbidden": "Votre rôle ne permet pas cette action.",
       "partner_not_found": "Ce partenaire est introuvable.",
       "partner_inactive": "Ce partenaire est inactif.",
-      "already_party": "Ce partenaire est déjà sur le dossier."
+      "already_party": "Ce partenaire est déjà sur le dossier.",
+      "not_reviewed": "Le client n’a pas encore confirmé la réception.",
+      "open_issues": "Un écart est encore ouvert."
     },
     "back": "Tous les dossiers",
     "backHome": "Retour à l’accueil",
@@ -2552,7 +2564,14 @@
       "not_delivered": "La réception ne peut être confirmée qu’une fois la livraison enregistrée — et une seule fois.",
       "bad_satisfaction": "Choisissez une note de 1 à 5.",
       "other": "La confirmation n’a pas pu être enregistrée."
-    }
+    },
+    "closing": {
+      "ok": "Le client a confirmé la réception et aucun écart n’est ouvert : le dossier peut être clos.",
+      "not_reviewed": "Le dossier ne peut pas être clos avant que le client ait confirmé la réception.",
+      "open_issues": "Un écart est encore ouvert : réglez-le avant de clore le dossier."
+    },
+    "close": "Clore le dossier",
+    "closed": "Dossier clos. Ce qui s’y est passé est consigné au dossier du fournisseur."
   },
   "portalContract": {
     "listTitle": "Contrats",
