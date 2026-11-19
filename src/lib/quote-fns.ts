@@ -1173,6 +1173,13 @@ export const acceptQuoteFn = createServerFn({ method: "POST" })
         where: eq(schema.request.id, quote.requestId),
       });
       const dealId = crypto.randomUUID();
+      // The offers this acceptance closes out — their suppliers are told
+      // once it is committed (V17).
+      let lostOffers: {
+        supplierId: string | null;
+        supplierName: string;
+        roundId: string | null;
+      }[] = [];
 
       try {
         await db.transaction(async (tx) => {
@@ -1189,7 +1196,7 @@ export const acceptQuoteFn = createServerFn({ method: "POST" })
           // did nothing wrong — several will have answered quickly with good
           // terms — and recording them the same way as a supplier who never
           // replied would teach the graph the opposite of the truth.
-          await tx
+          lostOffers = await tx
             .update(schema.quote)
             .set({ status: "declined", declineReason: "lost", updatedAt: new Date() })
             .where(
@@ -1198,7 +1205,12 @@ export const acceptQuoteFn = createServerFn({ method: "POST" })
                 ne(schema.quote.id, quote.id),
                 eq(schema.quote.status, "received"),
               ),
-            );
+            )
+            .returning({
+              supplierId: schema.quote.supplierId,
+              supplierName: schema.quote.supplierName,
+              roundId: schema.quote.roundId,
+            });
 
           await tx.insert(schema.deal).values({
             id: dealId,
@@ -1258,6 +1270,24 @@ export const acceptQuoteFn = createServerFn({ method: "POST" })
         supplier: quote.supplierName,
         requestId: quote.requestId,
       });
+
+      // Tell the suppliers (V17): the one retained, and each one that was
+      // not — that it was not, and nothing else. After the commit and never
+      // able to undo it: the dossier is open whether or not a mail leaves.
+      try {
+        const { tellOutcome } = await import("@/server/rfq-window");
+        await tellOutcome(
+          quote.requestId,
+          {
+            supplierId: quote.supplierId,
+            supplierName: quote.supplierName,
+            roundId: quote.roundId,
+          },
+          lostOffers,
+        );
+      } catch (error) {
+        console.error(`acceptQuote: could not tell the suppliers of ${quote.requestId}`, error);
+      }
       await recordEvent(quote.requestId, caller.workspaceId, "quote.accepted", {
         supplier: quote.supplierName,
       });

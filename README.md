@@ -1316,6 +1316,40 @@ until the Decision Pack discloses the offer, as for a file staff uploaded.
 (`channel: staff`); staff are told in-app when an offer or a refusal arrives
 through the portal, since nobody typed it.
 
+### What a supplier is told, and the response funnel (V17)
+
+**A supplier who was asked is told when the question no longer stands.** Three
+moments, each an email to the supplier's primary contact, in that contact's
+language (`rfq-mail.ts`; sent from `rfq-window.ts`):
+
+| When | Who | What it says |
+|---|---|---|
+| The window closes into the review | suppliers of that round who **answered** | closed; their offer is being reviewed; the outcome will follow |
+| …and it closed **before the deadline** (staff stopped waiting, or enough offers were in) | suppliers of that round who had **not** answered | closed earlier than the date they were given; nothing is expected any longer |
+| The buyer chooses an offer | the supplier **retained** | their offer was retained; OSI will be in touch |
+| | every supplier whose offer was **not** | that it was not retained — **and nothing else** |
+
+A supplier who let the **deadline** pass is told nothing: they knew the date,
+and a silent supplier is not chased. No message says why a window closed
+("enough offers were in" tells a supplier how the others answered), and the
+not-retained message has nowhere for a winner, a price, a count or a rank to
+go — a test reads the sentence for those words. The buyer is still not named
+in the retained message: disclosing the buyer is the dossier's step (V25).
+Only offers the platform asked for (a quote in a round) get these; the two
+earlier messages — the buyer withdrew, staff refused the pack — are unchanged.
+Each batch leaves a count on the request's timeline.
+
+**The response funnel** — third tab of `/interne/packs`, « Réponses des
+fournisseurs », over 30 days by default (90 days and 12 months offered). Of
+the RFQs the platform sent: *sent → with a link → opened → registered →
+answered → answered before the close*, then the answers split by route
+(portal, or an email staff keyed in), and the rest as declined, silent at the
+close, or still pending. Round by round below. It answers the two questions
+that decide whether the five-offer window works: **what share of invited
+suppliers registered, and what share answered.** Read from `quote`,
+`rfq_round` and `rfq_invitation` only (`src/lib/response-funnel.ts`, pure and
+tested; `src/server/response-funnel.ts`).
+
 ## 2 · How a request works
 
 ```

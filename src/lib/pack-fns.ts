@@ -19,6 +19,9 @@ import type {
   RequestPackView,
 } from "@/server/decision-pack";
 import type { PackReviewReportData } from "@/server/pack-report";
+import type { ResponseFunnelData } from "@/server/response-funnel";
+
+export type { ResponseFunnelData } from "@/server/response-funnel";
 
 export type { EarlyClose, PackReviewReportData } from "@/server/pack-report";
 export type {
@@ -103,6 +106,17 @@ export const getPackReviewReportFn = createServerFn({ method: "GET" })
     if (!(await requirePackStaff())) return null;
     const { loadReviewReport } = await import("@/server/pack-report");
     return await loadReviewReport(data.days);
+  });
+
+/** The supplier response funnel (V17): of the RFQs sent in the period, how
+ *  many links were opened, how many suppliers registered, how many answered
+ *  and by which route. Staff holding `deals`. */
+export const getResponseFunnelFn = createServerFn({ method: "GET" })
+  .inputValidator(z.object({ days: z.union([z.literal(30), z.literal(90), z.literal(365)]) }))
+  .handler(async ({ data }): Promise<ResponseFunnelData | null> => {
+    if (!(await requirePackStaff())) return null;
+    const { loadResponseFunnel } = await import("@/server/response-funnel");
+    return await loadResponseFunnel(data.days);
   });
 
 /** Release the pack as built. */

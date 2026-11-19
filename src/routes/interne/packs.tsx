@@ -23,6 +23,8 @@ import {
   assignPackFn,
   getPackQueueFn,
   getPackReviewReportFn,
+  getResponseFunnelFn,
+  type ResponseFunnelData,
   type PackQueueData,
   type PackReviewReportData,
   type QueuedPack,
@@ -33,13 +35,21 @@ import {
   REPORT_PERIODS,
   type ReportPeriod,
 } from "@/lib/pack-review-report";
+import { FUNNEL_PERIODS, share, type FunnelPeriod } from "@/lib/response-funnel";
 import { cn } from "@/lib/utils";
 
 /** The period the report opens on. A quarter: long enough to hold a few
  *  packs while volumes are small, short enough to still describe today. */
 const DEFAULT_PERIOD: ReportPeriod = 90;
 
-type PacksPageData = PackQueueData & { report: PackReviewReportData | null };
+type PacksPageData = PackQueueData & {
+  report: PackReviewReportData | null;
+  funnel: ResponseFunnelData | null;
+};
+
+/** The funnel opens on thirty days: it is an early warning, and the question
+ *  it answers ("do suppliers register and answer?") is about now. */
+const FUNNEL_DEFAULT: FunnelPeriod = 30;
 
 export const Route = createFileRoute("/interne/packs")({
   beforeLoad: ({ context }) => requirePlatformFeature(context.session, "deals"),
@@ -47,11 +57,16 @@ export const Route = createFileRoute("/interne/packs")({
     meta: [{ title: "Decision Packs | OSI" }, { name: "robots", content: "noindex" }],
   }),
   loader: async (): Promise<PacksPageData> => {
-    const [queue, report] = await Promise.all([
+    const [queue, report, funnel] = await Promise.all([
       getPackQueueFn(),
       getPackReviewReportFn({ data: { days: DEFAULT_PERIOD } }),
+      getResponseFunnelFn({ data: { days: FUNNEL_DEFAULT } }),
     ]);
-    return { ...(queue ?? { packs: [], me: "", releaseMode: "manual" as const }), report };
+    return {
+      ...(queue ?? { packs: [], me: "", releaseMode: "manual" as const }),
+      report,
+      funnel,
+    };
   },
   component: PacksPage,
 });
@@ -154,6 +169,156 @@ function Figure({ label, value, hint }: { label: string; value: string; hint?: s
       <p className="text-xs text-muted-foreground">{label}</p>
       <p className="mt-1 text-xl font-semibold tabular-nums">{value}</p>
       {hint && <p className="mt-0.5 text-[11px] text-muted-foreground">{hint}</p>}
+    </div>
+  );
+}
+
+/**
+ * The supplier response funnel (V17): of the RFQs sent, how many links were
+ * opened, how many suppliers registered, how many answered — and by which
+ * route. The early warning for rounds that close short.
+ */
+function ResponseFunnel({ initial }: { initial: ResponseFunnelData | null }) {
+  const { t, i18n } = useTranslation();
+  const [funnel, setFunnel] = useState(initial);
+  const [busy, setBusy] = useState(false);
+
+  const load = async (days: FunnelPeriod) => {
+    setBusy(true);
+    try {
+      setFunnel(await getResponseFunnelFn({ data: { days } }));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (!funnel) return null;
+  const c = funnel.total;
+  const pct = (part: number, whole: number) => {
+    const value = share(part, whole);
+    return value === null ? "—" : `${value} %`;
+  };
+
+  return (
+    <div className={cn("space-y-6", busy && "opacity-60")}>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="max-w-3xl text-sm text-muted-foreground">{t("funnel.subtitle")}</p>
+        <div className="flex gap-1" role="group" aria-label={t("packReport.period")}>
+          {FUNNEL_PERIODS.map((days) => (
+            <Button
+              key={days}
+              size="sm"
+              variant={funnel.days === days ? "default" : "outline"}
+              disabled={busy}
+              aria-pressed={funnel.days === days}
+              onClick={() => void load(days)}
+            >
+              {t(`packReport.periods.${days}`)}
+            </Button>
+          ))}
+        </div>
+      </div>
+
+      {c.sent === 0 ? (
+        <p className="card-surface p-5 text-sm text-muted-foreground">{t("funnel.empty")}</p>
+      ) : (
+        <>
+          <section className="card-surface p-5">
+            {/* The two numbers the task asks for, said as sentences. */}
+            <p className="text-sm">
+              {t("funnel.answer", {
+                sent: c.sent,
+                registered: pct(c.registered, c.withLink),
+                answered: pct(c.answered, c.sent),
+              })}
+            </p>
+            <div className="mt-4 grid gap-3 sm:grid-cols-3 lg:grid-cols-5">
+              <Figure label={t("funnel.sent")} value={String(c.sent)} />
+              <Figure
+                label={t("funnel.opened")}
+                value={String(c.opened)}
+                hint={t("funnel.ofLinks", { share: pct(c.opened, c.withLink), links: c.withLink })}
+              />
+              <Figure
+                label={t("funnel.registered")}
+                value={String(c.registered)}
+                hint={t("funnel.ofLinks", {
+                  share: pct(c.registered, c.withLink),
+                  links: c.withLink,
+                })}
+              />
+              <Figure
+                label={t("funnel.answered")}
+                value={String(c.answered)}
+                hint={t("funnel.ofSent", { share: pct(c.answered, c.sent) })}
+              />
+              <Figure
+                label={t("funnel.inTime")}
+                value={String(c.answeredInTime)}
+                hint={t("funnel.ofSent", { share: pct(c.answeredInTime, c.sent) })}
+              />
+            </div>
+            <div className="mt-3 grid gap-3 sm:grid-cols-3 lg:grid-cols-5">
+              <Figure
+                label={t("funnel.byPortal")}
+                value={String(c.answeredPortal)}
+                hint={t("funnel.ofAnswers", { share: pct(c.answeredPortal, c.answered) })}
+              />
+              <Figure
+                label={t("funnel.byStaff")}
+                value={String(c.answeredStaff)}
+                hint={t("funnel.ofAnswers", { share: pct(c.answeredStaff, c.answered) })}
+              />
+              <Figure label={t("funnel.declined")} value={String(c.declined)} />
+              <Figure label={t("funnel.silent")} value={String(c.silent)} />
+              <Figure label={t("funnel.pending")} value={String(c.pending)} />
+            </div>
+          </section>
+
+          <section className="card-surface overflow-x-auto p-5">
+            <h2 className="text-sm font-semibold">{t("funnel.byRound")}</h2>
+            <table className="mt-3 w-full min-w-[640px] text-left text-sm">
+              <thead className="text-xs text-muted-foreground">
+                <tr>
+                  <th className="py-1 pr-3 font-medium">{t("funnel.round")}</th>
+                  <th className="py-1 pr-3 font-medium">{t("funnel.sent")}</th>
+                  <th className="py-1 pr-3 font-medium">{t("funnel.opened")}</th>
+                  <th className="py-1 pr-3 font-medium">{t("funnel.registered")}</th>
+                  <th className="py-1 pr-3 font-medium">{t("funnel.answered")}</th>
+                  <th className="py-1 pr-3 font-medium">{t("funnel.byPortal")}</th>
+                  <th className="py-1 pr-3 font-medium">{t("funnel.silent")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {funnel.rounds.map((round) => (
+                  <tr key={round.roundId} className="border-t border-border">
+                    <td className="py-2 pr-3">
+                      <Link
+                        to="/demandes/$id"
+                        params={{ id: round.requestId }}
+                        className="text-gold underline-offset-4 hover:underline"
+                      >
+                        #{round.requestId}
+                      </Link>{" "}
+                      <span className="text-xs text-muted-foreground">
+                        {t("funnel.roundNo", { no: round.roundNo })} ·{" "}
+                        {formatDayTime(round.openedAt, i18n.language)}
+                        {round.closedAt === null && <> · {t("funnel.open")}</>}
+                      </span>
+                    </td>
+                    <td className="py-2 pr-3 tabular-nums">{round.counts.sent}</td>
+                    <td className="py-2 pr-3 tabular-nums">{round.counts.opened}</td>
+                    <td className="py-2 pr-3 tabular-nums">{round.counts.registered}</td>
+                    <td className="py-2 pr-3 tabular-nums">{round.counts.answered}</td>
+                    <td className="py-2 pr-3 tabular-nums">{round.counts.answeredPortal}</td>
+                    <td className="py-2 pr-3 tabular-nums">{round.counts.silent}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </section>
+        </>
+      )}
     </div>
   );
 }
@@ -364,7 +529,7 @@ function ReviewReport({ initial }: { initial: PackReviewReportData | null }) {
 
 function PacksPage() {
   const { t } = useTranslation();
-  const { report, releaseMode } = Route.useLoaderData();
+  const { report, funnel, releaseMode } = Route.useLoaderData();
   return (
     <div className="space-y-6 pt-6">
       <header>
@@ -389,12 +554,18 @@ function PacksPage() {
           <TabsTrigger value="revue" className="py-1">
             {t("packReport.tab")}
           </TabsTrigger>
+          <TabsTrigger value="reponses" className="py-1">
+            {t("funnel.tab")}
+          </TabsTrigger>
         </TabsList>
         <TabsContent value="file" className="mt-3">
           <PackQueue />
         </TabsContent>
         <TabsContent value="revue" className="mt-3">
           <ReviewReport initial={report} />
+        </TabsContent>
+        <TabsContent value="reponses" className="mt-3">
+          <ResponseFunnel initial={funnel} />
         </TabsContent>
       </Tabs>
     </div>

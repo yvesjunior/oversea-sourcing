@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildOutcomeMail,
   buildRfqClosedMail,
   buildRfqMail,
+  buildRoundClosedMail,
   buildRfqWithdrawnMail,
   formatDeadline,
   type RfqMailInput,
@@ -237,5 +239,60 @@ describe("the portal link", () => {
       mail.text.indexOf("Or reply"),
     );
     expect(block).not.toContain("@");
+  });
+});
+
+// V17 — what a supplier is told after answering, or after not.
+describe("what a supplier is told", () => {
+  const notice = {
+    locale: "en" as const,
+    requestId: "3049",
+    title: "ball bearings",
+    greetingName: "Dana",
+  };
+  // Words that would each tell a supplier something about someone else.
+  const LEAKS =
+    /\b(rank|ranked|price|cheaper|lower|other offers?|offers received|competitor|suppliers? (asked|answered)|\d+ (offers?|suppliers?))\b/i;
+
+  it("tells a supplier who answered that the window closed and their offer is in", () => {
+    const mail = buildRoundClosedMail({ ...notice, answered: true });
+    expect(mail.subject).toBe("Request for quotation #3049 closed — ball bearings");
+    expect(mail.text).toContain("it is being reviewed");
+    expect(mail.text).not.toMatch(LEAKS);
+  });
+
+  it("tells a supplier who had not answered that nothing is expected any longer — not why", () => {
+    const mail = buildRoundClosedMail({ ...notice, answered: false });
+    expect(mail.text).toContain("no offer is expected from you");
+    // "Enough offers were in" would say how the others answered.
+    expect(mail.text).not.toMatch(/enough|target|other/i);
+    expect(mail.text).not.toMatch(LEAKS);
+  });
+
+  it("tells the retained supplier, and that someone will be in touch", () => {
+    const mail = buildOutcomeMail({ ...notice, retained: true });
+    expect(mail.subject).toContain("Your offer has been retained");
+    expect(mail.text).toContain("will contact you");
+    // The buyer is still not named: disclosure is the dossier's step (V25).
+    expect(mail.text).toContain("our client");
+  });
+
+  it("tells a supplier whose offer lost that it was not retained, and nothing else", () => {
+    const mail = buildOutcomeMail({ ...notice, retained: false });
+    expect(mail.subject).toBe("Outcome of request for quotation #3049 — ball bearings");
+    expect(mail.text).toContain("It was not retained this time.");
+    expect(mail.text).not.toMatch(LEAKS);
+    // The whole message: a greeting, the fact, the request, a courtesy, the
+    // reference. If a sentence is added it has to be added here too.
+    expect(mail.text.split("\n\n")).toHaveLength(4);
+  });
+
+  it("is written in the contact's language", () => {
+    expect(buildOutcomeMail({ ...notice, locale: "fr", retained: false }).text).toContain(
+      "Elle n'a pas été retenue cette fois-ci.",
+    );
+    expect(buildRoundClosedMail({ ...notice, locale: "fr", answered: true }).text).toContain(
+      "en cours d'examen",
+    );
   });
 });

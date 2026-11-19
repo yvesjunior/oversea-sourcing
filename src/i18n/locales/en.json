@@ -641,7 +641,9 @@
     "clarification_asked": "Read by the assistant — questions: {{questions}}, proposals: {{proposals}}",
     "spec_versioned": "Specification — version {{version}}",
     "status_spec_review": "Waiting for the buyer’s validation",
-    "spec_validated": "Specification validated — version {{version}}"
+    "spec_validated": "Specification validated — version {{version}}",
+    "rfq_suppliers_told": "Suppliers told the request for quotation closed: {{count}}",
+    "rfq_outcome_told": "Suppliers told the outcome of their offer: {{count}}"
   },
   "stepsDemande": {
     "received": {
@@ -2031,5 +2033,28 @@
       "name_required": "Please enter your name.",
       "limited": "Too many attempts. Please wait a few minutes."
     }
+  },
+  "funnel": {
+    "tab": "Supplier responses",
+    "subtitle": "Of the requests for quotation the platform sent: how many links were opened, how many suppliers opened an account, how many answered — and by which route. If these numbers fall, windows close with too few offers.",
+    "empty": "No request for quotation sent in the period.",
+    "answer": "Of {{sent}} request(s) for quotation sent: {{registered}} of the invited suppliers opened an account, and {{answered}} answered.",
+    "sent": "Requests for quotation sent",
+    "opened": "Links opened",
+    "registered": "Accounts created or attached",
+    "answered": "Offers received",
+    "inTime": "Received before the close",
+    "byPortal": "Through the portal",
+    "byStaff": "By email (keyed in by staff)",
+    "declined": "Declined",
+    "silent": "No answer at the close",
+    "pending": "Waiting (window open)",
+    "ofLinks": "{{share}} of the {{links}} links sent",
+    "ofSent": "{{share}} of those sent",
+    "ofAnswers": "{{share}} of the offers",
+    "byRound": "Round by round",
+    "round": "Request and round",
+    "roundNo": "round {{no}}",
+    "open": "open"
   }
 }

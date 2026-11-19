@@ -27,7 +27,12 @@ import { db } from "@/database";
 import * as schema from "@/database/schema";
 import type { RoundCloseReason } from "@/database/schema";
 import { isTerminal } from "@/lib/request-status";
-import { buildRfqClosedMail, buildRfqWithdrawnMail } from "@/lib/rfq-mail";
+import {
+  buildOutcomeMail,
+  buildRfqClosedMail,
+  buildRfqWithdrawnMail,
+  buildRoundClosedMail,
+} from "@/lib/rfq-mail";
 import { dueClose, leadsToReview, silentDeclineReason } from "@/lib/rfq-round";
 import { logAudit } from "@/server/audit";
 import { sendMail } from "@/server/mail";
@@ -204,7 +209,11 @@ export async function closeRound(
     // owed the notice, including a supplier whose offer dates from a round
     // before this one.
     const answered = await tx
-      .select({ supplierId: schema.quote.supplierId, supplierName: schema.quote.supplierName })
+      .select({
+        supplierId: schema.quote.supplierId,
+        supplierName: schema.quote.supplierName,
+        roundId: schema.quote.roundId,
+      })
       .from(schema.quote)
       .where(
         and(
@@ -321,6 +330,35 @@ export async function closeRound(
     });
   }
 
+  // What the suppliers of THIS round are told (V17). Those who answered:
+  // the window is closed and their offer is being looked at. Those who had
+  // not: only when it closed before the deadline their email gave them
+  // (decision D13) — on a deadline close they knew the date, and a silent
+  // supplier is not chased. Never on a withdrawal, which has its own message
+  // above. Never allowed to undo the close, which is committed.
+  if (leadsToReview(reason)) {
+    try {
+      const beforeDeadline = reason !== "deadline";
+      const closedTold = await tellSuppliers(
+        request,
+        [
+          ...answered.filter((a) => a.roundId === round.id).map((a) => ({ ...a, answered: true })),
+          ...(beforeDeadline
+            ? silent.filter((s) => s.sent).map((s) => ({ ...s, answered: false }))
+            : []),
+        ],
+        "round_closed",
+      );
+      if (closedTold > 0) {
+        await recordEvent(request.id, request.organizationId, "rfq.suppliers_told", {
+          count: closedTold,
+        });
+      }
+    } catch (error) {
+      console.error(`rfq: could not tell the suppliers round ${round.id} closed —`, error);
+    }
+  }
+
   await logAudit({
     // No actor on a target or deadline close: that is the rule running, not
     // a person acting (same convention as the retention sweep).
@@ -375,10 +413,15 @@ const CLOSE_SENTENCES: Record<
  * means the notice goes to the new one. A supplier left with no contact at
  * all cannot be told, and is not counted.
  */
+type SupplierNotice = "withdrawn" | "closed" | "round_closed" | "retained" | "not_retained";
+
 async function tellSuppliers(
   request: { id: string; title: string },
   suppliers: { supplierId: string | null; supplierName: string; answered: boolean }[],
-  notice: "withdrawn" | "closed",
+  /** `withdrawn` (the buyer cancelled) · `closed` (staff refused the pack) ·
+   *  `round_closed` (the window closed into the review, V17) · `retained` /
+   *  `not_retained` (the buyer chose, V17). */
+  notice: SupplierNotice,
 ): Promise<number> {
   if (suppliers.length === 0) return 0;
   const [contacts, replyTo] = await Promise.all([
@@ -403,7 +446,11 @@ async function tellSuppliers(
     const mail =
       notice === "withdrawn"
         ? buildRfqWithdrawnMail({ ...common, answered: supplier.answered })
-        : buildRfqClosedMail(common);
+        : notice === "round_closed"
+          ? buildRoundClosedMail({ ...common, answered: supplier.answered })
+          : notice === "retained" || notice === "not_retained"
+            ? buildOutcomeMail({ ...common, retained: notice === "retained" })
+            : buildRfqClosedMail(common);
     try {
       const result = await sendMail({
         to: contact.email,
@@ -458,6 +505,33 @@ export async function tellOfferHolders(
       notice === "withdrawn" ? "rfq.withdrawn" : "rfq.holders_told",
       { count: told },
     );
+  }
+  return told;
+}
+
+/**
+ * The buyer chose (V17): tell the supplier whose offer was retained, and each
+ * supplier whose offer was not — that, and nothing else.
+ *
+ * Only offers the PLATFORM asked for (a quote in a round): a soumission staff
+ * emailed by hand on the report flow was never the platform's conversation,
+ * and its supplier hears from the person who wrote to them.
+ */
+export async function tellOutcome(
+  requestId: string,
+  retained: { supplierId: string | null; supplierName: string; roundId: string | null },
+  lost: { supplierId: string | null; supplierName: string; roundId: string | null }[],
+): Promise<number> {
+  const request = await db.query.request.findFirst({ where: eq(schema.request.id, requestId) });
+  if (!request) return 0;
+  const inRound = <T extends { roundId: string | null }>(row: T) => row.roundId !== null;
+  const winners = [retained].filter(inRound).map((s) => ({ ...s, answered: true }));
+  const others = lost.filter(inRound).map((s) => ({ ...s, answered: true }));
+  const told =
+    (await tellSuppliers(request, winners, "retained")) +
+    (await tellSuppliers(request, others, "not_retained"));
+  if (told > 0) {
+    await recordEvent(requestId, request.organizationId, "rfq.outcome_told", { count: told });
   }
   return told;
 }

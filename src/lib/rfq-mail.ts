@@ -111,6 +111,18 @@ const COPY = {
     withdrawnNeed: "The request",
     withdrawnReference: (id: string) => `Reference: ${id}`,
     closedSubject: (id: string, title: string) => `Request for quotation ${id} closed — ${title}`,
+    roundClosedAnswered:
+      "The request for quotation below is now closed. Thank you for your offer: it is being reviewed with our client, and we will let you know the outcome.",
+    roundClosedSilent:
+      "The request for quotation below is now closed, earlier than the deadline we gave you: no offer is expected from you for it any longer.",
+    retainedSubject: (id: string, title: string) =>
+      `Your offer has been retained — ${id} — ${title}`,
+    retained:
+      "Good news: our client has retained the offer you sent for the request below. A member of the OSI team will contact you shortly to arrange the next steps.",
+    outcomeSubject: (id: string, title: string) =>
+      `Outcome of request for quotation ${id} — ${title}`,
+    notRetained:
+      "Thank you for the offer you sent for the request below. It was not retained this time.",
     closed:
       "Thank you for the offer you sent us for the request below. The request is now closed and no order will follow from it.",
     closedNext:
@@ -154,6 +166,16 @@ const COPY = {
     withdrawnNeed: "La demande",
     withdrawnReference: (id: string) => `Référence : ${id}`,
     closedSubject: (id: string, title: string) => `Appel d'offres ${id} clos — ${title}`,
+    roundClosedAnswered:
+      "L'appel d'offres ci-dessous est maintenant clos. Merci pour votre offre : elle est en cours d'examen avec notre client, et nous vous tiendrons informé de la suite.",
+    roundClosedSilent:
+      "L'appel d'offres ci-dessous est maintenant clos, avant la date limite que nous vous avions indiquée : plus aucune offre n'est attendue de votre part pour cette demande.",
+    retainedSubject: (id: string, title: string) => `Votre offre a été retenue — ${id} — ${title}`,
+    retained:
+      "Bonne nouvelle : notre client a retenu l'offre que vous nous avez transmise pour la demande ci-dessous. Un membre de l'équipe OSI vous contactera prochainement pour la suite.",
+    outcomeSubject: (id: string, title: string) => `Suite de l'appel d'offres ${id} — ${title}`,
+    notRetained:
+      "Merci pour l'offre que vous nous avez transmise pour la demande ci-dessous. Elle n'a pas été retenue cette fois-ci.",
     closed:
       "Merci pour l'offre que vous nous avez transmise pour la demande ci-dessous. Cette demande est maintenant close et ne donnera pas lieu à une commande.",
     closedNext:
@@ -301,4 +323,68 @@ export function buildRfqClosedMail(input: RfqClosedMailInput): RfqMail {
     { lines: [copy.withdrawnReference(reference), copy.sign] },
   ];
   return { subject: copy.closedSubject(reference, input.title), ...render(blocks) };
+}
+
+export type SupplierNoticeInput = {
+  locale: ContactLocale;
+  requestId: string;
+  title: string;
+  greetingName: string | null;
+};
+
+/**
+ * "The window is closed" (Phase V · V17) — sent when a round closes into the
+ * review.
+ *
+ * To a supplier who ANSWERED: their offer is in and being looked at. To one
+ * who had NOT, only when the round closed BEFORE the deadline they were given
+ * (staff stopped waiting, or enough offers were in): their email still says
+ * a later date, and one who answers after the close would be answering into
+ * nothing (decision D13). A supplier who simply let the deadline pass is told
+ * nothing — they knew the date, and a silent supplier is not chased.
+ *
+ * It says the window closed and never why: "enough offers were in" tells a
+ * supplier how the others answered.
+ */
+export function buildRoundClosedMail(input: SupplierNoticeInput & { answered: boolean }): RfqMail {
+  const copy = COPY[input.locale];
+  const reference = `#${input.requestId}`;
+  const blocks: Block[] = [
+    {
+      lines: [
+        copy.hello(input.greetingName),
+        input.answered ? copy.roundClosedAnswered : copy.roundClosedSilent,
+      ],
+    },
+    { title: copy.withdrawnNeed, lines: [input.title] },
+    ...(input.answered ? [] : [{ lines: [copy.closedNext] }]),
+    { lines: [copy.withdrawnReference(reference), copy.sign] },
+  ];
+  return { subject: copy.closedSubject(reference, input.title), ...render(blocks) };
+}
+
+/**
+ * The outcome, once the buyer has chosen (V17).
+ *
+ * `retained`: their offer was accepted, and someone will be in touch.
+ * Not retained: that, and NOTHING ELSE — not who was, not at what price, not
+ * how many answered, not where they ranked. Each of those is another
+ * supplier's business or the buyer's, and the sentence is written so that
+ * there is nowhere for one of them to go.
+ */
+export function buildOutcomeMail(input: SupplierNoticeInput & { retained: boolean }): RfqMail {
+  const copy = COPY[input.locale];
+  const reference = `#${input.requestId}`;
+  const blocks: Block[] = [
+    { lines: [copy.hello(input.greetingName), input.retained ? copy.retained : copy.notRetained] },
+    { title: copy.withdrawnNeed, lines: [input.title] },
+    ...(input.retained ? [] : [{ lines: [copy.closedNext] }]),
+    { lines: [copy.withdrawnReference(reference), copy.sign] },
+  ];
+  return {
+    subject: input.retained
+      ? copy.retainedSubject(reference, input.title)
+      : copy.outcomeSubject(reference, input.title),
+    ...render(blocks),
+  };
 }

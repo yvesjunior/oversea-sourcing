@@ -24,7 +24,7 @@
 | **E9** Notifications | In-app + email | 🟡 bell, emitters, **prefs (2026-08-26)** live; Phase P types (`quote_received`, `contract_to_sign`, `contract_signed`) + staff alert on `quotes.requested` (2026-09-07) live; **the bell alerts (2026-09-14)** — count badge, 30 s poll, chime, per-browser mute |
 | **E10** Admin surfaces | Verification, imports, ops queue | 🟡 **verification LIVE (S5b/S5c, 2026-08-26)**; imports/ops queue placeholders |
 | **R** Custom staff roles | Roles as data + the matrix | ✅ **BUILT 2026-08-29** (migration 0039) — create/delete roles, dynamic matrix, `requests.all` |
-| **E13** V6 architecture | Supplier portal · KPI #2 · Partner Hub · Decision Pack | 🔵 **NEW 2026-10-21** — scope opened by the V6 document; diagrams validated 2026-11-14; **34 tasks in seven slices — [Phase V](#phase-v--the-v6-parcours-task-by-task-e13--written-2026-11-14)**; **V01, V02, V04–V11 built 2026-11-14** (settings, contacts, states, fork + shortlist, RFQ batch, window closing, typed answer time + channel, KPI #2 v1, the Decision Pack record, the release queue); V01–V11 **live on prod — V01–V09 since deploy #45 (2026-11-14), V10–V11 since deploy #47 (2026-11-18) — with the pack-flow switch OFF**; **V12–V14 built 2026-11-18** (the buyer's pack page, choosing from it, automatic release built and switched off + the review report) — **slice 1 (V04–V14) is complete** — **live on prod since deploy #48 (2026-11-18), pack flow off, release manual**; **V18–V20 built 2026-11-18** (the clarification, behind `AI_CHAT`, off; the cahier des charges and the KPI profile as versioned records; the buyer's validation before any search, behind `flow.spec_validation`, ON by default) — **slice 3 complete**; **V03, V15 and V16 built 2026-11-18** (external accounts: a supplier is not a customer; the RFQ link that creates a supplier account; the portal where they answer, decline and attach) — on `main`, not deployed |
+| **E13** V6 architecture | Supplier portal · KPI #2 · Partner Hub · Decision Pack | 🔵 **NEW 2026-10-21** — scope opened by the V6 document; diagrams validated 2026-11-14; **34 tasks in seven slices — [Phase V](#phase-v--the-v6-parcours-task-by-task-e13--written-2026-11-14)**; **V01, V02, V04–V11 built 2026-11-14** (settings, contacts, states, fork + shortlist, RFQ batch, window closing, typed answer time + channel, KPI #2 v1, the Decision Pack record, the release queue); V01–V11 **live on prod — V01–V09 since deploy #45 (2026-11-14), V10–V11 since deploy #47 (2026-11-18) — with the pack-flow switch OFF**; **V12–V14 built 2026-11-18** (the buyer's pack page, choosing from it, automatic release built and switched off + the review report) — **slice 1 (V04–V14) is complete** — **live on prod since deploy #48 (2026-11-18), pack flow off, release manual**; **V18–V20 built 2026-11-18** (the clarification, behind `AI_CHAT`, off; the cahier des charges and the KPI profile as versioned records; the buyer's validation before any search, behind `flow.spec_validation`, ON by default) — **slice 3 complete**; **V03 and V15–V17 built 2026-11-18** (external accounts: a supplier is not a customer; the RFQ link that creates a supplier account; the portal where they answer, decline and attach; what suppliers are told and the response funnel) — **slice 2 complete** — on `main`, not deployed |
 | **E11** Settings | Profile, sourcing rules | 🟡 Paramètres + notification prefs live; **password / 2FA / theme / rename (2026-08-27)** live; buyer Abonnement self-service waits for billing |
 
 **MVP1 = E0–E7 + E10.** Definition of done **restated 2026-08-29 by ADR-002**
@@ -41,7 +41,17 @@ tracked to delivery** — with the PDF report available throughout.
 **Prod = `e61b229` (deploy #48, 2026-11-18)** — Phase V tasks V01–V14: slice 1
 is complete and live, **with the pack-flow switch off and release manual**
 (`platform_setting` holds no row on prod, so every setting is at its default).
-**`main` is ahead of prod and NOT deployed:** this record, then **V18** (the
+**`main` is ahead of prod by eight tasks and NOT deployed** — V18, V19, the
+search-model fix, V20, V03, V15, V16, V17; migrations **0055–0059**, all
+additive. In one line each: the assistant on a draft (off); the specification
+and the weights as versioned records; searches follow the plan's model tier;
+the buyer validates before any search (ON by default); a supplier account
+type that is not a customer; the RFQ link that creates one; the portal where
+suppliers answer; what they are told and the response funnel. **The supplier
+portal changes nothing a supplier or a buyer sees until RFQs are sent, and
+RFQs are only sent on the pack flow, which is OFF on prod** — so slice 2 is
+live-but-dormant on deploy, exactly as slice 1 was. The details, task by task:
+this record, then **V18** (the
 clarification before launch, migration **0055**, behind `AI_CHAT` — which is
 `false` on prod, read from the web container on 2026-11-18, so deploying it
 shows nothing new), and **V19** (the cahier des charges and the KPI profile,
@@ -4366,7 +4376,7 @@ report, exactly as today, because that report is all they get.
 | **D10** | Who assigns a partner to a case, and which partner kinds exist at launch? | Staff assign, per offer. Kinds: settlement, transport, inspection, customs, insurance. | V21, V22 |
 | **D11** | The shortlist is the Top-N the search ranks — 5 by default — and the window closes on 5 offers. Asking five suppliers will rarely bring five answers. Should the pack flow rank more than it needs? | Unchanged: the shortlist is what `SUPPLIERS_RETURNED` ranks. Staff relaunch (V11) when a round comes back short. Ranking more costs a supplier row and a verification run per extra candidate. | V05, V07 |
 | **D12** | A round where nobody is left to answer — every supplier asked has either sent an offer or declined — but the offer target is not reached. Three asked, three answered, target five: the round stays open until its deadline, waiting for no one. Should it close by itself? | **Not closed automatically** (V07 as built): README §2c names three conditions and this would be a fourth. The dossier shows « 0 fournisseur(s) sans réponse à ce jour », and staff close early with a reason. | V07 |
-| **D13** | A round closed early (staff, or the target reached) tells the suppliers who had not answered **nothing**: their RFQ still shows the original deadline. One who answers after the close but before that deadline is refused (V08: not in time for the round). Should they be told the RFQ is closed? | **Not told** (V07/V08 as built) — README §2c: a silent supplier is *"excluded, not chased"*. A closing notice is not chasing, and `buildRfqWithdrawnMail` shows the shape; it is one more email per silent supplier per early close. | V07, V08 |
+| **D13** | A round closed early (staff, or the target reached) tells the suppliers who had not answered **nothing**: their RFQ still shows the original deadline. One who answers after the close but before that deadline is refused (V08: not in time for the round). Should they be told the RFQ is closed? | **Not told** (V07/V08 as built) — README §2c: a silent supplier is *"excluded, not chased"*. A closing notice is not chasing, and `buildRfqWithdrawnMail` shows the shape; it is one more email per silent supplier per early close. | **Settled for the email side in V17 (2026-11-18):** a round that closes before its deadline now tells the suppliers who had not answered that it is closed and nothing is expected any longer — never why. What a late answer sent anyway is worth is still open. | V07, V08 |
 | **D14** | In `automatic` mode, a pack that came to a person (its round closed with no offer) and was **relaunched**: when the new round closes with offers, does it leave by itself? | **No — a pack that has reached a person stays a person's** (V14 as built). Automatic release happens only at the close that creates the pack. The other answer is simpler to state ("automatic means automatic") but lets a relaunched pack leave alone after the setting has gone back to `manual`, because a pack keeps the mode it was created with. | V14 |
 | **D15** | An automatically released pack passes through `pack_review` for an instant, so the request's timeline and activity feed — which the buyer reads — still show « Offres reçues — en revue chez OSI » a few seconds before « Decision Pack disponible ». The email and the pack page were made truthful in V14; the timeline was not. | **Left as is while the mode is off.** To settle before anyone selects `automatic`: either a different label for that step when the pack's release has no person, or no `pack_review` step at all on an automatic release. | V14 |
 | **D16** | The clarification (V18) is the **first AI call that reads the plan's `model_tier`** — research and extraction take their model from `ANTHROPIC_MODEL`, whatever the plan says (verified in the code 2026-11-18: nothing else reads `plan.model_tier`). On prod the plans are `free` / `internal` / `org_trial` = `balanced`, `pro` / `business` / `enterprise` = `best` (read from prod's `plan` table 2026-11-18), while `ANTHROPIC_MODEL` is `cheap`. So switching `AI_CHAT` on in prod would run clarifications on Sonnet and Opus, at a cost per turn **nobody has measured** — dev measured `cheap` only, about $0.003 a turn. | **Built as the task says: the plan's tier.** To settle before `AI_CHAT` goes on in prod: measure a turn on `balanced` and `best`, or set the plans' tiers to what the owner wants to pay, or decide that the clarification follows `ANTHROPIC_MODEL` like everything else. Separately: is it intended that research ignores the plan's tier? The plans page shows a per-request cost by tier that research does not follow. **Half settled 2026-11-18 (owner: "fix search model"): the search now follows the plan's tier too, so the two agree and the plans page's cost per tier is true. Still open: nobody has measured a clarification turn on `balanced` or `best`, and prod's plans are on those tiers.** | the next deploy; switching `AI_CHAT` on |
@@ -6086,26 +6096,69 @@ built in: **S** one, **M** two to three, **L** four or more.
       buyer's workspace even though the supplier uploads it — and the supplier
       must still be able to read back their own upload. Test both.~~
 
-- [ ] **V17 · What a supplier is told, and the response funnel.** *Size M.
-      Depends on: V16.*
+- [x] **V17 · What a supplier is told, and the response funnel — BUILT
+      2026-11-18** (no migration, not deployed). **This completes slice 2
+      (V15–V17), the supplier portal.** `rfq-mail.ts` (`buildRoundClosedMail`,
+      `buildOutcomeMail`); `rfq-window.ts` (`closeRound` tells the round's
+      suppliers, new `tellOutcome`); `quote-fns.ts` (`acceptQuoteFn` calls it
+      after the commit); `src/lib/response-funnel.ts` (pure) +
+      `src/server/response-funnel.ts`; `getResponseFunnelFn` in `pack-fns.ts`;
+      a third tab on `/interne/packs`. 829 tests.
 
-      **What it does.** Closes the loop on the supplier's side and measures
-      the thing the whole five-offer window rests on.
+      **Where the build departs from the task text:** the task puts the three
+      supplier-facing messages in `notification-types.ts`. That register is
+      for USERS — in-app notifications with preferences — and most suppliers
+      have no account; a supplier is written to at their contact's address,
+      as the RFQ itself is. So they are mail builders beside the RFQ's, sent
+      to the primary contact in its language. **And one rule the task does
+      not state:** a supplier who had not answered is told the window closed
+      only when it closed BEFORE their deadline — which settles decision
+      **D13** for the email side. On a deadline close they are told nothing.
 
-      **Files.** `notification-types.ts` — supplier-facing types (round
-      closed; offer retained; offer not retained), delivered by email in the
-      contact's locale. `/interne/packs` or `/analyses` — per round and over
-      time: invited → opened → registered → answered → answered in time,
-      split by channel.
+      *Verified live in dev on request #3049 with the portal accounts, then
+      everything removed (1 request, 6 users, audit 33, events 16, no
+      invitation, no supplier account, no document):*
+      - **The buyer chooses.** Pack approved by staff, one offer accepted by
+        the buyer's workspace owner: three emails in the log — « Your offer
+        has been retained… a member of the OSI team will contact you » to the
+        supplier chosen; « It was not retained this time. » to the two others,
+        one in English, one in French, each with the request's title, a
+        courtesy line and the reference, and nothing else. The two quotes are
+        `declined` / `lost`; the timeline has `rfq.outcome_told` with 3.
+      - **A round closed early by staff**, one offer in: the supplier who
+        answered is told it is being reviewed; the two who had not are told it
+        closed « earlier than the deadline we gave you »; timeline
+        `rfq.suppliers_told` with 3.
+      - **The funnel.** On the first round of the day: 3 sent, 2 links opened,
+        2 accounts (« 67 % des fournisseurs invités ont créé un compte »), 3
+        offers, all before the close, all through the portal; one row for the
+        round.
 
-      **Acceptance.** A supplier whose offer lost learns that it was not
-      retained and **nothing else** — not who won, not at what price, not how
-      many answered. Staff can read, for the last thirty days, what share of
-      invited suppliers registered and what share answered.
+      **Not exercised:** a round closing on its deadline (answered suppliers
+      told, silent ones not) and on its target with the new code — the early
+      close is the one that was run; a supplier with no contact left at the
+      time of the message (logged, not counted); the funnel over several
+      rounds, with staff-keyed answers and refusals (unit-tested only); the
+      90-day and 12-month periods; the English page; production. **Known and
+      left:** the messages go to the supplier's PRIMARY contact as it is at
+      that moment, not to the person who entered the offer in the portal — so
+      a colleague who answered from their own account hears through the
+      primary contact. The portal itself shows « Offer sent » and « Closed »
+      and does not show the outcome; the email is the only place it is said.
 
-      **Gotcha.** If suppliers do not register, rounds close short and
-      `no_response` stops meaning what the schema says. This funnel is the
-      early warning; build it with the portal, not after.
+      ~~**What it does.** Closes the loop on the supplier's side and measures
+      the thing the whole five-offer window rests on. **Files.**
+      `notification-types.ts` — supplier-facing types (round closed; offer
+      retained; offer not retained), delivered by email in the contact's
+      locale. `/interne/packs` or `/analyses` — per round and over time:
+      invited → opened → registered → answered → answered in time, split by
+      channel. **Acceptance.** A supplier whose offer lost learns that it was
+      not retained and **nothing else** — not who won, not at what price, not
+      how many answered. Staff can read, for the last thirty days, what share
+      of invited suppliers registered and what share answered. **Gotcha.** If
+      suppliers do not register, rounds close short and `no_response` stops
+      meaning what the schema says. This funnel is the early warning; build it
+      with the portal, not after.~~
 
 ---
 

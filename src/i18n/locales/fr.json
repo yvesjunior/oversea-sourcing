@@ -641,7 +641,9 @@
     "clarification_asked": "Relecture par l’assistant — questions : {{questions}}, propositions : {{proposals}}",
     "spec_versioned": "Cahier des charges — version {{version}}",
     "status_spec_review": "En attente de validation par l’acheteur",
-    "spec_validated": "Cahier des charges validé — version {{version}}"
+    "spec_validated": "Cahier des charges validé — version {{version}}",
+    "rfq_suppliers_told": "Fournisseurs informés de la clôture de l’appel d’offres : {{count}}",
+    "rfq_outcome_told": "Fournisseurs informés de la suite donnée à leur offre : {{count}}"
   },
   "stepsDemande": {
     "received": {
@@ -2031,5 +2033,28 @@
       "name_required": "Indiquez votre nom.",
       "limited": "Trop de tentatives. Merci de patienter quelques minutes."
     }
+  },
+  "funnel": {
+    "tab": "Réponses des fournisseurs",
+    "subtitle": "Sur les appels d’offres envoyés par la plateforme : combien de liens ont été ouverts, combien de fournisseurs ont créé un compte, combien ont répondu — et par quelle voie. Si ces chiffres baissent, les fenêtres se ferment avec trop peu d’offres.",
+    "empty": "Aucun appel d’offres envoyé sur la période.",
+    "answer": "Sur {{sent}} appel(s) d’offres envoyé(s) : {{registered}} des fournisseurs invités ont créé un compte, et {{answered}} ont répondu.",
+    "sent": "Appels d’offres envoyés",
+    "opened": "Liens ouverts",
+    "registered": "Comptes créés ou rattachés",
+    "answered": "Offres reçues",
+    "inTime": "Reçues avant la clôture",
+    "byPortal": "Par le portail",
+    "byStaff": "Par courriel (saisies par l’équipe)",
+    "declined": "Ont décliné",
+    "silent": "Sans réponse à la clôture",
+    "pending": "En attente (fenêtre ouverte)",
+    "ofLinks": "{{share}} des {{links}} liens envoyés",
+    "ofSent": "{{share}} des envois",
+    "ofAnswers": "{{share}} des offres",
+    "byRound": "Tour par tour",
+    "round": "Demande et tour",
+    "roundNo": "tour {{no}}",
+    "open": "ouvert"
   }
 }
