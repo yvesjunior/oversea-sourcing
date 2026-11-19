@@ -644,7 +644,9 @@
     "status_spec_review": "En attente de validation par l’acheteur",
     "spec_validated": "Cahier des charges validé — version {{version}}",
     "rfq_suppliers_told": "Fournisseurs informés de la clôture de l’appel d’offres : {{count}}",
-    "rfq_outcome_told": "Fournisseurs informés de la suite donnée à leur offre : {{count}}"
+    "rfq_outcome_told": "Fournisseurs informés de la suite donnée à leur offre : {{count}}",
+    "buyer_disclosed": "Identité du client communiquée au fournisseur",
+    "party_added": "Un partenaire d’OSI a rejoint le dossier"
   },
   "stepsDemande": {
     "received": {
@@ -1171,7 +1173,11 @@
     "partner.account_created": "Compte partenaire créé depuis une invitation",
     "partner.account_attached": "Invitation rattachée à un compte partenaire existant",
     "pack.fx_rate_set": "Taux de change enregistré sur un Decision Pack",
-    "pack.fx_rate_removed": "Taux de change retiré d’un Decision Pack"
+    "pack.fx_rate_removed": "Taux de change retiré d’un Decision Pack",
+    "dossier.party_added": "Partenaire ajouté à un dossier",
+    "dossier.buyer_disclosed": "Identité du client communiquée au fournisseur",
+    "dossier.document_added": "Document ajouté à un dossier",
+    "dossier.document_versioned": "Nouvelle version d’un document de dossier"
   },
   "twofa": {
     "title": "Vérification en deux étapes",
@@ -2232,8 +2238,8 @@
   },
   "partnerHub": {
     "shellTitle": "Partner Hub",
-    "homeTitle": "Vos dossiers",
-    "homeEmpty": "Aucun dossier ne vous a été adressé pour le moment.",
+    "homeTitle": "Demandes de chiffrage",
+    "homeEmpty": "Aucune demande de chiffrage pour le moment.",
     "noPartner": "Ce compte n’est rattaché à aucun partenaire. Ouvrez le lien reçu dans le courriel d’invitation d’OSI pour le rattacher.",
     "reference": "Référence {{reference}}",
     "yourFigure": "Votre chiffre : {{amount}}",
@@ -2243,7 +2249,7 @@
       "answered": "Répondu",
       "cancelled": "Retiré par OSI"
     },
-    "back": "Tous les dossiers",
+    "back": "Toutes les demandes",
     "notFound": "Ce dossier est introuvable, ou ne vous est pas adressé.",
     "notStated": "non indiqué",
     "fact": {
@@ -2316,5 +2322,81 @@
       "name_required": "Indiquez votre nom.",
       "limited": "Trop de tentatives. Merci de patienter quelques minutes."
     }
+  },
+  "room": {
+    "eyebrow": "Dossier",
+    "openedOn": "Ouvert le {{when}}",
+    "parties": "Les parties",
+    "you": "vous",
+    "partnerOf": "{{kind}} — partenaire d’OSI",
+    "buyerUndisclosed": "Client d’OSI",
+    "disclosedToYou": "L’identité du client vous a été communiquée le {{when}}.",
+    "notDisclosedToYou": "L’identité du client ne vous a pas encore été communiquée par OSI.",
+    "disclosed": "Identité du client communiquée au fournisseur le {{when}}.",
+    "notDisclosed": "Le fournisseur ne connaît pas encore l’identité du client.",
+    "disclose": "Communiquer l’identité au fournisseur",
+    "disclosedDone": "Identité communiquée au fournisseur.",
+    "addPartner": "Ajouter un partenaire au dossier…",
+    "addPartnerSubmit": "Ajouter",
+    "partnerAdded": "Partenaire ajouté au dossier.",
+    "offer": "L’offre retenue",
+    "fact": {
+      "price": "Prix unitaire",
+      "moq": "Quantité minimale",
+      "paymentTerms": "Conditions de paiement"
+    },
+    "documents": "Documents",
+    "noDocument": "Aucun document pour le moment.",
+    "version": "version {{version}}",
+    "sharedWith": "Partagé avec : {{parties}}",
+    "sharedWithNobody": "Réservé à OSI",
+    "newVersion": "Nouvelle version",
+    "addDocument": "Ajouter un document",
+    "documentLabel": "Nom du document (ex. Facture proforma)",
+    "file": "Fichier",
+    "shareWith": "Qui peut le lire, en plus d’OSI ?",
+    "shareWithNobodyYet": "Personne n’est coché : le document restera réservé à OSI.",
+    "buyerUploadHint": "Votre document sera lu par vous et par OSI. OSI le transmet aux autres parties si nécessaire.",
+    "upload": "Téléverser",
+    "uploadRefused": {
+      "403": "Vous ne pouvez pas ajouter de document à ce dossier.",
+      "404": "Ce dossier est introuvable.",
+      "409": "Ce dossier n’accepte plus de document.",
+      "413": "Fichier trop volumineux (10 Mo au plus).",
+      "415": "Format non accepté : PDF, PNG ou JPEG.",
+      "other": "Le document n’a pas pu être enregistré."
+    },
+    "threads": "Échanges",
+    "threadsHint": "Vos échanges avec OSI sur ce dossier. Vous ne voyez que les fils auxquels vous participez.",
+    "threadsHintStaff": "Chaque fil indique qui y participe. Une partie qui n’est pas dans un fil ne sait pas qu’il existe.",
+    "noThread": "Aucun échange pour le moment.",
+    "threadWith": "Participants : {{parties}}",
+    "reply": "Votre réponse",
+    "send": "Envoyer",
+    "newThread": "Écrire à OSI",
+    "newThreadStaff": "Ouvrir un fil avec…",
+    "subject": "Objet",
+    "message": "Votre message",
+    "startThread": "Envoyer",
+    "refused": {
+      "not_found": "Ce dossier ou ce fil est introuvable.",
+      "closed": "Ce dossier est clos : il n’accepte plus d’échange.",
+      "bad_parties": "Choisissez au moins une partie du dossier.",
+      "forbidden": "Votre rôle ne permet pas cette action.",
+      "partner_not_found": "Ce partenaire est introuvable.",
+      "partner_inactive": "Ce partenaire est inactif.",
+      "already_party": "Ce partenaire est déjà sur le dossier."
+    },
+    "back": "Tous les dossiers",
+    "backHome": "Retour à l’accueil",
+    "notFound": "Ce dossier est introuvable, ou vous n’y avez pas accès.",
+    "seeRequest": "Voir la demande #{{id}}",
+    "listTitle": "Dossiers",
+    "listSubtitle": "Les dossiers ouverts par les offres que vous avez acceptées : les parties, l’offre retenue, les documents et vos échanges avec OSI.",
+    "listSubtitleStaff": "Tous les dossiers en cours, tous clients confondus. Chaque partie n’y voit que sa part.",
+    "listEmpty": "Aucun dossier pour le moment. Un dossier s’ouvre lorsqu’une offre est acceptée.",
+    "yourDossiers": "Dossiers en cours",
+    "others_one": "{{count}} autre partie du dossier",
+    "others_other": "{{count}} autres parties du dossier"
   }
 }

@@ -644,7 +644,9 @@
     "status_spec_review": "Waiting for the buyer’s validation",
     "spec_validated": "Specification validated — version {{version}}",
     "rfq_suppliers_told": "Suppliers told the request for quotation closed: {{count}}",
-    "rfq_outcome_told": "Suppliers told the outcome of their offer: {{count}}"
+    "rfq_outcome_told": "Suppliers told the outcome of their offer: {{count}}",
+    "buyer_disclosed": "Client’s identity disclosed to the supplier",
+    "party_added": "An OSI partner joined the dossier"
   },
   "stepsDemande": {
     "received": {
@@ -1171,7 +1173,11 @@
     "partner.account_created": "Partner account created from an invitation",
     "partner.account_attached": "Invitation attached to an existing partner account",
     "pack.fx_rate_set": "Exchange rate stored on a Decision Pack",
-    "pack.fx_rate_removed": "Exchange rate removed from a Decision Pack"
+    "pack.fx_rate_removed": "Exchange rate removed from a Decision Pack",
+    "dossier.party_added": "Partner added to a dossier",
+    "dossier.buyer_disclosed": "Client’s identity disclosed to the supplier",
+    "dossier.document_added": "Document added to a dossier",
+    "dossier.document_versioned": "New version of a dossier document"
   },
   "twofa": {
     "title": "Two-step verification",
@@ -2232,8 +2238,8 @@
   },
   "partnerHub": {
     "shellTitle": "Partner Hub",
-    "homeTitle": "Your cases",
-    "homeEmpty": "No case has been addressed to you yet.",
+    "homeTitle": "Requests for a figure",
+    "homeEmpty": "No request for a figure at the moment.",
     "noPartner": "This account is not attached to any partner. Open the link from OSI’s invitation email to attach it.",
     "reference": "Reference {{reference}}",
     "yourFigure": "Your figure: {{amount}}",
@@ -2243,7 +2249,7 @@
       "answered": "Answered",
       "cancelled": "Withdrawn by OSI"
     },
-    "back": "All cases",
+    "back": "All requests",
     "notFound": "This case cannot be found, or is not addressed to you.",
     "notStated": "not stated",
     "fact": {
@@ -2316,5 +2322,81 @@
       "name_required": "Please enter your name.",
       "limited": "Too many attempts. Please wait a few minutes."
     }
+  },
+  "room": {
+    "eyebrow": "Dossier",
+    "openedOn": "Opened on {{when}}",
+    "parties": "The parties",
+    "you": "you",
+    "partnerOf": "{{kind}} — an OSI partner",
+    "buyerUndisclosed": "OSI’s client",
+    "disclosedToYou": "The client’s identity was disclosed to you on {{when}}.",
+    "notDisclosedToYou": "OSI has not yet disclosed the client’s identity to you.",
+    "disclosed": "Client’s identity disclosed to the supplier on {{when}}.",
+    "notDisclosed": "The supplier does not yet know who the client is.",
+    "disclose": "Disclose the identity to the supplier",
+    "disclosedDone": "Identity disclosed to the supplier.",
+    "addPartner": "Add a partner to the dossier…",
+    "addPartnerSubmit": "Add",
+    "partnerAdded": "Partner added to the dossier.",
+    "offer": "The retained offer",
+    "fact": {
+      "price": "Unit price",
+      "moq": "Minimum quantity",
+      "paymentTerms": "Payment terms"
+    },
+    "documents": "Documents",
+    "noDocument": "No document yet.",
+    "version": "version {{version}}",
+    "sharedWith": "Shared with: {{parties}}",
+    "sharedWithNobody": "OSI only",
+    "newVersion": "New version",
+    "addDocument": "Add a document",
+    "documentLabel": "Document name (e.g. Proforma invoice)",
+    "file": "File",
+    "shareWith": "Who may read it, besides OSI?",
+    "shareWithNobodyYet": "Nobody is ticked: the document will stay with OSI only.",
+    "buyerUploadHint": "Your document will be read by you and by OSI. OSI passes it on to the other parties if needed.",
+    "upload": "Upload",
+    "uploadRefused": {
+      "403": "You cannot add a document to this dossier.",
+      "404": "This dossier cannot be found.",
+      "409": "This dossier no longer accepts documents.",
+      "413": "File too large (10 MB at most).",
+      "415": "Format not accepted: PDF, PNG or JPEG.",
+      "other": "The document could not be saved."
+    },
+    "threads": "Exchanges",
+    "threadsHint": "Your exchanges with OSI about this dossier. You only see the threads you are in.",
+    "threadsHintStaff": "Each thread says who is in it. A party that is not in a thread does not know it exists.",
+    "noThread": "No exchange yet.",
+    "threadWith": "Participants: {{parties}}",
+    "reply": "Your reply",
+    "send": "Send",
+    "newThread": "Write to OSI",
+    "newThreadStaff": "Open a thread with…",
+    "subject": "Subject",
+    "message": "Your message",
+    "startThread": "Send",
+    "refused": {
+      "not_found": "This dossier or thread cannot be found.",
+      "closed": "This dossier is closed: it no longer accepts exchanges.",
+      "bad_parties": "Choose at least one party of the dossier.",
+      "forbidden": "Your role does not allow this action.",
+      "partner_not_found": "This partner cannot be found.",
+      "partner_inactive": "This partner is inactive.",
+      "already_party": "This partner is already on the dossier."
+    },
+    "back": "All dossiers",
+    "backHome": "Back to home",
+    "notFound": "This dossier cannot be found, or you do not have access to it.",
+    "seeRequest": "See request #{{id}}",
+    "listTitle": "Dossiers",
+    "listSubtitle": "The dossiers opened by the offers you accepted: the parties, the retained offer, the documents and your exchanges with OSI.",
+    "listSubtitleStaff": "Every dossier in progress, across all clients. Each party sees only its own part.",
+    "listEmpty": "No dossier yet. A dossier opens when an offer is accepted.",
+    "yourDossiers": "Dossiers in progress",
+    "others_one": "{{count}} other party to the dossier",
+    "others_other": "{{count}} other parties to the dossier"
   }
 }

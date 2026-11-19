@@ -19,8 +19,22 @@ export const Route = createFileRoute("/api/portal/file/$id")({
         const session = await requireSupplierSession(request.headers);
         if (!session) return Response.json({ error: "unauthorized" }, { status: 401 });
 
-        // Someone else's file and no such file answer alike.
-        const row = await portal.fileForDownload(session, params.id);
+        // Someone else's file and no such file answer alike. Two ways a file
+        // can be theirs: attached to their own offer (V16), or a document of
+        // a dossier their supplier is a party to AND shared with it (V25).
+        let row = await portal.fileForDownload(session, params.id);
+        if (!row) {
+          const { fileForDossier } = await import("@/server/dossier");
+          row = await fileForDossier(
+            {
+              kind: "supplier",
+              userId: session.userId,
+              userName: session.userName,
+              supplierIds: session.supplierIds,
+            },
+            params.id,
+          );
+        }
         if (!row) return Response.json({ error: "not found" }, { status: 404 });
 
         const bytes = await storage.openFileStream(row.storageKey);

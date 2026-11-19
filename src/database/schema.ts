@@ -2132,6 +2132,16 @@ export const deal = pgTable(
     currency: text("currency"),
     incoterm: text("incoterm"),
     openedAt: timestamp("opened_at").notNull().defaultNow(),
+    /**
+     * When the buyer's identity was DISCLOSED to the supplier (Phase V · V25,
+     * decision D6). Before a dossier opens a supplier reads a specification
+     * and never who is buying; disclosure happens when the deal opens, and it
+     * is a step somebody's code takes on purpose (`discloseBuyer` in
+     * src/server/dossier.ts) — never the side effect of a join. Null = the
+     * supplier's page still says "OSI's client".
+     */
+    buyerDisclosedAt: timestamp("buyer_disclosed_at"),
+    buyerDisclosedByName: text("buyer_disclosed_by_name"),
 
     // ── closure, in two hands (owner 2026-08-29) ─────────────────────────
     // The BUYER reviews — confirms reception and says how it went. Then
@@ -2157,6 +2167,97 @@ export const deal = pgTable(
     index("deal_org_idx").on(table.organizationId),
     index("deal_request_idx").on(table.requestId),
   ],
+);
+
+/**
+ * Who is ON a dossier (Phase V · V25) — one row per party.
+ *
+ * The Transaction Room shows each party its own slice, and a slice is defined
+ * by this row: the documents shared with it, the threads it is in. `role` is
+ * the contracts' vocabulary (`CONTRACT_PARTY_ROLES`) so a party to the
+ * dossier and a party to one of its contracts are named alike.
+ *
+ * Exactly one of the three references says WHO: the buyer's workspace, a
+ * supplier, a partner. OSI's row has none — OSI is the platform. All three
+ * are SET NULL with a name snapshot beside them: a dossier stays readable
+ * after a supplier record is merged away or a partner is removed.
+ */
+export const dealParty = pgTable(
+  "deal_party",
+  {
+    id: text("id").primaryKey(),
+    dealId: text("deal_id")
+      .notNull()
+      .references(() => deal.id, { onDelete: "cascade" }),
+    role: text("role").$type<ContractPartyRole>().notNull(),
+    organizationId: text("organization_id").references(() => organization.id, {
+      onDelete: "set null",
+    }),
+    supplierId: text("supplier_id").references(() => supplier.id, { onDelete: "set null" }),
+    partnerId: text("partner_id").references(() => partner.id, { onDelete: "set null" }),
+    name: text("name").notNull(),
+    addedBy: text("added_by").references(() => user.id, { onDelete: "set null" }),
+    addedByName: text("added_by_name"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => [
+    index("deal_party_deal_idx").on(table.dealId),
+    index("deal_party_supplier_idx").on(table.supplierId),
+    index("deal_party_partner_idx").on(table.partnerId),
+    // A partner is on a dossier once.
+    uniqueIndex("deal_party_partner_uq")
+      .on(table.dealId, table.partnerId)
+      .where(sql`${table.partnerId} is not null`),
+  ],
+);
+
+/**
+ * An exchange on a dossier (Phase V · V25; P10's thread).
+ *
+ * A thread STATES WHO IS IN IT: `parties` holds the `deal_party` ids that can
+ * read and answer. OSI is in every thread and is not listed — nothing on a
+ * dossier is said without OSI, which is what a facilitated marketplace means.
+ * A thread between the buyer and OSI therefore lists the buyer alone, and the
+ * supplier, who is not in the list, does not know it exists.
+ */
+export const messageThread = pgTable(
+  "message_thread",
+  {
+    id: text("id").primaryKey(),
+    dealId: text("deal_id")
+      .notNull()
+      .references(() => deal.id, { onDelete: "cascade" }),
+    subject: text("subject").notNull(),
+    parties: jsonb("parties").$type<string[]>().notNull(),
+    createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+    createdByName: text("created_by_name"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    lastMessageAt: timestamp("last_message_at").notNull().defaultNow(),
+  },
+  (table) => [index("message_thread_deal_idx").on(table.dealId)],
+);
+
+export const message = pgTable(
+  "message",
+  {
+    id: text("id").primaryKey(),
+    threadId: text("thread_id")
+      .notNull()
+      .references(() => messageThread.id, { onDelete: "cascade" }),
+    /** Tombstone + snapshots: the exchange outlives its authors' accounts. */
+    authorId: text("author_id").references(() => user.id, { onDelete: "set null" }),
+    authorName: text("author_name").notNull(),
+    /** Which side spoke — the party's role on the dossier at that moment. */
+    authorRole: text("author_role").$type<ContractPartyRole>().notNull(),
+    /** The party that spoke. Null for OSI, which has no need of one — and
+     *  after the party's row is gone, when the role snapshot carries on. */
+    authorPartyId: text("author_party_id").references(() => dealParty.id, {
+      onDelete: "set null",
+    }),
+    body: text("body").notNull(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => [index("message_by_thread_idx").on(table.threadId, table.createdAt)],
 );
 
 /** Timeline of a deal — the `request_event` pattern: type + JSON params
@@ -2354,7 +2455,7 @@ export const contractEvent = pgTable(
  * capability. `valid_until` on `quote` sat unwritten for two weeks and taught
  * that lesson.
  */
-export const DOCUMENT_KINDS = ["offer", "other"] as const;
+export const DOCUMENT_KINDS = ["offer", "other", "dossier"] as const;
 export type DocumentKind = (typeof DOCUMENT_KINDS)[number];
 
 /**
@@ -2382,6 +2483,24 @@ export const document = pgTable(
      *  quote, against the request, or (later phases) against a deal. */
     quoteId: text("quote_id").references(() => quote.id, { onDelete: "set null" }),
     requestId: text("request_id").references(() => request.id, { onDelete: "set null" }),
+    /** The dossier it belongs to (Phase V · V25). */
+    dealId: text("deal_id").references(() => deal.id, { onDelete: "set null" }),
+    /**
+     * Who on the dossier may read it (V25): `deal_party` ids. Staff read
+     * every document of a dossier; everyone else — the BUYER included, though
+     * the file sits in their workspace — reads it only if their party is
+     * listed. Null on a document that is not a dossier's.
+     */
+    sharedWith: jsonb("shared_with").$type<string[]>(),
+    /**
+     * Versions (V25). A new version is a NEW row pointing at the one it
+     * replaces; nothing is overwritten and the earlier file stays readable.
+     * `version` counts from 1 along that chain.
+     */
+    version: integer("version").notNull().default(1),
+    supersedesId: text("supersedes_id"),
+    /** A short name for what the document is — "Facture proforma". */
+    label: text("label"),
     /** Snapshot beside the reference, same tombstone rule as everywhere else:
      *  the list must stay readable after the uploader's account is gone. */
     uploadedBy: text("uploaded_by").references(() => user.id, { onDelete: "set null" }),
@@ -2403,6 +2522,7 @@ export const document = pgTable(
   (table) => [
     index("document_org_idx").on(table.organizationId),
     index("document_quote_idx").on(table.quoteId),
+    index("document_deal_idx").on(table.dealId),
   ],
 );
 

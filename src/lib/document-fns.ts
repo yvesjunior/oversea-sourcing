@@ -98,7 +98,27 @@ export const getDocumentsFn = createServerFn({ method: "GET" }).handler(
             .map((row) => row.document.requestId ?? row.quoteRequestId)
             .filter((id): id is string => id !== null),
         );
+    // A dossier's document (V25) is the workspace's to list only when it is
+    // shared with the buyer's party — the file sits in their workspace, and
+    // that is not what decides who reads it. Staff see every one.
+    const buyerParties = crossAccount
+      ? new Set<string>()
+      : new Set(
+          (
+            await db
+              .select({ id: schema.dealParty.id })
+              .from(schema.dealParty)
+              .where(eq(schema.dealParty.organizationId, caller.workspaceId))
+          ).map((party) => party.id),
+        );
     const shown = rows.filter((row) => {
+      if (
+        !crossAccount &&
+        row.document.dealId !== null &&
+        !(row.document.sharedWith ?? []).some((id) => buyerParties.has(id))
+      ) {
+        return false;
+      }
       const requestId = row.document.requestId ?? row.quoteRequestId;
       return requestId === null || !packFlow.has(requestId);
     });

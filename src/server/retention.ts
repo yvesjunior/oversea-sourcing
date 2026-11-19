@@ -37,6 +37,9 @@ export async function sweepDocumentRetention(now = new Date()): Promise<Retentio
         isNull(schema.document.orphanedAt),
         isNull(schema.document.requestId),
         isNull(schema.document.quoteId),
+        // A dossier's document (V25) hangs from its deal and from nothing
+        // else: it is not an orphan while the dossier exists.
+        isNull(schema.document.dealId),
       ),
     )
     .returning({ id: schema.document.id });

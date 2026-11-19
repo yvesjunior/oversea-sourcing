@@ -12,6 +12,8 @@
 
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import type { DossierView } from "@/lib/dossier";
+import type { DossierSummary, DossierWriteResult } from "@/server/dossier";
 import type { HubAnswerResult, HubCaseDetail, HubCaseSummary } from "@/server/partner-hub";
 
 export type { HubAnswerResult, HubCaseDetail, HubCaseSummary };
@@ -91,4 +93,59 @@ export const answerHubCaseFn = createServerFn({ method: "POST" })
       units: data.units,
       note: data.note,
     });
+  });
+
+// ── the Transaction Room, a partner's slice (V25) ───────────────────────────
+//
+// The dossiers the caller's partner was PUT ON by staff, and of each one what
+// that kind of partner's work needs (src/lib/dossier.ts, on the same table as
+// a case): never the buyer, the supplier only for an inspection, the price
+// only where the work is computed from it.
+
+/** The dossiers the caller's partner(s) are a party to. */
+export const getHubDossiersFn = createServerFn({ method: "GET" }).handler(
+  async (): Promise<DossierSummary[] | null> => {
+    const who = await partnerCaller();
+    if (!who) return null;
+    const { listDossiers } = await import("@/server/dossier");
+    return listDossiers({ kind: "partner", ...who });
+  },
+);
+
+/** One dossier — null when the caller's partner is not a party to it. */
+export const getHubDossierFn = createServerFn({ method: "GET" })
+  .inputValidator(z.object({ id: z.string().min(1).max(100) }))
+  .handler(async ({ data }): Promise<DossierView | null> => {
+    const who = await partnerCaller();
+    if (!who) return null;
+    const { readDossier } = await import("@/server/dossier");
+    return readDossier({ kind: "partner", ...who }, data.id);
+  });
+
+const messageBody = z.string().trim().min(1).max(4000);
+
+/** Write to OSI about a dossier. A partner's thread is with OSI alone. */
+export const startHubThreadFn = createServerFn({ method: "POST" })
+  .inputValidator(
+    z.object({
+      dealId: z.string().min(1).max(100),
+      subject: z.string().trim().min(2).max(160),
+      body: messageBody,
+    }),
+  )
+  .handler(async ({ data }): Promise<DossierWriteResult> => {
+    const who = await partnerCaller();
+    if (!who) return { ok: false, reason: "not_found" };
+    const { createThread } = await import("@/server/dossier");
+    return createThread({ kind: "partner", ...who }, data.dealId, { ...data, parties: [] });
+  });
+
+/** Answer in a thread the caller's partner is in. */
+export const postHubMessageFn = createServerFn({ method: "POST" })
+  .inputValidator(z.object({ threadId: z.string().min(1).max(100), body: messageBody }))
+  .handler(async ({ data }): Promise<DossierWriteResult> => {
+    const who = await partnerCaller();
+    if (!who) return { ok: false, reason: "not_found" };
+    const { postMessage } = await import("@/server/dossier");
+    return postMessage({ kind: "partner", ...who }, data.threadId, data.body);
   });

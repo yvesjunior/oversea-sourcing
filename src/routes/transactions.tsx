@@ -1,82 +1,80 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { FileText } from "lucide-react";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
-import { Button } from "@/components/ui/button";
-import { EmployeeTabs, MineEmpty } from "@/components/osi/EmployeeTabs";
-import { Timeline } from "@/components/osi/Timeline";
-import { etapesTransaction } from "@/data/osi";
-import { canSeeAllRequests } from "@/lib/roles";
-import { Progress } from "@/components/ui/progress";
+import { getDossiersFn } from "@/lib/dossier-fns";
+import { formatDay } from "@/lib/instant";
+import { cn } from "@/lib/utils";
 
+// The dossiers (Phase V · V25). Until V25 this page was a showcase: one
+// invented transaction, drawn from a constant. It is now the list of the
+// dossiers the caller is on — a buyer's own, every one for staff standing in
+// the internal workspace — each leading to its Transaction Room.
 export const Route = createFileRoute("/transactions")({
-  head: () => ({
-    meta: [
-      { title: "Transactions sécurisées | OSI" },
-      {
-        name: "description",
-        content:
-          "Suivez vos commandes, paiements sécurisés, fabrication, douanes et livraisons en un seul flux.",
-      },
-      { property: "og:title", content: "Transactions sécurisées | OSI" },
-      {
-        property: "og:description",
-        content: "De la commande confirmée à la livraison, tout est traçable.",
-      },
-      { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary_large_image" },
-    ],
-  }),
+  loader: async () => ({ dossiers: await getDossiersFn() }),
+  head: () => ({ meta: [{ title: "Dossiers | OSI" }, { name: "robots", content: "noindex" }] }),
   component: Transactions,
 });
 
+const STATUS_STYLE: Record<string, string> = {
+  open: "bg-gold-soft text-gold",
+  contracting: "bg-gold-soft text-gold",
+  in_production: "bg-gold-soft text-gold",
+  shipping: "bg-gold-soft text-gold",
+  delivered: "bg-success/15 text-success",
+  reviewed: "bg-success/15 text-success",
+  closed: "bg-secondary text-muted-foreground",
+  cancelled: "bg-secondary text-muted-foreground",
+};
+
 function Transactions() {
-  const { t } = useTranslation();
-  const { session } = Route.useRouteContext();
-  const platformRole = (session?.user as { platformRole?: string } | undefined)?.platformRole;
-  const employee = canSeeAllRequests(session?.platformFeatures);
-
-  // Showcase content until E8 wires real transactions through the DB.
-  const contenu = (
-    <section className="card-surface max-w-2xl p-6">
-      <h2 className="text-base font-semibold">{t("transactions.txTitle")}</h2>
-      <p className="mt-1 text-xs text-muted-foreground">{t("transactions.txSubtitle")}</p>
-
-      {/* Timeline takes display strings since E3 — translate the keys here. */}
-      <Timeline
-        etapes={etapesTransaction.map((etape) => ({
-          ...etape,
-          titre: t(etape.titre),
-          detail: t(etape.detail),
-        }))}
-        className="mt-6"
-      />
-
-      <div className="mt-6 rounded-xl border border-border bg-secondary/60 p-4">
-        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
-          <span className="truncate text-xs text-muted-foreground">
-            {t("transactions.fabProgress")}
-          </span>
-          <span className="text-sm font-semibold">65%</span>
-        </div>
-        <Progress value={65} className="mt-2 h-1.5" />
-      </div>
-
-      <Button variant="outline" className="mt-6 w-full">
-        <FileText className="size-4" /> {t("transactions.viewDocs")}
-      </Button>
-    </section>
-  );
+  const { t, i18n } = useTranslation();
+  const { dossiers } = Route.useLoaderData();
+  const items = dossiers?.items ?? [];
 
   return (
     <div className="space-y-6 pt-6">
-      <header className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4">
-        <h1 className="truncate font-display text-2xl font-semibold">{t("transactions.title")}</h1>
-        <span className="flex items-center gap-2 rounded-full bg-secondary px-3 py-1 text-xs">
-          <span className="size-2 rounded-full bg-success" /> {t("transactions.inProgress")}
-        </span>
+      <header>
+        <h1 className="font-display text-2xl font-semibold">{t("room.listTitle")}</h1>
+        <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
+          {t(dossiers?.staff ? "room.listSubtitleStaff" : "room.listSubtitle")}
+        </p>
       </header>
 
-      {employee ? <EmployeeTabs global={contenu} mine={<MineEmpty />} /> : contenu}
+      {items.length === 0 ? (
+        <p className="card-surface p-6 text-sm text-muted-foreground">{t("room.listEmpty")}</p>
+      ) : (
+        <ul className="space-y-3">
+          {items.map((dossier) => (
+            <li key={dossier.id}>
+              <Link
+                to="/dossiers/$id"
+                params={{ id: dossier.id }}
+                className="card-surface grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 p-5 transition-colors hover:border-gold/50"
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold">{dossier.title}</p>
+                  <p className="mt-1 truncate text-xs text-muted-foreground">
+                    {[
+                      dossier.buyerName,
+                      dossier.supplierName,
+                      t("room.openedOn", { when: formatDay(dossier.openedAt, i18n.language) }),
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </p>
+                </div>
+                <span
+                  className={cn(
+                    "shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold",
+                    STATUS_STYLE[dossier.status],
+                  )}
+                >
+                  {t(`dealBox.status.${dossier.status}`)}
+                </span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

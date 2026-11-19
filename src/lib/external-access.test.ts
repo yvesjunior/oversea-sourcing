@@ -17,6 +17,7 @@ import {
   EXTERNAL_AWARE_MODULES,
   EXTERNAL_FN_FILES,
   EXTERNAL_FNS,
+  PARTNER_API_ROUTES,
   PUBLIC_FNS,
 } from "@/lib/external-access";
 
@@ -239,7 +240,7 @@ describe("there is one way to become a supplier, and one to become a partner", (
 
 describe("every API route asks who is calling", () => {
   it("reads its session through the guarded getter", () => {
-    const external = EXTERNAL_API_ROUTES as readonly string[];
+    const external = [...EXTERNAL_API_ROUTES, ...PARTNER_API_ROUTES] as readonly string[];
     const routes = SOURCES.filter(
       ({ file }) =>
         file.startsWith("src/routes/api/") &&
@@ -266,5 +267,54 @@ describe("every API route asks who is calling", () => {
         !(EXTERNAL_API_ROUTES as readonly string[]).includes(file),
     ).map(({ file }) => file);
     expect(unlisted).toEqual([]);
+  });
+
+  // V25: a partner's routes, behind the partner's guard — never the
+  // supplier's, never the workspace getter.
+  it("guards the partner's routes with the partner guard, and only it", () => {
+    for (const file of PARTNER_API_ROUTES) {
+      const route = SOURCES.find((s) => s.file === file);
+      expect(route, `${file} is listed but does not exist`).toBeDefined();
+      expect(route!.text.includes("requirePartnerSession("), `${file} has no guard`).toBe(true);
+      expect(
+        route!.text.includes("requireSupplierSession"),
+        `${file} names the supplier guard`,
+      ).toBe(false);
+      expect(route!.text.includes(GUARDED), `${file} uses the workspace getter`).toBe(false);
+    }
+    const unlisted = SOURCES.filter(
+      ({ file }) =>
+        file.startsWith("src/routes/api/partner/") &&
+        !(PARTNER_API_ROUTES as readonly string[]).includes(file),
+    ).map(({ file }) => file);
+    expect(unlisted).toEqual([]);
+    // And no supplier route names the partner guard.
+    for (const file of EXTERNAL_API_ROUTES) {
+      const route = SOURCES.find((s) => s.file === file)!;
+      expect(route.text.includes("requirePartnerSession"), `${file} names the partner guard`).toBe(
+        false,
+      );
+    }
+  });
+
+  // The Transaction Room's reads all start from the reader's own party.
+  it("reads a dossier only through the reader's party", () => {
+    const dossier = SOURCES.find((s) => s.file === "src/server/dossier.ts")!.text;
+    for (const name of [
+      "readDossier",
+      "createThread",
+      "postMessage",
+      "planUpload",
+      "fileForDossier",
+    ]) {
+      const start = dossier.indexOf(`export async function ${name}(`);
+      expect(start, `${name} not found`).toBeGreaterThan(-1);
+      const body = dossier.slice(start, dossier.indexOf("\n}\n", start));
+      expect(body.includes("await open(reader, "), `${name} does not resolve the reader`).toBe(
+        true,
+      );
+    }
+    // And what leaves is the projection, never the whole dossier.
+    expect(dossier).toContain("return projectDossier(await full(loaded), loaded.audience);");
   });
 });

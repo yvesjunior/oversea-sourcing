@@ -7,16 +7,33 @@ export const Route = createFileRoute("/api/files/$id")({
   server: {
     handlers: {
       GET: async ({ request, params }) => {
-        const [{ auth }, { db }, { eq }, schema, storage, { canSeeAllRequests }] =
-          await Promise.all([
-            import("@/server/auth"),
-            import("@/database"),
-            import("drizzle-orm"),
-            import("@/database/schema"),
-            import("@/server/storage"),
-            import("@/lib/roles"),
-          ]);
-        const session = await auth.api.getSession({ headers: request.headers });
+        const [
+          { auth, ExternalAccountError },
+          { db },
+          { eq },
+          schema,
+          storage,
+          { canSeeAllRequests },
+        ] = await Promise.all([
+          import("@/server/auth"),
+          import("@/database"),
+          import("drizzle-orm"),
+          import("@/database/schema"),
+          import("@/server/storage"),
+          import("@/lib/roles"),
+        ]);
+        // An external account has its own download routes (/api/portal,
+        // /api/partner). The getter refuses it by throwing: answered here as
+        // "not found" — the same as any file that is not the caller's.
+        let session;
+        try {
+          session = await auth.api.getSession({ headers: request.headers });
+        } catch (error) {
+          if (error instanceof ExternalAccountError) {
+            return Response.json({ error: "not found" }, { status: 404 });
+          }
+          throw error;
+        }
         const workspaceId = session?.session.activeOrganizationId;
         if (!session || !workspaceId) {
           return Response.json({ error: "unauthorized" }, { status: 401 });
@@ -35,6 +52,13 @@ export const Route = createFileRoute("/api/files/$id")({
             return Response.json({ error: "not found" }, { status: 404 });
           }
         } else {
+          // A dossier's documents sit in the buyer's workspace, and the buyer
+          // reads only those shared with it (V25): the same rule the
+          // Transaction Room applies, for someone holding the file's address.
+          const { buyerMayReadFile } = await import("@/server/dossier");
+          if (!(await buyerMayReadFile(row.id))) {
+            return Response.json({ error: "not found" }, { status: 404 });
+          }
           // The owning workspace reads no supplier on the pack flow before the
           // Decision Pack (owner, 2026-11-14) — and a supplier's quotation IS
           // the supplier, by name, with its price. The Documents list already

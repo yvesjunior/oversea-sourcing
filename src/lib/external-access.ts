@@ -59,6 +59,13 @@ export const EXTERNAL_FNS = {
   getRfqFn: "one of the caller's own RFQs",
   submitOfferFn: "the caller's own offer",
   declineRfqFn: "the caller's own refusal",
+  // The Transaction Room, the supplier's slice (V25): the dossiers their
+  // supplier is a PARTY to — own offer, OSI, the buyer once disclosed, what
+  // is shared with them. No partner, no other offer.
+  getMyDossiersFn: "the dossiers the caller's supplier is a party to",
+  getMyDossierFn: "one of those dossiers, the supplier's slice",
+  startMyThreadFn: "the caller's own thread with OSI",
+  postMyMessageFn: "the caller's own message, in a thread they are in",
   // ── the Partner Hub (V23): each through `requirePartnerSession`, each
   //    filtered by the caller's own `partnerIds` in src/server/partner-hub.ts,
   //    each case cut down to what its kind needs (src/lib/partner-need.ts) ──
@@ -68,6 +75,12 @@ export const EXTERNAL_FNS = {
    *  another offer, not OSI's fee; the price only where the kind requires. */
   getHubCaseFn: "one of the caller's own cases",
   answerHubCaseFn: "the caller's own figure",
+  // The Transaction Room, a partner's slice (V25): the dossiers staff put
+  // their partner on — what that kind of work needs, never the buyer.
+  getHubDossiersFn: "the dossiers the caller's partner is a party to",
+  getHubDossierFn: "one of those dossiers, the partner's slice",
+  startHubThreadFn: "the caller's own thread with OSI",
+  postHubMessageFn: "the caller's own message, in a thread they are in",
 } as const;
 
 /**
@@ -90,6 +103,12 @@ export const EXTERNAL_API_ROUTES = [
   "src/routes/api/portal/quote-document.ts",
   "src/routes/api/portal/file.$id.ts",
 ] as const;
+
+/**
+ * The same, for a partner's people (V25) — behind the PARTNER guard, under
+ * their own path. A supplier's route never answers a partner and the reverse.
+ */
+export const PARTNER_API_ROUTES = ["src/routes/api/partner/file.$id.ts"] as const;
 
 /**
  * The only modules that may import the unguarded session getter
@@ -123,4 +142,5 @@ export const EXTERNAL_AWARE_MODULES = [
   "src/lib/portal-fns.ts",
   "src/lib/partner-portal-fns.ts",
   ...EXTERNAL_API_ROUTES,
+  ...PARTNER_API_ROUTES,
 ] as const;

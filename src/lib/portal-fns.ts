@@ -10,6 +10,8 @@
 
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import type { DossierView } from "@/lib/dossier";
+import type { DossierSummary, DossierWriteResult } from "@/server/dossier";
 import type { PortalRfqDetail, PortalRfqSummary, PortalWriteResult } from "@/server/portal";
 
 export type { PortalRfqDetail, PortalRfqSummary, PortalWriteResult };
@@ -103,4 +105,59 @@ export const declineRfqFn = createServerFn({ method: "POST" })
     if (!who) return { ok: false, reason: "not_found" };
     const { declineRfq } = await import("@/server/portal");
     return declineRfq(who, data.id, data.note);
+  });
+
+// ── the Transaction Room, the supplier's slice (V25) ────────────────────────
+//
+// Same guard, same rule: the caller's `supplierIds` decide which dossiers are
+// theirs — the ones their supplier is a PARTY to — and src/lib/dossier.ts
+// decides what a supplier reads of one: its own offer, OSI, the buyer only
+// once disclosed, the documents and threads shared with it. No partner.
+
+/** The dossiers the caller's supplier(s) are a party to. */
+export const getMyDossiersFn = createServerFn({ method: "GET" }).handler(
+  async (): Promise<DossierSummary[] | null> => {
+    const who = await caller();
+    if (!who) return null;
+    const { listDossiers } = await import("@/server/dossier");
+    return listDossiers({ kind: "supplier", ...who });
+  },
+);
+
+/** One dossier — null when the caller's supplier is not a party to it. */
+export const getMyDossierFn = createServerFn({ method: "GET" })
+  .inputValidator(z.object({ id: z.string().min(1).max(100) }))
+  .handler(async ({ data }): Promise<DossierView | null> => {
+    const who = await caller();
+    if (!who) return null;
+    const { readDossier } = await import("@/server/dossier");
+    return readDossier({ kind: "supplier", ...who }, data.id);
+  });
+
+const messageBody = z.string().trim().min(1).max(4000);
+
+/** Write to OSI about a dossier. A supplier's thread is with OSI alone. */
+export const startMyThreadFn = createServerFn({ method: "POST" })
+  .inputValidator(
+    z.object({
+      dealId: z.string().min(1).max(100),
+      subject: z.string().trim().min(2).max(160),
+      body: messageBody,
+    }),
+  )
+  .handler(async ({ data }): Promise<DossierWriteResult> => {
+    const who = await caller();
+    if (!who) return { ok: false, reason: "not_found" };
+    const { createThread } = await import("@/server/dossier");
+    return createThread({ kind: "supplier", ...who }, data.dealId, { ...data, parties: [] });
+  });
+
+/** Answer in a thread the caller's supplier is in. */
+export const postMyMessageFn = createServerFn({ method: "POST" })
+  .inputValidator(z.object({ threadId: z.string().min(1).max(100), body: messageBody }))
+  .handler(async ({ data }): Promise<DossierWriteResult> => {
+    const who = await caller();
+    if (!who) return { ok: false, reason: "not_found" };
+    const { postMessage } = await import("@/server/dossier");
+    return postMessage({ kind: "supplier", ...who }, data.threadId, data.body);
   });

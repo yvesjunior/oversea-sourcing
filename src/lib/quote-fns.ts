@@ -1248,6 +1248,19 @@ export const acceptQuoteFn = createServerFn({ method: "POST" })
             createdBy: caller.userId,
             createdByName: caller.userName,
           });
+          // Who is ON the dossier (V25): the buyer's workspace, OSI and the
+          // supplier, from its first instant — the Transaction Room shows
+          // each its own slice, and a slice is defined by these rows.
+          const { openParties } = await import("@/server/dossier");
+          await openParties(
+            {
+              id: dealId,
+              organizationId: caller.workspaceId,
+              supplierId: quote.supplierId,
+              supplierName: quote.supplierName,
+            },
+            tx,
+          );
 
           // The match enum has carried `selected`/`rejected` since day one and
           // nothing ever set them. This is what they were for.
@@ -1288,6 +1301,14 @@ export const acceptQuoteFn = createServerFn({ method: "POST" })
         supplier: quote.supplierName,
         requestId: quote.requestId,
       });
+
+      // THE DISCLOSURE (decision D6). Until now the supplier has read a
+      // specification and never who is buying. The deal is open: from here
+      // the supplier's page of the dossier names the buyer. Done as its own
+      // step, on purpose — the name appears because this line ran, not
+      // because some query happened to join the workspace table.
+      const { discloseBuyer } = await import("@/server/dossier");
+      await discloseBuyer(dealId, null);
 
       // Tell the suppliers (V17): the one retained, and each one that was
       // not — that it was not, and nothing else. After the commit and never

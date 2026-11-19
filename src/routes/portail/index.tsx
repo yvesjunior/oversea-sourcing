@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
-import { getMyRfqsFn, type PortalRfqSummary } from "@/lib/portal-fns";
+import { DossierList } from "@/components/osi/DossierList";
+import { getMyDossiersFn, getMyRfqsFn, type PortalRfqSummary } from "@/lib/portal-fns";
 import { formatDeadline } from "@/lib/rfq-mail";
 import { cn } from "@/lib/utils";
 
@@ -12,7 +13,10 @@ import { cn } from "@/lib/utils";
 // to a supplier; the page says so rather than showing an empty list, because
 // "nothing was sent to you" and "you answer for nobody" are different facts.
 export const Route = createFileRoute("/portail/")({
-  loader: async () => ({ rfqs: await getMyRfqsFn() }),
+  loader: async () => {
+    const [rfqs, dossiers] = await Promise.all([getMyRfqsFn(), getMyDossiersFn()]);
+    return { rfqs, dossiers: dossiers ?? [] };
+  },
   head: () => ({ meta: [{ title: "Portail fournisseur | OSI" }] }),
   component: PortalHome,
 });
@@ -26,7 +30,7 @@ const STATE_STYLE: Record<PortalRfqSummary["state"], string> = {
 
 function PortalHome() {
   const { t, i18n } = useTranslation();
-  const { rfqs } = Route.useLoaderData();
+  const { rfqs, dossiers } = Route.useLoaderData();
   const locale = i18n.language === "en" ? "en" : "fr";
 
   if (rfqs === null) {
@@ -43,6 +47,9 @@ function PortalHome() {
 
   return (
     <section className="space-y-4">
+      {/* The dossiers an accepted offer opened (V25) — above the RFQs: they
+          are what is in motion. */}
+      <DossierList dossiers={dossiers} to="/portail/transaction/$id" />
       <h1 className="font-display text-xl font-semibold">{t("portal.homeTitle")}</h1>
       {rfqs.length === 0 ? (
         <p className="card-surface p-6 text-sm text-muted-foreground">{t("portal.homeEmpty")}</p>

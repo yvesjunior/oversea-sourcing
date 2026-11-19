@@ -60,8 +60,9 @@ const items: NavItem[] = [
   { key: "soumissions", url: "/soumissions", icone: ClipboardList },
   // Live since P4 (2026-08-29) — the contract centre.
   { key: "contrats", url: "/contrats", icone: FileSignature },
-  // Ex-"transactions": renamed per the brief; still the showcase route.
-  { key: "commandes", url: "/commandes", icone: Package, disabled: true },
+  // Live since V25 (2026-11-19): the dossiers an accepted offer opens, each
+  // with its Transaction Room. The route kept its first name.
+  { key: "commandes", url: "/transactions", icone: Package },
   // Live since P8's first slice (2026-09-12): offer paperwork uploaded against
   // a quote lands here. The fuller vocabulary (invoices, customs, B/L) arrives
   // with the phases that produce those documents.

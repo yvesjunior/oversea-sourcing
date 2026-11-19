@@ -343,7 +343,8 @@ export const getRecentActivityFn = createServerFn({ method: "GET" }).handler(
         id: row.id,
         type: row.type,
         subject: row.title,
-        link: `/contrats`,
+        // The dossier's own page since V25.
+        link: `/dossiers/${row.dealId}`,
         at: row.at.toISOString(),
         params: eventParams(row.message),
       })),

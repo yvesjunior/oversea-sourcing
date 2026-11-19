@@ -24,7 +24,7 @@
 | **E9** Notifications | In-app + email | 🟡 bell, emitters, **prefs (2026-08-26)** live; Phase P types (`quote_received`, `contract_to_sign`, `contract_signed`) + staff alert on `quotes.requested` (2026-09-07) live; **the bell alerts (2026-09-14)** — count badge, 30 s poll, chime, per-browser mute |
 | **E10** Admin surfaces | Verification, imports, ops queue | 🟡 **verification LIVE (S5b/S5c, 2026-08-26)**; imports/ops queue placeholders |
 | **R** Custom staff roles | Roles as data + the matrix | ✅ **BUILT 2026-08-29** (migration 0039) — create/delete roles, dynamic matrix, `requests.all` |
-| **E13** V6 architecture | Supplier portal · KPI #2 · Partner Hub · Decision Pack | 🔵 **NEW 2026-10-21** — scope opened by the V6 document; diagrams validated 2026-11-14; **34 tasks in seven slices — [Phase V](#phase-v--the-v6-parcours-task-by-task-e13--written-2026-11-14)**; **V01, V02, V04–V11 built 2026-11-14** (settings, contacts, states, fork + shortlist, RFQ batch, window closing, typed answer time + channel, KPI #2 v1, the Decision Pack record, the release queue); V01–V11 **live on prod — V01–V09 since deploy #45 (2026-11-14), V10–V11 since deploy #47 (2026-11-18) — with the pack-flow switch OFF**; **V12–V14 built 2026-11-18** (the buyer's pack page, choosing from it, automatic release built and switched off + the review report) — **slice 1 (V04–V14) is complete** — **live on prod since deploy #48 (2026-11-18), pack flow off, release manual**; **V18–V20 built 2026-11-18** (the clarification, behind `AI_CHAT`, off; the cahier des charges and the KPI profile as versioned records; the buyer's validation before any search, behind `flow.spec_validation`, ON by default) — **slice 3 complete**; **V03 and V15–V17 built 2026-11-18** (external accounts: a supplier is not a customer; the RFQ link that creates a supplier account; the portal where they answer, decline and attach; what suppliers are told and the response funnel) — **slice 2 complete**; **V21–V23 built 2026-11-18** (partners and their adapter; cases opened on an offer and the figures partners add to it; the Partner Hub where a partner's person answers) — **V15–V23 and V03 live on prod since deploy #49 (2026-11-18)**; **V24 built 2026-11-19** (KPI #2 on landed cost per unit, stored exchange rates) — **slice 4 complete**, on `main`, not deployed |
+| **E13** V6 architecture | Supplier portal · KPI #2 · Partner Hub · Decision Pack | 🔵 **NEW 2026-10-21** — scope opened by the V6 document; diagrams validated 2026-11-14; **34 tasks in seven slices — [Phase V](#phase-v--the-v6-parcours-task-by-task-e13--written-2026-11-14)**; **V01, V02, V04–V11 built 2026-11-14** (settings, contacts, states, fork + shortlist, RFQ batch, window closing, typed answer time + channel, KPI #2 v1, the Decision Pack record, the release queue); V01–V11 **live on prod — V01–V09 since deploy #45 (2026-11-14), V10–V11 since deploy #47 (2026-11-18) — with the pack-flow switch OFF**; **V12–V14 built 2026-11-18** (the buyer's pack page, choosing from it, automatic release built and switched off + the review report) — **slice 1 (V04–V14) is complete** — **live on prod since deploy #48 (2026-11-18), pack flow off, release manual**; **V18–V20 built 2026-11-18** (the clarification, behind `AI_CHAT`, off; the cahier des charges and the KPI profile as versioned records; the buyer's validation before any search, behind `flow.spec_validation`, ON by default) — **slice 3 complete**; **V03 and V15–V17 built 2026-11-18** (external accounts: a supplier is not a customer; the RFQ link that creates a supplier account; the portal where they answer, decline and attach; what suppliers are told and the response funnel) — **slice 2 complete**; **V21–V23 built 2026-11-18** (partners and their adapter; cases opened on an offer and the figures partners add to it; the Partner Hub where a partner's person answers) — **V15–V23 and V03 live on prod since deploy #49 (2026-11-18)**; **V24 built 2026-11-19** (KPI #2 on landed cost per unit, stored exchange rates) — **slice 4 complete**; **V25 built 2026-11-19** (the Transaction Room: one dossier, four readers) — both on `main`, not deployed |
 | **E11** Settings | Profile, sourcing rules | 🟡 Paramètres + notification prefs live; **password / 2FA / theme / rename (2026-08-27)** live; buyer Abonnement self-service waits for billing |
 
 **MVP1 = E0–E7 + E10.** Definition of done **restated 2026-08-29 by ADR-002**
@@ -40,9 +40,12 @@ tracked to delivery** — with the PDF report available throughout.
 
 **Prod = `dc0964b` (deploy #49, 2026-11-18)** — Phase V tasks V01–V23:
 slices 1, 2 and 3 complete, slice 4 up to V23. **`main` is ahead of prod by
-one task, NOT deployed: V24** (KPI #2 on landed cost; migration **0063**,
-additive — two nullable columns). Deploying it changes no ranking on prod:
-prod holds no round, no partner figure and no pack. Deploy #49 carried eleven tasks at once — V18, V19, the search-model
+two tasks, NOT deployed: V24** (KPI #2 on landed cost; migration **0063**,
+additive — two nullable columns) **and V25** (the Transaction Room;
+migration **0064**, additive — three tables, seven nullable or defaulted
+columns). Deploying them changes no ranking on prod (no round, no partner
+figure, no pack) and opens no dossier (prod holds no deal); what a user
+sees is « Commandes » enabled in the menu, leading to an empty list. Deploy #49 carried eleven tasks at once — V18, V19, the search-model
 fix, V20, V03, V15, V16, V17, V21, V22, V23 — and eight additive migrations
 (**0055–0062**). In one line each: the assistant on a draft (behind `AI_CHAT`,
 `false` on prod, so invisible); the specification and the weights as
@@ -4377,7 +4380,7 @@ report, exactly as today, because that report is all they get.
 | ~~**D3**~~ | ~~Who presses send on the RFQs — staff, or the platform as soon as KPI #1 finishes?~~ | ✅ **Decided 2026-11-14: staff.** They confirm the shortlist and send the whole batch in one act. | V05, V06 |
 | ~~**D4**~~ | ~~The window is per request or per supplier (README §2c).~~ | ✅ **Decided 2026-11-14: per round.** One clock, started when the batch leaves; every supplier in the round shares its deadline. | V06, V07 |
 | **D5** | On relaunch, do offers already held survive, and whose clock restarts? | They survive; a new round has its own clock, for the suppliers newly asked only. **Built as this default in V11 (2026-11-14)** — and one thing follows from it that is worth confirming: the offer TARGET counts what the request holds across rounds, so two offers kept plus three new ones close the new window. Still the owner's to confirm. | V11 |
-| **D6** | What does a supplier see of the buyer before a dossier opens? | The specification, never the buyer's name or workspace. Identity is disclosed when the deal opens. | V16 |
+| **D6** | What does a supplier see of the buyer before a dossier opens? | The specification, never the buyer's name or workspace. Identity is disclosed when the deal opens. **Built in V25 (2026-11-19) as an explicit step: `discloseBuyer` sets `deal.buyer_disclosed_at`, called by the code that opens a deal; a dossier opened before V25 is disclosed by a staff member's button.** | V16, V25 |
 | **D7** | Offers arrive in different currencies and money is never converted (ADR-002). What does KPI #2 compare? | Landed cost is compared only within one currency; across currencies the pack says so instead of ranking on a rate nobody stored. A rate entered by staff or supplied by the settlement partner is stored on the pack when one exists. **Built as this default in V09 (2026-11-14), read strictly: with mixed currencies price is compared for no offer at all, and the ranking rests on the other factors.** **V24 (2026-11-19) built the second half: a staff member stores a rate on the pack (source, date); it is used for its pair in its direction only, never inverted or chained. With rates covering the gap, offers in several currencies are compared in the currency of most of them.** Still the owner's to confirm. | V09, V24 |
 | **D8** | Who sets the KPIProfile weights? | The platform proposes them from the criteria; the buyer adjusts and validates them with the cahier des charges. **Built in V19 (2026-11-18) as far as "the platform proposes": the default profile is the scorers' former constants, written per criterion — it moves no ranking. The buyer adjusting and validating is V20.** | V19, V20 |
 | **D9** | `quote.sent_at` is nullable. What does the window do with an RFQ nobody marked sent? | Such a quote is not in a round and has no clock; the batch send (V06) is the only thing that opens one. | V06 |
@@ -6796,35 +6799,111 @@ specified here so the path is visible, and they absorb Phase P's open tasks
 rather than duplicating them — P7 becomes V27, the rest of P8 lands in V25,
 P10 in V25, P11 in V31.
 
-- [ ] **V25 · The Transaction Room.** *Size L. Step 13. Depends on: V13
-      (V16 and V23 for the external views). Blocks: V26–V30.*
+- [x] **V25 · The Transaction Room — BUILT 2026-11-19** (migration
+      **0064**, not deployed). `src/lib/dossier.ts` (pure: what each of the
+      four readers sees); `src/server/dossier.ts` (the reader → its party →
+      its slice; parties, disclosure, threads, upload plan, file access);
+      `src/lib/dossier-fns.ts` (buyer and staff), four functions each added to
+      `portal-fns.ts` and `partner-portal-fns.ts`; `DossierRoom.tsx`, one
+      component for the four pages; `routes/dossiers/$id.tsx`,
+      `routes/portail/transaction.$id.tsx`,
+      `routes/partenaires/transaction.$id.tsx`; `/transactions` is the list
+      and « Commandes » is enabled in the menu; `etapesTransaction` deleted;
+      `/api/dossier-document` (upload), `/api/partner/file/$id` (new),
+      `/api/portal/file/$id` and `/api/files/$id` extended. Tables
+      `deal_party`, `message_thread`, `message`; columns on `document` and
+      `deal`. 952 tests.
 
-      **What it does.** One page per dossier where every party sees its own
+      **As built.**
+      - **A reader's page is defined by its `deal_party` row.** Buyer, OSI
+        and supplier are put on the dossier inside the transaction that opens
+        the deal; a partner when staff add it. Not a party = "no such
+        dossier", for a supplier, a partner and a buyer of another workspace
+        alike.
+      - **The whole dossier is built, then cut down** by `projectDossier`
+        before it leaves the server. See README for the table of who is named
+        to whom.
+      - **The disclosure is a step** (D6): `discloseBuyer`, its own column,
+        its own timeline line, called on purpose by `acceptQuoteFn` after the
+        commit. A dossier opened before V25 gets its parties the first time it
+        is read and is NOT disclosed until a staff member presses the button.
+      - **Threads state who is in them**; OSI is in all and listed in none.
+        Only staff put two sides together. A thread a reader is not in is
+        "not found" to read, to answer and to guess.
+      - **Documents carry their audience** (`shared_with`), the buyer's
+        included: the file sits in the buyer's workspace and `/api/files` and
+        the Documents page now ask the dossier's rule before serving it. A
+        new version is a new row that inherits the audience of the one it
+        replaces.
+      - **The retention sweep** no longer treats a dossier's document as an
+        orphan (it hangs from a deal, not from a request or a quote).
+
+      **Found in the live run and fixed.** (1) A partner writing in a thread
+      staff had shared with the supplier was shown « Participants : OSI,
+      Transit Boréal » — nothing said a third party read it. A reader is now
+      told THAT others are there (« 1 autre partie du dossier ») even when not
+      told who; same for a document. (2) An external account calling a
+      workspace-only route got a 500 (the session getter throws for it);
+      `/api/files/$id` now answers 404 and `/api/dossier-document` 403.
+
+      **Acceptance, as tests** (`dossier.test.ts`, 27): one dossier, four
+      projections, no two alike; the carrier's page holds no price, no buyer,
+      no supplier; a buyer–OSI thread is absent from the supplier's page; a
+      version chain keeps every earlier file's address and stops at a version
+      the reader was never given. `external-access.test.ts`: every dossier
+      read resolves the reader's party first and returns the projection; the
+      partner's routes use the partner guard and never name the supplier's.
+
+      *Verified live in dev, with four real accounts on one dossier* (pack
+      approved → buyer accepted an offer → deal): three parties and the
+      disclosure line written at opening; a buyer refused adding a partner
+      and disclosing; staff added a carrier and an inspector, the same one
+      twice → `already_party`; five uploads with different audiences, one
+      new version; a bad audience → 409, a text file → 415; threads with the
+      buyer, with the supplier, with supplier + carrier, with nobody →
+      `bad_parties`. Then each account: **buyer** — partners listed without a
+      name, 2 documents of 4, 1 thread of 4, downloads 200/200/404/404/200;
+      **supplier** — no partner, buyer named, 1 document with its earlier
+      version, 2 threads, downloads 200/200/404/404/404, the other dossier
+      `null`, a foreign thread `not_found`; **carrier** — OSI and itself,
+      five facts and no price, 1 document, 1 thread, downloads
+      404/404/404/200/404. Each side's download route refused the other
+      sides (401). No name, price or subject of another slice in either
+      external page. The pre-V25 dossier: parties created on first read, not
+      disclosed, disclosed by the staff button, idempotent.
+
+      **Not exercised live:** the inspector's page (unit-tested); a closed
+      dossier refusing exchanges; a workspace *viewer*; the upload forms
+      through the browser's file picker (uploads were posted to the route
+      from the page's own session); the Documents page's new filter.
+      **Deviations and limits.** `document.contract_id` is not added — V26
+      writes it. No upload by a supplier or a partner yet (V27–V29). No
+      notification or email on a new message. A party cannot be removed. In a
+      shared thread a participant's ROLE shows on its messages (« Carrier »),
+      which tells a supplier that a carrier is on the dossier although the
+      parties list does not — staff decide who shares a thread. `quantity`
+      is free text on the offer and often empty.
+
+      ~~**What it does.** One page per dossier where every party sees its own
       slice: the parties, the retained offer, the documents, the exchanges.
-
-      **Schema.** `deal_party` — `deal_id`, `role` (the
-      `CONTRACT_PARTY_ROLES` vocabulary), `supplier_id` / `partner_id` /
-      `organization_id` (nullable, with name snapshots). `document.deal_id`
-      and `document.contract_id`, `document.version` + `supersedes_id`, and
-      the kinds the later tasks produce — each added by the task that writes
-      it. `message_thread` + `message` (P10), scoped to a deal and to the
-      parties in the thread.
-
+      **Schema.** `deal_party` — `deal_id`, `role` (the `CONTRACT_PARTY_ROLES`
+      vocabulary), `supplier_id` / `partner_id` / `organization_id` (nullable,
+      with name snapshots). `document.deal_id` and `document.contract_id`,
+      `document.version` + `supersedes_id`, and the kinds the later tasks
+      produce — each added by the task that writes it. `message_thread` +
+      `message` (P10), scoped to a deal and to the parties in the thread.
       **Files.** New `src/routes/dossiers/$id.tsx` for buyer and staff, with
       the portal and Partner Hub reading the same data through their own
       guards. `/transactions` becomes the list of dossiers and
-      `etapesTransaction` in `src/data/osi.ts` is deleted.
-
-      **Acceptance.** Buyer, staff, supplier and a partner each open the same
-      dossier and see four different pages. A thread between buyer and staff
-      is invisible to the supplier. Uploading a new version keeps the old one
-      readable.
-
+      `etapesTransaction` in `src/data/osi.ts` is deleted. **Acceptance.**
+      Buyer, staff, supplier and a partner each open the same dossier and see
+      four different pages. A thread between buyer and staff is invisible to
+      the supplier. Uploading a new version keeps the old one readable.
       **Gotcha.** P10 said external parties "never get an account"; that line
       is superseded by slice 2, and a thread now has to state who is in it.
       Disclosing the buyer's identity to the supplier happens **here**, when
       the deal opens (D6) — make it an explicit step in the code, not a side
-      effect of a join.
+      effect of a join.~~
 
 - [ ] **V26 · Contracts: the supplier signs in the platform.** *Size M. Step
       14. Depends on: V16, V25.*

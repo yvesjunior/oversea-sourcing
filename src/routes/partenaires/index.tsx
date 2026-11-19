@@ -1,7 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import { formatDay } from "@/lib/instant";
-import { getHubCasesFn, type HubCaseSummary } from "@/lib/partner-portal-fns";
+import { DossierList } from "@/components/osi/DossierList";
+import { getHubCasesFn, getHubDossiersFn, type HubCaseSummary } from "@/lib/partner-portal-fns";
 import { cn } from "@/lib/utils";
 
 // The Partner Hub's home (Phase V · V23): the cases addressed to the caller's
@@ -13,7 +14,10 @@ import { cn } from "@/lib/utils";
 // list, because "nothing was asked of you" and "you answer for nobody" are
 // different facts.
 export const Route = createFileRoute("/partenaires/")({
-  loader: async () => ({ cases: await getHubCasesFn() }),
+  loader: async () => {
+    const [cases, dossiers] = await Promise.all([getHubCasesFn(), getHubDossiersFn()]);
+    return { cases, dossiers: dossiers ?? [] };
+  },
   head: () => ({ meta: [{ title: "Partner Hub | OSI" }] }),
   component: HubHome,
 });
@@ -26,7 +30,7 @@ const STATUS_STYLE: Record<HubCaseSummary["status"], string> = {
 
 function HubHome() {
   const { t, i18n } = useTranslation();
-  const { cases } = Route.useLoaderData();
+  const { cases, dossiers } = Route.useLoaderData();
 
   if (cases === null) {
     return (
@@ -43,6 +47,8 @@ function HubHome() {
 
   return (
     <section className="space-y-4">
+      {/* The dossiers OSI put this partner on (V25). */}
+      <DossierList dossiers={dossiers} to="/partenaires/transaction/$id" />
       <h1 className="font-display text-xl font-semibold">{t("partnerHub.homeTitle")}</h1>
       {cases.length === 0 ? (
         <p className="card-surface p-6 text-sm text-muted-foreground">

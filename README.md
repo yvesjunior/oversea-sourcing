@@ -1514,6 +1514,61 @@ account cannot open `/portail`, and each is behind its own guard.
 - **What they are told.** When a case is opened, the partner's people who
   have an account get an email with the reference and the kind, nothing else.
 
+### The Transaction Room — one dossier, four readers (V25)
+
+When a buyer accepts an offer a **dossier** opens (`deal`). Since 2026-11-19
+it has a page — the Transaction Room — and the four parties each open it and
+read a different page: the buyer and OSI's staff at `/dossiers/$id` (the
+list is `/transactions`, « Commandes » in the menu), the supplier at
+`/portail/transaction/$id`, a partner at `/partenaires/transaction/$id`.
+
+**Who is on a dossier is a row** (`deal_party`): the buyer's workspace, OSI
+and the supplier from the instant the deal opens; a partner when staff put it
+there. A reader's page is defined by its party — the documents shared with
+it, the threads it is in. A supplier that is not a party, a partner that was
+never added, a buyer of another workspace: all read "no such dossier".
+
+**The server builds the whole dossier and cuts it down before it leaves**
+(`projectDossier`, `src/lib/dossier.ts`). What each reader gets:
+
+| | Parties named | The offer | Documents and threads |
+| --- | --- | --- | --- |
+| **Staff** | everyone | yes | all of them |
+| **Buyer** | OSI, the supplier; a partner by what it does (« Transport — partenaire d'OSI »), not by name | yes | those shared with / including the buyer |
+| **Supplier** | OSI; the buyer **once disclosed**; no partner | its own | those shared with / including it |
+| **Partner** | OSI; the supplier only for an inspection; never the buyer | no — what its kind of work needs (`partner-need.ts`) | those shared with / including it |
+
+- **The buyer's identity is disclosed by a step, not by a join** (decision
+  D6). `discloseBuyer` sets `deal.buyer_disclosed_at` and writes a line on
+  the dossier's timeline; the code that opens a deal calls it on purpose.
+  Until then the supplier's page says « Client d'OSI ». A dossier opened
+  before V25 is not disclosed until a staff member presses the button.
+- **A thread states who is in it** (`message_thread.parties`). OSI is in
+  every thread and is never listed. Only staff put two sides in one
+  conversation; every other side's thread is with OSI alone. A thread a
+  reader is not in does not exist for it — reading, answering, or guessing
+  its address.
+- **A document is read by staff and by the parties it is shared with**
+  (`document.shared_with`) — the buyer included, although the file sits in
+  the buyer's workspace: `/api/files` and the Documents page ask the same
+  rule. Staff choose the audience; a buyer's upload is the buyer's.
+- **A new version is a new row.** It points at the one it replaces
+  (`supersedes_id`), inherits its audience, and nothing is overwritten: the
+  earlier file stays downloadable at its own address.
+- **Nobody but staff reads a person's name from another side**: a message
+  says which party spoke. And a reader is told *that* other parties read a
+  thread or a document even when not told who — « 1 autre partie du
+  dossier » — so a shared conversation is never taken for a private one.
+
+Each side downloads through its own route, behind its own guard:
+`/api/files/$id` (workspace), `/api/portal/file/$id` (supplier),
+`/api/partner/file/$id` (partner). Uploads are staff's and the buyer's in
+this version (`/api/dossier-document`).
+
+**Not built:** uploads by a supplier or a partner (they come with the tasks
+that give them something to upload, V27–V29); a notification or an email on
+a new message; removing a party; the dossier's milestones (V27).
+
 ## 2 · How a request works
 
 ```
@@ -3328,6 +3383,9 @@ erDiagram
 | `deal` / `deal_event` | ✅ P1 — the dossier de transaction opened by ONE acceptance; amount/currency/incoterm snapshots; two-act closure (`reviewed` before `closed`); `decision_pack_id` (0054, Phase V · V13) — the pack the offer was chosen from, null on the report flow |
 | `contract` / `contract_party` / `contract_event` | ✅ P1/P5/P6 — text frozen in `content` at draft time; parties are ROWS with name snapshots; the permanent signature trail (never purged, unlike `audit_log`) |
 | `document`           | ✅ 2026-09-12 (P8 slice 1, 0041) — the typed row over `file` (kind `offer\|other`, hangs from a quote and/or request); `orphaned_at` (0042) drives the 36-month retention sweep |
+| `deal_party`         | ✅ 2026-11-19 (0064, Phase V · V25) — who is ON a dossier: `deal_id`, `role` (the contracts' vocabulary — buyer · osi · supplier · carrier · customs_broker · inspector · other), one of `organization_id` / `supplier_id` / `partner_id` (OSI's row has none), `name` snapshot, `added_by` + name. A partner is on a dossier once (partial unique index). A reader's slice of the dossier is defined by its row |
+| `message_thread` / `message` | ✅ 2026-11-19 (0064, V25) — an exchange on a dossier. `message_thread.parties` (jsonb) lists the `deal_party` ids in it; OSI is in every thread and never listed. `message`: author tombstone + name snapshot, `author_role`, `author_party_id` (null for OSI) |
+| `document` (V25 columns) | ✅ 2026-11-19 (0064) — `deal_id`, `shared_with` (jsonb: the parties that may read it — the buyer included only when listed), `version` + `supersedes_id` (a new version is a new row), `label`; kind `dossier`. `deal.buyer_disclosed_at` + `buyer_disclosed_by_name` (0064): decision D6's disclosure, null until the step is taken |
 
 **Not yet built:** `order_milestone` (P7), `payment` (P9), `message_thread`
 (P10), and the supplier satellites (capabilities, certifications, contacts,
