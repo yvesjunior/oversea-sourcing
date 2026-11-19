@@ -34,7 +34,21 @@ export type RfqMailInput = {
   closesAt: Date;
   /** The person, when known; the company name otherwise. */
   greetingName: string | null;
+  /**
+   * This recipient's personal link to the supplier portal (V15): it opens a
+   * free account for them and is where they answer. Absent → the email asks
+   * for an answer by reply only, as it did before the portal.
+   *
+   * The link is different for every recipient, so the preview staff read
+   * before sending carries `PORTAL_LINK_PLACEHOLDER` in its place — the one
+   * part of the email that cannot be byte for byte what leaves.
+   */
+  portalUrl?: string | null;
 };
+
+/** What the preview shows where each recipient's own link will be. */
+export const PORTAL_LINK_PLACEHOLDER =
+  "[lien personnel du destinataire / recipient's personal link]";
 
 export type RfqMail = { subject: string; text: string; html: string };
 
@@ -70,6 +84,10 @@ const COPY = {
     deadline: (when: string) => `Please send your offer by ${when}.`,
     howTitle: "How to answer",
     how: "Reply to this email with:",
+    portalTitle: "Answer online",
+    portal:
+      "Open your free supplier account with the link below and send your offer there. The link is personal to you — please do not forward it.",
+    howAlso: "Or reply to this email with:",
     fields: [
       "Unit price and currency",
       "Quantity quoted and minimum order quantity (MOQ)",
@@ -110,6 +128,10 @@ const COPY = {
     deadline: (when: string) => `Merci de nous transmettre votre offre au plus tard le ${when}.`,
     howTitle: "Comment répondre",
     how: "Répondez à ce courriel en indiquant :",
+    portalTitle: "Répondre en ligne",
+    portal:
+      "Ouvrez votre compte fournisseur gratuit avec le lien ci-dessous et déposez-y votre offre. Ce lien vous est personnel — merci de ne pas le transférer.",
+    howAlso: "Ou répondez à ce courriel en indiquant :",
     fields: [
       "Prix unitaire et devise",
       "Quantité offerte et quantité minimale de commande (MOQ)",
@@ -155,7 +177,7 @@ function criterionLine(criterion: RfqCriterion, locale: ContactLocale): string {
   return `${criterion.label}: ${value}${criterion.unit ? ` ${criterion.unit}` : ""}`;
 }
 
-type Block = { title?: string; lines: string[]; list?: string[] };
+type Block = { title?: string; lines: string[]; list?: string[]; url?: string };
 
 /** One set of blocks, two renderings — so the plain text staff preview and the
  *  HTML a mail client shows can never say different things. */
@@ -165,6 +187,7 @@ function render(blocks: Block[]): { text: string; html: string } {
       [
         ...(block.title ? [block.title.toUpperCase()] : []),
         ...block.lines,
+        ...(block.url ? [block.url] : []),
         ...(block.list ?? []).map((item) => `  - ${item}`),
       ].join("\n"),
     )
@@ -177,6 +200,9 @@ function render(blocks: Block[]): { text: string; html: string } {
         // The description is the buyer's free text — escape it, and keep its
         // line breaks, which is what the plain version shows.
         ...block.lines.map((line) => `<p>${escapeHtml(line).replaceAll("\n", "<br>")}</p>`),
+        // A real anchor: not every mail client turns a bare URL into a link,
+        // and this one is the whole point of the block.
+        block.url ? `<p><a href="${escapeHtml(block.url)}">${escapeHtml(block.url)}</a></p>` : "",
         block.list
           ? `<ul>${block.list.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`
           : "",
@@ -199,7 +225,15 @@ export function buildRfqMail(input: RfqMailInput): RfqMail {
     ...(criteria.length > 0 ? [{ title: copy.criteria, lines: [], list: criteria }] : []),
     ...(description ? [{ lines: [copy.original, description] }] : []),
     { title: copy.deadlineTitle, lines: [copy.deadline(deadline)] },
-    { title: copy.howTitle, lines: [copy.how], list: [...copy.fields] },
+    // With a portal link the online answer comes first and the reply by
+    // email stays as the alternative — both remain, permanently: a supplier
+    // who will not open an account still answers, and staff type it in.
+    ...(input.portalUrl
+      ? [
+          { title: copy.portalTitle, lines: [copy.portal], url: input.portalUrl },
+          { lines: [copy.howAlso], list: [...copy.fields] },
+        ]
+      : [{ title: copy.howTitle, lines: [copy.how], list: [...copy.fields] }]),
     { lines: [copy.attach, copy.decline] },
     { lines: [copy.reference(reference), copy.sign] },
   ];

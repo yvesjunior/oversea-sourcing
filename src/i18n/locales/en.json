@@ -1152,7 +1152,9 @@
     "pack.offer_reasked": "Expired offer asked again from the Decision Pack",
     "pack.auto_released": "Decision Pack sent automatically",
     "request.launched": "Search launched from a draft",
-    "request.validated": "Specification validated — search launched"
+    "request.validated": "Specification validated — search launched",
+    "supplier.account_created": "Supplier account created from an invitation",
+    "supplier.account_attached": "Invitation attached to an existing supplier account"
   },
   "twofa": {
     "title": "Two-step verification",
@@ -1918,5 +1920,51 @@
     "signOut": "Sign out",
     "homeTitle": "Your requests for quotation",
     "homeEmpty": "No request for quotation to show at the moment."
+  },
+  "portalSignup": {
+    "title": "Create your supplier account",
+    "intro": "OSI sent {{supplier}} a request for quotation. Create your account to answer it online and follow your offers.",
+    "email": "Email address",
+    "name": "Your name",
+    "password": "Choose a password",
+    "passwordHint": "At least {{min}} characters.",
+    "submit": "Create my account",
+    "free": "The account is free and active immediately.",
+    "signIn": "Sign in",
+    "attachTitle": "You already have a supplier account",
+    "attachIntro": "An account already exists for {{email}}. Attach this request for quotation for {{supplier}} to it: you will find it when you sign in.",
+    "attachSubmit": "Attach to my account",
+    "attachedTitle": "Done",
+    "attachedText": "{{supplier}} is now attached to your account: sign in to see the request for quotation.",
+    "conflictTitle": "This address already has a customer account",
+    "conflictText": "The address {{email}} is already used by an OSI customer account, which cannot serve as a supplier account. Answer the request for quotation by email, or ask us to send it to another address.",
+    "state": {
+      "unknown": {
+        "title": "This link is not valid",
+        "text": "The link is incomplete or was altered. Open it from the request-for-quotation email, or sign in if you already have an account."
+      },
+      "expired": {
+        "title": "This link has expired",
+        "text": "Invitation links are valid for thirty days. If you already have an account, sign in; otherwise reply to the request-for-quotation email to receive a new one."
+      },
+      "used": {
+        "title": "This link has already been used",
+        "text": "An account was already created or attached with this link. Sign in to find your requests for quotation."
+      },
+      "limited": {
+        "title": "Too many attempts",
+        "text": "Please wait a few minutes before trying again."
+      }
+    },
+    "refused": {
+      "unknown": "This link is not valid.",
+      "expired": "This link has expired.",
+      "used": "This link has already been used.",
+      "conflict": "This address is already used by a customer account.",
+      "no_supplier": "This request for quotation is not attached to a supplier record. Please answer by email.",
+      "weak_password": "The password is too short.",
+      "name_required": "Please enter your name.",
+      "limited": "Too many attempts. Please wait a few minutes."
+    }
   }
 }

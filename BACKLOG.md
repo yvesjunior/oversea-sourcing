@@ -24,7 +24,7 @@
 | **E9** Notifications | In-app + email | 🟡 bell, emitters, **prefs (2026-08-26)** live; Phase P types (`quote_received`, `contract_to_sign`, `contract_signed`) + staff alert on `quotes.requested` (2026-09-07) live; **the bell alerts (2026-09-14)** — count badge, 30 s poll, chime, per-browser mute |
 | **E10** Admin surfaces | Verification, imports, ops queue | 🟡 **verification LIVE (S5b/S5c, 2026-08-26)**; imports/ops queue placeholders |
 | **R** Custom staff roles | Roles as data + the matrix | ✅ **BUILT 2026-08-29** (migration 0039) — create/delete roles, dynamic matrix, `requests.all` |
-| **E13** V6 architecture | Supplier portal · KPI #2 · Partner Hub · Decision Pack | 🔵 **NEW 2026-10-21** — scope opened by the V6 document; diagrams validated 2026-11-14; **34 tasks in seven slices — [Phase V](#phase-v--the-v6-parcours-task-by-task-e13--written-2026-11-14)**; **V01, V02, V04–V11 built 2026-11-14** (settings, contacts, states, fork + shortlist, RFQ batch, window closing, typed answer time + channel, KPI #2 v1, the Decision Pack record, the release queue); V01–V11 **live on prod — V01–V09 since deploy #45 (2026-11-14), V10–V11 since deploy #47 (2026-11-18) — with the pack-flow switch OFF**; **V12–V14 built 2026-11-18** (the buyer's pack page, choosing from it, automatic release built and switched off + the review report) — **slice 1 (V04–V14) is complete** — **live on prod since deploy #48 (2026-11-18), pack flow off, release manual**; **V18–V20 built 2026-11-18** (the clarification, behind `AI_CHAT`, off; the cahier des charges and the KPI profile as versioned records; the buyer's validation before any search, behind `flow.spec_validation`, ON by default) — **slice 3 complete**; **V03 built 2026-11-18** (external accounts: a supplier is not a customer) — on `main`, not deployed |
+| **E13** V6 architecture | Supplier portal · KPI #2 · Partner Hub · Decision Pack | 🔵 **NEW 2026-10-21** — scope opened by the V6 document; diagrams validated 2026-11-14; **34 tasks in seven slices — [Phase V](#phase-v--the-v6-parcours-task-by-task-e13--written-2026-11-14)**; **V01, V02, V04–V11 built 2026-11-14** (settings, contacts, states, fork + shortlist, RFQ batch, window closing, typed answer time + channel, KPI #2 v1, the Decision Pack record, the release queue); V01–V11 **live on prod — V01–V09 since deploy #45 (2026-11-14), V10–V11 since deploy #47 (2026-11-18) — with the pack-flow switch OFF**; **V12–V14 built 2026-11-18** (the buyer's pack page, choosing from it, automatic release built and switched off + the review report) — **slice 1 (V04–V14) is complete** — **live on prod since deploy #48 (2026-11-18), pack flow off, release manual**; **V18–V20 built 2026-11-18** (the clarification, behind `AI_CHAT`, off; the cahier des charges and the KPI profile as versioned records; the buyer's validation before any search, behind `flow.spec_validation`, ON by default) — **slice 3 complete**; **V03 and V15 built 2026-11-18** (external accounts: a supplier is not a customer; the RFQ link that creates a supplier account) — on `main`, not deployed |
 | **E11** Settings | Profile, sourcing rules | 🟡 Paramètres + notification prefs live; **password / 2FA / theme / rename (2026-08-27)** live; buyer Abonnement self-service waits for billing |
 
 **MVP1 = E0–E7 + E10.** Definition of done **restated 2026-08-29 by ADR-002**
@@ -5941,38 +5941,71 @@ built in: **S** one, **M** two to three, **L** four or more.
 
 #### Slice 2 — The supplier portal (step 07, the supplier's lane)
 
-- [ ] **V15 · The invitation link and the account it creates.** *Size L.
-      Depends on: V03, V06. Blocks: V16.*
+- [x] **V15 · The invitation link and the account it creates — BUILT
+      2026-11-18** (migration **0059**, not deployed).
+      `src/lib/portal-invitation.ts` (pure: `invitationState`,
+      `invitationOffer`, the 30-day expiry); `src/server/portal-invitations.ts`
+      (`issueInvitation`, `viewInvitation`, `redeemInvitation`,
+      `withdrawInvitation`); `src/lib/portal-auth-fns.ts`
+      (`getRfqInvitationFn`, `redeemRfqInvitationFn` — public, by token);
+      `src/server/rate-limit.ts` (new); `routes/portail/inscription.$token.tsx`;
+      `rfq-mail.ts` (the link block), `rfq.ts` (one invitation per email,
+      issued just before it leaves); `auth-guard.ts` (`isPublicPath`). Table
+      `rfq_invitation`. 786 tests.
 
-      **What it does.** The RFQ email gains a link; the supplier follows it,
+      **Where the build departs from the task text:** `redeemInvitationFn`
+      "creates … a session" — it does not. The page signs in through
+      better-auth's own `/sign-in/email` with the password just chosen, so
+      there is one way to open a session (its cookies, its rate limit, its
+      journal line), not a second home-made one. And the link is in
+      `src/lib/rfq-mail.ts`, where the mail builder lives, not a new
+      `src/server/rfq-mail.ts`.
+
+      *Verified live in dev on request #3049 (fixture kept for V16, restored
+      after it):*
+      - **The send.** The batch sent from the dossier to three suppliers: three
+        emails in the log, each with its own
+        `/portail/inscription/<token>` link; three `rfq_invitation` rows with
+        a 64-character hash and an expiry 30 days out. The preview showed the
+        placeholder in the link's place. *(This also exercised what V19 could
+        not: the round and the three quotes carry `spec_version` 1.)*
+      - **From the email to a session in one form.** Mei's link → the form in
+        English (her contact's language), her name prefilled, the address
+        fixed → a password → `/portail`, signed in as a `supplier` account,
+        verified, no active workspace. Organisations, memberships and
+        subscriptions unchanged. Invitation marked opened and registered;
+        audit `supplier.account_created`.
+      - **A used link, an expired one, an unknown one** each say so and offer
+        sign-in, with no supplier name and no address.
+      - **A second contact of the same supplier** (Li, on his own link):
+        a second account, the same supplier.
+      - **An existing account with a new invitation** (Mei, invited for
+        another supplier): « Attach to my account » — two `supplier_user`
+        rows, still one account; audit `supplier.account_attached`.
+      - **An address that belongs to a customer:** refused, with the
+        explanation; nothing created.
+      - **The rate limit.** After 30 lookups from one address in the window,
+        the next ones answer « limited », and so does a redemption.
+
+      **Not exercised:** a link whose email failed to leave (the withdrawal);
+      two submissions of the same link at the same instant; the failure of
+      the automatic sign-in after creation; an RFQ sent again to a supplier
+      who already has an account (they get a link, and « attach »); the limiter
+      without Redis; production. **Known and left:** the portal's header stays
+      in the site's language while the form below it is in the contact's.
+
+      ~~**What it does.** The RFQ email gains a link; the supplier follows it,
       sets a password, and has an account — free, and live immediately,
-      because the link is the vouching (owner, 2026-10-25).
-
-      **Schema.** `rfq_invitation` — `quote_id`, `contact_id`, `token_hash`
-      (the token itself is never stored), `expires_at`, `opened_at`,
-      `registered_user_id`, `created_at`.
-
-      **Files.** `src/server/rfq-mail.ts` — the link. New route
-      `src/routes/portail/inscription.tsx` (public, token in the path) and
-      `src/lib/portal-auth-fns.ts` — `redeemInvitationFn`: creates the `user`
-      with `account_type: "supplier"` and `email_verified: true` (reaching
-      the link proves the mailbox), the `supplier_user` row, and a session.
-      `isPublicPath` in `auth-guard.ts`.
-
-      **Acceptance.** A supplier goes from the email to a working session in
-      one form. No approval step, no moderation queue, no plan row. A second
-      contact of the same supplier redeeming their own link joins the same
-      supplier. A used or expired token explains itself and offers sign-in.
-      An existing account using a new invitation is linked, not duplicated.
-
-      **Gotcha.** There is **no unsolicited supplier signup**, and this task
-      must not create one: the public signup form keeps producing buyer
-      accounts only. If an open route is ever wanted, that one needs a human,
-      because nothing vouches for it. Redemption needs its own rate limit:
-      the limiter configured in `auth.ts` (`rateLimit.customRules`) covers
-      better-auth's own endpoints only, not a server fn — so either create
-      the account through `/sign-up/email` carrying the token, or add a rule.
-      Without `REDIS_URL` those counters are in-memory, per container.
+      because the link is the vouching (owner, 2026-10-25). **Schema.**
+      `rfq_invitation` — `quote_id`, `contact_id`, `token_hash`, `expires_at`,
+      `opened_at`, `registered_user_id`, `created_at`. **Acceptance.** A
+      supplier goes from the email to a working session in one form. No
+      approval step, no moderation queue, no plan row. A second contact of the
+      same supplier redeeming their own link joins the same supplier. A used
+      or expired token explains itself and offers sign-in. An existing account
+      using a new invitation is linked, not duplicated. **Gotcha.** There is
+      no unsolicited supplier signup, and this task must not create one.
+      Redemption needs its own rate limit.~~
 
 - [ ] **V16 · The portal: answer, decline, attach.** *Size L. Depends on:
       V08, V15. Blocks: V17.*

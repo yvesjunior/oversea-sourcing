@@ -1591,6 +1591,52 @@ export const KPI_RUN_TRIGGERS = [
 export type KpiRunTrigger = (typeof KPI_RUN_TRIGGERS)[number];
 
 /**
+ * The link that turns an RFQ's reader into a supplier account (Phase V · V15).
+ *
+ * One row per RFQ email that carried a link: which quote it was about, which
+ * contact it was sent to, and what became of it. The link is the vouching —
+ * it was sent to an address OSI holds for that supplier, so whoever opens it
+ * controls that mailbox — and it is what makes "no unsolicited supplier
+ * signup" enforceable: an account can only come from a row here.
+ *
+ * The TOKEN IS NEVER STORED. `token_hash` is its SHA-256; a read of this
+ * table, a backup or a log line gives nobody a working link.
+ *
+ * `opened_at` and `registered_user_id` are also the first two steps of the
+ * response funnel (V17): invited → opened → registered.
+ */
+export const rfqInvitation = pgTable(
+  "rfq_invitation",
+  {
+    id: text("id").primaryKey(),
+    quoteId: text("quote_id")
+      .notNull()
+      .references(() => quote.id, { onDelete: "cascade" }),
+    /** The contact the email went to. Set null if the contact is removed
+     *  later: the invitation's history survives the address book. */
+    contactId: text("contact_id").references(() => supplierContact.id, { onDelete: "set null" }),
+    /** The address the link was sent to, as it was — the account it creates
+     *  gets exactly this email, whatever the contact row says by then. */
+    email: text("email").notNull(),
+    tokenHash: text("token_hash").notNull(),
+    expiresAt: timestamp("expires_at").notNull(),
+    /** First time the link was opened. */
+    openedAt: timestamp("opened_at"),
+    /** The account this invitation created or was attached to. Non-null =
+     *  used: the link no longer registers anyone. */
+    registeredUserId: text("registered_user_id").references(() => user.id, {
+      onDelete: "set null",
+    }),
+    registeredAt: timestamp("registered_at"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("rfq_invitation_token_uq").on(table.tokenHash),
+    index("rfq_invitation_quote_idx").on(table.quoteId),
+  ],
+);
+
+/**
  * KPI #2 results — the ranking of the OFFERS a round closed with (Phase V ·
  * V09). One row per offer per run.
  *

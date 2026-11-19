@@ -196,7 +196,13 @@ export async function contactCounts(): Promise<Map<string, number>> {
   return new Map(rows.map((row) => [row.supplierId, row.n]));
 }
 
-export type PrimaryContact = { email: string; name: string | null; locale: ContactLocale };
+export type PrimaryContact = {
+  /** The contact row — what an RFQ invitation is issued against (V15). */
+  id: string;
+  email: string;
+  name: string | null;
+  locale: ContactLocale;
+};
 
 /** The address an RFQ goes to, per supplier. A supplier absent from the map
  *  has no contact at all and cannot be written to from the platform. */
@@ -212,6 +218,9 @@ export async function primaryContactsFor(
     ),
   });
   return new Map(
-    rows.map((row) => [row.supplierId, { email: row.email, name: row.name, locale: row.locale }]),
+    rows.map((row) => [
+      row.supplierId,
+      { id: row.id, email: row.email, name: row.name, locale: row.locale },
+    ]),
   );
 }

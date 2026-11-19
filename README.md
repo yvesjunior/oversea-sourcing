@@ -1233,6 +1233,46 @@ sent to the portal from anywhere else; a buyer or staff member is sent home
 from the portal. The portal has its own shell — the app's sidebar is not
 theirs.
 
+### How a supplier gets an account — the RFQ link, and nothing else (V15)
+
+Every RFQ email carries a **personal link** (`/portail/inscription/<token>`).
+Following it, the supplier's contact chooses a password and has an account —
+**free, and live immediately**: no approval, no queue, no plan. The link is
+the vouching (owner, 2026-10-25): it was sent to an address OSI holds for that
+supplier, so whoever opens it controls that mailbox. The account is created
+with exactly that address, already verified.
+
+- **One row per link sent** — `rfq_invitation`: the quote, the contact, the
+  address, `expires_at` (30 days), `opened_at`, `registered_user_id`. **The
+  token is never stored**, only its SHA-256; a backup or a log of that table
+  gives nobody a working link. A link whose email did not leave is withdrawn.
+- **What a valid link offers depends on who already holds its address**
+  (`invitationOffer`): nobody → the form creates a supplier account; a
+  supplier account → the invitation is **attached** to it, no second account;
+  a customer account → refused and explained (an account's type never changes,
+  so OSI must send the RFQ to another address).
+- **A second contact of the same supplier**, redeeming their own link, joins
+  the same supplier: two accounts, one `supplier_id`.
+- A used, expired or unknown link says which and offers sign-in. It shows no
+  supplier name and no address — a link that does not work confirms nothing.
+- The form is shown **in the contact's language**, the one the RFQ was
+  written in, not the site's default.
+- The session is opened by better-auth's own sign-in with the password just
+  chosen — one way of opening a session, not two.
+- Both functions are public, authorised by the token, and **rate limited by
+  caller address** (30 per ten minutes, `src/server/rate-limit.ts` — Redis
+  when `REDIS_URL` is set, per-process memory otherwise, fail-open like
+  better-auth's own limiter).
+
+**There is no supplier signup form.** `createExternalAccount` is called from
+`src/server/portal-invitations.ts` and nowhere else, and a test fails if a
+second caller appears. The reply by email stays, permanently: the RFQ lists
+the figures to send back, and staff type in an answer that arrives that way.
+
+The preview staff read before sending shows a placeholder where each
+recipient's own link will be — the one part of the email that cannot be byte
+for byte what leaves.
+
 ## 2 · How a request works
 
 ```
@@ -3027,6 +3067,7 @@ erDiagram
 | `request_spec`       | ✅ 2026-11-18 (0056, Phase V · V19) — the cahier des charges, versioned and immutable: `request_id`, `version`, `content` (`SpecContent`: the criteria as structure AND the same thing as text), `fingerprint` (what "the spec changed" means), `created_by` + name snapshot (null = the system). Unique on `(request_id, version)`. Same migration: `spec_version` on `rfq_round`, `quote`, `match`, `kpi_result`, and `profile_version` on the last two |
 | `kpi_profile`        | ✅ 2026-11-18 (0056, V19) — one request's weights for both scorers, versioned: `weights` (`KpiProfileWeights`), `source` (`default` · `buyer`), `fingerprint`. The default is the scorers' former constants, so it moves no ranking |
 | `supplier_user`      | ✅ 2026-11-18 (0058, Phase V · V03) — which supplier(s) an EXTERNAL account answers for: `user_id`, `supplier_id` (unique pair), `created_via` (`invitation` — the only value; there is no unsolicited supplier signup). The whole of a supplier account's authority: `requireSupplierSession` returns these ids and every portal query is filtered by them. `user.account_type` gains the values `supplier` and `partner` (text column, no migration) |
+| `rfq_invitation`     | ✅ 2026-11-18 (0059, Phase V · V15) — one row per RFQ email that carried a portal link: `quote_id`, `contact_id`, `email` (as sent), `token_hash` (SHA-256 — **the token is never stored**), `expires_at` (30 days), `opened_at`, `registered_user_id` + `registered_at`. The only way a supplier account comes to exist, and the first two steps of the response funnel (V17) |
 | `criterion_proposal` | ✅ 2026-11-18 (0055, Phase V · V18) — a criteria change the assistant PROPOSED: `op` (`add` · `update` · `remove`), the full criterion an accept would leave, `previous` / `previous_required` (what an update replaces), `status` (`pending` · `accepted` · `dismissed` · `stale` · `superseded`), who answered and their name as it was. `criterion_id` is deliberately not a foreign key: the proposal outlives a criterion deleted by hand, to say `stale`. Same migration: `request_message.questions` (jsonb) — what the assistant asked on a turn; non-null is what counts a turn against the request's six |
 | `kpi_result`         | ✅ 2026-11-14 (0051, Phase V · V09) — KPI #2: one row per offer per run. `run_id` groups a computation; `rank`, `score` (hundredths of a point), `breakdown` (per-factor state, points and weight, the notes, and the offer exactly as it was scored), `formula_version`, `inputs_hash`, `trigger`, `computed_at`. **Append-only** — the current ranking of a round is its latest run. KPI #1 is not here: it scores a supplier before anyone is asked and stays on `match` |
 | `platform_setting`   | ✅ 2026-11-14 (0046, Phase V · V01) — platform-wide settings, ONE value per key for every client; a missing row means the default. Keys, types, ranges and defaults live in the registry `src/lib/platform-settings.ts`, so a new knob is a registry entry and not a migration. Edited from `/interne/parametres` (`settings` permission, owner by default); every change is in `audit_log` with the old and new value |

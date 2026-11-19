@@ -10,7 +10,12 @@
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { EXTERNAL_AWARE_MODULES, EXTERNAL_FNS, PUBLIC_FNS } from "@/lib/external-access";
+import {
+  EXTERNAL_ACCOUNT_CREATORS,
+  EXTERNAL_AWARE_MODULES,
+  EXTERNAL_FNS,
+  PUBLIC_FNS,
+} from "@/lib/external-access";
 
 function sourceFiles(dir: string, found: string[] = []): string[] {
   for (const entry of readdirSync(dir)) {
@@ -149,6 +154,22 @@ describe("the unguarded session getter stays where it was put", () => {
       ({ file, text }) => file !== "src/server/auth.ts" && /\brawAuth\b|betterAuth\(/.test(text),
     ).map(({ file }) => file);
     expect(offenders).toEqual([]);
+  });
+});
+
+describe("there is one way to become a supplier", () => {
+  // No unsolicited supplier signup (V15): an external account comes from an
+  // RFQ invitation, and from nothing else.
+  it("lets only the invitation module create an external account", () => {
+    const callers = SOURCES.filter(({ file }) => file !== "src/lib/external-access.ts")
+      .filter(({ text }) => /\bcreateExternalAccount\b/.test(text))
+      .map(({ file }) => file);
+    expect(callers.sort()).toEqual([...EXTERNAL_ACCOUNT_CREATORS].sort());
+  });
+
+  it("keeps the public signup to buyer accounts", () => {
+    const auth = SOURCES.find(({ file }) => file === "src/server/auth.ts")!.text;
+    expect(auth).toContain('if (accountType !== "individual" && accountType !== "organization") {');
   });
 });
 

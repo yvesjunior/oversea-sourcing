@@ -196,3 +196,46 @@ describe("the closing notice after a refusal", () => {
     );
   });
 });
+
+// V15 — the link that opens a supplier account.
+describe("the portal link", () => {
+  const url = "https://osi-solutions.com/portail/inscription/Tk9-abc_123";
+
+  it("is absent when no link is given, and the email asks for a reply as before", () => {
+    const mail = buildRfqMail(base);
+    expect(mail.text).toContain("HOW TO ANSWER");
+    expect(mail.text).toContain("Reply to this email with:");
+    expect(mail.text).not.toContain("ANSWER ONLINE");
+    expect(mail.text).not.toContain("/portail/");
+  });
+
+  it("comes first when given, and keeps the reply by email as the alternative", () => {
+    const mail = buildRfqMail({ ...base, portalUrl: url });
+    expect(mail.text).toContain(`ANSWER ONLINE\n`);
+    expect(mail.text).toContain(url);
+    expect(mail.text).toContain("Or reply to this email with:");
+    expect(mail.text.indexOf("ANSWER ONLINE")).toBeLessThan(mail.text.indexOf("Or reply"));
+    // Both ways stay: the fields to send by email are still listed.
+    expect(mail.text).toContain("Unit price and currency");
+  });
+
+  it("is a real link in the HTML version, with the address escaped", () => {
+    const mail = buildRfqMail({ ...base, portalUrl: `${url}?a=1&b=2` });
+    expect(mail.html).toContain(`<a href="${url}?a=1&amp;b=2">${url}?a=1&amp;b=2</a>`);
+  });
+
+  it("is said in the recipient's language", () => {
+    const mail = buildRfqMail({ ...base, locale: "fr", portalUrl: url });
+    expect(mail.text).toContain("RÉPONDRE EN LIGNE");
+    expect(mail.text).toContain("Ou répondez à ce courriel en indiquant :");
+  });
+
+  it("does not put the buyer, the supplier or an address in the link block", () => {
+    const mail = buildRfqMail({ ...base, portalUrl: url });
+    const block = mail.text.slice(
+      mail.text.indexOf("ANSWER ONLINE"),
+      mail.text.indexOf("Or reply"),
+    );
+    expect(block).not.toContain("@");
+  });
+});

@@ -45,6 +45,7 @@ import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiFilesIdRouteImport } from './routes/api/files/$id'
 import { Route as DemandesIdPackRouteImport } from './routes/demandes/$id_.pack'
 import { Route as DemandesIdRapportRouteImport } from './routes/demandes/$id_.rapport'
+import { Route as PortailInscriptionTokenRouteImport } from './routes/portail/inscription.$token'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -226,6 +227,11 @@ const DemandesIdRapportRoute = DemandesIdRapportRouteImport.update({
   path: '/demandes/$id/rapport',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PortailInscriptionTokenRoute = PortailInscriptionTokenRouteImport.update({
+  id: '/portail/inscription/$token',
+  path: '/portail/inscription/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -264,6 +270,7 @@ export interface FileRoutesByFullPath {
   '/api/files/$id': typeof ApiFilesIdRoute
   '/demandes/$id/pack': typeof DemandesIdPackRoute
   '/demandes/$id/rapport': typeof DemandesIdRapportRoute
+  '/portail/inscription/$token': typeof PortailInscriptionTokenRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -302,6 +309,7 @@ export interface FileRoutesByTo {
   '/api/files/$id': typeof ApiFilesIdRoute
   '/demandes/$id/pack': typeof DemandesIdPackRoute
   '/demandes/$id/rapport': typeof DemandesIdRapportRoute
+  '/portail/inscription/$token': typeof PortailInscriptionTokenRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -341,6 +349,7 @@ export interface FileRoutesById {
   '/api/files/$id': typeof ApiFilesIdRoute
   '/demandes/$id_/pack': typeof DemandesIdPackRoute
   '/demandes/$id_/rapport': typeof DemandesIdRapportRoute
+  '/portail/inscription/$token': typeof PortailInscriptionTokenRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -381,6 +390,7 @@ export interface FileRouteTypes {
     | '/api/files/$id'
     | '/demandes/$id/pack'
     | '/demandes/$id/rapport'
+    | '/portail/inscription/$token'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -419,6 +429,7 @@ export interface FileRouteTypes {
     | '/api/files/$id'
     | '/demandes/$id/pack'
     | '/demandes/$id/rapport'
+    | '/portail/inscription/$token'
   id:
     | '__root__'
     | '/'
@@ -457,6 +468,7 @@ export interface FileRouteTypes {
     | '/api/files/$id'
     | '/demandes/$id_/pack'
     | '/demandes/$id_/rapport'
+    | '/portail/inscription/$token'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -496,6 +508,7 @@ export interface RootRouteChildren {
   ApiFilesIdRoute: typeof ApiFilesIdRoute
   DemandesIdPackRoute: typeof DemandesIdPackRoute
   DemandesIdRapportRoute: typeof DemandesIdRapportRoute
+  PortailInscriptionTokenRoute: typeof PortailInscriptionTokenRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -752,6 +765,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DemandesIdRapportRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/portail/inscription/$token': {
+      id: '/portail/inscription/$token'
+      path: '/portail/inscription/$token'
+      fullPath: '/portail/inscription/$token'
+      preLoaderRoute: typeof PortailInscriptionTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -792,6 +812,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiFilesIdRoute: ApiFilesIdRoute,
   DemandesIdPackRoute: DemandesIdPackRoute,
   DemandesIdRapportRoute: DemandesIdRapportRoute,
+  PortailInscriptionTokenRoute: PortailInscriptionTokenRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

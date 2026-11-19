@@ -1152,7 +1152,9 @@
     "pack.offer_reasked": "Offre expirée redemandée depuis le Decision Pack",
     "pack.auto_released": "Decision Pack envoyé automatiquement",
     "request.launched": "Recherche lancée depuis un brouillon",
-    "request.validated": "Cahier des charges validé — recherche lancée"
+    "request.validated": "Cahier des charges validé — recherche lancée",
+    "supplier.account_created": "Compte fournisseur créé depuis une invitation",
+    "supplier.account_attached": "Invitation rattachée à un compte fournisseur existant"
   },
   "twofa": {
     "title": "Vérification en deux étapes",
@@ -1918,5 +1920,51 @@
     "signOut": "Se déconnecter",
     "homeTitle": "Vos appels d’offres",
     "homeEmpty": "Aucun appel d’offres à afficher pour le moment."
+  },
+  "portalSignup": {
+    "title": "Créez votre compte fournisseur",
+    "intro": "OSI a adressé un appel d’offres à {{supplier}} : créez votre compte pour y répondre en ligne et suivre vos offres.",
+    "email": "Adresse de courriel",
+    "name": "Votre nom",
+    "password": "Choisissez un mot de passe",
+    "passwordHint": "Au moins {{min}} caractères.",
+    "submit": "Créer mon compte",
+    "free": "Le compte est gratuit et actif immédiatement.",
+    "signIn": "Se connecter",
+    "attachTitle": "Vous avez déjà un compte fournisseur",
+    "attachIntro": "Un compte existe déjà pour {{email}}. Rattachez-y cet appel d’offres pour {{supplier}} : vous le retrouverez en vous connectant.",
+    "attachSubmit": "Rattacher à mon compte",
+    "attachedTitle": "C’est fait",
+    "attachedText": "{{supplier}} est maintenant rattaché à votre compte : connectez-vous pour voir l’appel d’offres.",
+    "conflictTitle": "Cette adresse a déjà un compte client",
+    "conflictText": "L’adresse {{email}} est déjà utilisée par un compte client OSI, qui ne peut pas servir de compte fournisseur. Répondez à l’appel d’offres par courriel, ou demandez-nous de l’envoyer à une autre adresse.",
+    "state": {
+      "unknown": {
+        "title": "Ce lien n’est pas valide",
+        "text": "Le lien est incomplet ou a été modifié. Ouvrez-le depuis le courriel d’appel d’offres, ou connectez-vous si vous avez déjà un compte."
+      },
+      "expired": {
+        "title": "Ce lien a expiré",
+        "text": "Les liens d’invitation sont valables trente jours. Si vous avez déjà un compte, connectez-vous ; sinon, répondez au courriel d’appel d’offres pour en recevoir un nouveau."
+      },
+      "used": {
+        "title": "Ce lien a déjà servi",
+        "text": "Un compte a déjà été créé ou rattaché avec ce lien. Connectez-vous pour retrouver vos appels d’offres."
+      },
+      "limited": {
+        "title": "Trop de tentatives",
+        "text": "Merci de patienter quelques minutes avant de réessayer."
+      }
+    },
+    "refused": {
+      "unknown": "Ce lien n’est pas valide.",
+      "expired": "Ce lien a expiré.",
+      "used": "Ce lien a déjà servi.",
+      "conflict": "Cette adresse est déjà utilisée par un compte client.",
+      "no_supplier": "Cet appel d’offres n’est rattaché à aucune fiche fournisseur. Répondez par courriel.",
+      "weak_password": "Le mot de passe est trop court.",
+      "name_required": "Indiquez votre nom.",
+      "limited": "Trop de tentatives. Merci de patienter quelques minutes."
+    }
   }
 }

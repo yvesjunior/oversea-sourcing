@@ -414,6 +414,13 @@
       "when": 1795051883555,
       "tag": "0058_lying_lyja",
       "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "7",
+      "when": 1795052409343,
+      "tag": "0059_sudden_jetstream",
+      "breakpoints": true
     }
   ]
 }

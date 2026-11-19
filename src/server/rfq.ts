@@ -25,7 +25,9 @@ import { db } from "@/database";
 import * as schema from "@/database/schema";
 import type { RoundCloseReason } from "@/database/schema";
 import type { ReleaseMode } from "@/lib/platform-settings";
-import { buildRfqMail, type RfqMail } from "@/lib/rfq-mail";
+import { registrationPath } from "@/lib/portal-invitation";
+import { buildRfqMail, PORTAL_LINK_PLACEHOLDER, type RfqMail } from "@/lib/rfq-mail";
+import { issueInvitation, withdrawInvitation } from "@/server/portal-invitations";
 import { sendMail } from "@/server/mail";
 import { getSetting } from "@/server/platform-settings";
 import { recordEvent, StaleTransitionError, transitionRequest } from "@/server/requests";
@@ -114,6 +116,9 @@ async function mailFor(
   contact: PrimaryContact,
   closesAt: Date,
   specVersion: number | null,
+  /** The recipient's personal portal link (V15), or the placeholder in the
+   *  preview — every recipient's link is different. */
+  portalUrl: string | null,
 ): Promise<RfqMail> {
   const { specForReading } = await import("@/server/spec");
   const [spec, rows] = await Promise.all([
@@ -137,6 +142,7 @@ async function mailFor(
     })),
     closesAt,
     greetingName: contact.name,
+    portalUrl,
   });
 }
 
@@ -209,7 +215,13 @@ export async function previewRfq(requestId: string): Promise<RfqPreview | null> 
   // batch left now, so the preview reads like the real thing.
   const closesAt = round?.closesAt ?? new Date(Date.now() + windowHours * 3_600_000);
   const sampleMail = firstContact
-    ? await mailFor(request, firstContact, closesAt, round?.specVersion ?? null)
+    ? await mailFor(
+        request,
+        firstContact,
+        closesAt,
+        round?.specVersion ?? null,
+        PORTAL_LINK_PLACEHOLDER,
+      )
     : null;
 
   return {
@@ -350,7 +362,22 @@ export async function sendRfqBatch(
       failed.push({ supplier: quote.supplierName, error: "no_contact" });
       continue;
     }
-    const mail = await mailFor(request, contact, round.closesAt, round.specVersion);
+    // This recipient's personal link (V15): what turns the RFQ's reader into
+    // a supplier account. Issued per email, just before it leaves.
+    const invitation = await issueInvitation({
+      quoteId: quote.id,
+      contactId: contact.id,
+      email: contact.email,
+      sentAt: new Date(),
+    });
+    const base = process.env["BETTER_AUTH_URL"] ?? "http://localhost:3010";
+    const mail = await mailFor(
+      request,
+      contact,
+      round.closesAt,
+      round.specVersion,
+      `${base}${registrationPath(invitation.token)}`,
+    );
     const result = await sendMail({
       to: contact.email,
       subject: mail.subject,
@@ -363,6 +390,8 @@ export async function sendRfqBatch(
     // (a permanent refusal, an outbox that could not be written) has NOT
     // been sent, and saying it was would be the lie this file exists to avoid.
     if (!result.ok && !result.queued) {
+      // The email did not leave, so neither did its link.
+      await withdrawInvitation(invitation.id);
       failed.push({ supplier: quote.supplierName, error: result.error ?? "refused" });
       continue;
     }

@@ -25,6 +25,14 @@ export const PUBLIC_FNS = {
    *  whether it offers the assistant. Two booleans derived from platform
    *  flags; the form is public. */
   getIntakeOptionsFn: "wording of the public request form",
+  /** The RFQ invitation link (V15): for a VALID token, the supplier's name
+   *  and the address the email went to — both known to whoever holds that
+   *  email. For any other token, nothing. Rate limited by caller address. */
+  getRfqInvitationFn: "what a valid invitation link is for",
+  /** Uses the link: creates a supplier account, or attaches the invitation to
+   *  the supplier account already holding its address. Authorised by the
+   *  token alone — its reader has no account yet. Rate limited. */
+  redeemRfqInvitationFn: "redeeming an invitation link",
 } as const;
 
 /**
@@ -45,6 +53,16 @@ export const EXTERNAL_FNS = {
  * sees a session through `auth.api.getSession`, which refuses external
  * accounts.
  */
+/**
+ * The only module that may create an external account, besides the function's
+ * own definition: an invitation is what vouches for one. A second caller
+ * would be a second way to become a supplier — which is a decision.
+ */
+export const EXTERNAL_ACCOUNT_CREATORS = [
+  "src/server/auth.ts",
+  "src/server/portal-invitations.ts",
+] as const;
+
 export const EXTERNAL_AWARE_MODULES = [
   "src/server/auth.ts",
   "src/server/party-guard.ts",

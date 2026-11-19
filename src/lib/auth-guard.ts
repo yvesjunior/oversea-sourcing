@@ -8,7 +8,9 @@ import type { SessionData } from "@/lib/session-fns";
 const PUBLIC_PATHS = ["/", "/login", "/signup", "/mot-de-passe-oublie", "/reinitialiser", "/2fa"];
 // /invitation/$id is public by design (B3): the id is the capability, and the
 // invitee needs to see who invited them to what BEFORE having an account.
-const PUBLIC_PREFIXES = ["/api/", "/invitation/"];
+// /portail/inscription/$token likewise (V15): the token in the path is the
+// capability — the link in an RFQ email — and its reader has no account yet.
+const PUBLIC_PREFIXES = ["/api/", "/invitation/", "/portail/inscription/"];
 
 export function isPublicPath(pathname: string): boolean {
   return (
